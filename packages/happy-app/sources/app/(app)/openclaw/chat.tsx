@@ -368,9 +368,24 @@ const ToolResultSummary = React.memo(({ name, isError }: {
     );
 });
 
-// Inline image from base64 data
-const ImageBlock = React.memo(({ data, mimeType }: { data?: string; mimeType?: string }) => {
+// Inline image from base64 data, or placeholder for omitted/unavailable images
+const ImageBlock = React.memo(({ data, mimeType, omitted, bytes }: { data?: string; mimeType?: string; omitted?: boolean; bytes?: number }) => {
     const { theme } = useUnistyles();
+    if (omitted) {
+        const sizeLabel = bytes ? ` (${Math.round(bytes / 1024)}KB)` : '';
+        return (
+            <View style={{
+                padding: 12,
+                backgroundColor: theme.colors.surfacePressed,
+                borderRadius: 8,
+                alignItems: 'center',
+            }}>
+                <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
+                    {'\ud83d\uddbc\ufe0f ' + t('openclaw.imageUnavailable') + sizeLabel}
+                </Text>
+            </View>
+        );
+    }
     if (!data || !mimeType) {
         return (
             <View style={{
@@ -399,8 +414,49 @@ const ImageBlock = React.memo(({ data, mimeType }: { data?: string; mimeType?: s
     );
 });
 
+// Normalize block type variants to canonical form
+function normalizeBlockType(type: string): string {
+    const t = type.toLowerCase();
+    if (t === 'toolcall' || t === 'tool_call' || t === 'tool_use' || t === 'tooluse') return 'toolcall';
+    if (t === 'tool_result' || t === 'toolresult') return 'tool_result';
+    return t;
+}
+
+// Check if a role is a tool result role
+function isToolResultRole(role: string): boolean {
+    const r = role.toLowerCase();
+    return r === 'toolresult' || r === 'tool_result' || r === 'tool' || r === 'function';
+}
+
+// Resolve tool arguments from various field names
+function resolveToolArgs(block: Record<string, unknown>): unknown {
+    return block.arguments ?? block.input ?? block.args;
+}
+
+// Resolve tool use ID from various field names
+function resolveToolUseId(block: Record<string, unknown>): string | undefined {
+    const id = block.id ?? block.tool_use_id ?? block.toolUseId;
+    return typeof id === 'string' && id.trim() ? id.trim() : undefined;
+}
+
+// Resolve image data — handle both direct data and source object
+function resolveImageData(block: Record<string, unknown>): { data?: string; mimeType?: string; omitted?: boolean; bytes?: number } {
+    if (block.omitted) {
+        return { omitted: true, bytes: typeof block.bytes === 'number' ? block.bytes : undefined };
+    }
+    if (typeof block.data === 'string' && typeof block.mimeType === 'string') {
+        return { data: block.data, mimeType: block.mimeType };
+    }
+    // Anthropic image format: source.type="base64", source.media_type, source.data
+    const source = block.source as { type?: string; media_type?: string; data?: string } | undefined;
+    if (source && typeof source.data === 'string' && typeof source.media_type === 'string') {
+        return { data: source.data, mimeType: source.media_type };
+    }
+    return {};
+}
+
 // Build renderable block list from message content, pairing toolcall with tool_result
-function buildAssistantBlocks(
+function buildContentBlocks(
     content: OpenClawContentBlock[],
     phase?: 'commentary' | 'final_answer',
     activeToolCalls?: Record<string, { name: string; status: 'running' | 'completed' | 'failed' }>,
@@ -410,8 +466,12 @@ function buildAssistantBlocks(
     // Build a map of tool_result by id for pairing
     const resultMap = new Map<string, { is_error?: boolean }>();
     for (const block of content) {
-        if (block.type === 'tool_result' && block.id) {
-            resultMap.set(block.id, { is_error: block.is_error });
+        const raw = block as unknown as Record<string, unknown>;
+        if (normalizeBlockType(block.type) === 'tool_result') {
+            const id = resolveToolUseId(raw);
+            if (id) {
+                resultMap.set(id, { is_error: Boolean(raw.is_error ?? raw.isError) });
+            }
         }
     }
 
@@ -420,64 +480,80 @@ function buildAssistantBlocks(
 
     for (let i = 0; i < content.length; i++) {
         const block = content[i];
+        const raw = block as unknown as Record<string, unknown>;
+        const normalized = normalizeBlockType(block.type);
 
-        switch (block.type) {
+        switch (normalized) {
             case 'text':
                 if (hasFinalAnswer || !phase) {
-                    if (block.text.trim()) {
-                        nodes.push(<MarkdownView key={`text-${i}`} markdown={block.text} />);
+                    const text = typeof raw.text === 'string' ? raw.text : '';
+                    if (text.trim()) {
+                        nodes.push(<MarkdownView key={`text-${i}`} markdown={text} />);
                     }
                 }
                 break;
 
-            case 'thinking':
-                if (block.thinking.trim()) {
-                    nodes.push(<ThinkingBlock key={`thinking-${i}`} thinking={block.thinking} />);
+            case 'thinking': {
+                const thinking = typeof raw.thinking === 'string' ? raw.thinking : '';
+                if (thinking.trim()) {
+                    nodes.push(<ThinkingBlock key={`thinking-${i}`} thinking={thinking} />);
                 }
                 break;
+            }
 
             case 'toolcall': {
-                const result = block.id ? resultMap.get(block.id) : undefined;
-                if (block.id && result) {
-                    pairedResultIds.add(block.id);
+                const id = resolveToolUseId(raw);
+                const result = id ? resultMap.get(id) : undefined;
+                if (id && result) {
+                    pairedResultIds.add(id);
                 }
-                const liveStatus = block.id ? activeToolCalls?.[block.id]?.status : undefined;
+                const liveStatus = id ? activeToolCalls?.[id]?.status : undefined;
                 const resultStatus = result
                     ? (result.is_error ? 'failed' as const : 'completed' as const)
                     : (liveStatus ?? null);
                 nodes.push(
                     <ToolCallSummary
                         key={`tool-${i}`}
-                        name={block.name}
-                        args={block.arguments}
+                        name={typeof raw.name === 'string' ? raw.name : undefined}
+                        args={resolveToolArgs(raw)}
                         resultStatus={resultStatus}
                     />
                 );
                 break;
             }
 
-            case 'tool_result':
-                if (!block.id || !pairedResultIds.has(block.id)) {
+            case 'tool_result': {
+                const id = resolveToolUseId(raw);
+                if (!id || !pairedResultIds.has(id)) {
                     nodes.push(
                         <ToolResultSummary
                             key={`result-${i}`}
-                            name={block.name}
-                            isError={block.is_error}
+                            name={typeof raw.name === 'string' ? raw.name : undefined}
+                            isError={Boolean(raw.is_error ?? raw.isError)}
                         />
                     );
                 }
                 break;
+            }
 
-            case 'image':
-                nodes.push(<ImageBlock key={`img-${i}`} data={block.data} mimeType={block.mimeType} />);
+            case 'image': {
+                const img = resolveImageData(raw);
+                nodes.push(<ImageBlock key={`img-${i}`} data={img.data} mimeType={img.mimeType} omitted={img.omitted} bytes={img.bytes} />);
                 break;
+            }
+
+            // Unknown block types: skip silently
         }
     }
 
     // Append live tool calls not yet in content blocks
     if (activeToolCalls) {
         for (const [id, tool] of Object.entries(activeToolCalls)) {
-            if (!content.some((b) => b.type === 'toolcall' && b.id === id)) {
+            const hasInContent = content.some((b) => {
+                const n = normalizeBlockType(b.type);
+                return n === 'toolcall' && resolveToolUseId(b as unknown as Record<string, unknown>) === id;
+            });
+            if (!hasInContent) {
                 nodes.push(
                     <ToolCallSummary
                         key={`live-tool-${id}`}
@@ -500,6 +576,7 @@ interface MessageItemProps {
 const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
     const { theme } = useUnistyles();
     const isUser = message.role === 'user';
+    const isToolResult = isToolResultRole(message.role);
     const isFailed = message.status === 'failed';
     const isSending = message.status === 'sending';
     const isStreaming = message.isStreaming;
@@ -507,18 +584,18 @@ const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
     const getTextContent = (): string => {
         if (typeof message.content === 'string') return message.content;
         return message.content
-            .filter((block): block is { type: 'text'; text: string } => block.type === 'text' && 'text' in block && typeof (block as { text?: unknown }).text === 'string')
-            .map((block) => block.text)
+            .filter((block) => block.type === 'text' && 'text' in block && typeof (block as { text?: unknown }).text === 'string')
+            .map((block) => (block as { text: string }).text)
             .join('\n');
     };
 
-    const renderAssistantContent = () => {
+    const renderBlockContent = () => {
         if (typeof message.content === 'string') {
             if (!message.content.trim()) return null;
             return <MarkdownView markdown={message.content} />;
         }
 
-        const blocks = buildAssistantBlocks(
+        const blocks = buildContentBlocks(
             message.content,
             message.phase,
             message.activeToolCalls,
@@ -560,6 +637,7 @@ const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
         return null;
     };
 
+    // User messages — plain text bubble
     if (isUser) {
         const textContent = getTextContent();
         return (
@@ -574,7 +652,25 @@ const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
         );
     }
 
-    const assistantContent = renderAssistantContent();
+    // Tool result messages (role: "toolResult" / "tool_result" / "tool" / "function")
+    // These are standalone messages representing tool execution results
+    if (isToolResult) {
+        const toolName = message.toolName ?? message.tool_name ?? t('openclaw.toolCall');
+        const isError = Boolean(message.isError);
+        return (
+            <View style={[styles.messageRow, styles.messageRowAssistant]}>
+                <View style={[styles.messageBubble, styles.assistantBubble, { gap: 4 }]}>
+                    <ToolCallSummary
+                        name={toolName}
+                        resultStatus={isError ? 'failed' : 'completed'}
+                    />
+                </View>
+            </View>
+        );
+    }
+
+    // Assistant messages — render content blocks
+    const assistantContent = renderBlockContent();
     if (!assistantContent && !isStreaming) return null;
 
     return (

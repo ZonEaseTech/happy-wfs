@@ -151,25 +151,33 @@ export interface ThinkingContentBlock {
 }
 
 export interface ToolCallContentBlock {
-    type: 'toolcall';
+    type: 'toolcall' | 'tool_call' | 'tool_use' | 'tooluse';
     id?: string;
     name?: string;
     arguments?: unknown;
+    input?: unknown;       // Anthropic API uses 'input' instead of 'arguments'
+    args?: unknown;        // Another variant
     locations?: Array<{ path: string; line?: number }>;
 }
 
 export interface ToolResultContentBlock {
-    type: 'tool_result';
+    type: 'tool_result' | 'toolresult';
     id?: string;
+    tool_use_id?: string;  // Anthropic API variant
+    toolUseId?: string;    // camelCase variant
     name?: string;
     content?: string | Array<{ type: string; text?: string }>;
     is_error?: boolean;
+    isError?: boolean;     // camelCase variant
 }
 
 export interface ImageContentBlock {
     type: 'image';
     data?: string;
     mimeType?: string;
+    source?: { type?: string; media_type?: string; data?: string };
+    omitted?: boolean;     // Gateway strips image data in history
+    bytes?: number;        // Original data size when omitted
 }
 
 export type OpenClawContentBlock =
@@ -182,10 +190,11 @@ export type OpenClawContentBlock =
 // === Message Types ===
 
 /**
- * OpenClaw chat message — matches gateway transcript format
+ * OpenClaw chat message — matches gateway transcript format.
+ * Role can be 'user', 'assistant', or tool-related roles for standalone tool result messages.
  */
 export interface OpenClawChatMessage {
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'toolResult' | 'tool_result' | 'toolresult' | 'tool' | 'function';
     content: OpenClawContentBlock[] | string;
     timestamp?: number;
     stopReason?: string;
@@ -193,6 +202,12 @@ export interface OpenClawChatMessage {
     phase?: 'commentary' | 'final_answer';
     usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
     model?: string;
+    // Fields for role='toolResult' messages
+    toolCallId?: string;
+    tool_call_id?: string;
+    toolName?: string;
+    tool_name?: string;
+    isError?: boolean;
 }
 
 /**
