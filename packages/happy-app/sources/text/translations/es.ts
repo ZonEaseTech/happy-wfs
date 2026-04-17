@@ -76,6 +76,13 @@ export const es: TranslationStructure = {
         deleteMachineConfirmMessage: 'Esta acción no se puede deshacer.',
         editGatewayUrl: 'Editar URL de la puerta de enlace',
         editGatewayPassword: 'Editar contraseña de la puerta de enlace',
+        thinking: 'Pensando',
+        toolCall: 'Herramienta',
+        toolResult: 'Resultado',
+        toolRunning: 'Ejecutando...',
+        toolCompleted: 'Listo',
+        toolFailed: 'Error',
+        imageUnavailable: 'Imagen no disponible',
     },
 
     common: {

@@ -87,6 +87,13 @@ export const ru: TranslationStructure = {
         deleteMachineConfirmMessage: 'Это действие нельзя отменить.',
         editGatewayUrl: 'Редактировать URL шлюза',
         editGatewayPassword: 'Редактировать пароль шлюза',
+        thinking: 'Размышление',
+        toolCall: 'Инструмент',
+        toolResult: 'Результат',
+        toolRunning: 'Выполняется...',
+        toolCompleted: 'Готово',
+        toolFailed: 'Ошибка',
+        imageUnavailable: 'Изображение недоступно',
     },
 
     common: {

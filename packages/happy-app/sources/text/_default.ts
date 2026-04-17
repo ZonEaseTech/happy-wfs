@@ -77,6 +77,14 @@ export const en = {
         deleteMachineConfirmMessage: 'This action cannot be undone.',
         editGatewayUrl: 'Edit Gateway URL',
         editGatewayPassword: 'Edit Gateway Password',
+        // Message content blocks
+        thinking: 'Thinking',
+        toolCall: 'Tool',
+        toolResult: 'Result',
+        toolRunning: 'Running...',
+        toolCompleted: 'Done',
+        toolFailed: 'Failed',
+        imageUnavailable: 'Image unavailable',
     },
 
     common: {

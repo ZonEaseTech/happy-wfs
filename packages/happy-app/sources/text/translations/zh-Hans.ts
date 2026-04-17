@@ -78,6 +78,13 @@ export const zhHans: TranslationStructure = {
         deleteMachineConfirmMessage: '此操作无法撤销。',
         editGatewayUrl: '编辑网关 URL',
         editGatewayPassword: '编辑网关密码',
+        thinking: '思考',
+        toolCall: '工具',
+        toolResult: '结果',
+        toolRunning: '运行中...',
+        toolCompleted: '完成',
+        toolFailed: '失败',
+        imageUnavailable: '图片无法加载',
     },
 
     common: {

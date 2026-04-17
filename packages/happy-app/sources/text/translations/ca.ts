@@ -76,6 +76,13 @@ export const ca: TranslationStructure = {
         deleteMachineConfirmMessage: 'Aquesta acció no es pot desfer.',
         editGatewayUrl: 'Edita l\'URL de la passarel·la',
         editGatewayPassword: 'Edita la contrasenya de la passarel·la',
+        thinking: 'Pensant',
+        toolCall: 'Eina',
+        toolResult: 'Resultat',
+        toolRunning: 'Executant...',
+        toolCompleted: 'Fet',
+        toolFailed: 'Error',
+        imageUnavailable: 'Imatge no disponible',
     },
 
     common: {

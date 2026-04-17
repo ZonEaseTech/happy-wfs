@@ -78,6 +78,13 @@ export const zhHant: TranslationStructure = {
         deleteMachineConfirmMessage: '此操作無法復原。',
         editGatewayUrl: '編輯閘道 URL',
         editGatewayPassword: '編輯閘道密碼',
+        thinking: '思考',
+        toolCall: '工具',
+        toolResult: '結果',
+        toolRunning: '執行中...',
+        toolCompleted: '完成',
+        toolFailed: '失敗',
+        imageUnavailable: '圖片無法載入',
     },
 
     common: {

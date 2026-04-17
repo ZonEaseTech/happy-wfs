@@ -79,6 +79,13 @@ export const ja: TranslationStructure = {
         deleteMachineConfirmMessage: 'この操作は取り消せません。',
         editGatewayUrl: 'ゲートウェイURLを編集',
         editGatewayPassword: 'ゲートウェイパスワードを編集',
+        thinking: '思考中',
+        toolCall: 'ツール',
+        toolResult: '結果',
+        toolRunning: '実行中...',
+        toolCompleted: '完了',
+        toolFailed: '失敗',
+        imageUnavailable: '画像を読み込めません',
     },
 
     common: {

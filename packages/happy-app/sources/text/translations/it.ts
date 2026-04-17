@@ -76,6 +76,13 @@ export const it: TranslationStructure = {
         deleteMachineConfirmMessage: 'Questa azione non può essere annullata.',
         editGatewayUrl: 'Modifica URL gateway',
         editGatewayPassword: 'Modifica password gateway',
+        thinking: 'Pensiero',
+        toolCall: 'Strumento',
+        toolResult: 'Risultato',
+        toolRunning: 'In esecuzione...',
+        toolCompleted: 'Fatto',
+        toolFailed: 'Errore',
+        imageUnavailable: 'Immagine non disponibile',
     },
 
     common: {

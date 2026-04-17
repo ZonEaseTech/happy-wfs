@@ -92,6 +92,13 @@ export const en: TranslationStructure = {
         deleteMachineConfirmMessage: 'This action cannot be undone.',
         editGatewayUrl: 'Edit Gateway URL',
         editGatewayPassword: 'Edit Gateway Token',
+        thinking: 'Thinking',
+        toolCall: 'Tool',
+        toolResult: 'Result',
+        toolRunning: 'Running...',
+        toolCompleted: 'Done',
+        toolFailed: 'Failed',
+        imageUnavailable: 'Image unavailable',
     },
 
     common: {

@@ -87,6 +87,13 @@ export const pl: TranslationStructure = {
         deleteMachineConfirmMessage: 'Tej operacji nie można cofnąć.',
         editGatewayUrl: 'Edytuj URL bramy',
         editGatewayPassword: 'Edytuj hasło bramy',
+        thinking: 'Myślenie',
+        toolCall: 'Narzędzie',
+        toolResult: 'Wynik',
+        toolRunning: 'Uruchomiony...',
+        toolCompleted: 'Gotowe',
+        toolFailed: 'Błąd',
+        imageUnavailable: 'Obraz niedostępny',
     },
 
     common: {

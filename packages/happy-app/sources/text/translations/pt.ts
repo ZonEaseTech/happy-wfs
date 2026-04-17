@@ -76,6 +76,13 @@ export const pt: TranslationStructure = {
         deleteMachineConfirmMessage: 'Esta ação não pode ser desfeita.',
         editGatewayUrl: 'Editar URL do gateway',
         editGatewayPassword: 'Editar senha do gateway',
+        thinking: 'Pensando',
+        toolCall: 'Ferramenta',
+        toolResult: 'Resultado',
+        toolRunning: 'Executando...',
+        toolCompleted: 'Concluído',
+        toolFailed: 'Erro',
+        imageUnavailable: 'Imagem indisponível',
     },
 
     common: {
