@@ -183,6 +183,18 @@ function SessionInfoContent({ session }: { session: Session }) {
     const worktreeBasePath = selectedRepo?.basePath;
     const worktreePath = selectedRepo?.path;
 
+    // Web uses browser history (router.back == window.history.back), which can land
+    // anywhere when the session was opened via direct URL, refresh, or external link.
+    // Native has a deterministic expo-router stack, so two back() calls reliably return to the list.
+    const navigateAfterArchive = useCallback(() => {
+        if (Platform.OS === 'web') {
+            router.replace('/');
+        } else {
+            router.back();
+            router.back();
+        }
+    }, [router]);
+
     // Use HappyAction for archiving - it handles errors automatically
     const [archivingSession, performArchive] = useHappyAction(async () => {
         const previousActive = storage.getState().sessions[session.id]?.active ?? session.active;
@@ -193,8 +205,7 @@ function SessionInfoContent({ session }: { session: Session }) {
 
         // Archiving is idempotent: if RPC target is gone, session is effectively already archived.
         if (!result.success && /RPC method not available/i.test(errorMessage)) {
-            router.back();
-            router.back();
+            navigateAfterArchive();
             return;
         }
 
@@ -204,8 +215,7 @@ function SessionInfoContent({ session }: { session: Session }) {
         }
 
         // Success - navigate back
-        router.back();
-        router.back();
+        navigateAfterArchive();
     });
 
     // Archive menu for worktree sessions
