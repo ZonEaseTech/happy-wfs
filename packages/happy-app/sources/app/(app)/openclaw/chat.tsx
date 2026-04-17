@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { AgentContentView } from '@/components/AgentContentView';
 import { randomUUID } from 'expo-crypto';
+import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -247,6 +248,250 @@ const TypingIndicator = React.memo(() => {
     );
 });
 
+// Collapsible thinking block
+const ThinkingBlock = React.memo(({ thinking }: { thinking: string }) => {
+    const { theme } = useUnistyles();
+    const [expanded, setExpanded] = React.useState(false);
+    const preview = thinking.length > 50 ? thinking.slice(0, 50) + '...' : thinking;
+
+    return (
+        <Pressable
+            onPress={() => setExpanded((v) => !v)}
+            style={{
+                backgroundColor: theme.colors.surfacePressed,
+                borderRadius: 8,
+                padding: 8,
+                marginBottom: 4,
+                opacity: 0.8,
+            }}
+        >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
+                    {'\ud83d\udcad ' + t('openclaw.thinking')}
+                </Text>
+                {!expanded && (
+                    <Text
+                        numberOfLines={1}
+                        style={{ fontSize: 12, color: theme.colors.textSecondary, flex: 1, ...Typography.default() }}
+                    >
+                        {preview}
+                    </Text>
+                )}
+                <Text style={{ fontSize: 10, color: theme.colors.textSecondary }}>
+                    {expanded ? '\u25bc' : '\u25b6'}
+                </Text>
+            </View>
+            {expanded && (
+                <View style={{ marginTop: 6 }}>
+                    <MarkdownView markdown={thinking} />
+                </View>
+            )}
+        </Pressable>
+    );
+});
+
+// One-line tool call summary, optionally paired with a result
+const ToolCallSummary = React.memo(({ name, args, resultStatus }: {
+    name?: string;
+    args?: unknown;
+    resultStatus?: 'completed' | 'failed' | 'running' | null;
+}) => {
+    const { theme } = useUnistyles();
+    const toolName = name ?? t('openclaw.toolCall');
+
+    let argSummary = '';
+    if (args && typeof args === 'object' && !Array.isArray(args)) {
+        const entries = Object.entries(args as Record<string, unknown>);
+        if (entries.length > 0) {
+            const [, value] = entries[0];
+            const raw = typeof value === 'string' ? value : JSON.stringify(value);
+            argSummary = raw.length > 40 ? raw.slice(0, 40) + '...' : raw;
+        }
+    }
+
+    const statusIcon = resultStatus === 'completed' ? '\u2713'
+        : resultStatus === 'failed' ? '\u2717'
+        : resultStatus === 'running' ? '\u23f3'
+        : '';
+
+    const statusColor = resultStatus === 'failed'
+        ? theme.colors.status.disconnected
+        : theme.colors.textSecondary;
+
+    return (
+        <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 3,
+            gap: 4,
+        }}>
+            <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
+                {'\ud83d\udd27 ' + toolName}
+            </Text>
+            {argSummary ? (
+                <Text
+                    numberOfLines={1}
+                    style={{ fontSize: 13, color: theme.colors.textSecondary, flex: 1, ...Typography.default() }}
+                >
+                    {'\u00b7 ' + argSummary}
+                </Text>
+            ) : null}
+            {statusIcon ? (
+                <Text style={{ fontSize: 13, color: statusColor, marginLeft: 'auto' }}>
+                    {statusIcon}
+                </Text>
+            ) : null}
+        </View>
+    );
+});
+
+// Standalone tool result (when no matching toolcall exists)
+const ToolResultSummary = React.memo(({ name, isError }: {
+    name?: string;
+    isError?: boolean;
+}) => {
+    const { theme } = useUnistyles();
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3, gap: 4 }}>
+            <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
+                {'\ud83d\udccb ' + t('openclaw.toolResult')}
+                {name ? ` \u00b7 ${name}` : ''}
+            </Text>
+            <Text style={{
+                fontSize: 13,
+                color: isError ? theme.colors.status.disconnected : theme.colors.textSecondary,
+                marginLeft: 'auto',
+            }}>
+                {isError ? '\u2717' : '\u2713'}
+            </Text>
+        </View>
+    );
+});
+
+// Inline image from base64 data
+const ImageBlock = React.memo(({ data, mimeType }: { data?: string; mimeType?: string }) => {
+    const { theme } = useUnistyles();
+    if (!data || !mimeType) {
+        return (
+            <View style={{
+                padding: 12,
+                backgroundColor: theme.colors.surfacePressed,
+                borderRadius: 8,
+                alignItems: 'center',
+            }}>
+                <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
+                    {t('openclaw.imageUnavailable')}
+                </Text>
+            </View>
+        );
+    }
+    return (
+        <Image
+            source={{ uri: `data:${mimeType};base64,${data}` }}
+            contentFit="contain"
+            style={{
+                width: '100%',
+                aspectRatio: 1,
+                maxHeight: 300,
+                borderRadius: 8,
+            }}
+        />
+    );
+});
+
+// Build renderable block list from message content, pairing toolcall with tool_result
+function buildAssistantBlocks(
+    content: OpenClawContentBlock[],
+    phase?: 'commentary' | 'final_answer',
+    activeToolCalls?: Record<string, { name: string; status: 'running' | 'completed' | 'failed' }>,
+): React.ReactNode[] {
+    const nodes: React.ReactNode[] = [];
+
+    // Build a map of tool_result by id for pairing
+    const resultMap = new Map<string, { is_error?: boolean }>();
+    for (const block of content) {
+        if (block.type === 'tool_result' && block.id) {
+            resultMap.set(block.id, { is_error: block.is_error });
+        }
+    }
+
+    const pairedResultIds = new Set<string>();
+    const hasFinalAnswer = phase === 'final_answer';
+
+    for (let i = 0; i < content.length; i++) {
+        const block = content[i];
+
+        switch (block.type) {
+            case 'text':
+                if (hasFinalAnswer || !phase) {
+                    if (block.text.trim()) {
+                        nodes.push(<MarkdownView key={`text-${i}`} markdown={block.text} />);
+                    }
+                }
+                break;
+
+            case 'thinking':
+                if (block.thinking.trim()) {
+                    nodes.push(<ThinkingBlock key={`thinking-${i}`} thinking={block.thinking} />);
+                }
+                break;
+
+            case 'toolcall': {
+                const result = block.id ? resultMap.get(block.id) : undefined;
+                if (block.id && result) {
+                    pairedResultIds.add(block.id);
+                }
+                const liveStatus = block.id ? activeToolCalls?.[block.id]?.status : undefined;
+                const resultStatus = result
+                    ? (result.is_error ? 'failed' as const : 'completed' as const)
+                    : (liveStatus ?? null);
+                nodes.push(
+                    <ToolCallSummary
+                        key={`tool-${i}`}
+                        name={block.name}
+                        args={block.arguments}
+                        resultStatus={resultStatus}
+                    />
+                );
+                break;
+            }
+
+            case 'tool_result':
+                if (!block.id || !pairedResultIds.has(block.id)) {
+                    nodes.push(
+                        <ToolResultSummary
+                            key={`result-${i}`}
+                            name={block.name}
+                            isError={block.is_error}
+                        />
+                    );
+                }
+                break;
+
+            case 'image':
+                nodes.push(<ImageBlock key={`img-${i}`} data={block.data} mimeType={block.mimeType} />);
+                break;
+        }
+    }
+
+    // Append live tool calls not yet in content blocks
+    if (activeToolCalls) {
+        for (const [id, tool] of Object.entries(activeToolCalls)) {
+            if (!content.some((b) => b.type === 'toolcall' && b.id === id)) {
+                nodes.push(
+                    <ToolCallSummary
+                        key={`live-tool-${id}`}
+                        name={tool.name}
+                        resultStatus={tool.status}
+                    />
+                );
+            }
+        }
+    }
+
+    return nodes;
+}
+
 interface MessageItemProps {
     message: LocalMessage;
     onRetry?: (localId: string) => void;
@@ -259,44 +504,48 @@ const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
     const isSending = message.status === 'sending';
     const isStreaming = message.isStreaming;
 
-    // Extract text content from message
-    const getTextContent = () => {
-        if (typeof message.content === 'string') {
-            return message.content;
-        }
+    const getTextContent = (): string => {
+        if (typeof message.content === 'string') return message.content;
         return message.content
-            .filter((block) => block.type === 'text')
+            .filter((block): block is { type: 'text'; text: string } => block.type === 'text' && 'text' in block && typeof (block as { text?: unknown }).text === 'string')
             .map((block) => block.text)
             .join('\n');
     };
 
-    const textContent = getTextContent();
+    const renderAssistantContent = () => {
+        if (typeof message.content === 'string') {
+            if (!message.content.trim()) return null;
+            return <MarkdownView markdown={message.content} />;
+        }
 
-    // For streaming messages with no content yet, show reading indicator
-    if (isStreaming && !textContent) {
-        return <ReadingIndicator />;
+        const blocks = buildAssistantBlocks(
+            message.content,
+            message.phase,
+            message.activeToolCalls,
+        );
+
+        if (blocks.length === 0 && !isStreaming) return null;
+        return <>{blocks}</>;
+    };
+
+    if (isStreaming) {
+        const hasContent = typeof message.content === 'string'
+            ? message.content.trim().length > 0
+            : message.content.length > 0;
+        if (!hasContent && !message.activeToolCalls) {
+            return <ReadingIndicator />;
+        }
     }
 
-    // Skip empty assistant messages (tool calls without text)
-    if (!isUser && !textContent) {
-        return null;
-    }
-
-    // Render status indicator for user messages
     const renderStatusIndicator = () => {
         if (!isUser) return null;
-
         if (isSending) {
             return (
                 <View style={styles.statusContainer}>
-                    <ActivityIndicator
-                        size={14}
-                        color={theme.colors.textSecondary}
-                    />
+                    <ActivityIndicator size={14} color={theme.colors.textSecondary} />
                 </View>
             );
         }
-
         if (isFailed) {
             return (
                 <Pressable
@@ -304,30 +553,19 @@ const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
                     onPress={() => onRetry?.(message.localId)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                    <Ionicons
-                        name="alert-circle"
-                        size={20}
-                        color={theme.colors.status.disconnected}
-                    />
+                    <Ionicons name="alert-circle" size={20} color={theme.colors.status.disconnected} />
                 </Pressable>
             );
         }
-
         return null;
     };
 
-    // User messages
     if (isUser) {
+        const textContent = getTextContent();
         return (
             <View style={[styles.messageRow, styles.messageRowUser]}>
                 {renderStatusIndicator()}
-                <View
-                    style={[
-                        styles.messageBubble,
-                        styles.userBubble,
-                        isFailed && { opacity: 0.7 },
-                    ]}
-                >
+                <View style={[styles.messageBubble, styles.userBubble, isFailed && { opacity: 0.7 }]}>
                     <Text style={[styles.messageText, styles.userMessageText]}>
                         {textContent}
                     </Text>
@@ -336,11 +574,13 @@ const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
         );
     }
 
-    // Assistant messages - with typing indicator inside the bubble at bottom right
+    const assistantContent = renderAssistantContent();
+    if (!assistantContent && !isStreaming) return null;
+
     return (
         <View style={[styles.messageRow, styles.messageRowAssistant]}>
-            <View style={[styles.messageBubble, styles.assistantBubble]}>
-                <MarkdownView markdown={textContent} />
+            <View style={[styles.messageBubble, styles.assistantBubble, { gap: 4 }]}>
+                {assistantContent}
                 {isStreaming && <TypingIndicator />}
             </View>
         </View>
