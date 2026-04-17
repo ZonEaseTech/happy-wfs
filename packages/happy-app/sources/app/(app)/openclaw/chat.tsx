@@ -309,9 +309,9 @@ const ToolCallSummary = React.memo(({ name, args, resultStatus }: {
         }
     }
 
-    const statusIcon = resultStatus === 'completed' ? '\u2713'
-        : resultStatus === 'failed' ? '\u2717'
-        : resultStatus === 'running' ? '\u23f3'
+    const statusLabel = resultStatus === 'completed' ? t('openclaw.toolCompleted')
+        : resultStatus === 'failed' ? t('openclaw.toolFailed')
+        : resultStatus === 'running' ? t('openclaw.toolRunning')
         : '';
 
     const statusColor = resultStatus === 'failed'
@@ -336,9 +336,9 @@ const ToolCallSummary = React.memo(({ name, args, resultStatus }: {
                     {'\u00b7 ' + argSummary}
                 </Text>
             ) : null}
-            {statusIcon ? (
+            {statusLabel ? (
                 <Text style={{ fontSize: 13, color: statusColor, marginLeft: 'auto' }}>
-                    {statusIcon}
+                    {statusLabel}
                 </Text>
             ) : null}
         </View>
@@ -762,6 +762,10 @@ export default function OpenClawChatPage() {
                 setMessages((prev) => {
                     const lastMsg = prev[prev.length - 1];
                     if (lastMsg?.isStreaming) {
+                        // Cumulative guard: only update if new content is at least as large
+                        const prevLen = typeof lastMsg.content === 'string' ? lastMsg.content.length : lastMsg.content.length;
+                        const nextLen = typeof msg.content === 'string' ? msg.content.length : msg.content.length;
+                        if (nextLen < prevLen) return prev;
                         return [
                             ...prev.slice(0, -1),
                             { ...lastMsg, content: msg.content },
