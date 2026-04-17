@@ -35,7 +35,7 @@ import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { MultiTextInput, KeyPressEvent } from '@/components/MultiTextInput';
 import { useOpenClawConnection } from '@/openclaw/connection';
 import { useOpenClawMachine } from '@/sync/storage';
-import type { OpenClawChatMessage, OpenClawChatEvent } from '@/openclaw/types';
+import type { OpenClawChatMessage, OpenClawChatEvent, OpenClawContentBlock, OpenClawToolStreamEvent } from '@/openclaw/types';
 
 // Header button width constants
 const HEADER_BUTTON_WIDTH = 40; // 24px icon + 16px padding
@@ -49,10 +49,11 @@ const STREAMING_MESSAGE_ID = '__streaming__';
 type MessageStatus = 'sending' | 'sent' | 'failed';
 
 interface LocalMessage extends OpenClawChatMessage {
-    localId: string;           // Unique ID for tracking
-    status?: MessageStatus;    // For user messages: sending/sent/failed
-    isStreaming?: boolean;     // For AI messages: true if currently streaming
-    errorMessage?: string;     // Error details for failed messages
+    localId: string;
+    status?: MessageStatus;
+    isStreaming?: boolean;
+    errorMessage?: string;
+    activeToolCalls?: Record<string, { name: string; status: 'running' | 'completed' | 'failed' }>;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -365,46 +366,73 @@ export default function OpenClawChatPage() {
 
     // Ref for handling chat events - must be before useOpenClawConnection
     const handleChatEventRef = React.useRef<(event: OpenClawChatEvent) => void>(() => {});
+    const handleToolStreamRef = React.useRef<(event: OpenClawToolStreamEvent) => void>(() => {});
 
     // Stable callback for onEvent - uses ref to always call latest handler
     const onEventCallback = React.useCallback((event: string, payload: unknown) => {
         if (event === 'chat' && payload) {
-            // Direct chat events from gateway
             const p = payload as Record<string, unknown>;
             if (p.state && p.sessionKey) {
                 handleChatEventRef.current(payload as OpenClawChatEvent);
             }
         } else if (event === 'agent' && payload) {
-            // Agent events - convert to chat event format
             const p = payload as Record<string, unknown>;
 
             if (p.stream === 'assistant' && p.data && p.sessionKey) {
-                // Assistant stream contains cumulative text
-                const data = p.data as { delta?: string; text?: string };
-                handleChatEventRef.current({
-                    state: 'delta',
-                    sessionKey: p.sessionKey as string,
-                    runId: p.runId as string,
-                    message: {
-                        role: 'assistant',
-                        content: [{ type: 'text', text: data.text || '' }],
-                    },
-                } as OpenClawChatEvent);
+                const data = p.data as { delta?: string; text?: string; thinking?: string };
+                const blocks: OpenClawContentBlock[] = [];
+                if (data.thinking) {
+                    blocks.push({ type: 'thinking', thinking: data.thinking });
+                }
+                if (data.text) {
+                    blocks.push({ type: 'text', text: data.text });
+                }
+                if (blocks.length > 0) {
+                    handleChatEventRef.current({
+                        state: 'delta',
+                        sessionKey: p.sessionKey as string,
+                        runId: p.runId as string,
+                        seq: 0,
+                        message: { role: 'assistant', content: blocks },
+                    });
+                }
+            } else if (p.stream === 'tool' && p.data && p.sessionKey) {
+                const data = p.data as { phase?: string; name?: string; toolCallId?: string; args?: Record<string, unknown>; isError?: boolean };
+                if (data.toolCallId && data.phase) {
+                    handleToolStreamRef.current({
+                        sessionKey: p.sessionKey as string,
+                        runId: p.runId as string,
+                        toolCallId: data.toolCallId,
+                        phase: data.phase as 'start' | 'update' | 'result',
+                        name: data.name,
+                        args: data.args,
+                        isError: data.isError,
+                    });
+                }
             } else if (p.stream === 'lifecycle' && p.data) {
-                // Lifecycle events: completed, error
                 const data = p.data as { state?: string; error?: string };
                 if (data.state === 'completed') {
                     handleChatEventRef.current({
                         state: 'final',
                         sessionKey: p.sessionKey as string,
                         runId: p.runId as string,
-                    } as OpenClawChatEvent);
+                        seq: 0,
+                    });
                 } else if (data.state === 'error') {
                     handleChatEventRef.current({
                         state: 'error',
                         sessionKey: p.sessionKey as string,
+                        runId: p.runId as string ?? '',
                         errorMessage: data.error,
-                    } as OpenClawChatEvent);
+                        seq: 0,
+                    });
+                } else if (data.state === 'aborted') {
+                    handleChatEventRef.current({
+                        state: 'aborted',
+                        sessionKey: p.sessionKey as string,
+                        runId: p.runId as string ?? '',
+                        seq: 0,
+                    });
                 }
             }
         }
@@ -440,14 +468,13 @@ export default function OpenClawChatPage() {
         if (!message || typeof message !== 'object') return null;
         const msg = message as { content?: unknown };
         if (!msg.content) return null;
-
         if (typeof msg.content === 'string') return msg.content;
         if (Array.isArray(msg.content)) {
             const textBlocks = msg.content
-                .filter((block): block is { type: 'text'; text: string } =>
+                .filter((block: Record<string, unknown>) =>
                     block && typeof block === 'object' && block.type === 'text' && typeof block.text === 'string'
                 )
-                .map((block) => block.text);
+                .map((block: Record<string, unknown>) => block.text as string);
             return textBlocks.length > 0 ? textBlocks.join('\n') : null;
         }
         return null;
@@ -481,7 +508,6 @@ export default function OpenClawChatPage() {
     const handleChatEvent = React.useCallback((event: OpenClawChatEvent) => {
         if (event.sessionKey !== sessionKey) return;
 
-        // Handle events from different runId (e.g., sub-agent) - refresh history on final
         if (event.runId && chatRunIdRef.current && event.runId !== chatRunIdRef.current) {
             if (event.state === 'final') {
                 fetchHistory();
@@ -490,56 +516,74 @@ export default function OpenClawChatPage() {
         }
 
         switch (event.state) {
-            case 'delta':
-                const text = extractText(event.message);
-                if (typeof text === 'string') {
-                    setMessages((prev) => {
-                        const lastMsg = prev[prev.length - 1];
-                        // If last message is streaming, update it
-                        if (lastMsg?.isStreaming) {
-                            const currentText = typeof lastMsg.content === 'string'
-                                ? lastMsg.content
-                                : '';
-                            // Only update if new text is longer (cumulative)
-                            if (text.length >= currentText.length) {
-                                return [
-                                    ...prev.slice(0, -1),
-                                    { ...lastMsg, content: text },
-                                ];
-                            }
-                            return prev;
-                        }
-                        // Otherwise, create new streaming message
+            case 'delta': {
+                const msg = event.message;
+                if (!msg) break;
+                setMessages((prev) => {
+                    const lastMsg = prev[prev.length - 1];
+                    if (lastMsg?.isStreaming) {
                         return [
-                            ...prev,
-                            {
-                                role: 'assistant',
-                                content: text,
-                                localId: STREAMING_MESSAGE_ID,
-                                timestamp: Date.now(),
-                                isStreaming: true,
-                            },
+                            ...prev.slice(0, -1),
+                            { ...lastMsg, content: msg.content },
                         ];
-                    });
-                }
+                    }
+                    return [
+                        ...prev,
+                        {
+                            role: 'assistant',
+                            content: msg.content,
+                            localId: STREAMING_MESSAGE_ID,
+                            timestamp: Date.now(),
+                            isStreaming: true,
+                        },
+                    ];
+                });
                 break;
+            }
 
             case 'final':
-                // Fetch history - this will replace the entire list in one atomic update
                 fetchHistory();
                 break;
 
+            case 'aborted':
             case 'error':
-                // Remove streaming message and show error
-                setMessages((prev) => prev.filter((msg) => !msg.isStreaming));
+                setMessages((prev) => prev.filter((m) => !m.isStreaming));
                 chatRunIdRef.current = null;
-                console.error('[OpenClaw Chat] error:', event.errorMessage);
+                if (event.errorMessage) {
+                    console.error('[OpenClaw Chat] error:', event.errorMessage);
+                }
                 break;
         }
     }, [sessionKey, fetchHistory]);
 
     // Keep ref updated with latest handleChatEvent
     handleChatEventRef.current = handleChatEvent;
+
+    const handleToolStream = React.useCallback((event: OpenClawToolStreamEvent) => {
+        if (event.sessionKey !== sessionKey) return;
+
+        setMessages((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            if (!lastMsg?.isStreaming) return prev;
+
+            const toolCalls = { ...lastMsg.activeToolCalls };
+            if (event.phase === 'start') {
+                toolCalls[event.toolCallId] = { name: event.name ?? 'tool', status: 'running' };
+            } else if (event.phase === 'result') {
+                toolCalls[event.toolCallId] = {
+                    name: toolCalls[event.toolCallId]?.name ?? event.name ?? 'tool',
+                    status: event.isError ? 'failed' : 'completed',
+                };
+            }
+
+            return [
+                ...prev.slice(0, -1),
+                { ...lastMsg, activeToolCalls: toolCalls },
+            ];
+        });
+    }, [sessionKey]);
+
+    handleToolStreamRef.current = handleToolStream;
 
     // Fetch chat history when connected
     React.useEffect(() => {
@@ -658,12 +702,7 @@ export default function OpenClawChatPage() {
             )
         );
 
-        const text = typeof message.content === 'string'
-            ? message.content
-            : message.content
-                .filter((block) => block.type === 'text')
-                .map((block) => block.text)
-                .join('\n');
+        const text = extractText(message) ?? '';
 
         sendMessage(localId, text);
     }, [messages, sendMessage]);
