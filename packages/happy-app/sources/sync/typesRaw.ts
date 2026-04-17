@@ -905,6 +905,8 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                             parentUUID: raw.content.data.parentUuid ?? null
                         } as NormalizedAgentContent);
                     } else if (c.type === 'thinking') {
+                        // Claude 4.x extended thinking may return a signed block with empty summary text
+                        if (c.thinking === '') continue;
                         content.push({
                             ...c,  // WOLOG: Preserve all fields including unknown ones (signature, etc.)
                             uuid: raw.content.data.uuid,
@@ -1240,6 +1242,7 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                 } satisfies NormalizedMessage;
             }
             if (raw.content.data.type === 'thinking') {
+                if (raw.content.data.text === '') return null;
                 return {
                     id,
                     localId,
