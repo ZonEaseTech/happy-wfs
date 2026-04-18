@@ -101,6 +101,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Per-agent model selection, cost tracking, and context window display
 - ACP and App-Server (JSON-RPC) backends for Codex, Codex v0.116.0 with fast mode
 - AI backend profiles with presets for DeepSeek, Z.AI, OpenAI, Azure, and Google AI
+- Claude Opus 4.7 support with empty thinking block filtering for clean 4.x rendering
 
 ### Voice Assistant (Happy Voice)
 - LiveKit-based voice gateway with pluggable STT/LLM/TTS providers
@@ -158,7 +159,9 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Fixes for cursor skip, outbox race, message duplication/loss
 
 ### Chat & Session UX
-- Image attachment and clipboard paste (web), image support in drafts
+- Image attachment and clipboard paste (web), image support in drafts, high-quality pass-through up to 1568px preserving text sharpness in code/UI screenshots
+- Session titles seeded from the first user message for new sessions (until an AI summary takes over)
+- Slash command results surface even when the agent emits no assistant message (e.g. unknown commands no longer blank out)
 - `/duplicate` command to fork a session from any message
 - Message pagination, unread blue dot indicator, compact list view
 - Active/Inactive tab filter, session preview expand/collapse, metadata caching

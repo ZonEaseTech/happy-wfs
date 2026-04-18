@@ -101,6 +101,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 按 Agent 选择模型、费用追踪和上下文窗口显示
 - Codex 支持 ACP 和 App-Server（JSON-RPC）两种后端，Codex v0.116.0 支持 fast mode
 - AI 后端配置文件，内置 DeepSeek、Z.AI、OpenAI、Azure 和 Google AI 预设
+- 新增 Claude Opus 4.7 支持，过滤 4.x 模型的空 thinking 块以保证渲染干净
 
 ### 语音助手（Happy Voice）
 - 基于 LiveKit 的语音网关，支持可插拔的 STT/LLM/TTS 供应商
@@ -158,7 +159,9 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 修复游标跳过、发件箱竞争、消息重复/丢失
 
 ### 聊天和会话体验
-- 图片附件和剪贴板粘贴（Web），草稿支持图片
+- 图片附件和剪贴板粘贴（Web），草稿支持图片；上传最大尺寸提升到 1568px 并跳过冗余压缩，保留代码截图和 UI 截图的文字清晰度
+- 新会话标题以第一条用户消息播种（AI 摘要生成后再接管），不再使用目录名兜底
+- 即使 Agent 没有 assistant 消息（如未知斜杠命令），CLI 的 result 文本也会呈现到手机端，不再出现空白回复
 - `/duplicate` 命令从任意消息分叉会话
 - 消息分页、未读蓝点指示器、紧凑列表视图
 - Active/Inactive 标签页过滤器、会话预览展开/折叠、元数据缓存

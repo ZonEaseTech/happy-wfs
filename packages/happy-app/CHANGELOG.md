@@ -1,12 +1,16 @@
 # Changelog
 
-## Version 8 - 2026-04-17
+## Version 8 - 2026-04-18
 
-OpenClaw chat now renders rich AI content blocks, plus Claude Opus 4.7 model support.
+OpenClaw renders rich AI content blocks, Claude Opus 4.7 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.
 
 - OpenClaw: full rendering of thinking, tool use, and image content blocks from external AI machines
 - Models: add Claude Opus 4.7 to available model list
 - Image uploads: raise max dimension to 1568px and skip redundant compression when originals are already within limits, preserving text sharpness in code and UI screenshots
+- Session title: seed new sessions with the first user message instead of the project directory name, until an AI summary takes over
+- Web: return to home screen after archiving a session instead of staying on the archived page
+- Claude Opus 4.7: drop empty thinking blocks emitted by 4.x models that previously caused rendering glitches
+- Slash commands: surface Claude Code's result text when a turn (e.g. unknown slash command) produces no assistant message, preventing blank mobile replies
 
 ## Version 7 - 2026-03-18
 
