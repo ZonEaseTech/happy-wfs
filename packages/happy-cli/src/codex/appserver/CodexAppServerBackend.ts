@@ -117,6 +117,36 @@ interface PendingApproval {
 
 type ApprovalParams = Record<string, unknown>;
 
+// Servers bundled by happy-cli itself — approving the session implies approving these tools.
+// User-added MCPs (HAPPY_EXTRA_MCP_SERVERS) still go through normal approval.
+const TRUSTED_MCP_SERVER_NAMES = new Set(['happy']);
+
+const buildMcpToolName = (server: string, tool: string) => `mcp:${server}:${tool}`;
+
+interface ElicitationMeta {
+  approvalKind: unknown;
+  serverName: string;
+  toolTitle: string;
+  toolParams: Record<string, unknown>;
+}
+
+// Codex 0.121 puts `_meta` at the top level of the elicitation params; older
+// documented shapes nested it under `request.meta` / `request._meta`. Check all four.
+function parseElicitationMeta(params: unknown): ElicitationMeta {
+  const p = (params ?? {}) as Record<string, unknown>;
+  const nestedRequest = (p.request ?? {}) as Record<string, unknown>;
+  const meta = (p._meta ?? p.meta ?? nestedRequest._meta ?? nestedRequest.meta ?? {}) as Record<string, unknown>;
+  const serverName = typeof p.serverName === 'string'
+    ? p.serverName
+    : (typeof meta.connector_name === 'string' ? meta.connector_name : '');
+  return {
+    approvalKind: meta.codex_approval_kind,
+    serverName,
+    toolTitle: typeof meta.tool_title === 'string' ? meta.tool_title : '',
+    toolParams: (meta.tool_params ?? {}) as Record<string, unknown>,
+  };
+}
+
 // ─── Backend ─────────────────────────────────────────────────
 
 export class CodexAppServerBackend implements AgentBackend {
@@ -358,7 +388,15 @@ export class CodexAppServerBackend implements AgentBackend {
     // Build config overrides (MCP servers + reasoning effort)
     const config: Record<string, unknown> = {};
     if (this.options.mcpServers && Object.keys(this.options.mcpServers).length > 0) {
-      config.mcp_servers = this.options.mcpServers;
+      // `default_tools_approval_mode: "Approve"` lets Codex's guardian skip MCP
+      // approval for trusted servers; handleMcpElicitation stays as fallback.
+      const mcpServers: Record<string, unknown> = {};
+      for (const [name, cfg] of Object.entries(this.options.mcpServers)) {
+        mcpServers[name] = TRUSTED_MCP_SERVER_NAMES.has(name)
+          ? { ...cfg, default_tools_approval_mode: 'Approve' }
+          : cfg;
+      }
+      config.mcp_servers = mcpServers;
     }
     if (this.options.reasoningEffort) {
       config.model_reasoning_effort = this.options.reasoningEffort;
@@ -611,7 +649,7 @@ export class CodexAppServerBackend implements AgentBackend {
       case 'mcpToolCall':
         this.emit({
           type: 'tool-call',
-          toolName: `mcp:${item.server}:${item.tool}`,
+          toolName: buildMcpToolName(item.server, item.tool),
           callId: item.id,
           args: (item.arguments ?? {}) as Record<string, unknown>,
         });
@@ -681,7 +719,7 @@ export class CodexAppServerBackend implements AgentBackend {
       case 'mcpToolCall':
         this.emit({
           type: 'tool-result',
-          toolName: `mcp:${item.server}:${item.tool}`,
+          toolName: buildMcpToolName(item.server, item.tool),
           callId: item.id,
           result: item.status === 'failed'
             ? { error: item.error?.message ?? 'MCP tool call failed' }
@@ -805,9 +843,8 @@ export class CodexAppServerBackend implements AgentBackend {
         this.handleFileChangeApproval(params as FileChangeApprovalParams, id);
         break;
 
-      // MCP elicitation — decline by default (no UI for this yet)
       case Methods.MCP_ELICITATION:
-        this.peer.respond(id, { action: 'decline' });
+        this.handleMcpElicitation(params, id);
         break;
 
       // Dynamic tool calls — not supported, respond with error
@@ -967,6 +1004,58 @@ export class CodexAppServerBackend implements AgentBackend {
     } else {
       this.peer.respond(jsonRpcId, { decision: 'accept' as V2ApprovalDecision });
     }
+  }
+
+  // ─── MCP Elicitation / Tool Approval ───────────────────────────
+
+  /**
+   * Codex reuses `mcpServer/elicitation/request` for both structured user input
+   * and MCP tool-call approvals (kind = `mcp_tool_call`). We auto-accept tool
+   * calls from trusted servers, decline other elicitations, and delegate
+   * untrusted tools to the permission handler so they surface in the app UI.
+   */
+  private handleMcpElicitation(params: unknown, jsonRpcId: number | string): void {
+    const parsed = parseElicitationMeta(params);
+
+    if (parsed.approvalKind !== 'mcp_tool_call') {
+      this.peer.respond(jsonRpcId, { action: 'decline' });
+      return;
+    }
+
+    // Trusted servers skip shouldAutoApprove because Codex gives us `tool_title`
+    // (display name), not the raw tool name the whitelist would need to match.
+    if (TRUSTED_MCP_SERVER_NAMES.has(parsed.serverName)) {
+      this.peer.respond(jsonRpcId, { action: 'accept', meta: { persist: 'session' } });
+      return;
+    }
+
+    if (!this.options.permissionHandler) {
+      this.peer.respond(jsonRpcId, { action: 'decline' });
+      return;
+    }
+
+    const fullToolName = parsed.serverName && parsed.toolTitle
+      ? buildMcpToolName(parsed.serverName, parsed.toolTitle)
+      : (parsed.toolTitle || parsed.serverName || 'mcp_tool_call');
+    const callId = `mcp-elicit-${String(jsonRpcId)}`;
+
+    this.options.permissionHandler
+      .handleToolCall(callId, fullToolName, parsed.toolParams)
+      .then((result) => {
+        logger.debug('[CodexBackend] MCP elicitation decision', { callId, decision: result.decision });
+        if (result.decision !== 'approved' && result.decision !== 'approved_for_session') {
+          this.peer.respond(jsonRpcId, { action: 'decline' });
+          return;
+        }
+        const response = result.decision === 'approved_for_session'
+          ? { action: 'accept', meta: { persist: 'session' as const } }
+          : { action: 'accept' };
+        this.peer.respond(jsonRpcId, response);
+      })
+      .catch((err) => {
+        logger.warn('[CodexBackend] MCP elicitation permission handler rejected', err);
+        this.peer.respond(jsonRpcId, { action: 'decline' });
+      });
   }
 
   // ─── Decision Mapping ──────────────────────────────────────────

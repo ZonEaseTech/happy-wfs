@@ -578,18 +578,99 @@ describe('CodexAppServerBackend approval request parsing', () => {
     expect(respond).toHaveBeenCalledWith(200, { decision: 'accept' });
   });
 
-  it('declines MCP elicitation by default', () => {
-    const backend = createBackend();
-    const anyBackend = backend as any;
-    const respond = vi.fn();
-    anyBackend.peer = { respond };
+  // Elicitation payloads: Codex 0.121 puts `_meta` at top level; older shapes nest it in `request`.
+  describe('MCP elicitation', () => {
+    function setup(permissionHandler?: { handleToolCall: ReturnType<typeof vi.fn> }) {
+      const backend = new CodexAppServerBackend({
+        cwd: process.cwd(),
+        command: 'codex',
+        permissionHandler,
+      });
+      const respond = vi.fn();
+      (backend as any).peer = { respond };
+      return { backend, respond };
+    }
 
-    anyBackend.handleServerRequest(Methods.MCP_ELICITATION, {
-      serverName: 'test', threadId: 't1',
-      mode: 'form', message: 'Enter API key', requestedSchema: {},
-    }, 42);
+    const dispatch = (backend: CodexAppServerBackend, params: unknown, id: number) =>
+      (backend as any).handleServerRequest(Methods.MCP_ELICITATION, params, id);
 
-    expect(respond).toHaveBeenCalledWith(42, { action: 'decline' });
+    const flush = () => new Promise((r) => setImmediate(r));
+
+    it.each([
+      {
+        name: 'non-tool-call declines',
+        params: { serverName: 'test', request: { type: 'Form', message: 'Enter API key', requestedSchema: {} } },
+        expected: { action: 'decline' },
+      },
+      {
+        name: 'missing codex_approval_kind declines',
+        params: { serverName: 'happy', _meta: {}, message: 'Enter API key' },
+        expected: { action: 'decline' },
+      },
+      {
+        name: 'trusted happy server auto-accepts (Codex 0.121 shape)',
+        params: {
+          serverName: 'happy',
+          _meta: {
+            codex_approval_kind: 'mcp_tool_call',
+            tool_title: 'Change Chat Title',
+            tool_params: { title: '新标题' },
+          },
+          message: 'Allow the happy MCP server to run tool "change_title"?',
+        },
+        expected: { action: 'accept', meta: { persist: 'session' } },
+      },
+      {
+        name: 'trusted happy server accepts nested request._meta (older shape)',
+        params: {
+          serverName: 'happy',
+          request: { _meta: { codex_approval_kind: 'mcp_tool_call', tool_title: 'Change Chat Title' } },
+        },
+        expected: { action: 'accept', meta: { persist: 'session' } },
+      },
+    ])('$name', ({ params, expected }) => {
+      const { backend, respond } = setup();
+      dispatch(backend, params, 42);
+      expect(respond).toHaveBeenCalledWith(42, expected);
+    });
+
+    it('trusted happy server never reaches the permission handler', () => {
+      const permissionHandler = { handleToolCall: vi.fn() };
+      const { backend, respond } = setup(permissionHandler);
+      dispatch(backend, {
+        serverName: 'happy',
+        _meta: { codex_approval_kind: 'mcp_tool_call', tool_title: 'Change Chat Title' },
+      }, 7);
+      expect(permissionHandler.handleToolCall).not.toHaveBeenCalled();
+      expect(respond).toHaveBeenCalledWith(7, { action: 'accept', meta: { persist: 'session' } });
+    });
+
+    it('untrusted server routes approval through permission handler', async () => {
+      const permissionHandler = {
+        handleToolCall: vi.fn().mockResolvedValue({ decision: 'approved' }),
+      };
+      const { backend, respond } = setup(permissionHandler);
+      dispatch(backend, {
+        serverName: 'external',
+        _meta: { codex_approval_kind: 'mcp_tool_call', tool_title: 'Some Tool', tool_params: { x: 1 } },
+      }, 8);
+      await flush();
+      expect(permissionHandler.handleToolCall).toHaveBeenCalledWith('mcp-elicit-8', 'mcp:external:Some Tool', { x: 1 });
+      expect(respond).toHaveBeenCalledWith(8, { action: 'accept' });
+    });
+
+    it('untrusted server declines when permission handler denies', async () => {
+      const permissionHandler = {
+        handleToolCall: vi.fn().mockResolvedValue({ decision: 'denied' }),
+      };
+      const { backend, respond } = setup(permissionHandler);
+      dispatch(backend, {
+        serverName: 'external',
+        _meta: { codex_approval_kind: 'mcp_tool_call', tool_title: 'Unknown Tool' },
+      }, 9);
+      await flush();
+      expect(respond).toHaveBeenCalledWith(9, { action: 'decline' });
+    });
   });
 });
 
@@ -649,5 +730,23 @@ describe('buildThreadParams', () => {
     expect(params.model).toBe('o4-mini');
     expect(params.serviceTier).toBe('fast');
     expect(params.config?.model_reasoning_effort).toBe('high');
+  });
+
+  it('injects default_tools_approval_mode=Approve for the happy MCP server', () => {
+    const backend = new CodexAppServerBackend({
+      cwd: process.cwd(),
+      command: 'codex',
+      mcpServers: {
+        happy: { command: '/bin/happy-mcp', args: ['--url', 'http://127.0.0.1:40573/'] },
+        dootask: { type: 'http', url: 'https://dootask.example/mcp' },
+      },
+    });
+    const params = (backend as any).buildThreadParams();
+    const servers = params.config?.mcp_servers as Record<string, any>;
+    expect(servers.happy.default_tools_approval_mode).toBe('Approve');
+    expect(servers.happy.command).toBe('/bin/happy-mcp');
+    expect(servers.happy.args).toEqual(['--url', 'http://127.0.0.1:40573/']);
+    expect(servers.dootask.default_tools_approval_mode).toBeUndefined();
+    expect(servers.dootask.url).toBe('https://dootask.example/mcp');
   });
 });
