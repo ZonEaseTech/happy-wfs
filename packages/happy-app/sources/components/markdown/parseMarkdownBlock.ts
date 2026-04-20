@@ -110,52 +110,65 @@ export function parseMarkdownBlock(markdown: string) {
         // Trim
         let trimmed = line.trim();
 
-        // Code block
-        if (trimmed.startsWith('```')) {
-            const language = trimmed.slice(3).trim() || null;
-            const supportsNestedFences = language === null || language === 'md' || language === 'markdown';
-            let nestedFenceDepth = 0;
-            let content = [];
-            while (index < lines.length) {
-                const nextLine = lines[index];
-                const nextTrimmed = nextLine.trim();
-                if (nextTrimmed.startsWith('```')) {
-                    // For markdown code fences, allow nested fenced blocks like:
-                    // ```md
-                    // ```js
-                    // ...
-                    // ```
-                    // ```
-                    if (supportsNestedFences) {
-                        if (nextTrimmed === '```') {
-                            if (nestedFenceDepth === 0) {
-                                if (shouldOpenAnonymousNestedFence(lines, index)) {
-                                    nestedFenceDepth++;
-                                    content.push(nextLine);
+        // Code block - CommonMark backtick fence. An opening fence is >=3 backticks;
+        // the closing fence must be at least as long, on its own line, with only
+        // whitespace. The info string after the opening fence must not contain backticks.
+        const fenceMatch = trimmed.charCodeAt(0) === 96 ? trimmed.match(/^(`{3,})([^`]*)$/) : null;
+        if (fenceMatch) {
+            const openFenceLen = fenceMatch[1].length;
+            const language = fenceMatch[2].trim() || null;
+            let content: string[] = [];
+            if (openFenceLen >= 4) {
+                while (index < lines.length) {
+                    const nextLine = lines[index];
+                    const nextTrimmed = nextLine.trim();
+                    const closeMatch = nextTrimmed.charCodeAt(0) === 96 ? nextTrimmed.match(/^(`{3,})$/) : null;
+                    if (closeMatch && closeMatch[1].length >= openFenceLen) {
+                        index++;
+                        break;
+                    }
+                    content.push(nextLine);
+                    index++;
+                }
+            } else {
+                // Legacy 3-backtick handling with anonymous-nested-fence heuristics.
+                const supportsNestedFences = language === null || language === 'md' || language === 'markdown';
+                let nestedFenceDepth = 0;
+                while (index < lines.length) {
+                    const nextLine = lines[index];
+                    const nextTrimmed = nextLine.trim();
+                    if (nextTrimmed.startsWith('```')) {
+                        if (supportsNestedFences) {
+                            if (nextTrimmed === '```') {
+                                if (nestedFenceDepth === 0) {
+                                    if (shouldOpenAnonymousNestedFence(lines, index)) {
+                                        nestedFenceDepth++;
+                                        content.push(nextLine);
+                                        index++;
+                                        continue;
+                                    }
                                     index++;
-                                    continue;
+                                    break;
                                 }
+                                nestedFenceDepth--;
+                                content.push(nextLine);
                                 index++;
-                                break;
+                                continue;
                             }
-                            nestedFenceDepth--;
+                            nestedFenceDepth++;
                             content.push(nextLine);
                             index++;
                             continue;
                         }
-                        nestedFenceDepth++;
-                        content.push(nextLine);
-                        index++;
-                        continue;
-                    }
 
-                    if (nextTrimmed === '```') {
-                        index++;
-                        break;
+                        if (nextTrimmed === '```') {
+                            index++;
+                            break;
+                        }
                     }
+                    content.push(nextLine);
+                    index++;
                 }
-                content.push(nextLine);
-                index++;
             }
             const contentString = content.join('\n');
 

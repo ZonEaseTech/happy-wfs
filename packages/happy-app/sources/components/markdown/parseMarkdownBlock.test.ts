@@ -128,4 +128,94 @@ describe('parseMarkdownBlock', () => {
         expect(blocks[1].type).toBe('code-block');
         expect(blocks[2].type).toBe('text');
     });
+
+    it('treats a four-backtick fence as a code block containing three-backtick fences', () => {
+        const markdown = [
+            '````',
+            '```ts',
+            'const x = 1;',
+            '```',
+            '````',
+        ].join('\n');
+
+        const blocks = parseMarkdownBlock(markdown);
+
+        expect(blocks).toHaveLength(1);
+        const first = blocks[0];
+        expect(first.type).toBe('code-block');
+        if (first.type !== 'code-block') throw new Error('Expected code-block');
+        expect(first.language).toBe(null);
+        expect(first.content).toBe([
+            '```ts',
+            'const x = 1;',
+            '```',
+        ].join('\n'));
+    });
+
+    it('keeps the info string on a four-backtick fence', () => {
+        const markdown = [
+            '````md',
+            '```ts',
+            'const x = 1;',
+            '```',
+            '````',
+        ].join('\n');
+
+        const blocks = parseMarkdownBlock(markdown);
+
+        expect(blocks).toHaveLength(1);
+        const first = blocks[0];
+        expect(first.type).toBe('code-block');
+        if (first.type !== 'code-block') throw new Error('Expected code-block');
+        expect(first.language).toBe('md');
+        expect(first.content).toBe([
+            '```ts',
+            'const x = 1;',
+            '```',
+        ].join('\n'));
+    });
+
+    it('does not close a four-backtick fence with a three-backtick line', () => {
+        const markdown = [
+            '````',
+            'before',
+            '```',
+            'middle',
+            '```',
+            'after',
+            '````',
+        ].join('\n');
+
+        const blocks = parseMarkdownBlock(markdown);
+
+        expect(blocks).toHaveLength(1);
+        const first = blocks[0];
+        expect(first.type).toBe('code-block');
+        if (first.type !== 'code-block') throw new Error('Expected code-block');
+        expect(first.content).toBe([
+            'before',
+            '```',
+            'middle',
+            '```',
+            'after',
+        ].join('\n'));
+    });
+
+    it('closes a four-backtick fence with a five-backtick line (longer fence allowed)', () => {
+        const markdown = [
+            '````',
+            'hello',
+            '`````',
+            'tail',
+        ].join('\n');
+
+        const blocks = parseMarkdownBlock(markdown);
+
+        expect(blocks).toHaveLength(2);
+        const first = blocks[0];
+        expect(first.type).toBe('code-block');
+        if (first.type !== 'code-block') throw new Error('Expected code-block');
+        expect(first.content).toBe('hello');
+        expect(blocks[1].type).toBe('text');
+    });
 });
