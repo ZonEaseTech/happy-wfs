@@ -102,6 +102,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - ACP and App-Server (JSON-RPC) backends for Codex, Codex v0.121.0 with fast mode
 - AI backend profiles with presets for DeepSeek, Z.AI, OpenAI, Azure, and Google AI
 - Claude Opus 4.7 support with empty thinking block filtering for clean 4.x rendering
+- GPT-5.5 support for Codex with low/medium/high/xhigh reasoning levels
 
 ### Voice Assistant (Happy Voice)
 - LiveKit-based voice gateway with pluggable STT/LLM/TTS providers

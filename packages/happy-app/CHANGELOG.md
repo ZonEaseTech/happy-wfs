@@ -1,11 +1,12 @@
 # Changelog
 
-## Version 8 - 2026-04-18
+## Version 8 - 2026-04-24
 
-OpenClaw renders rich AI content blocks, Claude Opus 4.7 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.
+OpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.
 
 - OpenClaw: full rendering of thinking, tool use, and image content blocks from external AI machines
 - Models: add Claude Opus 4.7 to available model list
+- Models: add GPT-5.5 to available Codex model list with low/medium/high/xhigh reasoning levels
 - Image uploads: raise max dimension to 1568px and skip redundant compression when originals are already within limits, preserving text sharpness in code and UI screenshots
 - Session title: seed new sessions with the first user message instead of the project directory name, until an AI summary takes over
 - Web: return to home screen after archiving a session instead of staying on the archived page

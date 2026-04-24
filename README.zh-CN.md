@@ -102,6 +102,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Codex 支持 ACP 和 App-Server（JSON-RPC）两种后端，Codex v0.121.0 支持 fast mode
 - AI 后端配置文件，内置 DeepSeek、Z.AI、OpenAI、Azure 和 Google AI 预设
 - 新增 Claude Opus 4.7 支持，过滤 4.x 模型的空 thinking 块以保证渲染干净
+- 新增 GPT-5.5 Codex 支持，提供 low/medium/high/xhigh 四档推理强度
 
 ### 语音助手（Happy Voice）
 - 基于 LiveKit 的语音网关，支持可插拔的 STT/LLM/TTS 供应商

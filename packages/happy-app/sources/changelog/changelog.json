@@ -2,18 +2,19 @@
   "entries": [
     {
       "version": 8,
-      "date": "2026-04-18",
-      "summary": "OpenClaw renders rich AI content blocks, Claude Opus 4.7 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.",
+      "date": "2026-04-24",
+      "summary": "OpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.",
       "changes": [
         "OpenClaw: full rendering of thinking, tool use, and image content blocks from external AI machines",
         "Models: add Claude Opus 4.7 to available model list",
+        "Models: add GPT-5.5 to available Codex model list with low/medium/high/xhigh reasoning levels",
         "Image uploads: raise max dimension to 1568px and skip redundant compression when originals are already within limits, preserving text sharpness in code and UI screenshots",
         "Session title: seed new sessions with the first user message instead of the project directory name, until an AI summary takes over",
         "Web: return to home screen after archiving a session instead of staying on the archived page",
         "Claude Opus 4.7: drop empty thinking blocks emitted by 4.x models that previously caused rendering glitches",
         "Slash commands: surface Claude Code's result text when a turn (e.g. unknown slash command) produces no assistant message, preventing blank mobile replies"
       ],
-      "rawMarkdown": "## Version 8 - 2026-04-18\n\n\nOpenClaw renders rich AI content blocks, Claude Opus 4.7 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.\n\n- OpenClaw: full rendering of thinking, tool use, and image content blocks from external AI machines\n- Models: add Claude Opus 4.7 to available model list\n- Image uploads: raise max dimension to 1568px and skip redundant compression when originals are already within limits, preserving text sharpness in code and UI screenshots\n- Session title: seed new sessions with the first user message instead of the project directory name, until an AI summary takes over\n- Web: return to home screen after archiving a session instead of staying on the archived page\n- Claude Opus 4.7: drop empty thinking blocks emitted by 4.x models that previously caused rendering glitches\n- Slash commands: surface Claude Code's result text when a turn (e.g. unknown slash command) produces no assistant message, preventing blank mobile replies"
+      "rawMarkdown": "## Version 8 - 2026-04-24\n\n\nOpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.\n\n- OpenClaw: full rendering of thinking, tool use, and image content blocks from external AI machines\n- Models: add Claude Opus 4.7 to available model list\n- Models: add GPT-5.5 to available Codex model list with low/medium/high/xhigh reasoning levels\n- Image uploads: raise max dimension to 1568px and skip redundant compression when originals are already within limits, preserving text sharpness in code and UI screenshots\n- Session title: seed new sessions with the first user message instead of the project directory name, until an AI summary takes over\n- Web: return to home screen after archiving a session instead of staying on the archived page\n- Claude Opus 4.7: drop empty thinking blocks emitted by 4.x models that previously caused rendering glitches\n- Slash commands: surface Claude Code's result text when a turn (e.g. unknown slash command) produces no assistant message, preventing blank mobile replies"
     },
     {
       "version": 7,
