@@ -2478,7 +2478,7 @@ export function useIsSessionOwner(sessionId: string) {
 
 // DooTask hooks
 export function useDootaskProfile(): DooTaskProfile | null {
-    return storage(useShallow((s) => s.dootaskProfile));
+    return null; // DooTask UI disabled
 }
 
 export function useDootaskTasks() {
