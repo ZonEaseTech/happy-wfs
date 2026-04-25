@@ -8,12 +8,13 @@ import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
 import { useInboxHasContent } from '@/hooks/useInboxHasContent';
 
-export type TabType = 'inbox' | 'sessions' | 'settings';
+export type TabType = 'inbox' | 'sessions' | 'dootask' | 'settings';
 
 interface TabBarProps {
     activeTab: TabType;
     onTabPress: (tab: TabType) => void;
     inboxBadgeCount?: number;
+    showDootaskTab?: boolean;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -80,6 +81,7 @@ const styles = StyleSheet.create((theme) => ({
     },
 }));
 
+export const TabBar = React.memo(({ activeTab, onTabPress, inboxBadgeCount = 0, showDootaskTab = false }: TabBarProps) => {
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
     const inboxHasContent = useInboxHasContent();
@@ -89,9 +91,12 @@ const styles = StyleSheet.create((theme) => ({
             { key: 'inbox', icon: require('@/assets/images/brutalist/Brutalism 27.png'), label: t('tabs.inbox') },
             { key: 'sessions', icon: require('@/assets/images/brutalist/Brutalism 15.png'), label: t('tabs.sessions') },
         ];
+        if (showDootaskTab) {
+            items.push({ key: 'dootask', icon: require('@/assets/images/brutalist/Specified 2.png'), label: t('tabs.dootask') });
         }
         items.push({ key: 'settings', icon: require('@/assets/images/brutalist/Brutalism 9.png'), label: t('tabs.settings') });
         return items;
+    }, [showDootaskTab]);
 
     return (
         <View style={[styles.outerContainer, { paddingBottom: insets.bottom }]}>

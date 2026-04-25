@@ -246,4 +246,171 @@ export function connectRoutes(app: Fastify) {
         }
     });
 
+    // --- DooTask connection ---
+
+    // Save or update DooTask connection
+    app.post('/v1/connect/dootask', {
+        preHandler: app.authenticate,
+        schema: {
+            body: z.object({
+                serverUrl: z.string(),
+                token: z.string(),
+                userId: z.number(),
+                username: z.string(),
+                avatar: z.string().nullable(),
+            }),
+            response: {
+                200: z.object({ success: z.literal(true) }),
+            }
+        }
+    }, async (request, reply) => {
+        const accountId = request.userId;
+        const profileJson = JSON.stringify(request.body);
+        const encrypted = encryptString(['user', accountId, 'dootask', 'profile'], profileJson);
+        await db.userKVStore.upsert({
+            where: { accountId_key: { accountId, key: 'dootask-profile' } },
+            update: { value: encrypted, updatedAt: new Date() },
+            create: { accountId, key: 'dootask-profile', value: encrypted },
+        });
+        return reply.send({ success: true });
+    });
+
+    // Get DooTask connection
+    app.get('/v1/connect/dootask', {
+        preHandler: app.authenticate,
+        schema: {
+            response: {
+                200: z.object({
+                    profile: z.object({
+                        serverUrl: z.string(),
+                        token: z.string(),
+                        userId: z.number(),
+                        username: z.string(),
+                        avatar: z.string().nullable(),
+                    }).nullable(),
+                }),
+            }
+        }
+    }, async (request, reply) => {
+        const accountId = request.userId;
+        const record = await db.userKVStore.findUnique({
+            where: { accountId_key: { accountId, key: 'dootask-profile' } },
+        });
+        if (!record || !record.value) {
+            return reply.send({ profile: null });
+        }
+        try {
+            const profileJson = decryptString(['user', accountId, 'dootask', 'profile'], record.value);
+            return reply.send({ profile: JSON.parse(profileJson) });
+        } catch {
+            return reply.send({ profile: null });
+        }
+    });
+
+    // Disconnect DooTask
+    app.delete('/v1/connect/dootask', {
+        preHandler: app.authenticate,
+        schema: {
+            response: {
+                200: z.object({ success: z.literal(true) }),
+            }
+        }
+    }, async (request, reply) => {
+        const accountId = request.userId;
+        await db.userKVStore.deleteMany({
+            where: { accountId, key: 'dootask-profile' },
+        });
+        return reply.send({ success: true });
+    });
+
+    //
+    // Inference endpoints
+    //
+
+    app.post('/v1/connect/:vendor/register', {
+        preHandler: app.authenticate,
+        schema: {
+            body: z.object({
+                token: z.string()
+            }),
+            params: z.object({
+                vendor: z.enum(['openai', 'anthropic', 'gemini'])
+            })
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const encrypted = encryptString(['user', userId, 'vendors', request.params.vendor, 'token'], request.body.token);
+        await db.serviceAccountToken.upsert({
+            where: { accountId_vendor: { accountId: userId, vendor: request.params.vendor } },
+            update: { updatedAt: new Date(), token: encrypted },
+            create: { accountId: userId, vendor: request.params.vendor, token: encrypted }
+        });
+        reply.send({ success: true });
+    });
+
+    app.get('/v1/connect/:vendor/token', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                vendor: z.enum(['openai', 'anthropic', 'gemini'])
+            }),
+            response: {
+                200: z.object({
+                    token: z.string().nullable()
+                })
+            }
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const token = await db.serviceAccountToken.findUnique({
+            where: { accountId_vendor: { accountId: userId, vendor: request.params.vendor } },
+            select: { token: true }
+        });
+        if (!token) {
+            return reply.send({ token: null });
+        } else {
+            return reply.send({ token: decryptString(['user', userId, 'vendors', request.params.vendor, 'token'], token.token) });
+        }
+    });
+
+    app.delete('/v1/connect/:vendor', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                vendor: z.enum(['openai', 'anthropic', 'gemini'])
+            }),
+            response: {
+                200: z.object({
+                    success: z.literal(true)
+                })
+            }
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        await db.serviceAccountToken.delete({ where: { accountId_vendor: { accountId: userId, vendor: request.params.vendor } } });
+        reply.send({ success: true });
+    });
+
+    app.get('/v1/connect/tokens', {
+        preHandler: app.authenticate,
+        schema: {
+            response: {
+                200: z.object({
+                    tokens: z.array(z.object({
+                        vendor: z.string(),
+                        token: z.string()
+                    }))
+                })
+            }
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const tokens = await db.serviceAccountToken.findMany({ where: { accountId: userId } });
+        let decrypted = [];
+        for (const token of tokens) {
+            decrypted.push({ vendor: token.vendor, token: decryptString(['user', userId, 'vendors', token.vendor, 'token'], token.token) });
+        }
+        return reply.send({ tokens: decrypted });
+    });
+
 }

@@ -11,6 +11,7 @@ import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { useUnifiedScanner } from '@/hooks/useUnifiedScanner';
+import { useLocalSettingMutable, useSetting, useDootaskProfile } from '@/sync/storage';
 import { storage } from '@/sync/storage';
 import { isUsingCustomServer } from '@/sync/serverConfig';
 import { trackWhatsNewClicked } from '@/track';
@@ -148,16 +149,29 @@ export const SettingsView = React.memo(function SettingsView() {
 
 
 
+    // DooTask connection
+    const dootaskProfile = useDootaskProfile();
+    const isDootaskConnected = !!dootaskProfile;
 
+    const [connectingDootask, connectDootask] = useHappyAction(async () => {
+        router.push('/settings/connect/dootask');
     });
 
+    const [disconnectingDootask, handleDisconnectDootask] = useHappyAction(async () => {
         const confirmed = await Modal.confirm(
+            t('dootask.disconnect'),
+            t('dootask.disconnectConfirm'),
             { confirmText: t('modals.disconnect'), destructive: true }
         );
         if (confirmed) {
+            if (dootaskProfile) {
                 // Fire-and-forget: don't block disconnect on server response
+                import('@/sync/dootask/api').then(({ dootaskLogout, deleteDootaskFromServer }) => {
+                    dootaskLogout(dootaskProfile.serverUrl, dootaskProfile.token).catch(() => {});
+                    deleteDootaskFromServer().catch(() => {});
                 });
             }
+            storage.getState().clearDootaskData();
         }
     });
 
@@ -250,13 +264,20 @@ export const SettingsView = React.memo(function SettingsView() {
                     showChevron={false}
                 />
                 <Item
+                    title={t('dootask.title')}
+                    subtitle={isDootaskConnected
+                        ? t('settings.dootaskConnected', { username: dootaskProfile!.username })
+                        : t('settings.connectDootask')
                     }
                     icon={
                         <Image
+                            source={require('@/assets/images/icon-dootask-outline.png')}
                             style={{ width: 29, height: 29 }}
                             contentFit="contain"
                         />
                     }
+                    onPress={isDootaskConnected ? handleDisconnectDootask : connectDootask}
+                    loading={connectingDootask || disconnectingDootask}
                     showChevron={false}
                 />
             </ItemGroup>

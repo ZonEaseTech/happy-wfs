@@ -26,6 +26,7 @@ const flavorIcons = {
 };
 
 const sessionIconPresets: Record<string, any> = {
+    dootask: require('@/assets/images/icon-dootask.png'),
 };
 
 export function resolveSessionIcon(value: string): { type: 'image'; source: any } | { type: 'emoji'; value: string } {
