@@ -1,9 +1,9 @@
 ---
 title: "安装"
-description: "在 macOS、Linux 或 Windows 上安装 Happy Next CLI。"
+description: "在 macOS、Linux 或 Windows 上安装 Happy AI CLI。"
 ---
 
-Happy Next CLI 封装了你现有的 AI 编程工具（Claude Code、Codex、Gemini CLI），并增加了移动端访问、实时同步和编排能力。
+Happy AI CLI 封装了你现有的 AI 编程工具（Claude Code、Codex、Gemini CLI），并增加了移动端访问、实时同步和编排能力。
 
 ## 系统要求
 
@@ -16,7 +16,7 @@ Happy Next CLI 封装了你现有的 AI 编程工具（Claude Code、Codex、Gem
 ## 安装
 
 ```bash
-npm install -g happy-next-cli
+npm install -g happy-ai-cli
 ```
 
 验证安装：
@@ -36,18 +36,18 @@ happy
 
 这将启动一个 Claude Code 会话（默认代理）。首次运行时，Happy 会：
 
-1. 生成加密密钥对，存储在 `~/.happy-next/access.key`
+1. 生成加密密钥对，存储在 `~/.happy-ai/access.key`
 2. 将你的设备注册到 Happy 服务器
 3. 自动启动**守护进程**（后台服务）
 4. 显示二维码，用于移动端配对
 
 <Warning>
-**请妥善保管你的加密密钥。** `~/.happy-next/access.key` 文件是你的身份和加密密钥。如果丢失，你将无法解密会话历史。请务必备份。
+**请妥善保管你的加密密钥。** `~/.happy-ai/access.key` 文件是你的身份和加密密钥。如果丢失，你将无法解密会话历史。请务必备份。
 </Warning>
 
 ## 数据目录
 
-Happy 将数据存储在 `~/.happy-next/`：
+Happy 将数据存储在 `~/.happy-ai/`：
 
 | 文件 | 用途 |
 |------|------|
@@ -59,7 +59,7 @@ Happy 将数据存储在 `~/.happy-next/`：
 ## 更新
 
 ```bash
-npm update -g happy-next-cli
+npm update -g happy-ai-cli
 ```
 
 或使用内置命令：
@@ -71,11 +71,11 @@ happy update
 ## 卸载
 
 ```bash
-npm uninstall -g happy-next-cli
+npm uninstall -g happy-ai-cli
 ```
 
 同时删除本地数据：
 
 ```bash
-rm -rf ~/.happy-next
+rm -rf ~/.happy-ai
 ```

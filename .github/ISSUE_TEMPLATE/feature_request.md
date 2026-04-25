@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea for Happy Next
+about: Suggest an idea for Happy AI
 labels: enhancement
 ---
 

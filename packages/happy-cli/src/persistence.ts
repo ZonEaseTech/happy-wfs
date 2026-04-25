@@ -1,7 +1,7 @@
 /**
  * Minimal persistence functions for happy CLI
  * 
- * Handles settings and private key storage in ~/.happy-next/ or local .happy/
+ * Handles settings and private key storage in ~/.happy-ai/ or local .happy/
  */
 
 import { FileHandle } from 'node:fs/promises'

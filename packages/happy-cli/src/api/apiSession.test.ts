@@ -39,7 +39,7 @@ describe('ApiSessionClient connection handling', () => {
                 path: '/tmp',
                 host: 'localhost',
                 homeDir: '/home/user',
-                happyHomeDir: '/home/user/.happy-next',
+                happyHomeDir: '/home/user/.happy-ai',
                 happyLibDir: '/home/user/.happy/lib',
                 happyToolsDir: '/home/user/.happy/tools'
             },
@@ -116,7 +116,7 @@ describe('ApiSessionClient v3 outbox', () => {
                 path: '/tmp',
                 host: 'localhost',
                 homeDir: '/home/user',
-                happyHomeDir: '/home/user/.happy-next',
+                happyHomeDir: '/home/user/.happy-ai',
                 happyLibDir: '/home/user/.happy/lib',
                 happyToolsDir: '/home/user/.happy/tools'
             },
@@ -330,7 +330,7 @@ describe('ApiSessionClient message receipt', () => {
                 path: '/tmp',
                 host: 'localhost',
                 homeDir: '/home/user',
-                happyHomeDir: '/home/user/.happy-next',
+                happyHomeDir: '/home/user/.happy-ai',
                 happyLibDir: '/home/user/.happy/lib',
                 happyToolsDir: '/home/user/.happy/tools'
             },

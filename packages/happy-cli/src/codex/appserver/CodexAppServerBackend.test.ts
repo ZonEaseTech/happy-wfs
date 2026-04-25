@@ -738,7 +738,6 @@ describe('buildThreadParams', () => {
       command: 'codex',
       mcpServers: {
         happy: { command: '/bin/happy-mcp', args: ['--url', 'http://127.0.0.1:40573/'] },
-        dootask: { type: 'http', url: 'https://dootask.example/mcp' },
       },
     });
     const params = (backend as any).buildThreadParams();
@@ -746,7 +745,5 @@ describe('buildThreadParams', () => {
     expect(servers.happy.default_tools_approval_mode).toBe('Approve');
     expect(servers.happy.command).toBe('/bin/happy-mcp');
     expect(servers.happy.args).toEqual(['--url', 'http://127.0.0.1:40573/']);
-    expect(servers.dootask.default_tools_approval_mode).toBeUndefined();
-    expect(servers.dootask.url).toBe('https://dootask.example/mcp');
   });
 });

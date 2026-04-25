@@ -163,7 +163,6 @@ export interface SpawnSessionOptions {
         archiveScript?: string;
         devServerScript?: string;
     }>;
-    // Extra MCP servers to inject (e.g., DooTask MCP)
     mcpServers?: Array<{
         name: string;
         url: string;

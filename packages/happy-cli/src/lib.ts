@@ -1,5 +1,5 @@
 /**
- * Library exports for happy-next package
+ * Library exports for happy-ai package
  * 
  * This file provides the main API classes and types for external consumption
  * without the CLI-specific functionality.

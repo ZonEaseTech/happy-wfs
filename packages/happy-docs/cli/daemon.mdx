@@ -38,7 +38,7 @@ happy daemon uninstall   # Same as disable
 
 ## Auto-update
 
-When you update the Happy CLI (`npm update -g happy-next-cli`), the daemon detects the version mismatch on its next heartbeat and automatically restarts with the new version. No manual restart needed.
+When you update the Happy CLI (`npm update -g happy-ai-cli`), the daemon detects the version mismatch on its next heartbeat and automatically restarts with the new version. No manual restart needed.
 
 ## How it works
 
@@ -47,4 +47,4 @@ The daemon:
 2. Maintains a WebSocket connection to the Happy server for remote commands
 3. Exposes a local HTTP server (localhost only) for CLI-to-daemon communication
 4. Sends heartbeats every 60 seconds to check for updates and prune dead sessions
-5. Stores its state at `~/.happy-next/daemon.state.json`
+5. Stores its state at `~/.happy-ai/daemon.state.json`

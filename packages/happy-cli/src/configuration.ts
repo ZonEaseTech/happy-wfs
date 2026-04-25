@@ -29,8 +29,8 @@ class Configuration {
 
   constructor() {
     // Server configuration - priority: parameter > environment > default
-    this.serverUrl = process.env.HAPPY_SERVER_URL || 'https://api.happy-next.com'
-    this.webappUrl = process.env.HAPPY_WEBAPP_URL || 'https://app.happy-next.com'
+    this.serverUrl = process.env.HAPPY_SERVER_URL || 'https://api.happy.weifashi.cn'
+    this.webappUrl = process.env.HAPPY_WEBAPP_URL || 'https://app.happy.weifashi.cn'
 
     // Check if we're running as daemon based on process args
     const args = process.argv.slice(2)
@@ -42,7 +42,7 @@ class Configuration {
       const expandedPath = process.env.HAPPY_HOME_DIR.replace(/^~/, homedir())
       this.happyHomeDir = expandedPath
     } else {
-      this.happyHomeDir = join(homedir(), '.happy-next')
+      this.happyHomeDir = join(homedir(), '.happy-ai')
     }
 
     this.logsDir = join(this.happyHomeDir, 'logs')
@@ -61,7 +61,7 @@ class Configuration {
     if (variant === 'dev' && !this.happyHomeDir.includes('dev')) {
       console.warn('⚠️  WARNING: HAPPY_VARIANT=dev but HAPPY_HOME_DIR does not contain "dev"')
       console.warn(`   Current: ${this.happyHomeDir}`)
-      console.warn(`   Expected: Should contain "dev" (e.g., ~/.happy-next-dev)`)
+      console.warn(`   Expected: Should contain "dev" (e.g., ~/.happy-ai-dev)`)
     }
 
     // Visual indicator on CLI startup (only if not daemon process to avoid log clutter)
@@ -69,7 +69,7 @@ class Configuration {
       console.log('\x1b[33m🔧 DEV MODE\x1b[0m - Data: ' + this.happyHomeDir)
     }
 
-    // Migrate ~/.happy → ~/.happy-next for existing happy-next users
+    // Migrate ~/.happy → ~/.happy-ai for existing happy-ai users
     if (!existsSync(this.happyHomeDir) && !process.env.HAPPY_HOME_DIR) {
       const legacyDir = join(homedir(), '.happy')
       if (existsSync(legacyDir) && this.isLegacyDirFromHappyNext(legacyDir)) {
@@ -95,7 +95,7 @@ class Configuration {
     try {
       const logsDir = join(legacyDir, 'logs')
       if (!existsSync(logsDir)) return false
-      const needle = Buffer.from('happy-next-cli')
+      const needle = Buffer.from('happy-ai-cli')
       const logFiles = readdirSync(logsDir)
         .filter(f => f.endsWith('.log'))
         .map(f => ({ name: f, mtime: statSync(join(logsDir, f)).mtimeMs }))

@@ -1,8 +1,8 @@
-# Contributing to Happy Next
+# Contributing to Happy AI
 
 ## Development Workflow: Build Variants
 
-The Happy Next app supports three build variants across **iOS, Android, and macOS desktop**, each with separate bundle IDs so all three can be installed simultaneously:
+The Happy AI app supports three build variants across **iOS, Android, and macOS desktop**, each with separate bundle IDs so all three can be installed simultaneously:
 
 | Variant | Bundle ID | App Name | Use Case |
 |---------|-----------|----------|----------|
@@ -183,7 +183,7 @@ This controls:
 
 Only **production** variant has deep linking configured:
 
-- **Production**: `https://github.com/hitosea/happy-next/*`
+- **Production**: `https://github.com/hitosea/happy-ai/*`
 - **Development**: No deep linking
 - **Preview**: No deep linking
 

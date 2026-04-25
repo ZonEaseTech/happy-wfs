@@ -35,7 +35,7 @@ export const DaemonPrompt: React.FC<DaemonPromptProps> = ({ onSelect }) => {
     return (
         <Box flexDirection="column">
             <Box marginBottom={1}>
-                <Text bold color="cyan">🚀 Happy Next Daemon Setup</Text>
+                <Text bold color="cyan">🚀 Happy AI Daemon Setup</Text>
             </Box>
             
             <Box flexDirection="column" marginBottom={1}>

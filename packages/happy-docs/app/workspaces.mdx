@@ -19,14 +19,14 @@ In the **New Session** wizard:
 
 When you create a workspace, Happy:
 
-1. Generates a workspace directory at `~/.happy-next/workspaces/<name>` on your machine
+1. Generates a workspace directory at `~/.happy-ai/workspaces/<name>` on your machine
 2. Creates a **Git worktree** for each selected repo inside that directory
 3. All worktrees share the same branch name (the workspace name)
 4. Copies any configured files (e.g., `.env`) from the base repo to each worktree
 5. Auto-generates a workspace-level `CLAUDE.md` and `AGENTS.md` that `@import` from each repo's config
 
 ```
-~/.happy-next/workspaces/clever-ocean/
+~/.happy-ai/workspaces/clever-ocean/
 ├── CLAUDE.md              # @import from each repo
 ├── frontend/              # Worktree of repo A
 │   └── (branch: clever-ocean, based on main)

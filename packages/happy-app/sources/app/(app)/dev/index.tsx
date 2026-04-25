@@ -260,10 +260,8 @@ export default function DevScreen() {
                     onPress={() => router.push('/dev/qr-test')}
                 />
                 <Item
-                    title="DooTask Chat Preview"
                     subtitle="All message types with mock data"
                     icon={<Ionicons name="chatbubble-ellipses-outline" size={28} color="#007AFF" />}
-                    onPress={() => router.push('/dootask/chat/mock?taskName=Message%20Types%20Preview')}
                 />
             </ItemGroup>
 

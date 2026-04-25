@@ -971,7 +971,6 @@ export class ApiSessionClient extends EventEmitter {
     /**
      * Seed the session title from the first user message when no custom title exists.
      * Runs at most once per session; skipped when HAPPY_SESSION_TITLE was set at spawn
-     * (copy/resume/DooTask), when a summary is already present, or when the user has
      * pinned the title. Subsequent AI-generated summaries still replace this seed.
      */
     private maybeSetInitialTitleFromUserText(text: string): void {

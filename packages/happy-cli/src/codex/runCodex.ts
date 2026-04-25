@@ -160,7 +160,7 @@ export async function runCodex(opts: {
     const settings = await readSettings();
     let machineId = settings?.machineId;
     if (!machineId) {
-        console.error(`[START] No machine ID found in settings, which is unexpected since authAndSetupMachineIfNeeded should have created it. Please report this issue on https://github.com/hitosea/happy-next/issues`);
+        console.error(`[START] No machine ID found in settings, which is unexpected since authAndSetupMachineIfNeeded should have created it. Please report this issue on https://github.com/hitosea/happy-ai/issues`);
         process.exit(1);
     }
     logger.debug(`Using machineId: ${machineId}`);
@@ -319,7 +319,6 @@ export async function runCodex(opts: {
         syncSessionModelInfo({ model: messageModel, reasoningEffort: messageReasoningEffort });
 
         // Capture session-level system prompt from first message.
-        // Combines appendSystemPrompt (Options, DooTask) with first-turn tooling instructions
         // (change_title + orchestrator guidance for controller sessions).
         // Both are passed as baseInstructions to Codex (true system prompt).
         if (sessionSystemPrompt === undefined) {
@@ -1038,7 +1037,6 @@ export async function runCodex(opts: {
                 if (!wasCreated || !backend?.isAlive) {
                     // Reset if backend was killed by abort
                     wasCreated = false;
-                    // System prompt (Options, DooTask, change_title) is passed via baseInstructions
                     const promptText = message.message;
 
                     // Determine resume file

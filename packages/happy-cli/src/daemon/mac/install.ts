@@ -9,7 +9,7 @@ import { projectPath } from '@/projectPath';
 const PLIST_LABEL = 'com.happy-cli.daemon';
 const PLIST_DIR = join(os.homedir(), 'Library', 'LaunchAgents');
 const PLIST_FILE = join(PLIST_DIR, `${PLIST_LABEL}.plist`);
-const LOG_DIR = join(os.homedir(), '.happy-next');
+const LOG_DIR = join(os.homedir(), '.happy-ai');
 
 export async function install(): Promise<void> {
     const runtime = process.execPath;

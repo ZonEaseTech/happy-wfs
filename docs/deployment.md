@@ -1,6 +1,6 @@
 # Deployment
 
-This document describes how to deploy the Happy Next backend (`packages/happy-server`) and the infrastructure it expects.
+This document describes how to deploy the Happy AI backend (`packages/happy-server`) and the infrastructure it expects.
 
 ## Runtime overview
 - **App server:** Node.js running `tsx ./sources/main.ts` (Fastify + Socket.IO).

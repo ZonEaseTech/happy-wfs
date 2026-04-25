@@ -40,7 +40,6 @@ import { AsyncLock } from '@/utils/lock';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { Message } from './typesMessage';
 import { EncryptionCache } from './encryption/encryptionCache';
-import { systemPrompt, buildDootaskSystemPrompt } from './prompt/systemPrompt';
 import { fetchArtifact, fetchArtifacts, createArtifact, updateArtifact } from './apiArtifacts';
 import { DecryptedArtifact, Artifact, ArtifactCreateRequest, ArtifactUpdateRequest } from './artifactTypes';
 import { ArtifactEncryption } from './encryption/artifactEncryption';
@@ -252,34 +251,8 @@ class Sync {
                     this.fetchOrchestratorActivity(this.viewingSessionId);
                 }
 
-                // DooTask token refresh (throttled to 1h)
-                const dootaskProfile = storage.getState().dootaskProfile;
-                if (dootaskProfile && this.credentials) {
-                    const lastChecked = dootaskProfile.lastCheckedAt
-                        ? new Date(dootaskProfile.lastCheckedAt).getTime()
-                        : 0;
-                    const now = Date.now();
-                    const ONE_HOUR = 60 * 60 * 1000;
-                    if (now - lastChecked >= ONE_HOUR) {
-                        // Refresh token via DooTask API
-                        fetch(`${dootaskProfile.serverUrl}/api/users/token/expire?refresh=1`, {
-                            method: 'GET',
-                            headers: { 'Content-Type': 'application/json', 'dootask-token': dootaskProfile.token },
-                        }).then(res => res.json()).then((json: any) => {
-                            if (json.ret !== 1) throw new Error('refresh failed');
-                            const newToken: string | null = json.data?.token ?? null;
-                            const updatedProfile = {
-                                ...dootaskProfile,
-                                lastCheckedAt: new Date().toISOString(),
-                                tokenExpiredAt: json.data?.expired_at ?? null,
-                                tokenRemainingSeconds: json.data?.remaining_seconds ?? null,
-                                ...(newToken ? { token: newToken } : {}),
-                            };
-                            storage.getState().setDootaskProfile(updatedProfile);
-
                             // Sync new token to server if refreshed
                             if (newToken && this.credentials) {
-                                fetch(`${getServerUrl()}/v1/connect/dootask`, {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -389,38 +362,6 @@ class Sync {
             gitStatusSync.invalidateForSessions([...Object.keys(storage.getState().sessions), ...Object.keys(storage.getState().sharedSessions)]);
             storage.getState().applyReady();
 
-            // Restore DooTask profile from server if not available locally
-            if (!storage.getState().dootaskProfile && this.credentials) {
-                const endpoint = getServerUrl();
-                const token = this.credentials.token;
-                fetch(`${endpoint}/v1/connect/dootask`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                }).then(res => {
-                    if (!res.ok) return null;
-                    return res.json();
-                }).then(json => {
-                    const profile = json?.profile;
-                    log.log(`🔗 DooTask: Server restore: ${profile ? 'found' : 'null'}`);
-                    if (profile && !storage.getState().dootaskProfile) {
-                        storage.getState().setDootaskProfile({
-                            serverUrl: profile.serverUrl,
-                            token: profile.token,
-                            userId: profile.userId,
-                            username: profile.username,
-                            avatar: profile.avatar,
-                            tokenExpiredAt: null,
-                            tokenRemainingSeconds: null,
-                            lastCheckedAt: null,
-                        });
-                    }
-                }).catch(() => {});
-            }
-        }).catch((error) => {
-            console.error('Failed to load initial data:', error);
-        });
-    }
-
 
     onSessionVisible = (sessionId: string, userInitiated: boolean = false) => {
         // When user navigates into a session, clear the cursor so
@@ -515,8 +456,7 @@ class Sync {
     private buildSystemPrompt(sessionId: string): string {
         const session = storage.getState().sessions[sessionId];
         const ctx = session?.metadata?.externalContext;
-        if (ctx?.source === 'dootask' && ctx.resourceId) {
-            return systemPrompt + '\n\n' + buildDootaskSystemPrompt(ctx.resourceId);
+        if (false) {
         }
         return systemPrompt;
     }

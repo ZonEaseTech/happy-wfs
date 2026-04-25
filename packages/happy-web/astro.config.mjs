@@ -2,7 +2,7 @@ import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  site: 'https://happy-next.com',
+  site: 'https://happy.weifashi.cn',
   vite: {
     plugins: [tailwindcss()],
     server: {

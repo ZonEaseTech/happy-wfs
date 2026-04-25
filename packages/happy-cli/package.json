@@ -1,13 +1,13 @@
 {
-  "name": "happy-next-cli",
+  "name": "happy-ai-cli",
   "version": "0.3.0",
   "description": "Mobile and Web client for Claude Code, Codex, and Gemini",
-  "author": "Hitosea",
+  "author": "weifashi",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://github.com/hitosea/happy-next",
-  "bugs": "https://github.com/hitosea/happy-next/issues",
-  "repository": "hitosea/happy-next",
+  "homepage": "https://github.com/weifashi/happy-ai",
+  "bugs": "https://github.com/weifashi/happy-ai/issues",
+  "repository": "weifashi/happy-ai",
   "bin": {
     "happy": "./bin/happy.mjs",
     "happy-mcp": "./bin/happy-mcp.mjs"

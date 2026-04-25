@@ -11,7 +11,6 @@ import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { useUnifiedScanner } from '@/hooks/useUnifiedScanner';
-import { useLocalSettingMutable, useSetting, useDootaskProfile } from '@/sync/storage';
 import { storage } from '@/sync/storage';
 import { isUsingCustomServer } from '@/sync/serverConfig';
 import { trackWhatsNewClicked } from '@/track';
@@ -45,7 +44,7 @@ export const SettingsView = React.memo(function SettingsView() {
     const { launchScanner, connectWithUrl, isLoading } = useUnifiedScanner();
 
     const handleGitHub = async () => {
-        const url = 'https://github.com/hitosea/happy-next';
+        const url = 'https://github.com/hitosea/happy-ai';
         const supported = await Linking.canOpenURL(url);
         if (supported) {
             await Linking.openURL(url);
@@ -53,7 +52,7 @@ export const SettingsView = React.memo(function SettingsView() {
     };
 
     const handleReportIssue = async () => {
-        const url = 'https://github.com/hitosea/happy-next/issues';
+        const url = 'https://github.com/hitosea/happy-ai/issues';
         const supported = await Linking.canOpenURL(url);
         if (supported) {
             await Linking.openURL(url);
@@ -149,29 +148,16 @@ export const SettingsView = React.memo(function SettingsView() {
 
 
 
-    // DooTask connection
-    const dootaskProfile = useDootaskProfile();
-    const isDootaskConnected = !!dootaskProfile;
 
-    const [connectingDootask, connectDootask] = useHappyAction(async () => {
-        router.push('/settings/connect/dootask');
     });
 
-    const [disconnectingDootask, handleDisconnectDootask] = useHappyAction(async () => {
         const confirmed = await Modal.confirm(
-            t('dootask.disconnect'),
-            t('dootask.disconnectConfirm'),
             { confirmText: t('modals.disconnect'), destructive: true }
         );
         if (confirmed) {
-            if (dootaskProfile) {
                 // Fire-and-forget: don't block disconnect on server response
-                import('@/sync/dootask/api').then(({ dootaskLogout, deleteDootaskFromServer }) => {
-                    dootaskLogout(dootaskProfile.serverUrl, dootaskProfile.token).catch(() => {});
-                    deleteDootaskFromServer().catch(() => {});
                 });
             }
-            storage.getState().clearDootaskData();
         }
     });
 
@@ -264,20 +250,13 @@ export const SettingsView = React.memo(function SettingsView() {
                     showChevron={false}
                 />
                 <Item
-                    title={t('dootask.title')}
-                    subtitle={isDootaskConnected
-                        ? t('settings.dootaskConnected', { username: dootaskProfile!.username })
-                        : t('settings.connectDootask')
                     }
                     icon={
                         <Image
-                            source={require('@/assets/images/icon-dootask-outline.png')}
                             style={{ width: 29, height: 29 }}
                             contentFit="contain"
                         />
                     }
-                    onPress={isDootaskConnected ? handleDisconnectDootask : connectDootask}
-                    loading={connectingDootask || disconnectingDootask}
                     showChevron={false}
                 />
             </ItemGroup>
@@ -443,7 +422,7 @@ export const SettingsView = React.memo(function SettingsView() {
                 <Item
                     title={t('settings.github')}
                     icon={<Ionicons name="logo-github" size={29} color={theme.colors.text} />}
-                    detail="hitosea/happy-next"
+                    detail="hitosea/happy-ai"
                     onPress={handleGitHub}
                 />
                 <Item
@@ -455,7 +434,7 @@ export const SettingsView = React.memo(function SettingsView() {
                     title={t('settings.privacyPolicy')}
                     icon={<Ionicons name="shield-checkmark-outline" size={29} color="#007AFF" />}
                     onPress={async () => {
-                        const url = 'https://github.com/hitosea/happy-next/blob/next/packages/happy-app/PRIVACY.md';
+                        const url = 'https://github.com/hitosea/happy-ai/blob/next/packages/happy-app/PRIVACY.md';
                         const supported = await Linking.canOpenURL(url);
                         if (supported) {
                             await Linking.openURL(url);
@@ -466,7 +445,7 @@ export const SettingsView = React.memo(function SettingsView() {
                     title={t('settings.termsOfService')}
                     icon={<Ionicons name="document-text-outline" size={29} color="#007AFF" />}
                     onPress={async () => {
-                        const url = 'https://github.com/hitosea/happy-next/blob/next/packages/happy-app/TERMS.md';
+                        const url = 'https://github.com/hitosea/happy-ai/blob/next/packages/happy-app/TERMS.md';
                         const supported = await Linking.canOpenURL(url);
                         if (supported) {
                             await Linking.openURL(url);

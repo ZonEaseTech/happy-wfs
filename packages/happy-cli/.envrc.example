@@ -10,8 +10,8 @@
 #
 # The .envrc file is gitignored, so each developer can customize it.
 
-export HAPPY_HOME_DIR="$HOME/.happy-next-dev"
+export HAPPY_HOME_DIR="$HOME/.happy-ai-dev"
 export HAPPY_VARIANT="dev"
-export HAPPY_SERVER_URL="${HAPPY_SERVER_URL:-https://api.happy-next.com}"
+export HAPPY_SERVER_URL="${HAPPY_SERVER_URL:-https://api.happy.weifashi.cn}"
 
 echo "🔧 DEV environment activated (data: $HAPPY_HOME_DIR)"

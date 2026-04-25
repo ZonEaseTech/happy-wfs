@@ -15,4 +15,4 @@ paths:
 - Named exports only (no default exports)
 - As few `if` statements as possible — prefer better design over control flow branching
 - Don't create trivial small functions / getters / setters
-- Daemon logs default to `~/.happy-next/logs/` (or `$HAPPY_HOME_DIR/logs/`)
+- Daemon logs default to `~/.happy-ai/logs/` (or `$HAPPY_HOME_DIR/logs/`)

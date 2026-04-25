@@ -40,7 +40,7 @@ Control Flow:
 
 ### Version Mismatch Auto-Update
 
-The daemon detects when `npm upgrade happy-next-cli` occurs:
+The daemon detects when `npm upgrade happy-ai-cli` occurs:
 1. Heartbeat reads package.json from disk
 2. Compares `JSON.parse(package.json).version` with compiled `configuration.currentCliVersion`
 3. If mismatch detected:
@@ -112,7 +112,7 @@ Local HTTP server (127.0.0.1 only) provides:
 ### Doctor Command
 
 `happy doctor` uses `ps aux | grep` to find all Happy processes:
-- Production: matches `happy.mjs`, `happy-next-cli`, `dist/index.mjs`
+- Production: matches `happy.mjs`, `happy-ai-cli`, `dist/index.mjs`
 - Development: matches `tsx.*src/index.ts`
 - Categorizes by command args: daemon, daemon-spawned, user-session, doctor
 
@@ -222,7 +222,7 @@ Checks if machine ID exists in settings:
     'platform': 'darwin',
     'happyCliVersion': '1.0.0',
     'homeDir': '/Users/john',
-    'happyHomeDir': '/Users/john/.happy-next'
+    'happyHomeDir': '/Users/john/.happy-ai'
   }))",
   "daemonState": "base64(encrypted({
     'status': 'running',
@@ -316,7 +316,7 @@ socket.emit('machine-update-metadata', {
     'platform': 'darwin',
     'happyCliVersion': '1.0.1',  // version updated
     'homeDir': '/Users/john',
-    'happyHomeDir': '/Users/john/.happy-next'
+    'happyHomeDir': '/Users/john/.happy-ai'
   }))",
   "expectedVersion": 1
 }, callback)

@@ -1,4 +1,4 @@
-# Happy Next
+# Happy AI
 
 Code on the go — control AI coding agents from your mobile device.
 
@@ -7,7 +7,7 @@ Free. Open source. Code anywhere.
 ## Installation
 
 ```bash
-npm install -g happy-next-cli
+npm install -g happy-ai-cli
 ```
 
 ## Usage
@@ -48,7 +48,7 @@ happy connect gemini
 ### Utility Commands
 
 - `happy auth` – Manage authentication
-- `happy connect` – Store AI vendor API keys in Happy Next cloud
+- `happy connect` – Store AI vendor API keys in Happy AI cloud
 - `happy notify` – Send a push notification to your devices
 - `happy daemon` – Manage background service
 - `happy doctor` – System diagnostics & troubleshooting
@@ -92,9 +92,9 @@ happy gemini project get          # Show current Google Cloud Project ID
 
 ### Happy Configuration
 
-- `HAPPY_SERVER_URL` - Custom server URL (default: https://api.happy-next.com)
-- `HAPPY_WEBAPP_URL` - Custom web app URL (default: https://app.happy-next.com)
-- `HAPPY_HOME_DIR` - Custom home directory for Happy Next data (default: ~/.happy-next)
+- `HAPPY_SERVER_URL` - Custom server URL (default: https://api.happy-ai.com)
+- `HAPPY_WEBAPP_URL` - Custom web app URL (default: https://app.happy-ai.com)
+- `HAPPY_HOME_DIR` - Custom home directory for Happy AI data (default: ~/.happy-ai)
 - `HAPPY_DISABLE_CAFFEINATE` - Disable macOS sleep prevention (set to `true`, `1`, or `yes`)
 - `HAPPY_EXPERIMENTAL` - Enable experimental features (set to `true`, `1`, or `yes`)
 

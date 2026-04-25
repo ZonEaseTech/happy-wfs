@@ -622,7 +622,7 @@ ${chalk.bold('Examples:')}
   happy auth login --force Authenticate
   happy doctor             Run diagnostics
 
-${chalk.bold('Happy Next supports ALL Claude options!')}
+${chalk.bold('Happy AI supports ALL Claude options!')}
   Use any claude flag with happy as you would with claude. Our favorite:
 
   happy --resume
@@ -646,7 +646,7 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
     // Show version
     if (showVersion) {
       const versions: { name: string; version: string }[] = [
-        { name: 'Happy Next', version: packageJson.version },
+        { name: 'Happy AI', version: packageJson.version },
       ]
 
       const checks = [
@@ -742,7 +742,7 @@ ${chalk.bold('Usage:')}
 
 ${chalk.bold('Options:')}
   -p <message>    Notification message (required)
-  -t <title>      Notification title (optional, defaults to "Happy Next")
+  -t <title>      Notification title (optional, defaults to "Happy AI")
 
 ${chalk.bold('Examples:')}
   happy notify -p "Deployment complete!"
@@ -772,7 +772,7 @@ ${chalk.bold('Examples:')}
     const api = await ApiClient.create(credentials);
 
     // Use custom title or default to "Happy"
-    const notificationTitle = title || 'Happy Next'
+    const notificationTitle = title || 'Happy AI'
 
     // Send the push notification
     api.push().sendToAllDevices(

@@ -1,4 +1,4 @@
-<div align="center"><img src="/logo.png" width="200" title="Happy Next" alt="Happy Next"/></div>
+<div align="center"><img src="/logo.png" width="200" title="Happy AI" alt="Happy AI"/></div>
 
 <h1 align="center">
   Mobile and Web Client for Claude Code, Codex & Gemini
@@ -10,7 +10,7 @@ Use Claude Code, Codex, or Gemini from anywhere with end-to-end encryption.
 
 <div align="center">
   
-[🌐 **GitHub**](https://github.com/hitosea/happy-next) • [📚 **Documentation**](https://github.com/hitosea/happy-next)
+[🌐 **GitHub**](https://github.com/hitosea/happy-ai) • [📚 **Documentation**](https://github.com/hitosea/happy-ai)
 
 </div>
 
@@ -22,7 +22,7 @@ Step 1: Install CLI on your computer
 </h3>
 
 ```bash
-npm install -g happy-next-cli
+npm install -g happy-ai-cli
 ```
 
 <h3 align="center">
@@ -52,7 +52,7 @@ happy gemini
 
 On your computer, run `happy` instead of `claude`, `happy codex` instead of `codex`, or `happy gemini` instead of `gemini` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
 
-## 🔥 Why Happy Next?
+## 🔥 Why Happy AI?
 
 - 📱 **Mobile access to Claude Code, Codex & Gemini** - Check what your AI is building while away from your desk
 - 🔔 **Push notifications** - Get alerted when your agent needs permission or encounters errors
@@ -70,11 +70,11 @@ On your computer, run `happy` instead of `claude`, `happy codex` instead of `cod
 
 ## 🏠 Who We Are
 
-We're engineers scattered across Bay Area coffee shops and hacker houses, constantly checking how our AI coding agents are progressing on our pet projects during lunch breaks. Happy Next was born from the frustration of not being able to peek at our AI coding tools building our side hustles while we're away from our keyboards. We believe the best tools come from scratching your own itch and sharing with the community.
+We're engineers scattered across Bay Area coffee shops and hacker houses, constantly checking how our AI coding agents are progressing on our pet projects during lunch breaks. Happy AI was born from the frustration of not being able to peek at our AI coding tools building our side hustles while we're away from our keyboards. We believe the best tools come from scratching your own itch and sharing with the community.
 
 ## 📚 Documentation & Contributing
 
-- **[Documentation](../../docs/README.md)** - Learn how Happy Next works
+- **[Documentation](../../docs/README.md)** - Learn how Happy AI works
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development setup including iOS, Android, and macOS desktop variant builds
 
 ## License

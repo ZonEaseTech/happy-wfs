@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Happy Next",
+  "name": "Happy AI",
   "colors": {
     "primary": "#475569",
     "light": "#94A3B8",
@@ -48,7 +48,6 @@
               {
                 "group": "Integrations",
                 "pages": [
-                  "integrations/dootask",
                   "integrations/openclaw"
                 ]
               },
@@ -134,7 +133,6 @@
               {
                 "group": "集成",
                 "pages": [
-                  "zh/integrations/dootask",
                   "zh/integrations/openclaw"
                 ]
               },
@@ -187,7 +185,7 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/hitosea/happy-next",
+          "href": "https://github.com/hitosea/happy-ai",
           "icon": "github"
         }
       ]
@@ -201,11 +199,11 @@
     "links": [
       {
         "label": "Website",
-        "href": "https://happy-next.com"
+        "href": "https://happy-ai.com"
       },
       {
         "label": "Web App",
-        "href": "https://app.happy-next.com"
+        "href": "https://app.happy-ai.com"
       },
       {
         "label": "Download",
@@ -213,7 +211,7 @@
       },
       {
         "label": "GitHub",
-        "href": "https://github.com/hitosea/happy-next"
+        "href": "https://github.com/hitosea/happy-ai"
       }
     ]
   },
@@ -231,7 +229,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/hitosea/happy-next"
+      "github": "https://github.com/hitosea/happy-ai"
     }
   }
 }

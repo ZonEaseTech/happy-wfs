@@ -11,7 +11,7 @@ function createBaseMetadata(): Metadata {
     path: '/repo',
     host: 'host',
     homeDir: '/home/user',
-    happyHomeDir: '/home/user/.happy-next',
+    happyHomeDir: '/home/user/.happy-ai',
     happyLibDir: '/repo/.happy/lib',
     happyToolsDir: '/repo/.happy/tools',
   };

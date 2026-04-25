@@ -58,7 +58,7 @@ import { logger } from '@/ui/logger';
  * Uses dependency injection for testability.
  */
 export interface OfflineReconnectionConfig<TSession> {
-    /** Server URL to health-check against (e.g., 'https://api.happy-next.com') */
+    /** Server URL to health-check against (e.g., 'https://api.happy.weifashi.cn') */
     serverUrl: string;
 
     /**

@@ -22,7 +22,6 @@ export const zhHant: TranslationStructure = {
         inbox: '收件匣',
         sessions: '終端',
         openclaw: 'OpenClaw',
-        dootask: 'DooTask',
         settings: '設定',
     },
 
@@ -38,8 +37,8 @@ export const zhHant: TranslationStructure = {
         emptyDescription: '新增 OpenClaw 閘道以開始與 AI 聊天',
         addMachine: '新增機器',
         machineType: '機器類型',
-        machineTypeHappy: 'Happy Next 機器',
-        machineTypeHappyDescription: '透過電腦上的 Happy Next 機器連線',
+        machineTypeHappy: 'Happy AI 機器',
+        machineTypeHappyDescription: '透過電腦上的 Happy AI 機器連線',
         machineTypeDirect: '直接連線',
         machineTypeDirectDescription: '直接連線到 OpenClaw 閘道',
         gatewayUrl: '閘道 URL',
@@ -197,7 +196,7 @@ export const zhHant: TranslationStructure = {
         developer: '開發者',
         developerTools: '開發者工具',
         about: '關於',
-        aboutFooter: 'Happy Next 是一個 Claude Code、Codex 和 Gemini 行動用戶端。它採用端對端加密，您的帳戶僅儲存在本機裝置上。與 Anthropic 和 OpenAI 無關聯。',
+        aboutFooter: 'Happy AI 是一個 Claude Code、Codex 和 Gemini 行動用戶端。它採用端對端加密，您的帳戶僅儲存在本機裝置上。與 Anthropic 和 OpenAI 無關聯。',
         whatsNew: '更新日誌',
         whatsNewSubtitle: '查看最新更新和改進',
         reportIssue: '回報問題',
@@ -305,12 +304,8 @@ export const zhHant: TranslationStructure = {
             `${name} ${status === 'online' ? '線上' : '離線'}`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature} 已${enabled ? '啟用' : '停用'}`,
-        dootaskConnected: ({ username }: { username: string }) => `Connected as @${username}`,
-        connectDootask: 'Connect DooTask',
     },
 
-    dootask: {
-        title: 'DooTask',
         tasks: 'Tasks',
         projects: 'Projects',
         allProjects: 'All Projects',
@@ -339,8 +334,6 @@ export const zhHant: TranslationStructure = {
         description: 'Description',
         project: 'Project',
         column: 'List',
-        connectFirst: 'Connect DooTask in Settings to get started',
-        reconnect: 'Reconnect DooTask',
         tokenExpired: 'Session expired. Please reconnect.',
         serverUrl: 'Server URL',
         email: 'Email',
@@ -349,8 +342,6 @@ export const zhHant: TranslationStructure = {
         captchaPlaceholder: 'Enter verification code',
         captchaLoadFailed: 'Load failed',
         connecting: 'Connecting...',
-        disconnect: 'Disconnect DooTask',
-        disconnectConfirm: 'This will remove your DooTask connection and clear cached data.',
         subTasks: '子任務',
         files: '檔案',
         tags: '標籤',
@@ -383,7 +374,6 @@ export const zhHant: TranslationStructure = {
         loadingChat: '載入聊天中...',
         errorLoadChat: '載入聊天失敗',
         errorSendMessage: '發送訊息失敗',
-        unsupportedMessage: '目前客戶端不支援此類訊息，請使用 DooTask 客戶端查看。',
         tagged: '{name} bookmarked "{desc}"',
         untagged: '{name} removed bookmark "{desc}"',
         pinned: '{name} pinned "{desc}"',
@@ -747,7 +737,7 @@ export const zhHant: TranslationStructure = {
         // Used by Server Configuration screen (app/(app)/server.tsx)
         serverConfiguration: '伺服器設定',
         enterServerUrl: '請輸入伺服器 URL',
-        notValidHappyServer: '不是有效的 Happy Next 伺服器',
+        notValidHappyServer: '不是有效的 Happy AI 伺服器',
         changeServer: '更改伺服器',
         continueWithServer: '繼續使用此伺服器？',
         resetToDefault: '重設為預設',
@@ -767,9 +757,9 @@ export const zhHant: TranslationStructure = {
         killSessionConfirm: '您確定要終止此工作階段嗎？',
         archiveSession: '封存工作階段',
         archiveSessionConfirm: '您確定要封存此工作階段嗎？',
-        happySessionIdCopied: 'Happy Next 工作階段 ID 已複製到剪貼簿',
-        failedToCopySessionId: '複製 Happy Next 工作階段 ID 失敗',
-        happySessionId: 'Happy Next 工作階段 ID',
+        happySessionIdCopied: 'Happy AI 工作階段 ID 已複製到剪貼簿',
+        failedToCopySessionId: '複製 Happy AI 工作階段 ID 失敗',
+        happySessionId: 'Happy AI 工作階段 ID',
         claudeCodeSessionId: 'Claude Code 工作階段 ID',
         claudeCodeSessionIdCopied: 'Claude Code 工作階段 ID 已複製到剪貼簿',
         aiProvider: 'AI 提供者',
@@ -804,7 +794,7 @@ export const zhHant: TranslationStructure = {
         path: '路徑',
         operatingSystem: '作業系統',
         processId: '處理程序 ID',
-        happyHome: 'Happy Next 主目錄',
+        happyHome: 'Happy AI 主目錄',
         copyMetadata: '複製中繼資料',
         agentState: 'Agent 狀態',
         controlledByUser: '使用者控制',
@@ -816,7 +806,7 @@ export const zhHant: TranslationStructure = {
         cliVersionOutdated: '需要更新 CLI',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `已安裝版本 ${currentVersion}。請更新到 ${requiredVersion} 或更高版本`,
-        updateCliInstructions: '請執行 npm install -g happy-next-cli@latest',
+        updateCliInstructions: '請執行 npm install -g happy-ai-cli@latest',
         cliUpgradeAvailable: '有新的 CLI 版本可用',
         cliUpgradeAvailableSubtitle: '點擊以使用最新 CLI 重新啟動工作階段',
         cliUpgradeInProgress: '正在升級...',
@@ -883,7 +873,7 @@ export const zhHant: TranslationStructure = {
         emptyMainScreen: {
             // Used by EmptyMainScreen component
             readyToCode: '準備開始寫程式？',
-            installCli: '安裝 Happy Next CLI',
+            installCli: '安裝 Happy AI CLI',
             runIt: '執行它',
             scanQrCode: '掃描 QR Code',
             openCamera: '開啟相機',
@@ -968,7 +958,7 @@ export const zhHant: TranslationStructure = {
     },
 
     sidebar: {
-        sessionsTitle: 'Happy Next',
+        sessionsTitle: 'Happy AI',
     },
 
     toolView: {
@@ -1118,8 +1108,8 @@ export const zhHant: TranslationStructure = {
         agentId: 'Agent ID',
         agentIdPlaceholder: '輸入 ElevenLabs Agent ID',
 
-        happyVoiceTitle: 'Happy Next Voice',
-        happyVoiceDescription: '設定自架的 Happy Next Voice 語音閘道器。',
+        happyVoiceTitle: 'Happy AI Voice',
+        happyVoiceDescription: '設定自架的 Happy AI Voice 語音閘道器。',
         gatewayUrl: '閘道器網址',
         gatewayUrlPlaceholder: 'https://voice.example.com',
         publicKey: '公鑰',
@@ -1242,7 +1232,7 @@ export const zhHant: TranslationStructure = {
         invalidConnectionLink: '無效的連線連結',
         invalidConnectionLinkDescription: '連線連結缺失或無效。請檢查 URL 並重試。',
         connectTerminal: '連線終端',
-        terminalRequestDescription: '有終端正在請求連線到您的 Happy Next 帳戶。這將允許終端安全地傳送和接收訊息。',
+        terminalRequestDescription: '有終端正在請求連線到您的 Happy AI 帳戶。這將允許終端安全地傳送和接收訊息。',
         connectionDetails: '連線詳情',
         publicKey: '公鑰',
         encryption: '加密',
@@ -1320,7 +1310,7 @@ export const zhHant: TranslationStructure = {
     machine: {
         launchNewSessionInDirectory: '在目錄中啟動新工作階段',
         offlineUnableToSpawn: '裝置離線時無法啟動',
-        offlineHelp: '• 確保您的電腦在線上\n• 執行 `happy daemon status` 進行診斷\n• 您是否在執行最新的 CLI 版本？請使用 `npm install -g happy-next-cli@latest` 升級',
+        offlineHelp: '• 確保您的電腦在線上\n• 執行 `happy daemon status` 進行診斷\n• 您是否在執行最新的 CLI 版本？請使用 `npm install -g happy-ai-cli@latest` 升級',
         daemon: '守護程序',
         status: '狀態',
         stopDaemon: '停止守護程序',

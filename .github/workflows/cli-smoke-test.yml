@@ -38,10 +38,10 @@ jobs:
       run: yarn workspace happy-wire build
 
     - name: Build package
-      run: yarn workspace happy-next-cli build
+      run: yarn workspace happy-ai-cli build
 
     - name: Pack package
-      run: yarn workspace happy-next-cli pack
+      run: yarn workspace happy-ai-cli pack
 
     - name: Install packed package globally
       run: |
@@ -101,10 +101,10 @@ jobs:
       run: yarn workspace happy-wire build
 
     - name: Build package
-      run: yarn workspace happy-next-cli build
+      run: yarn workspace happy-ai-cli build
 
     - name: Pack package
-      run: yarn workspace happy-next-cli pack
+      run: yarn workspace happy-ai-cli pack
 
     - name: Install packed package globally
       shell: cmd
@@ -124,20 +124,20 @@ jobs:
           echo Found node_modules directory
           dir "%NPM_PREFIX%\node_modules" 2>nul
           echo.
-          echo Checking for happy-next-cli package:
-          if exist "%NPM_PREFIX%\node_modules\happy-next-cli" (
-            echo Found happy-next-cli package
-            dir "%NPM_PREFIX%\node_modules\happy-next-cli" 2>nul
+          echo Checking for happy-ai-cli package:
+          if exist "%NPM_PREFIX%\node_modules\happy-ai-cli" (
+            echo Found happy-ai-cli package
+            dir "%NPM_PREFIX%\node_modules\happy-ai-cli" 2>nul
             echo.
             echo Checking for dist directory:
-            if exist "%NPM_PREFIX%\node_modules\happy-next-cli\dist" (
+            if exist "%NPM_PREFIX%\node_modules\happy-ai-cli\dist" (
               echo Found dist directory
-              dir "%NPM_PREFIX%\node_modules\happy-next-cli\dist" 2>nul
+              dir "%NPM_PREFIX%\node_modules\happy-ai-cli\dist" 2>nul
             ) else (
               echo No dist directory found
             )
           ) else (
-            echo No happy-next-cli package found
+            echo No happy-ai-cli package found
           )
         ) else (
           echo No node_modules directory found

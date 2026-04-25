@@ -1,8 +1,8 @@
-# Changes from Happy → Happy Next
+# Changes from Happy → Happy AI
 
 [🇨🇳 中文](changes-from-happy.zh-CN.md)
 
-This document summarizes what changed in Happy Next compared to the original Happy.
+This document summarizes what changed in Happy AI compared to the original Happy.
 
 ## TL;DR
 
@@ -15,7 +15,6 @@ This document summarizes what changed in Happy Next compared to the original Hap
 | Workspaces | Multi-repo worktree creation, switching, archiving, and PR flows |
 | Code browser | File browser, Monaco editor, commit history, git stage/commit/discard, image preview |
 | Session sharing | Direct invite and public link sharing with E2E encryption and access control |
-| DooTask | Task list, detail, real-time chat, one-click AI session launch, globalized WebSocket |
 | Self-hosting | One-command `docker-compose` stack with separate origins |
 | Sync | v3 messages API, HTTP outbox, server-confirmed sends, race condition fixes |
 | Chat UX | Image attachment, pagination, blue dot, compact view, session search, pull-to-refresh |
@@ -26,7 +25,7 @@ This document summarizes what changed in Happy Next compared to the original Hap
 | MCP tools | `preview_html`, colon-separated tool naming, dual-mode long-press copy |
 | OpenClaw | External AI machine gateway with tunnel/direct connections and chat UI |
 | Profiles | AI backend profiles with presets for DeepSeek, Z.AI, OpenAI, Azure, Google AI |
-| Rebrand | CLI published as `happy-next-cli`, binary remains `happy` |
+| Rebrand | CLI published as `happy-ai-cli`, binary remains `happy` |
 
 ---
 
@@ -60,7 +59,7 @@ Messages sent while the CLI is busy are now queued and delivered automatically.
 
 ## Multi-Agent Support
 
-The original Happy only supported Claude Code. Happy Next treats Claude Code, Codex, and Gemini as equal first-class agents.
+The original Happy only supported Claude Code. Happy AI treats Claude Code, Codex, and Gemini as equal first-class agents.
 
 - **Multi-agent history page** with per-provider tabs (Claude / Codex / Gemini)
 - **Session resume and duplicate/fork** for all three agents
@@ -84,7 +83,7 @@ The original Happy only supported Claude Code. Happy Next treats Claude Code, Co
 
 ## Voice Assistant (Happy Voice)
 
-Happy Next includes a complete voice gateway stack, from a simple ElevenLabs-only setup to a full LiveKit pipeline.
+Happy AI includes a complete voice gateway stack, from a simple ElevenLabs-only setup to a full LiveKit pipeline.
 
 - **LiveKit-based voice gateway** (`happy-voice`) with pluggable providers
 - **Provider auto-switching by prefix**: `openai/gpt-4.1-mini` for LLM, `cartesia/sonic-3:voiceId` for TTS, `assemblyai/universal-streaming:en` for STT
@@ -166,9 +165,7 @@ Configure alternative LLM backends for Claude Code through environment variable 
 - **Per-profile settings**: tmux session name, startup scripts, default permission mode, agent type compatibility
 - **Profile editor**: full-page settings UI for creating and editing profiles
 
-## DooTask Integration
 
-Deep integration with DooTask project management, from browsing tasks to launching AI sessions.
 
 - **Task list page** with filters (project, status, priority), search, and pagination
 - **Task detail page** with HTML content rendering, status workflows, assignees, files, sub-tasks, tags
@@ -176,21 +173,16 @@ Deep integration with DooTask project management, from browsing tasks to launchi
 - **Chat features**: emoji reactions, voice message playback, image/video messages, file cards
 - **Optimistic UI** for message sending with HTTP/WebSocket race
 - **One-click AI session launch** from task detail (with MCP server passthrough)
-- **External context linking**: sessions launched from DooTask show a context banner and are linked back
-- **DooTask connection page** with login, captcha support, and field caching
 - **Task status management**: clickable status badges with workflow transitions
-- **DooTask tab** in main navigation with connected account management
 - **Create tasks and projects** directly from the app with dedicated form pages
 - **Cross-platform date picker** (`react-native-ui-datepicker`) with bottom sheet confirm
 - **Form caching** for task/project creation across navigation
 - **Globalized WebSocket connection**: single persistent connection with real-time task updates
-- **Related task in session info**: session info page shows the linked DooTask task
-- **Persistent connection**: DooTask connection saved to server via UserKVStore
 - **Simple status badge**: tasks without workflow show a simple status badge
 
 ## Self-Hosting
 
-Happy Next adds a first-class self-hosting path.
+Happy AI adds a first-class self-hosting path.
 
 - **Root `docker-compose.yml`** with all services: Web app (Nginx), API server, Voice gateway, Postgres, Redis, MinIO
 - **Separate origins architecture**: Web, API, and Voice each use different ports/domains (no path reverse proxy)
@@ -256,7 +248,7 @@ Extensive improvements to the chat and session management experience.
 
 ## CLI Improvements
 
-The CLI (`happy-next-cli`) received substantial upgrades.
+The CLI (`happy-ai-cli`) received substantial upgrades.
 
 - **Multi-agent support**: Claude Code, Codex (via ACP backend), and Gemini as first-class agents
 - **Session resume/duplicate** for all agents with proper message backfill
@@ -359,7 +351,6 @@ Over 250 bug fixes landed. The following are grouped by area.
 - Allow closing voice session from error state
 - Escape double quotes in tool name XML attributes
 
-### DooTask
 - Fix WebSocket pending message cleanup (FIFO order, error-state cleanup)
 - Fix optimistic UI edge cases (HTTP/WS race)
 - Fix invisible self-sent markdown messages
@@ -368,7 +359,6 @@ Over 250 bug fixes landed. The following are grouped by area.
 - Fix infinite re-render and web input polish
 - Fix image extraction (DOM-based instead of regex)
 - Fix member avatars and layout in create task form
-- Fix date validation, clearDootaskData reset in create sheets
 - Fix paginated column response in create task sheet
 
 ### Worktree

@@ -23,7 +23,6 @@ export const ja: TranslationStructure = {
         inbox: '受信トレイ',
         sessions: 'ターミナル',
         openclaw: 'OpenClaw',
-        dootask: 'DooTask',
         settings: '設定',
     },
 
@@ -39,8 +38,8 @@ export const ja: TranslationStructure = {
         emptyDescription: 'OpenClaw ゲートウェイを追加して AI とチャットを開始',
         addMachine: 'マシンを追加',
         machineType: 'マシンタイプ',
-        machineTypeHappy: 'Happy Next マシン',
-        machineTypeHappyDescription: 'コンピューター上の Happy Next マシン経由で接続',
+        machineTypeHappy: 'Happy AI マシン',
+        machineTypeHappyDescription: 'コンピューター上の Happy AI マシン経由で接続',
         machineTypeDirect: '直接接続',
         machineTypeDirectDescription: 'OpenClaw ゲートウェイに直接接続',
         gatewayUrl: 'ゲートウェイ URL',
@@ -228,7 +227,7 @@ export const ja: TranslationStructure = {
         developer: '開発者',
         developerTools: '開発者ツール',
         about: 'このアプリについて',
-        aboutFooter: 'Happy NextはClaude Code、Codex、Geminiのモバイルクライアントです。完全なエンドツーエンド暗号化を採用し、アカウントはデバイスにのみ保存されます。AnthropicやOpenAIとは提携していません。',
+        aboutFooter: 'Happy AIはClaude Code、Codex、Geminiのモバイルクライアントです。完全なエンドツーエンド暗号化を採用し、アカウントはデバイスにのみ保存されます。AnthropicやOpenAIとは提携していません。',
         whatsNew: '新機能',
         whatsNewSubtitle: '最新のアップデートと改善を確認',
         reportIssue: '問題を報告',
@@ -336,12 +335,8 @@ export const ja: TranslationStructure = {
             `${name}は${status === 'online' ? 'オンライン' : 'オフライン'}です`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature}を${enabled ? '有効' : '無効'}にしました`,
-        dootaskConnected: ({ username }: { username: string }) => `Connected as @${username}`,
-        connectDootask: 'Connect DooTask',
     },
 
-    dootask: {
-        title: 'DooTask',
         tasks: 'Tasks',
         projects: 'Projects',
         allProjects: 'All Projects',
@@ -370,8 +365,6 @@ export const ja: TranslationStructure = {
         description: 'Description',
         project: 'Project',
         column: 'List',
-        connectFirst: 'Connect DooTask in Settings to get started',
-        reconnect: 'Reconnect DooTask',
         tokenExpired: 'Session expired. Please reconnect.',
         serverUrl: 'Server URL',
         email: 'Email',
@@ -380,8 +373,6 @@ export const ja: TranslationStructure = {
         captchaPlaceholder: 'Enter verification code',
         captchaLoadFailed: 'Load failed',
         connecting: 'Connecting...',
-        disconnect: 'Disconnect DooTask',
-        disconnectConfirm: 'This will remove your DooTask connection and clear cached data.',
         subTasks: 'サブタスク',
         files: 'ファイル',
         tags: 'タグ',
@@ -414,7 +405,6 @@ export const ja: TranslationStructure = {
         loadingChat: 'チャットを読み込み中...',
         errorLoadChat: 'チャットの読み込みに失敗しました',
         errorSendMessage: 'メッセージの送信に失敗しました',
-        unsupportedMessage: 'このメッセージタイプはサポートされていません。DooTaskクライアントでご確認ください。',
         tagged: '{name} bookmarked "{desc}"',
         untagged: '{name} removed bookmark "{desc}"',
         pinned: '{name} pinned "{desc}"',
@@ -777,7 +767,7 @@ export const ja: TranslationStructure = {
         // Used by Server Configuration screen (app/(app)/server.tsx)
         serverConfiguration: 'サーバー設定',
         enterServerUrl: 'サーバーURLを入力してください',
-        notValidHappyServer: '有効なHappy Next Serverではありません',
+        notValidHappyServer: '有効なHappy AI Serverではありません',
         changeServer: 'サーバーを変更',
         continueWithServer: 'このサーバーで続行しますか？',
         resetToDefault: 'デフォルトにリセット',
@@ -797,9 +787,9 @@ export const ja: TranslationStructure = {
         killSessionConfirm: 'このセッションを終了してもよろしいですか？',
         archiveSession: 'セッションをアーカイブ',
         archiveSessionConfirm: 'このセッションをアーカイブしてもよろしいですか？',
-        happySessionIdCopied: 'Happy Next Session IDがクリップボードにコピーされました',
-        failedToCopySessionId: 'Happy Next Session IDのコピーに失敗しました',
-        happySessionId: 'Happy Next Session ID',
+        happySessionIdCopied: 'Happy AI Session IDがクリップボードにコピーされました',
+        failedToCopySessionId: 'Happy AI Session IDのコピーに失敗しました',
+        happySessionId: 'Happy AI Session ID',
         claudeCodeSessionId: 'Claude Code Session ID',
         claudeCodeSessionIdCopied: 'Claude Code Session IDがクリップボードにコピーされました',
         aiProvider: 'AIプロバイダー',
@@ -834,7 +824,7 @@ export const ja: TranslationStructure = {
         path: 'パス',
         operatingSystem: 'オペレーティングシステム',
         processId: 'プロセスID',
-        happyHome: 'Happy Next Home',
+        happyHome: 'Happy AI Home',
         copyMetadata: 'メタデータをコピー',
         agentState: 'エージェント状態',
         controlledByUser: 'ユーザーによる制御',
@@ -846,7 +836,7 @@ export const ja: TranslationStructure = {
         cliVersionOutdated: 'CLIの更新が必要',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `バージョン ${currentVersion} がインストールされています。${requiredVersion} 以降に更新してください`,
-        updateCliInstructions: 'npm install -g happy-next-cli@latest を実行してください',
+        updateCliInstructions: 'npm install -g happy-ai-cli@latest を実行してください',
         cliUpgradeAvailable: '新しい CLI バージョンが利用可能',
         cliUpgradeAvailableSubtitle: 'タップして最新の CLI でセッションを再起動',
         cliUpgradeInProgress: 'アップグレード中...',
@@ -913,7 +903,7 @@ export const ja: TranslationStructure = {
         emptyMainScreen: {
             // Used by EmptyMainScreen component
             readyToCode: 'コーディングを始めますか？',
-            installCli: 'Happy Next CLIをインストール',
+            installCli: 'Happy AI CLIをインストール',
             runIt: '実行する',
             scanQrCode: 'QRコードをスキャン',
             openCamera: 'カメラを開く',
@@ -998,7 +988,7 @@ export const ja: TranslationStructure = {
     },
 
     sidebar: {
-        sessionsTitle: 'Happy Next',
+        sessionsTitle: 'Happy AI',
     },
 
     toolView: {
@@ -1148,8 +1138,8 @@ export const ja: TranslationStructure = {
         agentId: 'エージェントID',
         agentIdPlaceholder: 'ElevenLabs エージェントIDを入力',
 
-        happyVoiceTitle: 'Happy Next Voice',
-        happyVoiceDescription: 'セルフホスト型Happy Next Voice音声ゲートウェイを設定します。',
+        happyVoiceTitle: 'Happy AI Voice',
+        happyVoiceDescription: 'セルフホスト型Happy AI Voice音声ゲートウェイを設定します。',
         gatewayUrl: 'ゲートウェイURL',
         gatewayUrlPlaceholder: 'https://voice.example.com',
         publicKey: '公開鍵',
@@ -1272,7 +1262,7 @@ export const ja: TranslationStructure = {
         invalidConnectionLink: '無効な接続リンク',
         invalidConnectionLinkDescription: '接続リンクが見つからないか無効です。URLを確認して再試行してください。',
         connectTerminal: 'ターミナルを接続',
-        terminalRequestDescription: 'ターミナルがHappy Nextアカウントへの接続を要求しています。これにより、ターミナルは安全にメッセージを送受信できるようになります。',
+        terminalRequestDescription: 'ターミナルがHappy AIアカウントへの接続を要求しています。これにより、ターミナルは安全にメッセージを送受信できるようになります。',
         connectionDetails: '接続の詳細',
         publicKey: '公開鍵',
         encryption: '暗号化',
@@ -1350,7 +1340,7 @@ export const ja: TranslationStructure = {
     machine: {
         launchNewSessionInDirectory: 'ディレクトリで新しいセッションを起動',
         offlineUnableToSpawn: 'マシンがオフラインのためランチャーは無効です',
-        offlineHelp: '• コンピューターがオンラインであることを確認してください\n• `happy daemon status`を実行して診断してください\n• 最新のCLIバージョンを使用していますか？`npm install -g happy-next-cli@latest`でアップグレードしてください',
+        offlineHelp: '• コンピューターがオンラインであることを確認してください\n• `happy daemon status`を実行して診断してください\n• 最新のCLIバージョンを使用していますか？`npm install -g happy-ai-cli@latest`でアップグレードしてください',
         daemon: 'デーモン',
         status: 'ステータス',
         stopDaemon: 'デーモンを停止',

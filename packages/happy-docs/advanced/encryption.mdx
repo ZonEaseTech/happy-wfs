@@ -1,6 +1,6 @@
 ---
 title: "Encryption"
-description: "How Happy Next protects your code and conversations with end-to-end encryption."
+description: "How Happy AI protects your code and conversations with end-to-end encryption."
 ---
 
 Happy uses **end-to-end encryption (E2E)** for all data. Your messages, code, and session metadata are encrypted on your device before being sent to the server. The server stores only encrypted blobs it cannot decrypt.
@@ -22,7 +22,7 @@ Even if the server is compromised, your data remains encrypted.
 
 When you first run Happy, a **NaCl (Networking and Cryptography library)** key pair is generated:
 
-- **Private key** — Stored locally at `~/.happy-next/access.key` (never leaves your device)
+- **Private key** — Stored locally at `~/.happy-ai/access.key` (never leaves your device)
 - **Public key** — Sent to the server as your identity
 
 ### Message encryption
@@ -47,7 +47,7 @@ When you share a session with another user:
 ## Key backup
 
 <Warning>
-**Back up `~/.happy-next/access.key`.** This file is your encryption private key. If you lose it, you permanently lose access to your encrypted session history. There is no recovery mechanism — this is by design.
+**Back up `~/.happy-ai/access.key`.** This file is your encryption private key. If you lose it, you permanently lose access to your encrypted session history. There is no recovery mechanism — this is by design.
 </Warning>
 
 ## Library

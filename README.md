@@ -1,4 +1,4 @@
-<div align="center"><img src="/.github/logotype-dark.png" width="400" title="Happy Next" alt="Happy Next"/></div>
+<div align="center"><img src="/.github/logotype-dark.png" width="400" title="Happy AI" alt="Happy AI"/></div>
 
 <h1 align="center">
   Mobile and Web Client for Claude Code, Codex & Gemini
@@ -10,11 +10,11 @@ Use Claude Code, Codex, or Gemini from anywhere with end-to-end encryption.
 
 <div align="center">
   
-[🖥️ **Web App**](https://app.happy-next.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/hitosea/happy-next/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
+[🖥️ **Web App**](https://app.happy-ai.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/hitosea/happy-ai/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
 
 </div>
 
-<img width="5178" height="2364" alt="Happy Next Overview" src="/.github/header.png" />
+<img width="5178" height="2364" alt="Happy AI Overview" src="/.github/header.png" />
 
 <h3 align="center">
 Step 1: Download App
@@ -23,7 +23,7 @@ Step 1: Download App
 <div align="center">
 <a href="https://testflight.apple.com/join/XyjvbhXe"><img src="/.github/badge-testflight.svg" height="39" alt="Download on TestFlight" /></a>
 &nbsp;&nbsp;
-<a href="https://github.com/hitosea/happy-next/releases/latest"><img src="/.github/badge-github-apk.svg" height="39" alt="Get it on GitHub" /></a>
+<a href="https://github.com/hitosea/happy-ai/releases/latest"><img src="/.github/badge-github-apk.svg" height="39" alt="Get it on GitHub" /></a>
 </div>
 
 <h3 align="center">
@@ -31,7 +31,7 @@ Step 2: Install CLI on your computer
 </h3>
 
 ```bash
-npm install -g happy-next-cli
+npm install -g happy-ai-cli
 ```
 
 <h3 align="center">
@@ -57,12 +57,12 @@ happy gemini
 
 Running `happy` prints a QR code for device pairing.
 
-- Scan the QR code with the app you downloaded in Step 1 (or open [app.happy-next.com](https://app.happy-next.com/) in a browser).
+- Scan the QR code with the app you downloaded in Step 1 (or open [app.happy-ai.com](https://app.happy-ai.com/) in a browser).
 - Prerequisite: install the vendor CLI(s) you want to control (`claude`, `codex`, and/or `gemini`).
 
-<div align="center"><img src="/.github/mascot.png" width="200" title="Happy Next" alt="Happy Next"/></div>
+<div align="center"><img src="/.github/mascot.png" width="200" title="Happy AI" alt="Happy AI"/></div>
 
-## 🔥 Why Happy Next?
+## 🔥 Why Happy AI?
 
 - 🎛️ **Remote control for Claude, Codex & Gemini** - All three agents as first-class citizens
 - 🤖 **Orchestrator** - Define multi-agent task DAGs and auto-schedule execution
@@ -72,16 +72,15 @@ Running `happy` prints a QR code for device pairing.
 - 🎙️ **Voice assistant** - LiveKit-based voice gateway with pluggable STT/LLM/TTS providers
 - 🧰 **Multi-repo workspaces** - Worktree-based multi-repo flows with branch selection and PR creation
 - 📁 **Code browser & git management** - Browse files, view diffs, stage/commit/discard from your phone
-- 📋 **DooTask integration** - Task management with real-time chat and one-click AI sessions
 - 📨 **Pending message queue** - Messages queued and auto-dispatched when CLI is ready
 
 ## How does it work?
 
 On your computer, run `happy` instead of `claude`, `happy codex` instead of `codex`, or `happy gemini` instead of `gemini` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
 
-## What’s new in Happy Next
+## What’s new in Happy AI
 
-Happy Next is a major evolution of the original Happy. Here are the highlights:
+Happy AI is a major evolution of the original Happy. Here are the highlights:
 
 ### Orchestrator
 - Define task dependency graphs (DAGs) with per-task model and working directory
@@ -139,7 +138,6 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Chat interface with real-time streaming and session management
 - Rich content block rendering: thinking, tool use, and image blocks from external AI
 
-### DooTask Integration
 - Task list with filters, search, pagination, and status workflows
 - Task detail with HTML rendering, assignees, files, sub-tasks
 - Real-time WebSocket chat (Slack-style layout, emoji reactions, voice playback, images/video)
@@ -180,7 +178,6 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Message receipt tracking with legacy compatibility
 
 ### Bug Fixes & Stability
-- 250+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing
 - Security: shell command injection fix, plan mode permission handling
 - Performance: payload trimming for mobile, lazy-load diffs, rendering optimization
 
@@ -206,15 +203,15 @@ See the **[Self-Hosting Guide](docs/self-host.md)** for complete setup instructi
 
 ## Compatibility note
 
-Happy Next intentionally changed client KDF labels as part of the rebrand. Treat this as a **new generation**: do not expect encrypted data created by older clients to be readable by Happy Next (and vice versa).
+Happy AI intentionally changed client KDF labels as part of the rebrand. Treat this as a **new generation**: do not expect encrypted data created by older clients to be readable by Happy AI (and vice versa).
 
 ## 🏠 Who We Are
 
-We build Happy Next because we want to supervise coding agents from anywhere (web/mobile) without giving up control, privacy, or the option to self-host.
+We build Happy AI because we want to supervise coding agents from anywhere (web/mobile) without giving up control, privacy, or the option to self-host.
 
 ## 📚 Documentation & Contributing
 
-- **[Documentation](docs/README.md)** - Learn how Happy Next works (protocol, deployment, self-host, architecture)
+- **[Documentation](docs/README.md)** - Learn how Happy AI works (protocol, deployment, self-host, architecture)
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development setup and contributing guidelines
 - **[SECURITY.md](SECURITY.md)** - Security vulnerability reporting policy
 - **[SUPPORT.md](SUPPORT.md)** - Support and troubleshooting

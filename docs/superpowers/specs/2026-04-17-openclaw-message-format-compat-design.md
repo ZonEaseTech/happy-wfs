@@ -6,7 +6,7 @@
 
 ## Problem
 
-The OpenClaw gateway supports rich message content blocks (thinking, toolcall, tool_result, image) but happy-next's OpenClaw chat only extracts `type: "text"` blocks and silently discards everything else. The `OpenClawChatEvent` type also diverges from the latest gateway schema (missing `aborted` state, `errorKind`, extra non-existent states). This results in incomplete message rendering and missed streaming events.
+The OpenClaw gateway supports rich message content blocks (thinking, toolcall, tool_result, image) but happy-ai's OpenClaw chat only extracts `type: "text"` blocks and silently discards everything else. The `OpenClawChatEvent` type also diverges from the latest gateway schema (missing `aborted` state, `errorKind`, extra non-existent states). This results in incomplete message rendering and missed streaming events.
 
 ## Approach
 

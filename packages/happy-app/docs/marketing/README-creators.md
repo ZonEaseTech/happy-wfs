@@ -1,8 +1,8 @@
-# Happy Next Content Creator Brief
+# Happy AI Content Creator Brief
 
 ## Key Features
 
-Happy Next is an open-source mobile app that lets developers control AI coding agents (Claude Code, Codex, Gemini-CLI) from their phone.
+Happy AI is an open-source mobile app that lets developers control AI coding agents (Claude Code, Codex, Gemini-CLI) from their phone.
 
 - Control Claude Code from iOS, Android, or web browser
 - Runs on YOUR hardware (laptop, desktop, server, Raspberry Pi)
@@ -15,18 +15,18 @@ Happy Next is an open-source mobile app that lets developers control AI coding a
 
 ## Key Value Props
 
-- On Happy Next, I can manage Claude Code from my phone without paying $600/year
-- On Happy Next, I never miss when Claude gets stuck on a permission prompt
-- Happy Next runs on my own computer, not expensive cloud servers
-- On Happy Next, I can check on long-running tasks without returning to my desk
-- Happy Next is open source - I can audit, modify, or self-host everything
-- On Happy Next, I can run multiple agents in parallel and switch between them instantly
-- Happy Next keeps my code on my machines with end-to-end encryption
-- On Happy Next, I can keep coding while commuting, eating, or away from my desk
+- On Happy AI, I can manage Claude Code from my phone without paying $600/year
+- On Happy AI, I never miss when Claude gets stuck on a permission prompt
+- Happy AI runs on my own computer, not expensive cloud servers
+- On Happy AI, I can check on long-running tasks without returning to my desk
+- Happy AI is open source - I can audit, modify, or self-host everything
+- On Happy AI, I can run multiple agents in parallel and switch between them instantly
+- Happy AI keeps my code on my machines with end-to-end encryption
+- On Happy AI, I can keep coding while commuting, eating, or away from my desk
 
 ## Example Hooks
 
-- "I saved $600/year by switching from [competitor] to the open-source Happy Next"
+- "I saved $600/year by switching from [competitor] to the open-source Happy AI"
 - "Claude asked for sudo permission... and I was at the gym"
 - "That moment when your 2-hour refactor gets stuck 5 minutes after you leave"
 - "Running 3 Claude Code agents in parallel from my phone while getting coffee"
@@ -39,9 +39,9 @@ Happy Next is an open-source mobile app that lets developers control AI coding a
 
 ## Requirements for Content
 
-- Clearly say "Happy Next" in the video or caption
+- Clearly say "Happy AI" in the video or caption
 - Mention it's free and open source
-- Include link to github.com/hitosea/happy-next
+- Include link to github.com/hitosea/happy-ai
 - Show actual usage (QR code connection, mobile control, push notifications)
 - Emphasize running on YOUR hardware, not cloud servers
 - Compare to paid alternatives ($50/month or $600/year competitors)
@@ -66,4 +66,4 @@ Happy Next is an open-source mobile app that lets developers control AI coding a
 
 ## Resources
 
-- GitHub: https://github.com/hitosea/happy-next
+- GitHub: https://github.com/hitosea/happy-ai

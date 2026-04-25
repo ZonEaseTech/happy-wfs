@@ -10,7 +10,7 @@
 ## Getting Started
 
 ```bash
-git clone https://github.com/hitosea/happy-next.git
+git clone https://github.com/hitosea/happy-ai.git
 cd happy/packages/happy-cli
 yarn install
 yarn build
@@ -31,7 +31,7 @@ This creates a `happy-dev` command in your PATH pointing to your local build, wh
 
 | Command | Runs |
 |---------|------|
-| `happy` | Stable npm version (from `npm install -g happy-next-cli`) |
+| `happy` | Stable npm version (from `npm install -g happy-ai-cli`) |
 | `happy-dev` | Local development version (from this repo) |
 
 **Note:** Run `yarn build` before `yarn link:dev` to ensure the binary exists.
@@ -56,8 +56,8 @@ npm run setup:dev
 ```
 
 This creates:
-- `~/.happy-next/` - Stable version data (production-ready)
-- `~/.happy-next-dev/` - Development version data (for testing changes)
+- `~/.happy-ai/` - Stable version data (production-ready)
+- `~/.happy-ai-dev/` - Development version data (for testing changes)
 
 ### Daily Usage
 
@@ -74,8 +74,8 @@ npm run dev:daemon:start
 ## Visual Indicators
 
 You'll always see which version you're using:
-- `✅ STABLE MODE - Data: ~/.happy-next`
-- `🔧 DEV MODE - Data: ~/.happy-next-dev`
+- `✅ STABLE MODE - Data: ~/.happy-ai`
+- `🔧 DEV MODE - Data: ~/.happy-ai-dev`
 
 ## Common Tasks
 
@@ -128,11 +128,11 @@ Both versions maintain complete separation:
 
 | Aspect | Stable | Development |
 |--------|--------|-------------|
-| Data Directory | `~/.happy-next/` | `~/.happy-next-dev/` |
-| Settings | `~/.happy-next/settings.json` | `~/.happy-next-dev/settings.json` |
-| Auth Keys | `~/.happy-next/access.key` | `~/.happy-next-dev/access.key` |
-| Daemon State | `~/.happy-next/daemon.state.json` | `~/.happy-next-dev/daemon.state.json` |
-| Logs | `~/.happy-next/logs/` | `~/.happy-next-dev/logs/` |
+| Data Directory | `~/.happy-ai/` | `~/.happy-ai-dev/` |
+| Settings | `~/.happy-ai/settings.json` | `~/.happy-ai-dev/settings.json` |
+| Auth Keys | `~/.happy-ai/access.key` | `~/.happy-ai-dev/access.key` |
+| Daemon State | `~/.happy-ai/daemon.state.json` | `~/.happy-ai-dev/daemon.state.json` |
+| Logs | `~/.happy-ai/logs/` | `~/.happy-ai-dev/logs/` |
 
 **No conflicts!** Both can run simultaneously with separate:
 - Authentication sessions
@@ -189,8 +189,8 @@ Look for the visual indicator:
 
 Or check the daemon status:
 ```bash
-npm run stable:daemon:status   # Shows ~/.happy-next/ data location
-npm run dev:daemon:status       # Shows ~/.happy-next-dev/ data location
+npm run stable:daemon:status   # Shows ~/.happy-ai/ data location
+npm run dev:daemon:status       # Shows ~/.happy-ai-dev/ data location
 ```
 
 ### `yarn link:dev` fails with permission denied?
@@ -209,7 +209,7 @@ sudo yarn link:dev
 2. **Use dev for testing changes** - Test new features without breaking your workflow
 3. **Run both simultaneously** - Compare behavior side-by-side
 4. **Different accounts** - Use different Happy accounts for dev/stable if needed
-5. **Check logs** - Logs are separated: `~/.happy-next/logs/` vs `~/.happy-next-dev/logs/`
+5. **Check logs** - Logs are separated: `~/.happy-ai/logs/` vs `~/.happy-ai-dev/logs/`
 
 ## Example Workflow
 
@@ -243,8 +243,8 @@ npm run stable:daemon:start
 
 The system uses the built-in `HAPPY_HOME_DIR` environment variable to separate data:
 
-- **Stable scripts** set: `HAPPY_HOME_DIR=~/.happy-next`
-- **Dev scripts** set: `HAPPY_HOME_DIR=~/.happy-next-dev`
+- **Stable scripts** set: `HAPPY_HOME_DIR=~/.happy-ai`
+- **Dev scripts** set: `HAPPY_HOME_DIR=~/.happy-ai-dev`
 
 Everything else (auth, sessions, logs, daemon) automatically follows the `HAPPY_HOME_DIR` setting.
 

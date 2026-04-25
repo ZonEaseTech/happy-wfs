@@ -464,45 +464,10 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
-                name="settings/connect/dootask"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('settings.connectDootask'),
-                    headerBackTitle: t('common.back'),
-                }}
-            />
             <Stack.Screen
-                name="dootask/add-task"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('dootask.createTask'),
-                    headerBackTitle: t('common.back'),
-                }}
-            />
             <Stack.Screen
-                name="dootask/add-project"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('dootask.createProject'),
-                    headerBackTitle: t('common.back'),
-                }}
-            />
             <Stack.Screen
-                name="dootask/[taskId]"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('dootask.taskDetail'),
-                    headerBackTitle: t('common.back'),
-                }}
-            />
             <Stack.Screen
-                name="dootask/chat/[dialogId]"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('dootask.chatTitle'),
-                    headerBackTitle: t('common.back'),
-                }}
-            />
             <Stack.Screen
                 name="new/pick/machine"
                 options={{

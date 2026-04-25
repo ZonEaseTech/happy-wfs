@@ -157,7 +157,6 @@ export interface SpawnSessionOptions {
     // Worktree metadata - passed to CLI so it's included in initial metadata (avoids race condition)
     worktreeBasePath?: string;
     worktreeBranchName?: string;
-    // Extra MCP servers to inject (e.g., DooTask MCP)
     mcpServers?: Array<{
         name: string;
         url: string;

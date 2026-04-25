@@ -20,11 +20,8 @@ export const systemPrompt = trimIdent(`
     - Never write labels like "(Recommended)", "(Danger)" in option text — rely on ordering for preference, \`destructive\` attribute for danger.
 `);
 
-export function buildDootaskSystemPrompt(taskId: string): string {
     return trimIdent(`
-        # DooTask Task Context
 
-        Current DooTask task_id: ${taskId} (fixed for this session)
 
         1. Call send_task_ai_message after each major milestone, when blocked, and when finished.
         2. When all work is done, update the task status accordingly.

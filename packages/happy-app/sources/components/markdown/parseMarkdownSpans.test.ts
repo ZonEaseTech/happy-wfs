@@ -3,20 +3,16 @@ import { parseMarkdownSpans } from './parseMarkdownSpans';
 
 describe('parseMarkdownSpans links', () => {
     it('parses links nested inside bold formatting', () => {
-        const input = '**[#30592](dootask://task/30592)**';
         const spans = parseMarkdownSpans(input, false);
 
         expect(spans).toEqual([
-            { styles: ['bold'], text: '#30592', url: 'dootask://task/30592' },
         ]);
     });
 
     it('parses links nested inside italic formatting', () => {
-        const input = '*[#30592](dootask://task/30592)*';
         const spans = parseMarkdownSpans(input, false);
 
         expect(spans).toEqual([
-            { styles: ['italic'], text: '#30592', url: 'dootask://task/30592' },
         ]);
     });
 

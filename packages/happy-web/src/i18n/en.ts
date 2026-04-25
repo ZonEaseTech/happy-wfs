@@ -1,6 +1,6 @@
 export default {
   meta: {
-    title: 'Happy Next — Mobile & Web Client for Claude Code, Codex & Gemini',
+    title: 'Happy AI — Mobile & Web Client for Claude Code, Codex & Gemini',
     description: 'Control AI coding agents from your phone. Free, open source, end-to-end encrypted.',
   },
   nav: {
@@ -19,7 +19,7 @@ export default {
     step1: {
       title: 'Install CLI',
       description: 'Install the CLI on your development machine.',
-      code: 'npm i -g happy-next-cli',
+      code: 'npm i -g happy-ai-cli',
     },
     step2: {
       title: 'Start a Session',
@@ -72,7 +72,7 @@ export default {
   },
   multiAgent: {
     title: 'Three Agents. One App.',
-    subtitle: 'Happy Next treats Claude Code, Codex, and Gemini as equal first-class agents.',
+    subtitle: 'Happy AI treats Claude Code, Codex, and Gemini as equal first-class agents.',
     claude: { name: 'Claude Code', description: 'Anthropic\'s coding agent with deep reasoning.' },
     codex: { name: 'Codex', description: 'OpenAI\'s CLI agent for code generation.' },
     gemini: { name: 'Gemini CLI', description: 'Google\'s AI agent for the terminal.' },
@@ -107,6 +107,6 @@ export default {
       security: 'Security',
       support: 'Support',
     },
-    copyright: '© 2025-2026 Happy Next Contributors. MIT License.',
+    copyright: '© 2025-2026 Happy AI Contributors. MIT License.',
   },
 } as const;

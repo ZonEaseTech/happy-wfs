@@ -1,8 +1,8 @@
-# Happy → Happy Next 变更记录
+# Happy → Happy AI 变更记录
 
 [🇬🇧 English](changes-from-happy.md)
 
-本文档总结了 Happy Next 相对于原版 Happy 的变更。
+本文档总结了 Happy AI 相对于原版 Happy 的变更。
 
 ## 概览
 
@@ -15,7 +15,6 @@
 | 工作区 | 多仓库工作树创建、切换、归档和 PR 流程 |
 | 代码浏览器 | 文件浏览器、Monaco 编辑器、提交历史、git 暂存/提交/丢弃、图片预览 |
 | 会话共享 | 直接邀请和公开链接分享，端到端加密，访问权限控制 |
-| DooTask | 任务列表、详情、实时聊天、一键 AI 会话启动、全局 WebSocket |
 | 自托管 | 一条命令 `docker-compose` 全栈部署，独立源架构 |
 | 同步 | v3 消息 API、HTTP 发件箱、服务端确认发送、竞争条件修复 |
 | 聊天体验 | 图片附件、分页、蓝点、紧凑视图、会话搜索、下拉刷新 |
@@ -26,7 +25,7 @@
 | MCP 工具 | `preview_html`、冒号分隔工具命名、双模式长按复制 |
 | OpenClaw | 外部 AI 机器网关，隧道/直连模式，聊天 UI |
 | 配置文件 | AI 后端配置，内置 DeepSeek、Z.AI、OpenAI、Azure、Google AI 预设 |
-| 品牌重塑 | CLI 发布为 `happy-next-cli`，二进制名保持 `happy` |
+| 品牌重塑 | CLI 发布为 `happy-ai-cli`，二进制名保持 `happy` |
 
 ---
 
@@ -60,7 +59,7 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 
 ## 多 Agent 支持
 
-原版 Happy 只支持 Claude Code。Happy Next 将 Claude Code、Codex 和 Gemini 视为平等的一等公民。
+原版 Happy 只支持 Claude Code。Happy AI 将 Claude Code、Codex 和 Gemini 视为平等的一等公民。
 
 - **多 Agent 历史页面**，按供应商分标签页（Claude / Codex / Gemini）
 - **会话恢复和复制/分叉**，支持全部三个 Agent
@@ -84,7 +83,7 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 
 ## 语音助手（Happy Voice）
 
-Happy Next 包含完整的语音网关栈，从简单的 ElevenLabs 单供应商到完整的 LiveKit 流水线。
+Happy AI 包含完整的语音网关栈，从简单的 ElevenLabs 单供应商到完整的 LiveKit 流水线。
 
 - **基于 LiveKit 的语音网关**（`happy-voice`），可插拔供应商
 - **按前缀自动切换供应商**：`openai/gpt-4.1-mini` 用于 LLM，`cartesia/sonic-3:voiceId` 用于 TTS，`assemblyai/universal-streaming:en` 用于 STT
@@ -166,9 +165,7 @@ Happy Next 包含完整的语音网关栈，从简单的 ElevenLabs 单供应商
 - **按配置设置**：tmux 会话名称、启动脚本、默认权限模式、Agent 类型兼容性
 - **配置编辑器**：全页设置 UI，用于创建和编辑配置文件
 
-## DooTask 集成
 
-深度集成 DooTask 项目管理，从浏览任务到启动 AI 会话。
 
 - **任务列表页面**，过滤（项目、状态、优先级）、搜索和分页
 - **任务详情页面**，HTML 内容渲染、状态工作流、负责人、文件、子任务、标签
@@ -176,21 +173,16 @@ Happy Next 包含完整的语音网关栈，从简单的 ElevenLabs 单供应商
 - **聊天功能**：表情回应、语音消息回放、图片/视频消息、文件卡片
 - **乐观 UI**，消息发送支持 HTTP/WebSocket 竞争
 - **一键 AI 会话启动**，从任务详情（MCP 服务透传）
-- **外部上下文关联**：从 DooTask 启动的会话显示上下文横幅并链接回任务
-- **DooTask 连接页面**，登录、验证码支持和字段缓存
 - **任务状态管理**：可点击状态徽章，支持工作流转换
-- **DooTask 标签页**，主导航中集成，连接账户管理
 - **创建任务和项目**，在应用内直接创建，独立表单页面
 - **跨平台日期选择器**（`react-native-ui-datepicker`），底部弹窗确认
 - **表单缓存**，跨页面导航保持创建表单数据
 - **全局化 WebSocket 连接**：单一持久连接，实时任务更新
-- **会话关联任务**：会话详情页显示关联的 DooTask 任务
-- **持久化连接**：DooTask 连接通过 UserKVStore 保存到服务端
 - **简单状态徽章**：无工作流的任务显示简单状态徽章
 
 ## 自托管
 
-Happy Next 添加了一等自托管路径。
+Happy AI 添加了一等自托管路径。
 
 - **根目录 `docker-compose.yml`**，包含所有服务：Web 应用（Nginx）、API 服务器、语音网关、Postgres、Redis、MinIO
 - **独立源架构**：Web、API 和 Voice 各使用不同端口/域名（无路径反向代理）
@@ -256,7 +248,7 @@ Happy Next 添加了一等自托管路径。
 
 ## CLI 改进
 
-CLI（`happy-next-cli`）收到了大量升级。
+CLI（`happy-ai-cli`）收到了大量升级。
 
 - **多 Agent 支持**：Claude Code、Codex（通过 ACP 后端）和 Gemini 作为一等公民
 - **会话恢复/复制**，所有 Agent 支持正确的消息回填
@@ -359,7 +351,6 @@ CLI（`happy-next-cli`）收到了大量升级。
 - 允许从错误状态关闭语音会话
 - 转义工具名称 XML 属性中的双引号
 
-### DooTask
 - 修复 WebSocket 待处理消息清理（FIFO 顺序、错误状态清理）
 - 修复乐观 UI 边界情况（HTTP/WS 竞争）
 - 修复自己发送的 Markdown 消息不可见
@@ -368,7 +359,6 @@ CLI（`happy-next-cli`）收到了大量升级。
 - 修复无限重渲染和 Web 输入框打磨
 - 修复图片提取（基于 DOM 而非正则）
 - 修复创建任务表单中成员头像和布局
-- 修复创建表单中的日期验证、clearDootaskData 重置
 - 修复创建任务表单中分页列响应处理
 
 ### 工作树

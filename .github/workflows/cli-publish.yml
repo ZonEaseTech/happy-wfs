@@ -48,10 +48,10 @@ jobs:
         run: yarn workspace happy-wire build
 
       - name: Build CLI
-        run: yarn workspace happy-next-cli build
+        run: yarn workspace happy-ai-cli build
 
       - name: Run tests
-        run: yarn workspace happy-next-cli test
+        run: yarn workspace happy-ai-cli test
 
       - name: Bump version
         working-directory: packages/happy-cli
@@ -70,19 +70,19 @@ jobs:
         if: ${{ !inputs.dry-run }}
         run: |
           git add packages/happy-cli/package.json
-          git commit -m "release: happy-next-cli v${NEW_VERSION}"
+          git commit -m "release: happy-ai-cli v${NEW_VERSION}"
           git push origin main
 
       - name: Summary (dry run)
         if: ${{ inputs.dry-run }}
         run: |
           echo "### 🧪 Dry Run Complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "Would have published **happy-next-cli@${NEW_VERSION}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Would have published **happy-ai-cli@${NEW_VERSION}**" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
         if: ${{ !inputs.dry-run }}
         run: |
           echo "### ✅ Published" >> "$GITHUB_STEP_SUMMARY"
-          echo "**happy-next-cli@${NEW_VERSION}** is live on npm" >> "$GITHUB_STEP_SUMMARY"
+          echo "**happy-ai-cli@${NEW_VERSION}** is live on npm" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "[npm](https://www.npmjs.com/package/happy-next-cli/v/${NEW_VERSION})" >> "$GITHUB_STEP_SUMMARY"
+          echo "[npm](https://www.npmjs.com/package/happy-ai-cli/v/${NEW_VERSION})" >> "$GITHUB_STEP_SUMMARY"

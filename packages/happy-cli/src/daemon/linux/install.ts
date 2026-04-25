@@ -22,7 +22,7 @@ export async function install(): Promise<void> {
 
     const serviceContent = trimIdent(`
         [Unit]
-        Description=Happy Next CLI Daemon
+        Description=Happy AI CLI Daemon
         After=network-online.target
         Wants=network-online.target
 

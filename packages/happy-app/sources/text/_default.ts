@@ -20,7 +20,6 @@ export const en = {
         inbox: 'Inbox',
         sessions: 'Terminals',
         openclaw: 'OpenClaw',
-        dootask: 'DooTask',
         settings: 'Settings',
     },
 
@@ -37,8 +36,8 @@ export const en = {
         emptyDescription: 'Add an OpenClaw gateway to start chatting with AI',
         addMachine: 'Add Machine',
         machineType: 'Machine Type',
-        machineTypeHappy: 'Happy Next Machine',
-        machineTypeHappyDescription: 'Connect through a Happy Next machine on your computer',
+        machineTypeHappy: 'Happy AI Machine',
+        machineTypeHappyDescription: 'Connect through a Happy AI machine on your computer',
         machineTypeDirect: 'Direct Connection',
         machineTypeDirectDescription: 'Connect directly to an OpenClaw gateway',
         gatewayUrl: 'Gateway URL',
@@ -197,7 +196,7 @@ export const en = {
         developer: 'Developer',
         developerTools: 'Developer Tools',
         about: 'About',
-        aboutFooter: 'Happy Next is a Claude Code, Codex, and Gemini mobile client. It\'s fully end-to-end encrypted and your account is stored only on your device. Not affiliated with Anthropic or OpenAI.',
+        aboutFooter: 'Happy AI is a Claude Code, Codex, and Gemini mobile client. It\'s fully end-to-end encrypted and your account is stored only on your device. Not affiliated with Anthropic or OpenAI.',
         whatsNew: 'What\'s New',
         whatsNewSubtitle: 'See the latest updates and improvements',
         reportIssue: 'Report an Issue',
@@ -315,12 +314,8 @@ export const en = {
             `${name} is ${status}`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature} ${enabled ? 'enabled' : 'disabled'}`,
-        dootaskConnected: ({ username }: { username: string }) => `Connected as @${username}`,
-        connectDootask: 'Connect DooTask',
     },
 
-    dootask: {
-        title: 'DooTask',
         tasks: 'Tasks',
         projects: 'Projects',
         allProjects: 'All Projects',
@@ -349,8 +344,6 @@ export const en = {
         description: 'Description',
         project: 'Project',
         column: 'List',
-        connectFirst: 'Connect DooTask in Settings to get started',
-        reconnect: 'Reconnect DooTask',
         tokenExpired: 'Session expired. Please reconnect.',
         serverUrl: 'Server URL',
         email: 'Email',
@@ -359,8 +352,6 @@ export const en = {
         captchaPlaceholder: 'Enter verification code',
         captchaLoadFailed: 'Load failed',
         connecting: 'Connecting...',
-        disconnect: 'Disconnect DooTask',
-        disconnectConfirm: 'This will remove your DooTask connection and clear cached data.',
         subTasks: 'Sub-tasks',
         files: 'Files',
         tags: 'Tags',
@@ -393,7 +384,6 @@ export const en = {
         loadingChat: 'Loading chat...',
         errorLoadChat: 'Failed to load chat',
         errorSendMessage: 'Failed to send message',
-        unsupportedMessage: 'Unsupported message type. Please use DooTask client to view.',
         tagged: '{name} bookmarked "{desc}"',
         untagged: '{name} removed bookmark "{desc}"',
         pinned: '{name} pinned "{desc}"',
@@ -756,7 +746,7 @@ export const en = {
         // Used by Server Configuration screen (app/(app)/server.tsx)
         serverConfiguration: 'Server Configuration',
         enterServerUrl: 'Please enter a server URL',
-        notValidHappyServer: 'Not a valid Happy Next Server',
+        notValidHappyServer: 'Not a valid Happy AI Server',
         changeServer: 'Change Server',
         continueWithServer: 'Continue with this server?',
         resetToDefault: 'Reset to Default',
@@ -776,9 +766,9 @@ export const en = {
         killSessionConfirm: 'Are you sure you want to terminate this session?',
         archiveSession: 'Archive Session',
         archiveSessionConfirm: 'Are you sure you want to archive this session?',
-        happySessionIdCopied: 'Happy Next Session ID copied to clipboard',
-        failedToCopySessionId: 'Failed to copy Happy Next Session ID',
-        happySessionId: 'Happy Next Session ID',
+        happySessionIdCopied: 'Happy AI Session ID copied to clipboard',
+        failedToCopySessionId: 'Failed to copy Happy AI Session ID',
+        happySessionId: 'Happy AI Session ID',
         claudeCodeSessionId: 'Claude Code Session ID',
         claudeCodeSessionIdCopied: 'Claude Code Session ID copied to clipboard',
         aiProvider: 'AI Provider',
@@ -813,7 +803,7 @@ export const en = {
         path: 'Path',
         operatingSystem: 'Operating System',
         processId: 'Process ID',
-        happyHome: 'Happy Next Home',
+        happyHome: 'Happy AI Home',
         copyMetadata: 'Copy Metadata',
         agentState: 'Agent State',
         controlledByUser: 'Controlled by User',
@@ -825,7 +815,7 @@ export const en = {
         cliVersionOutdated: 'CLI Update Required',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `Version ${currentVersion} installed. Update to ${requiredVersion} or later`,
-        updateCliInstructions: 'Please run npm install -g happy-next-cli@latest',
+        updateCliInstructions: 'Please run npm install -g happy-ai-cli@latest',
         cliUpgradeAvailable: 'New CLI Version Available',
         cliUpgradeAvailableSubtitle: 'Tap to restart session with the latest CLI',
         cliUpgradeInProgress: 'Upgrading...',
@@ -895,7 +885,7 @@ export const en = {
         emptyMainScreen: {
             // Used by EmptyMainScreen component
             readyToCode: 'Ready to code?',
-            installCli: 'Install the Happy Next CLI',
+            installCli: 'Install the Happy AI CLI',
             runIt: 'Run it',
             scanQrCode: 'Scan the QR code',
             openCamera: 'Open Camera',
@@ -980,7 +970,7 @@ export const en = {
     },
 
     sidebar: {
-        sessionsTitle: 'Happy Next',
+        sessionsTitle: 'Happy AI',
     },
 
     toolView: {
@@ -1134,8 +1124,8 @@ export const en = {
         agentIdPlaceholder: 'Enter ElevenLabs Agent ID',
 
         // Happy Voice configuration
-        happyVoiceTitle: 'Happy Next Voice',
-        happyVoiceDescription: 'Configure your self-hosted Happy Next Voice gateway.',
+        happyVoiceTitle: 'Happy AI Voice',
+        happyVoiceDescription: 'Configure your self-hosted Happy AI Voice gateway.',
         gatewayUrl: 'Gateway URL',
         gatewayUrlPlaceholder: 'https://voice.example.com',
         publicKey: 'Public Key',
@@ -1260,7 +1250,7 @@ export const en = {
         invalidConnectionLink: 'Invalid Connection Link',
         invalidConnectionLinkDescription: 'The connection link is missing or invalid. Please check the URL and try again.',
         connectTerminal: 'Connect Terminal',
-        terminalRequestDescription: 'A terminal is requesting to connect to your Happy Next account. This will allow the terminal to send and receive messages securely.',
+        terminalRequestDescription: 'A terminal is requesting to connect to your Happy AI account. This will allow the terminal to send and receive messages securely.',
         connectionDetails: 'Connection Details',
         publicKey: 'Public Key',
         encryption: 'Encryption',
@@ -1337,7 +1327,7 @@ export const en = {
     machine: {
         launchNewSessionInDirectory: 'Launch New Session in Directory',
         offlineUnableToSpawn: 'Launcher disabled while machine is offline',
-        offlineHelp: '• Make sure your computer is online\n• Run `happy daemon status` to diagnose\n• Are you running the latest CLI version? Upgrade with `npm install -g happy-next-cli@latest`',
+        offlineHelp: '• Make sure your computer is online\n• Run `happy daemon status` to diagnose\n• Are you running the latest CLI version? Upgrade with `npm install -g happy-ai-cli@latest`',
         daemon: 'Daemon',
         status: 'Status',
         stopDaemon: 'Stop Daemon',

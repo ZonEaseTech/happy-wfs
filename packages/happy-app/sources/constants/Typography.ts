@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 /**
- * Typography system for Happy Next app
+ * Typography system for Happy AI app
  * 
  * Default typography: IBM Plex Sans
  * Monospace typography: IBM Plex Mono  

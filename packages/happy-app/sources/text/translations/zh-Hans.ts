@@ -22,7 +22,6 @@ export const zhHans: TranslationStructure = {
         inbox: '收件箱',
         sessions: '终端',
         openclaw: 'OpenClaw',
-        dootask: 'DooTask',
         settings: '设置',
     },
 
@@ -38,8 +37,8 @@ export const zhHans: TranslationStructure = {
         emptyDescription: '添加 OpenClaw 网关以开始与 AI 聊天',
         addMachine: '添加机器',
         machineType: '机器类型',
-        machineTypeHappy: 'Happy Next 机器',
-        machineTypeHappyDescription: '通过电脑上的 Happy Next 机器连接',
+        machineTypeHappy: 'Happy AI 机器',
+        machineTypeHappyDescription: '通过电脑上的 Happy AI 机器连接',
         machineTypeDirect: '直接连接',
         machineTypeDirectDescription: '直接连接到 OpenClaw 网关',
         gatewayUrl: '网关 URL',
@@ -198,7 +197,7 @@ export const zhHans: TranslationStructure = {
         developer: '开发者',
         developerTools: '开发者工具',
         about: '关于',
-        aboutFooter: 'Happy Next 是一个 Claude Code、Codex 和 Gemini 移动客户端。它采用端到端加密，您的账户仅存储在本地设备上。与 Anthropic 和 OpenAI 无关联。',
+        aboutFooter: 'Happy AI 是一个 Claude Code、Codex 和 Gemini 移动客户端。它采用端到端加密，您的账户仅存储在本地设备上。与 Anthropic 和 OpenAI 无关联。',
         whatsNew: '更新日志',
         whatsNewSubtitle: '查看最新更新和改进',
         reportIssue: '报告问题',
@@ -306,12 +305,8 @@ export const zhHans: TranslationStructure = {
             `${name} ${status === 'online' ? '在线' : '离线'}`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature} 已${enabled ? '启用' : '禁用'}`,
-        dootaskConnected: ({ username }: { username: string }) => `已连接为 @${username}`,
-        connectDootask: '连接 DooTask',
     },
 
-    dootask: {
-        title: 'DooTask',
         tasks: '任务',
         projects: '项目',
         allProjects: '所有项目',
@@ -340,8 +335,6 @@ export const zhHans: TranslationStructure = {
         description: '描述',
         project: '项目',
         column: '列表',
-        connectFirst: '请在设置中连接 DooTask 以开始使用',
-        reconnect: '重新连接 DooTask',
         tokenExpired: '会话已过期，请重新连接。',
         serverUrl: '服务器地址',
         email: '邮箱',
@@ -350,8 +343,6 @@ export const zhHans: TranslationStructure = {
         captchaPlaceholder: '请输入验证码',
         captchaLoadFailed: '加载失败',
         connecting: '连接中...',
-        disconnect: '断开 DooTask',
-        disconnectConfirm: '这将移除您的 DooTask 连接并清除缓存数据。',
         subTasks: '子任务',
         files: '文件',
         tags: '标签',
@@ -384,7 +375,6 @@ export const zhHans: TranslationStructure = {
         loadingChat: '加载聊天中...',
         errorLoadChat: '加载聊天失败',
         errorSendMessage: '发送消息失败',
-        unsupportedMessage: '当前客户端不支持此类消息，请使用 DooTask 客户端查看。',
         tagged: '{name} 标注了「{desc}」',
         untagged: '{name} 取消标注「{desc}」',
         pinned: '{name} 置顶了「{desc}」',
@@ -747,7 +737,7 @@ export const zhHans: TranslationStructure = {
         // Used by Server Configuration screen (app/(app)/server.tsx)
         serverConfiguration: '服务器配置',
         enterServerUrl: '请输入服务器 URL',
-        notValidHappyServer: '不是有效的 Happy Next 服务器',
+        notValidHappyServer: '不是有效的 Happy AI 服务器',
         changeServer: '更改服务器',
         continueWithServer: '继续使用此服务器？',
         resetToDefault: '重置为默认',
@@ -767,9 +757,9 @@ export const zhHans: TranslationStructure = {
         killSessionConfirm: '您确定要终止此会话吗？',
         archiveSession: '归档会话',
         archiveSessionConfirm: '您确定要归档此会话吗？',
-        happySessionIdCopied: 'Happy Next 会话 ID 已复制到剪贴板',
-        failedToCopySessionId: '复制 Happy Next 会话 ID 失败',
-        happySessionId: 'Happy Next 会话 ID',
+        happySessionIdCopied: 'Happy AI 会话 ID 已复制到剪贴板',
+        failedToCopySessionId: '复制 Happy AI 会话 ID 失败',
+        happySessionId: 'Happy AI 会话 ID',
         claudeCodeSessionId: 'Claude Code 会话 ID',
         claudeCodeSessionIdCopied: 'Claude Code 会话 ID 已复制到剪贴板',
         aiProvider: 'AI 提供商',
@@ -804,7 +794,7 @@ export const zhHans: TranslationStructure = {
         path: '路径',
         operatingSystem: '操作系统',
         processId: '进程 ID',
-        happyHome: 'Happy Next 主目录',
+        happyHome: 'Happy AI 主目录',
         copyMetadata: '复制元数据',
         agentState: 'Agent 状态',
         controlledByUser: '用户控制',
@@ -816,7 +806,7 @@ export const zhHans: TranslationStructure = {
         cliVersionOutdated: '需要更新 CLI',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `已安装版本 ${currentVersion}。请更新到 ${requiredVersion} 或更高版本`,
-        updateCliInstructions: '请运行 npm install -g happy-next-cli@latest',
+        updateCliInstructions: '请运行 npm install -g happy-ai-cli@latest',
         cliUpgradeAvailable: '有新的 CLI 版本可用',
         cliUpgradeAvailableSubtitle: '点击以使用最新 CLI 重启会话',
         cliUpgradeInProgress: '正在升级...',
@@ -883,7 +873,7 @@ export const zhHans: TranslationStructure = {
         emptyMainScreen: {
             // Used by EmptyMainScreen component
             readyToCode: '准备开始编程？',
-            installCli: '安装 Happy Next CLI',
+            installCli: '安装 Happy AI CLI',
             runIt: '运行它',
             scanQrCode: '扫描二维码',
             openCamera: '打开相机',
@@ -968,7 +958,7 @@ export const zhHans: TranslationStructure = {
     },
 
     sidebar: {
-        sessionsTitle: 'Happy Next',
+        sessionsTitle: 'Happy AI',
     },
 
     toolView: {
@@ -1118,8 +1108,8 @@ export const zhHans: TranslationStructure = {
         agentId: 'Agent ID',
         agentIdPlaceholder: '输入 ElevenLabs Agent ID',
 
-        happyVoiceTitle: 'Happy Next Voice',
-        happyVoiceDescription: '配置自托管的 Happy Next Voice 语音网关。',
+        happyVoiceTitle: 'Happy AI Voice',
+        happyVoiceDescription: '配置自托管的 Happy AI Voice 语音网关。',
         gatewayUrl: '网关地址',
         gatewayUrlPlaceholder: 'https://voice.example.com',
         publicKey: '公钥',
@@ -1242,7 +1232,7 @@ export const zhHans: TranslationStructure = {
         invalidConnectionLink: '无效的连接链接',
         invalidConnectionLinkDescription: '连接链接缺失或无效。请检查 URL 并重试。',
         connectTerminal: '连接终端',
-        terminalRequestDescription: '有终端正在请求连接到您的 Happy Next 账户。这将允许终端安全地发送和接收消息。',
+        terminalRequestDescription: '有终端正在请求连接到您的 Happy AI 账户。这将允许终端安全地发送和接收消息。',
         connectionDetails: '连接详情',
         publicKey: '公钥',
         encryption: '加密',
@@ -1320,7 +1310,7 @@ export const zhHans: TranslationStructure = {
     machine: {
         launchNewSessionInDirectory: '在目录中启动新会话',
         offlineUnableToSpawn: '设备离线时无法启动',
-        offlineHelp: '• 确保您的计算机在线\n• 运行 `happy daemon status` 进行诊断\n• 您是否在运行最新的 CLI 版本？请使用 `npm install -g happy-next-cli@latest` 升级',
+        offlineHelp: '• 确保您的计算机在线\n• 运行 `happy daemon status` 进行诊断\n• 您是否在运行最新的 CLI 版本？请使用 `npm install -g happy-ai-cli@latest` 升级',
         daemon: '守护进程',
         status: '状态',
         stopDaemon: '停止守护进程',

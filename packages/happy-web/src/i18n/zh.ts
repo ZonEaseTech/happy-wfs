@@ -1,6 +1,6 @@
 export default {
   meta: {
-    title: 'Happy Next — Claude Code、Codex 和 Gemini 的移动端与网页客户端',
+    title: 'Happy AI — Claude Code、Codex 和 Gemini 的移动端与网页客户端',
     description: '用手机控制 AI 编程助手，免费、开源、端到端加密。',
   },
   nav: {
@@ -19,7 +19,7 @@ export default {
     step1: {
       title: '安装 CLI',
       description: '在开发机上安装命令行工具。',
-      code: 'npm i -g happy-next-cli',
+      code: 'npm i -g happy-ai-cli',
     },
     step2: {
       title: '启动会话',
@@ -72,7 +72,7 @@ export default {
   },
   multiAgent: {
     title: '三大 Agent，一个应用',
-    subtitle: 'Happy Next 将 Claude Code、Codex 和 Gemini 视为同等的一等公民。',
+    subtitle: 'Happy AI 将 Claude Code、Codex 和 Gemini 视为同等的一等公民。',
     claude: { name: 'Claude Code', description: 'Anthropic 深度推理编程助手。' },
     codex: { name: 'Codex', description: 'OpenAI 命令行代码生成助手。' },
     gemini: { name: 'Gemini CLI', description: 'Google AI 终端助手。' },
@@ -107,6 +107,6 @@ export default {
       security: '安全',
       support: '支持',
     },
-    copyright: '© 2025-2026 Happy Next Contributors. MIT License.',
+    copyright: '© 2025-2026 Happy AI Contributors. MIT License.',
   },
 } as const;

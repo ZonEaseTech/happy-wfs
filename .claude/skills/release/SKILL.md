@@ -1,9 +1,9 @@
 ---
 name: release
-description: Use when the user wants to cut a new release of happy-next — CLI to npm, mobile App + Docker via git tag, or the full combo.
+description: Use when the user wants to cut a new release of happy-ai — CLI to npm, mobile App + Docker via git tag, or the full combo.
 ---
 
-# Happy Next 发布流程
+# Happy AI 发布流程
 
 ## Overview
 
@@ -15,7 +15,7 @@ description: Use when the user wants to cut a new release of happy-next — CLI 
 
 | 发布对象 | 版本源 | 触发方式 | Workflow |
 |---|---|---|---|
-| happy-next-cli（npm） | `packages/happy-cli/package.json` | 手动 `workflow_dispatch` | `cli-publish.yml` |
+| happy-ai-cli（npm） | `packages/happy-cli/package.json` | 手动 `workflow_dispatch` | `cli-publish.yml` |
 | 手机 App（APK/AAB/IPA） | git tag 去掉 `v` 前缀 | 推 tag `v*` | `release.yml` |
 | Docker 镜像（server/webapp/voice/docs） | git tag | 推 tag `v*`（同上） | `docker-publish.yml` |
 | iOS App Store 提审 | 手动输入 | 手动 `workflow_dispatch` | `release.yml`（submit-ios 分支） |
@@ -80,7 +80,7 @@ console.log('major → ' + (v[0]+1) + '.0.0');
 再扫描自上次 CLI 发布以来的 commit 类型，给出建议的 bump 类型：
 
 ```bash
-LAST_CLI=$(git log --oneline --grep='^release: happy-next-cli' | head -1 | awk '{print $1}')
+LAST_CLI=$(git log --oneline --grep='^release: happy-ai-cli' | head -1 | awk '{print $1}')
 # 首次发布或找不到历史 CLI release commit 时，回退看最近 30 条 CLI 相关 commit
 RANGE="${LAST_CLI:+${LAST_CLI}..HEAD}"
 git log ${RANGE:--30} --oneline --no-merges -- packages/happy-cli packages/happy-wire
@@ -98,13 +98,13 @@ git log ${RANGE:--30} --oneline --no-merges -- packages/happy-cli packages/happy
 
 给用户这条指令：
 
-> 请打开 <https://github.com/hitosea/happy-next/actions/workflows/cli-publish.yml> → 点 **Run workflow** → `Version to publish` 填 `{用户选的版本}` → `Dry run` 保持 `false`（默认） → 点绿色 Run workflow。完成后告诉我"已触发"。
+> 请打开 <https://github.com/hitosea/happy-ai/actions/workflows/cli-publish.yml> → 点 **Run workflow** → `Version to publish` 填 `{用户选的版本}` → `Dry run` 保持 `false`（默认） → 点绿色 Run workflow。完成后告诉我"已触发"。
 
 **等用户确认。不要继续。**
 
 ### A5. 监控 + 收尾
 
-告知用户 workflow 会自动：bump 版本 → 跑测试 → `npm publish` → 提交 `release: happy-next-cli v{X.Y.Z}` 回 main。
+告知用户 workflow 会自动：bump 版本 → 跑测试 → `npm publish` → 提交 `release: happy-ai-cli v{X.Y.Z}` 回 main。
 
 等用户确认 workflow 成功后：
 
@@ -193,18 +193,17 @@ npx tsx sources/scripts/parseChangelog.ts
 
 文件：`README.md` + `README.zh-CN.md`
 
-**关键原则**：这两个文件展示的是「Happy Next 相比 Happy 的完整功能」，**不按版本分**。
+**关键原则**：这两个文件展示的是「Happy AI 相比 Happy 的完整功能」，**不按版本分**。
 
-- 将新功能合并进已有章节（如 DooTask 新功能并入「DooTask Integration」章节）
 - 全新功能领域加为新的独立章节（不加版本标签）
-- 同步更新 "Why Happy Next" 亮点列表（带 emoji 的那段）
+- 同步更新 "Why Happy AI" 亮点列表（带 emoji 的那段）
 - 中英文内容保持一致
 
 #### B3.4 更新 changes-from-happy 文档（中英文）
 
 文件：`docs/changes-from-happy.md` + `docs/changes-from-happy.zh-CN.md`
 
-**关键原则**：同样**不按版本分**，是 Happy Next 相对 Happy 的完整变更记录。
+**关键原则**：同样**不按版本分**，是 Happy AI 相对 Happy 的完整变更记录。
 
 - 更新顶部 TL;DR 概览表格
 - 将新功能合并进已有章节
@@ -242,7 +241,7 @@ git push origin $VERSION
 
 给用户：
 
-> 流水线正在跑：<https://github.com/hitosea/happy-next/actions>
+> 流水线正在跑：<https://github.com/hitosea/happy-ai/actions>
 > - `Release`：~20-30 分钟，并行构建 Android APK/AAB + iOS IPA，完成后自动建 GitHub Release 挂载三个安装包
 > - `Docker Publish`：~10-20 分钟，推 4 个镜像到 Docker Hub `kuaifan/*`
 >
@@ -252,7 +251,7 @@ git push origin $VERSION
 
 ### B7. 校验 Release 页
 
-告知用户检查 <https://github.com/hitosea/happy-next/releases/tag/{新版本号}>：
+告知用户检查 <https://github.com/hitosea/happy-ai/releases/tag/{新版本号}>：
 
 - 有 3 个附件（APK/AAB/IPA）
 - Release notes 自动生成合理
@@ -276,7 +275,7 @@ git push origin $VERSION
 
 ### D1. ⏸ 手动触发
 
-> 请打开 <https://github.com/hitosea/happy-next/actions/workflows/release.yml> → **Run workflow** → `version` 填要提审的版本号（不带 `v` 前缀，如 `2.0.4`） → Run。
+> 请打开 <https://github.com/hitosea/happy-ai/actions/workflows/release.yml> → **Run workflow** → `version` 填要提审的版本号（不带 `v` 前缀，如 `2.0.4`） → Run。
 
 该触发只跑 `submit-ios` 任务：重新本地构建 IPA → 通过 ASC API 提审。
 

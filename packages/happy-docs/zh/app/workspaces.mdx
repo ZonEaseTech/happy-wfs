@@ -19,14 +19,14 @@ description: "创建多仓库工作树工作区，用于跨仓库开发。"
 
 当您创建工作区时，Happy 会：
 
-1. 在您的机器上生成工作区目录，路径为 `~/.happy-next/workspaces/<name>`
+1. 在您的机器上生成工作区目录，路径为 `~/.happy-ai/workspaces/<name>`
 2. 在该目录下为每个选定的仓库创建一个 **Git 工作树**
 3. 所有工作树共享相同的分支名称（即工作区名称）
 4. 将所有配置的文件（如 `.env`）从基础仓库复制到每个工作树
 5. 自动生成工作区级别的 `CLAUDE.md` 和 `AGENTS.md`，通过 `@import` 引用每个仓库的配置
 
 ```
-~/.happy-next/workspaces/clever-ocean/
+~/.happy-ai/workspaces/clever-ocean/
 ├── CLAUDE.md              # @import from each repo
 ├── frontend/              # Worktree of repo A
 │   └── (branch: clever-ocean, based on main)

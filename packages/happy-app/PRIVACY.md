@@ -1,10 +1,10 @@
-# Privacy Policy for Happy Next
+# Privacy Policy for Happy AI
 
 **Last Updated: January 2025**
 
 ## Overview
 
-Happy Next is committed to protecting your privacy. This policy explains how we handle your data with our zero-knowledge encryption architecture.
+Happy AI is committed to protecting your privacy. This policy explains how we handle your data with our zero-knowledge encryption architecture.
 
 ## What We Collect
 
@@ -89,11 +89,11 @@ We will notify users of any material changes to this privacy policy through the 
 ## Contact
 
 For privacy concerns or questions:
-- GitHub Issues: https://github.com/hitosea/happy-next/issues
+- GitHub Issues: https://github.com/hitosea/happy-ai/issues
 
 ## Compliance
 
-Happy Next is designed with privacy by default and complies with:
+Happy AI is designed with privacy by default and complies with:
 - GDPR (General Data Protection Regulation)
 - CCPA (California Consumer Privacy Act)
 - Privacy by Design principles

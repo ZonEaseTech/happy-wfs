@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { useFriendRequests, useSocketStatus, useRealtimeStatus, useDootaskProfile } from '@/sync/storage';
 import { useVisibleSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
 import { useIsTablet } from '@/utils/responsive';
 import { useRouter } from 'expo-router';
@@ -11,7 +10,6 @@ import { FABWide } from './FABWide';
 import { TabBar, TabType } from './TabBar';
 import { InboxView } from './InboxView';
 import { SettingsViewWrapper } from './SettingsViewWrapper';
-import { DooTaskListView } from './DooTaskListView';
 import { SessionsListWrapper } from './SessionsListWrapper';
 import { Header } from './navigation/Header';
 import { HeaderLogo } from './HeaderLogo';
@@ -22,7 +20,6 @@ import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { isUsingCustomServer } from '@/sync/serverConfig';
 import { trackFriendsSearch } from '@/track';
-import { DooTaskCreateSheet } from './dootask/DooTaskCreateSheet';
 
 interface MainViewProps {
     variant: 'phone' | 'sidebar';
@@ -105,12 +102,11 @@ const styles = StyleSheet.create((theme) => ({
 const TAB_TITLES = {
     sessions: 'tabs.sessions',
     inbox: 'tabs.inbox',
-    dootask: 'tabs.dootask',
     settings: 'tabs.settings',
 } as const;
 
 // Active tabs
-type ActiveTabType = 'sessions' | 'inbox' | 'dootask' | 'settings';
+type ActiveTabType = 'sessions' | 'inbox' | 'settings';
 
 // Header title component with connection status
 const HeaderTitle = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => {
@@ -176,7 +172,6 @@ const HeaderTitle = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
 });
 
 // Header right button - varies by tab
-const HeaderRight = React.memo(({ activeTab, onDootaskCreate }: { activeTab: ActiveTabType; onDootaskCreate?: () => void }) => {
     const router = useRouter();
     const { theme } = useUnistyles();
     const isCustomServer = isUsingCustomServer();
@@ -208,9 +203,7 @@ const HeaderRight = React.memo(({ activeTab, onDootaskCreate }: { activeTab: Act
         );
     }
 
-    if (activeTab === 'dootask') {
         return (
-            <Pressable onPress={onDootaskCreate} hitSlop={15} style={styles.headerButton}>
                 <Ionicons name="add-outline" size={28} color={theme.colors.header.tint} />
             </Pressable>
         );
@@ -242,8 +235,6 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     const router = useRouter();
     const friendRequests = useFriendRequests();
     const realtimeStatus = useRealtimeStatus();
-    const dootaskProfile = useDootaskProfile();
-    const showDootaskTab = !!dootaskProfile;
 
     // Tab state management
     const [activeTab, setActiveTab] = React.useState<TabType>('sessions');
@@ -258,7 +249,6 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
 
     const [createMenuVisible, setCreateMenuVisible] = React.useState(false);
 
-    const handleCreatePress = React.useCallback(() => {
         setCreateMenuVisible(true);
     }, []);
 
@@ -267,11 +257,9 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     }, []);
 
     const handleSelectTask = React.useCallback(() => {
-        router.push('/dootask/add-task');
     }, [router]);
 
     const handleSelectProject = React.useCallback(() => {
-        router.push('/dootask/add-project');
     }, [router]);
 
     // Regular phone mode with tabs - define this before any conditional returns
@@ -279,8 +267,6 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
         switch (activeTab) {
             case 'inbox':
                 return <InboxView />;
-            case 'dootask':
-                return <DooTaskListView />;
             case 'settings':
                 return <SettingsViewWrapper />;
             case 'sessions':
@@ -336,7 +322,6 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                 <View style={{ backgroundColor: theme.colors.groupped.background }}>
                     <Header
                         title={<HeaderTitle activeTab={activeTab as ActiveTabType} />}
-                        headerRight={() => <HeaderRight activeTab={activeTab as ActiveTabType} onDootaskCreate={handleCreatePress} />}
                         headerLeft={() => <HeaderLogo />}
                         headerShadowVisible={false}
                         headerTransparent={true}
@@ -351,10 +336,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                 activeTab={activeTab}
                 onTabPress={handleTabPress}
                 inboxBadgeCount={friendRequests.length}
-                showDootaskTab={showDootaskTab}
             />
-            {showDootaskTab && (
-                <DooTaskCreateSheet
                     visible={createMenuVisible}
                     onClose={handleCreateMenuClose}
                     onSelectTask={handleSelectTask}

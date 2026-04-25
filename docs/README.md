@@ -1,6 +1,6 @@
-# Happy Next Docs
+# Happy AI Docs
 
-This folder documents how Happy Next works internally, with a focus on protocol, backend architecture, deployment, and the CLI tool. Start here.
+This folder documents how Happy AI works internally, with a focus on protocol, backend architecture, deployment, and the CLI tool. Start here.
 
 ## Index
 - [protocol.md](protocol.md): Wire protocol (WebSocket), payload formats, sequencing, and concurrency rules.
@@ -11,7 +11,7 @@ This folder documents how Happy Next works internally, with a focus on protocol,
 - [self-host.md](self-host.md): Self-hosting with the root docker-compose stack.
 - [cli-architecture.md](cli-architecture.md): CLI and daemon architecture and how they interact with the server.
 - [orchestrator.md](orchestrator.md): Multi-task orchestration — usage scenarios, MCP tools, DAG dependencies, retry, and multi-machine dispatch.
-- [changes-from-happy.md](changes-from-happy.md): What changed in Happy Next vs the original Happy (`main` branch).
+- [changes-from-happy.md](changes-from-happy.md): What changed in Happy AI vs the original Happy (`main` branch).
 
 ## Conventions
 - Paths and field names reflect the current implementation in `packages/happy-server`.

@@ -77,13 +77,13 @@ export async function runDoctorCommand(filter?: 'all' | 'daemon'): Promise<void>
         filter = 'all';
     }
     
-    console.log(chalk.bold.cyan('\n🩺 Happy Next CLI Doctor\n'));
+    console.log(chalk.bold.cyan('\n🩺 Happy AI CLI Doctor\n'));
 
     // For 'all' filter, show everything. For 'daemon', only show daemon-related info
     if (filter === 'all') {
         // Version and basic info
         console.log(chalk.bold('📋 Basic Information'));
-        console.log(`Happy Next CLI Version: ${chalk.green(packageJson.version)}`);
+        console.log(`Happy AI CLI Version: ${chalk.green(packageJson.version)}`);
         console.log(`Platform: ${chalk.green(process.platform)} ${process.arch}`);
         console.log(`Node.js Version: ${chalk.green(process.version)}`);
         console.log('');
@@ -103,7 +103,7 @@ export async function runDoctorCommand(filter?: 'all' | 'daemon'): Promise<void>
 
         // Configuration
         console.log(chalk.bold('⚙️  Configuration'));
-        console.log(`Happy Next Home: ${chalk.blue(configuration.happyHomeDir)}`);
+        console.log(`Happy AI Home: ${chalk.blue(configuration.happyHomeDir)}`);
         console.log(`Server URL: ${chalk.blue(configuration.serverUrl)}`);
         console.log(`Logs Dir: ${chalk.blue(configuration.logsDir)}`);
 
@@ -261,8 +261,8 @@ export async function runDoctorCommand(filter?: 'all' | 'daemon'): Promise<void>
 
         // Support and bug reports
         console.log(chalk.bold('\n🐛 Support & Bug Reports'));
-        console.log(`Report issues: ${chalk.blue('https://github.com/hitosea/happy-next/issues')}`);
-        console.log(`Documentation: ${chalk.blue('https://github.com/hitosea/happy-next')}`);
+        console.log(`Report issues: ${chalk.blue('https://github.com/hitosea/happy-ai/issues')}`);
+        console.log(`Documentation: ${chalk.blue('https://github.com/hitosea/happy-ai')}`);
     }
 
     console.log(chalk.green('\n✅ Doctor diagnosis complete!\n'));

@@ -165,7 +165,7 @@ export function EmptyMainScreen() {
                     <Text style={styles.title}>{t('components.emptyMainScreen.readyToCode')}</Text>
                     <View style={styles.terminalBlock}>
                         <Text style={[styles.terminalText, styles.terminalTextFirst]}>
-                            $ npm i -g happy-next-cli
+                            $ npm i -g happy-ai-cli
                         </Text>
                         <Text style={styles.terminalText}>
                             $ happy

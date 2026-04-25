@@ -20,7 +20,6 @@ export const ca: TranslationStructure = {
         inbox: 'Safata',
         sessions: 'Terminals',
         openclaw: 'OpenClaw',
-        dootask: 'DooTask',
         settings: 'Configuració',
     },
 
@@ -36,8 +35,8 @@ export const ca: TranslationStructure = {
         emptyDescription: 'Afegeix una passarel·la OpenClaw per començar a xatejar amb AI',
         addMachine: 'Afegir màquina',
         machineType: 'Tipus de màquina',
-        machineTypeHappy: 'Màquina Happy Next',
-        machineTypeHappyDescription: 'Connectar a través d\'una màquina Happy Next al teu ordinador',
+        machineTypeHappy: 'Màquina Happy AI',
+        machineTypeHappyDescription: 'Connectar a través d\'una màquina Happy AI al teu ordinador',
         machineTypeDirect: 'Connexió directa',
         machineTypeDirectDescription: 'Connectar directament a una passarel·la OpenClaw',
         gatewayUrl: 'URL de la passarel·la',
@@ -196,7 +195,7 @@ export const ca: TranslationStructure = {
         developer: 'Desenvolupador',
         developerTools: 'Eines de desenvolupador',
         about: 'Quant a',
-        aboutFooter: 'Happy Next és un client mòbil de Claude Code, Codex i Gemini. Tot està xifrat punt a punt i el teu compte es guarda només al teu dispositiu. No està afiliat amb Anthropic ni OpenAI.',
+        aboutFooter: 'Happy AI és un client mòbil de Claude Code, Codex i Gemini. Tot està xifrat punt a punt i el teu compte es guarda només al teu dispositiu. No està afiliat amb Anthropic ni OpenAI.',
         whatsNew: 'Novetats',
         whatsNewSubtitle: 'Mira les últimes actualitzacions i millores',
         reportIssue: 'Informa d\'un problema',
@@ -304,12 +303,8 @@ export const ca: TranslationStructure = {
             `${name} està ${status === 'online' ? 'en línia' : 'fora de línia'}`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature} ${enabled ? 'activada' : 'desactivada'}`,
-        dootaskConnected: ({ username }: { username: string }) => `Connected as @${username}`,
-        connectDootask: 'Connect DooTask',
     },
 
-    dootask: {
-        title: 'DooTask',
         tasks: 'Tasks',
         projects: 'Projects',
         allProjects: 'All Projects',
@@ -338,8 +333,6 @@ export const ca: TranslationStructure = {
         description: 'Description',
         project: 'Project',
         column: 'List',
-        connectFirst: 'Connect DooTask in Settings to get started',
-        reconnect: 'Reconnect DooTask',
         tokenExpired: 'Session expired. Please reconnect.',
         serverUrl: 'Server URL',
         email: 'Email',
@@ -348,8 +341,6 @@ export const ca: TranslationStructure = {
         captchaPlaceholder: 'Enter verification code',
         captchaLoadFailed: 'Load failed',
         connecting: 'Connecting...',
-        disconnect: 'Disconnect DooTask',
-        disconnectConfirm: 'This will remove your DooTask connection and clear cached data.',
         subTasks: 'Subtasques',
         files: 'Fitxers',
         tags: 'Etiquetes',
@@ -382,7 +373,6 @@ export const ca: TranslationStructure = {
         loadingChat: 'Loading chat...',
         errorLoadChat: 'Failed to load chat',
         errorSendMessage: 'Failed to send message',
-        unsupportedMessage: 'Unsupported message type. Please use DooTask client to view.',
         tagged: '{name} bookmarked "{desc}"',
         untagged: '{name} removed bookmark "{desc}"',
         pinned: '{name} pinned "{desc}"',
@@ -745,7 +735,7 @@ export const ca: TranslationStructure = {
         // Used by Server Configuration screen (app/(app)/server.tsx)
         serverConfiguration: 'Configuració del servidor',
         enterServerUrl: 'Introdueix una URL del servidor',
-        notValidHappyServer: 'No és un servidor Happy Next vàlid',
+        notValidHappyServer: 'No és un servidor Happy AI vàlid',
         changeServer: 'Canvia el servidor',
         continueWithServer: 'Continuar amb aquest servidor?',
         resetToDefault: 'Reinicia per defecte',
@@ -765,9 +755,9 @@ export const ca: TranslationStructure = {
         killSessionConfirm: 'Segur que vols finalitzar aquesta sessió?',
         archiveSession: 'Arxiva la sessió',
         archiveSessionConfirm: 'Segur que vols arxivar aquesta sessió?',
-        happySessionIdCopied: 'ID de la sessió de Happy Next copiat al porta-retalls',
-        failedToCopySessionId: 'Ha fallat copiar l\'ID de la sessió de Happy Next',
-        happySessionId: 'ID de la sessió de Happy Next',
+        happySessionIdCopied: 'ID de la sessió de Happy AI copiat al porta-retalls',
+        failedToCopySessionId: 'Ha fallat copiar l\'ID de la sessió de Happy AI',
+        happySessionId: 'ID de la sessió de Happy AI',
         claudeCodeSessionId: 'ID de la sessió de Claude Code',
         claudeCodeSessionIdCopied: 'ID de la sessió de Claude Code copiat al porta-retalls',
         aiProvider: 'Proveïdor d\'IA',
@@ -802,7 +792,7 @@ export const ca: TranslationStructure = {
         path: 'Camí',
         operatingSystem: 'Sistema operatiu',
         processId: 'ID del procés',
-        happyHome: 'Directori de Happy Next',
+        happyHome: 'Directori de Happy AI',
         copyMetadata: 'Copia les metadades',
         agentState: 'Estat de l\'agent',
         controlledByUser: 'Controlat per l\'usuari',
@@ -814,7 +804,7 @@ export const ca: TranslationStructure = {
         cliVersionOutdated: 'Actualització del CLI requerida',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `Versió ${currentVersion} instal·lada. Actualitzeu a ${requiredVersion} o posterior`,
-        updateCliInstructions: 'Si us plau executeu npm install -g happy-next-cli@latest',
+        updateCliInstructions: 'Si us plau executeu npm install -g happy-ai-cli@latest',
         cliUpgradeAvailable: 'Nova versió de CLI disponible',
         cliUpgradeAvailableSubtitle: 'Toqueu per reiniciar la sessió amb la darrera versió del CLI',
         cliUpgradeInProgress: 'Actualitzant...',
@@ -881,7 +871,7 @@ export const ca: TranslationStructure = {
         emptyMainScreen: {
             // Used by EmptyMainScreen component
             readyToCode: 'Llest per programar?',
-            installCli: 'Instal·la el Happy Next CLI',
+            installCli: 'Instal·la el Happy AI CLI',
             runIt: 'Executa\'l',
             scanQrCode: 'Escaneja el codi QR',
             openCamera: 'Obre la càmera',
@@ -966,7 +956,7 @@ export const ca: TranslationStructure = {
     },
 
     sidebar: {
-        sessionsTitle: 'Happy Next',
+        sessionsTitle: 'Happy AI',
     },
 
     toolView: {
@@ -1116,8 +1106,8 @@ export const ca: TranslationStructure = {
         agentId: 'ID de l\'agent',
         agentIdPlaceholder: 'Introdueix l\'ID de l\'agent ElevenLabs',
 
-        happyVoiceTitle: 'Happy Next Voice',
-        happyVoiceDescription: 'Configura la teva passarel·la de veu Happy Next Voice autoallotjada.',
+        happyVoiceTitle: 'Happy AI Voice',
+        happyVoiceDescription: 'Configura la teva passarel·la de veu Happy AI Voice autoallotjada.',
         gatewayUrl: 'URL de la passarel·la',
         gatewayUrlPlaceholder: 'https://voice.example.com',
         publicKey: 'Clau pública',
@@ -1240,7 +1230,7 @@ export const ca: TranslationStructure = {
         invalidConnectionLink: 'Enllaç de connexió no vàlid',
         invalidConnectionLinkDescription: 'L\'enllaç de connexió falta o no és vàlid. Comprova l\'URL i torna-ho a provar.',
         connectTerminal: 'Connecta el terminal',
-        terminalRequestDescription: 'Un terminal està sol·licitant connectar-se al teu compte de Happy Next. Això permetrà al terminal enviar i rebre missatges de forma segura.',
+        terminalRequestDescription: 'Un terminal està sol·licitant connectar-se al teu compte de Happy AI. Això permetrà al terminal enviar i rebre missatges de forma segura.',
         connectionDetails: 'Detalls de la connexió',
         publicKey: 'Clau pública',
         encryption: 'Xifratge',
@@ -1317,7 +1307,7 @@ export const ca: TranslationStructure = {
 
     machine: {
         offlineUnableToSpawn: 'El llançador està desactivat mentre la màquina està fora de línia',
-        offlineHelp: '• Assegura\'t que l\'ordinador estigui en línia\n• Executa `happy daemon status` per diagnosticar\n• Fas servir l\'última versió del CLI? Actualitza amb `npm install -g happy-next-cli@latest`',
+        offlineHelp: '• Assegura\'t que l\'ordinador estigui en línia\n• Executa `happy daemon status` per diagnosticar\n• Fas servir l\'última versió del CLI? Actualitza amb `npm install -g happy-ai-cli@latest`',
         launchNewSessionInDirectory: 'Inicia una nova sessió al directori',
         daemon: 'Dimoni',
         status: 'Estat',
