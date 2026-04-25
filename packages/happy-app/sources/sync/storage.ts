@@ -9,9 +9,7 @@ import { applySettings, Settings } from "./settings";
 import { LocalSettings, applyLocalSettings } from "./localSettings";
 import { Profile } from "./profile";
 import { UserProfile } from "./friendTypes";
-import { loadSettings, loadLocalSettings, saveLocalSettings, saveSettings, loadProfile, saveProfile, loadSessionDrafts, saveSessionDrafts, loadDooTaskProfile, saveDooTaskProfile, loadDooTaskUserCache, saveDooTaskUserCache, clearDooTaskUserCache, loadDooTaskProjects, saveDooTaskProjects, clearDooTaskProjects, loadDooTaskPriorities, saveDooTaskPriorities, clearDooTaskPriorities, loadDooTaskColumns, saveDooTaskColumns, clearDooTaskColumns, loadRegisteredReposLocal, saveRegisteredReposLocal } from "./persistence";
-import { DooTaskProfile, DooTaskProject, DooTaskItem, DooTaskFilters, DooTaskPager, DooTaskPriority, DooTaskColumn } from './dootask/types';
-import { dootaskFetchProjects, dootaskFetchTasks, dootaskFetchUsersBasic, dootaskFetchPriorities, dootaskFetchProjectColumns } from './dootask/api';
+import { loadSettings, loadLocalSettings, saveLocalSettings, saveSettings, loadProfile, saveProfile, loadSessionDrafts, saveSessionDrafts, loadRegisteredReposLocal, saveRegisteredReposLocal } from "./persistence";
 import type { PermissionMode } from '@/components/PermissionModeSelector';
 import React from "react";
 import { sync } from "./sync";
@@ -133,26 +131,6 @@ interface StorageState {
     socketLastDisconnectedAt: number | null;
     isDataReady: boolean;
     nativeUpdateStatus: { available: boolean; updateUrl?: string } | null;
-    // DooTask integration
-    dootaskProfile: DooTaskProfile | null;
-    dootaskTasks: DooTaskItem[];
-    dootaskProjects: DooTaskProject[];
-    dootaskLoading: boolean;
-    dootaskError: string | null;
-    dootaskFilters: DooTaskFilters;
-    dootaskPager: DooTaskPager;
-    dootaskUserCache: Record<number, string>;
-    dootaskUserAvatars: Record<number, string | null>;
-    dootaskUserDisabledAt: Record<number, string | null>;
-    dootaskTaskDetailCache: Record<number, { task: DooTaskItem; content: string | null }>;
-    dootaskProjectsFetchedAt: number | null;
-    dootaskUserCacheFetchedAt: number | null;
-    dootaskLastProjectId: number | null;
-    dootaskLastColumnId: number | null;
-    dootaskPriorities: DooTaskPriority[];
-    dootaskPrioritiesFetchedAt: number | null;
-    dootaskColumns: Record<number, DooTaskColumn[]>;
-    dootaskColumnsFetchedAt: Record<number, number>;
     applySessions: (sessions: (Omit<Session, 'presence'> & { presence?: "online" | number })[]) => void;
     applyMachines: (machines: Machine[], replace?: boolean) => void;
     applyOpenClawMachines: (machines: OpenClawMachine[], replace?: boolean) => void;
@@ -228,18 +206,6 @@ interface StorageState {
     removeFeedItem: (itemId: string) => void;
     markFeedItemRead: (itemId: string) => void;
     clearFeed: () => void;
-    // DooTask methods
-    setDootaskProfile: (profile: DooTaskProfile | null) => void;
-    fetchDootaskProjects: () => Promise<void>;
-    fetchDootaskTasks: (opts?: { refresh?: boolean; loadMore?: boolean }) => Promise<void>;
-    setDootaskFilter: (filters: Partial<DooTaskFilters>) => void;
-    setDootaskLastSelection: (projectId: number, columnId: number) => void;
-    refreshDootaskProjects: () => Promise<void>;
-    fetchDootaskPriorities: () => Promise<void>;
-    fetchDootaskColumns: (projectId: number) => Promise<void>;
-    fetchDootaskUsers: (userIds: number[]) => Promise<Record<number, string>>;
-    updateDootaskTask: (taskId: number, updates: Partial<DooTaskItem>) => void;
-    clearDootaskData: () => void;
     // Registered repos methods
     setRegisteredRepos: (machineId: string, repos: RegisteredRepo[], version: number) => void;
 }
@@ -396,10 +362,6 @@ export const storage = create<StorageState>()((set, get) => {
     let localSettings = loadLocalSettings();
     let profile = loadProfile();
     let sessionDrafts = loadSessionDrafts();
-    const _cachedProjects = loadDooTaskProjects();
-    const _cachedUsers = loadDooTaskUserCache();
-    const _cachedPriorities = loadDooTaskPriorities();
-    const _cachedColumns = loadDooTaskColumns();
     const cachedRepos = loadRegisteredReposLocal();
     return {
         settings,
@@ -440,26 +402,6 @@ export const storage = create<StorageState>()((set, get) => {
         socketLastDisconnectedAt: null,
         isDataReady: false,
         nativeUpdateStatus: null,
-        // DooTask integration
-        dootaskProfile: loadDooTaskProfile(),
-        dootaskTasks: [],
-        dootaskProjects: _cachedProjects.projects,
-        dootaskLoading: false,
-        dootaskError: null,
-        dootaskFilters: { status: 'uncompleted' },
-        dootaskPager: { page: 1, pagesize: 20, total: 0, hasMore: false },
-        dootaskUserCache: _cachedUsers.cache,
-        dootaskUserAvatars: _cachedUsers.avatars,
-        dootaskUserDisabledAt: _cachedUsers.disabledAt,
-        dootaskTaskDetailCache: {},
-        dootaskProjectsFetchedAt: _cachedProjects.fetchedAt,
-        dootaskUserCacheFetchedAt: _cachedUsers.fetchedAt,
-        dootaskLastProjectId: null,
-        dootaskLastColumnId: null,
-        dootaskPriorities: _cachedPriorities.priorities as DooTaskPriority[],
-        dootaskPrioritiesFetchedAt: _cachedPriorities.fetchedAt,
-        dootaskColumns: _cachedColumns.columns as Record<number, DooTaskColumn[]>,
-        dootaskColumnsFetchedAt: _cachedColumns.fetchedAt,
         isMutableToolCall: (sessionId: string, callId: string) => {
             const sessionMessages = get().sessionMessages[sessionId];
             if (!sessionMessages) {
@@ -1860,307 +1802,6 @@ export const storage = create<StorageState>()((set, get) => {
             feedLoaded: false,  // Reset loading flag
             friendsLoaded: false  // Reset loading flag
         })),
-        // DooTask methods
-        setDootaskProfile: (profile) => {
-            const prev = get().dootaskProfile;
-            const isSameAccount = prev && profile
-                && prev.serverUrl === profile.serverUrl
-                && prev.userId === profile.userId;
-
-            saveDooTaskProfile(profile);
-
-            if (isSameAccount) {
-                // Same account (token refresh): keep existing data
-                set((state) => ({
-                    ...state,
-                    dootaskProfile: profile,
-                    dootaskError: null,
-                }));
-            } else {
-                // Account switch or first login: clear all data
-                clearDooTaskUserCache();
-                clearDooTaskProjects();
-                clearDooTaskPriorities();
-                clearDooTaskColumns();
-                set((state) => ({
-                    ...state,
-                    dootaskProfile: profile,
-                    dootaskError: null,
-                    dootaskTasks: [],
-                    dootaskLoading: false,
-                    dootaskPager: { page: 1, pagesize: 20, total: 0, hasMore: false },
-                    dootaskProjects: [],
-                    dootaskProjectsFetchedAt: null,
-                    dootaskUserCache: {},
-                    dootaskUserAvatars: {},
-                    dootaskUserDisabledAt: {},
-                    dootaskUserCacheFetchedAt: null,
-                    dootaskTaskDetailCache: {},
-                    dootaskPriorities: [],
-                    dootaskPrioritiesFetchedAt: null,
-                    dootaskColumns: {},
-                    dootaskColumnsFetchedAt: {},
-                }));
-            }
-        },
-
-        fetchDootaskProjects: async () => {
-            const { dootaskProfile } = get();
-            if (!dootaskProfile) return;
-            const profileKey = `${dootaskProfile.serverUrl}|${dootaskProfile.userId}|${dootaskProfile.token}`;
-            try {
-                const res = await dootaskFetchProjects(dootaskProfile.serverUrl, dootaskProfile.token);
-                const cur = get().dootaskProfile;
-                if (!cur || `${cur.serverUrl}|${cur.userId}|${cur.token}` !== profileKey) return; // account switched
-                if (res.ret === 1) {
-                    const projects = (res.data?.data || res.data || []).map((p: any) => ({
-                        id: p.id, name: p.name
-                    }));
-                    const now = Date.now();
-                    saveDooTaskProjects(projects, now);
-                    set((state) => ({ ...state, dootaskProjects: projects, dootaskProjectsFetchedAt: now }));
-                }
-            } catch {
-                // silent — projects are supplementary
-            }
-        },
-
-        refreshDootaskProjects: async () => {
-            set((state) => ({ ...state, dootaskProjectsFetchedAt: null }));
-            await get().fetchDootaskProjects();
-        },
-
-        fetchDootaskPriorities: async () => {
-            const { dootaskProfile } = get();
-            if (!dootaskProfile) return;
-            const profileKey = `${dootaskProfile.serverUrl}|${dootaskProfile.userId}|${dootaskProfile.token}`;
-            try {
-                const res = await dootaskFetchPriorities(dootaskProfile.serverUrl, dootaskProfile.token);
-                const cur = get().dootaskProfile;
-                if (!cur || `${cur.serverUrl}|${cur.userId}|${cur.token}` !== profileKey) return;
-                if (res.ret === 1) {
-                    const priorities: DooTaskPriority[] = (res.data || []).map((p: any) => ({
-                        priority: p.priority,
-                        name: p.name,
-                        color: p.color,
-                        days: p.days ?? 0,
-                        is_default: p.is_default,
-                    }));
-                    const now = Date.now();
-                    saveDooTaskPriorities(priorities, now);
-                    set((state) => ({ ...state, dootaskPriorities: priorities, dootaskPrioritiesFetchedAt: now }));
-                }
-            } catch {
-                // silent
-            }
-        },
-
-        fetchDootaskColumns: async (projectId: number) => {
-            const { dootaskProfile } = get();
-            if (!dootaskProfile) return;
-            const profileKey = `${dootaskProfile.serverUrl}|${dootaskProfile.userId}|${dootaskProfile.token}`;
-            try {
-                const res = await dootaskFetchProjectColumns(dootaskProfile.serverUrl, dootaskProfile.token, projectId);
-                const cur = get().dootaskProfile;
-                if (!cur || `${cur.serverUrl}|${cur.userId}|${cur.token}` !== profileKey) return;
-                if (res.ret === 1) {
-                    const rawCols = res.data?.data || res.data || [];
-                    const cols: DooTaskColumn[] = (Array.isArray(rawCols) ? rawCols : []).map((c: any) => ({
-                        id: c.id,
-                        name: c.name,
-                        sort: c.sort ?? 0,
-                    }));
-                    const now = Date.now();
-                    const updatedColumns = { ...get().dootaskColumns, [projectId]: cols };
-                    const updatedFetchedAt = { ...get().dootaskColumnsFetchedAt, [projectId]: now };
-                    saveDooTaskColumns(updatedColumns, updatedFetchedAt);
-                    set((state) => ({ ...state, dootaskColumns: updatedColumns, dootaskColumnsFetchedAt: updatedFetchedAt }));
-                }
-            } catch {
-                // silent
-            }
-        },
-
-        fetchDootaskTasks: async (opts) => {
-            const { dootaskProfile, dootaskFilters, dootaskPager, dootaskTasks } = get();
-            if (!dootaskProfile) return;
-            const loadMore = opts?.loadMore ?? false;
-            const page = loadMore ? dootaskPager.page + 1 : 1;
-            const profileKey = `${dootaskProfile.serverUrl}|${dootaskProfile.userId}|${dootaskProfile.token}`;
-
-            set((state) => ({ ...state, dootaskLoading: true, dootaskError: null }));
-            try {
-                const keys: Record<string, string> = {};
-                const search = dootaskFilters.search?.trim();
-                if (dootaskFilters.status && dootaskFilters.status !== 'all') {
-                    keys['status'] = dootaskFilters.status;
-                }
-                if (search) {
-                    keys['name'] = search;
-                }
-                const ownerParam = dootaskFilters.role === 'owner' ? 1 : dootaskFilters.role === 'assist' ? 0 : undefined;
-                const res = await dootaskFetchTasks(dootaskProfile.serverUrl, dootaskProfile.token, {
-                    page,
-                    pagesize: dootaskPager.pagesize,
-                    project_id: dootaskFilters.projectId,
-                    parent_id: -1,
-                    keys: Object.keys(keys).length > 0 ? keys : undefined,
-                    time: dootaskFilters.time,
-                    owner: ownerParam,
-                    with_extend: 'project_name,column_name',
-                });
-
-                const cur = get().dootaskProfile;
-                if (!cur || `${cur.serverUrl}|${cur.userId}|${cur.token}` !== profileKey) return; // account switched
-
-                if (res.ret === -1 || /身份已失效|请登录后继续/.test(res.msg)) {
-                    set((state) => ({ ...state, dootaskLoading: false, dootaskError: 'token_expired' }));
-                    return;
-                }
-
-                if (res.ret === 1) {
-                    const newTasks: DooTaskItem[] = res.data.data || [];
-                    const merged = loadMore ? [...dootaskTasks, ...newTasks] : newTasks;
-                    set((state) => ({
-                        ...state,
-                        dootaskTasks: merged,
-                        dootaskLoading: false,
-                        dootaskPager: {
-                            ...state.dootaskPager,
-                            page: res.data.current_page,
-                            total: res.data.total,
-                            hasMore: res.data.current_page < res.data.last_page,
-                        },
-                    }));
-                } else {
-                    set((state) => ({ ...state, dootaskLoading: false, dootaskError: res.msg }));
-                }
-            } catch (e) {
-                const cur = get().dootaskProfile;
-                if (!cur || `${cur.serverUrl}|${cur.userId}|${cur.token}` !== profileKey) return;
-                set((state) => ({
-                    ...state,
-                    dootaskLoading: false,
-                    dootaskError: e instanceof Error ? e.message : 'Failed to load tasks',
-                }));
-            }
-        },
-
-        setDootaskFilter: (filters) => {
-            set((state) => ({
-                ...state,
-                dootaskFilters: { ...state.dootaskFilters, ...filters },
-            }));
-        },
-
-        setDootaskLastSelection: (projectId: number, columnId: number) => {
-            set((state) => ({
-                ...state,
-                dootaskLastProjectId: projectId,
-                dootaskLastColumnId: columnId,
-            }));
-        },
-
-        fetchDootaskUsers: async (userIds) => {
-            const { dootaskProfile, dootaskUserCache, dootaskUserCacheFetchedAt } = get();
-            if (!dootaskProfile || userIds.length === 0) return dootaskUserCache;
-
-            // If cache expired (>10 min), re-fetch all requested IDs; otherwise only missing ones
-            // Also re-fetch users whose avatar or disabledAt status is missing from cache (e.g. after upgrade)
-            const expired = !dootaskUserCacheFetchedAt || Date.now() - dootaskUserCacheFetchedAt >= 600_000;
-            const avatarCache = get().dootaskUserAvatars;
-            const disabledAtCache = get().dootaskUserDisabledAt;
-            const missingIds = expired
-                ? userIds
-                : userIds.filter((id) => !(id in dootaskUserCache) || !(id in avatarCache) || !(id in disabledAtCache));
-            if (missingIds.length === 0) return dootaskUserCache;
-
-            const profileKey = `${dootaskProfile.serverUrl}|${dootaskProfile.userId}|${dootaskProfile.token}`;
-            try {
-                const res = await dootaskFetchUsersBasic(dootaskProfile.serverUrl, dootaskProfile.token, missingIds);
-                const cur = get().dootaskProfile;
-                if (!cur || `${cur.serverUrl}|${cur.userId}|${cur.token}` !== profileKey) return get().dootaskUserCache; // account switched
-                if (res.ret === 1 && Array.isArray(res.data)) {
-                    const newEntries: Record<number, string> = {};
-                    const newAvatars: Record<number, string | null> = {};
-                    const newDisabledAt: Record<number, string | null> = {};
-                    for (const u of res.data) {
-                        if (u.userid) {
-                            newEntries[u.userid] = u.nickname || '';
-                            newAvatars[u.userid] = u.userimg || null;
-                            newDisabledAt[u.userid] = u.disable_at || null;
-                        }
-                    }
-                    // When expired, strip requested IDs from old cache before merging
-                    // so IDs not returned by API don't retain stale values
-                    const oldCache = get().dootaskUserCache;
-                    const base = expired
-                        ? Object.fromEntries(Object.entries(oldCache).filter(([id]) => !missingIds.includes(Number(id))))
-                        : oldCache;
-                    const merged = { ...base, ...newEntries };
-                    const mergedAvatars = { ...get().dootaskUserAvatars, ...newAvatars };
-                    const mergedDisabledAt = { ...get().dootaskUserDisabledAt, ...newDisabledAt };
-                    const now = Date.now();
-                    saveDooTaskUserCache(merged, mergedAvatars, mergedDisabledAt, now);
-                    set((state) => ({ ...state, dootaskUserCache: merged, dootaskUserAvatars: mergedAvatars, dootaskUserDisabledAt: mergedDisabledAt, dootaskUserCacheFetchedAt: now }));
-                    return merged;
-                }
-            } catch { /* silent */ }
-            return get().dootaskUserCache;
-        },
-
-        updateDootaskTask: (taskId, updates) => set((state) => {
-            const idx = state.dootaskTasks.findIndex((t) => t.id === taskId);
-            const newState: Partial<StorageState> = {};
-
-            // Update task in list
-            if (idx !== -1) {
-                const updated = [...state.dootaskTasks];
-                updated[idx] = { ...updated[idx], ...updates };
-                newState.dootaskTasks = updated;
-            }
-
-            // Update task in detail cache (so detail page reacts too)
-            const cached = state.dootaskTaskDetailCache[taskId];
-            if (cached) {
-                newState.dootaskTaskDetailCache = {
-                    ...state.dootaskTaskDetailCache,
-                    [taskId]: { ...cached, task: { ...cached.task, ...updates } },
-                };
-            }
-
-            return Object.keys(newState).length > 0 ? { ...state, ...newState } : state;
-        }),
-
-        clearDootaskData: () => {
-            saveDooTaskProfile(null);
-            clearDooTaskUserCache();
-            clearDooTaskProjects();
-            clearDooTaskPriorities();
-            clearDooTaskColumns();
-            set((state) => ({
-                ...state,
-                dootaskProfile: null,
-                dootaskTasks: [],
-                dootaskProjects: [],
-                dootaskLoading: false,
-                dootaskError: null,
-                dootaskFilters: { status: 'uncompleted' },
-                dootaskPager: { page: 1, pagesize: 20, total: 0, hasMore: false },
-                dootaskUserCache: {},
-                dootaskUserAvatars: {},
-                dootaskUserDisabledAt: {},
-                dootaskTaskDetailCache: {},
-                dootaskProjectsFetchedAt: null,
-                dootaskUserCacheFetchedAt: null,
-                dootaskLastProjectId: null,
-                dootaskLastColumnId: null,
-                dootaskPriorities: [],
-                dootaskPrioritiesFetchedAt: null,
-                dootaskColumns: {},
-                dootaskColumnsFetchedAt: {},
-            }));
-        },
 
         // Registered repos
         setRegisteredRepos: (machineId: string, repos: RegisteredRepo[], version: number) => set((state) => {
@@ -2476,55 +2117,3 @@ export function useIsSessionOwner(sessionId: string) {
     return storage((state) => !!state.sessions[sessionId] && !state.sharedSessions[sessionId]);
 }
 
-// DooTask hooks
-export function useDootaskProfile(): DooTaskProfile | null {
-    return null; // DooTask UI disabled
-}
-
-export function useDootaskTasks() {
-    return storage(useShallow((s) => ({
-        tasks: s.dootaskTasks,
-        loading: s.dootaskLoading,
-        error: s.dootaskError,
-        pager: s.dootaskPager,
-    })));
-}
-
-export function useDootaskProjects(): DooTaskProject[] {
-    return storage(useShallow((s) => s.dootaskProjects));
-}
-
-export function useDootaskFilters(): DooTaskFilters {
-    return storage(useShallow((s) => s.dootaskFilters));
-}
-
-export function useDootaskUserCache(): Record<number, string> {
-    return storage(useShallow((s) => s.dootaskUserCache));
-}
-
-export function useDootaskUserAvatars(): Record<number, string | null> {
-    return storage(useShallow((s) => s.dootaskUserAvatars));
-}
-
-export function useDootaskUserDisabledAt(): Record<number, string | null> {
-    return storage(useShallow((s) => s.dootaskUserDisabledAt));
-}
-
-export function useDootaskPriorities(): DooTaskPriority[] {
-    return storage(useShallow((s) => s.dootaskPriorities));
-}
-
-export function useDootaskColumns(projectId: number | null): DooTaskColumn[] {
-    return storage(useShallow((s) => (projectId != null ? s.dootaskColumns[projectId] : undefined) ?? []));
-}
-
-export function useDootaskLastSelection() {
-    return storage(useShallow((s) => ({
-        projectId: s.dootaskLastProjectId,
-        columnId: s.dootaskLastColumnId,
-    })));
-}
-
-export function useDootaskTaskDetailCache(taskId: number) {
-    return storage(useShallow((s) => s.dootaskTaskDetailCache[taskId] ?? null));
-}

@@ -4,7 +4,6 @@ import { LocalSettings, localSettingsDefaults, localSettingsParse } from './loca
 import { Profile, profileDefaults, profileParse } from './profile';
 import type { PermissionMode } from '@/components/PermissionModeSelector';
 import type { SessionDraft } from './storageTypes';
-import { DooTaskProfile, DooTaskProfileSchema } from './dootask/types';
 
 const mmkv = new MMKV();
 const NEW_SESSION_DRAFT_KEY = 'new-session-draft-v1';
@@ -249,126 +248,6 @@ export function saveBrowserLastPath(rootPath: string, path: string): void {
     const map = loadBrowserLastPaths();
     map[rootPath] = path;
     mmkv.set(BROWSER_LAST_PATHS_KEY, JSON.stringify(map));
-}
-
-export function loadDooTaskProfile(): DooTaskProfile | null {
-    const raw = mmkv.getString('dootask-profile');
-    if (!raw) return null;
-    try {
-        const parsed = JSON.parse(raw);
-        return DooTaskProfileSchema.parse(parsed);
-    } catch {
-        return null;
-    }
-}
-
-export function saveDooTaskProfile(profile: DooTaskProfile | null): void {
-    if (profile) {
-        mmkv.set('dootask-profile', JSON.stringify(profile));
-    } else {
-        mmkv.delete('dootask-profile');
-    }
-}
-
-export function loadDooTaskUserCache(): { cache: Record<number, string>; avatars: Record<number, string | null>; disabledAt: Record<number, string | null>; fetchedAt: number | null } {
-    const raw = mmkv.getString('dootask-user-cache');
-    if (!raw) return { cache: {}, avatars: {}, disabledAt: {}, fetchedAt: null };
-    try {
-        const parsed = JSON.parse(raw);
-        return { cache: parsed.cache || {}, avatars: parsed.avatars || {}, disabledAt: parsed.disabledAt || {}, fetchedAt: parsed.fetchedAt ?? null };
-    } catch {
-        return { cache: {}, avatars: {}, disabledAt: {}, fetchedAt: null };
-    }
-}
-
-export function saveDooTaskUserCache(cache: Record<number, string>, avatars: Record<number, string | null>, disabledAt: Record<number, string | null>, fetchedAt: number | null): void {
-    mmkv.set('dootask-user-cache', JSON.stringify({ cache, avatars, disabledAt, fetchedAt }));
-}
-
-export function clearDooTaskUserCache(): void {
-    mmkv.delete('dootask-user-cache');
-}
-
-export function loadDooTaskProjects(): { projects: Array<{ id: number; name: string }>; fetchedAt: number | null } {
-    const raw = mmkv.getString('dootask-projects');
-    if (!raw) return { projects: [], fetchedAt: null };
-    try {
-        const parsed = JSON.parse(raw);
-        return { projects: parsed.projects || [], fetchedAt: parsed.fetchedAt ?? null };
-    } catch {
-        return { projects: [], fetchedAt: null };
-    }
-}
-
-export function saveDooTaskProjects(projects: Array<{ id: number; name: string }>, fetchedAt: number | null): void {
-    mmkv.set('dootask-projects', JSON.stringify({ projects, fetchedAt }));
-}
-
-export function clearDooTaskProjects(): void {
-    mmkv.delete('dootask-projects');
-}
-
-export function loadDooTaskPriorities(): { priorities: Array<{ priority: number; name: string; color: string; days: number; is_default?: number }>; fetchedAt: number | null } {
-    const raw = mmkv.getString('dootask-priorities');
-    if (!raw) return { priorities: [], fetchedAt: null };
-    try {
-        const parsed = JSON.parse(raw);
-        return { priorities: parsed.priorities || [], fetchedAt: parsed.fetchedAt ?? null };
-    } catch {
-        return { priorities: [], fetchedAt: null };
-    }
-}
-
-export function saveDooTaskPriorities(priorities: Array<{ priority: number; name: string; color: string; days: number; is_default?: number }>, fetchedAt: number | null): void {
-    mmkv.set('dootask-priorities', JSON.stringify({ priorities, fetchedAt }));
-}
-
-export function clearDooTaskPriorities(): void {
-    mmkv.delete('dootask-priorities');
-}
-
-export function loadDooTaskColumns(): { columns: Record<number, Array<{ id: number; name: string; sort: number }>>; fetchedAt: Record<number, number> } {
-    const raw = mmkv.getString('dootask-columns');
-    if (!raw) return { columns: {}, fetchedAt: {} };
-    try {
-        const parsed = JSON.parse(raw);
-        return { columns: parsed.columns || {}, fetchedAt: parsed.fetchedAt || {} };
-    } catch {
-        return { columns: {}, fetchedAt: {} };
-    }
-}
-
-export function saveDooTaskColumns(columns: Record<number, Array<{ id: number; name: string; sort: number }>>, fetchedAt: Record<number, number>): void {
-    mmkv.set('dootask-columns', JSON.stringify({ columns, fetchedAt }));
-}
-
-export function clearDooTaskColumns(): void {
-    mmkv.delete('dootask-columns');
-}
-
-const DOOTASK_LOGIN_CACHE_KEY = 'dootask-login-cache';
-
-export interface DooTaskLoginCache {
-    serverUrl: string;
-    email: string;
-}
-
-export function loadDooTaskLoginCache(): DooTaskLoginCache {
-    const raw = mmkv.getString(DOOTASK_LOGIN_CACHE_KEY);
-    if (!raw) return { serverUrl: '', email: '' };
-    try {
-        const parsed = JSON.parse(raw);
-        return {
-            serverUrl: typeof parsed.serverUrl === 'string' ? parsed.serverUrl : '',
-            email: typeof parsed.email === 'string' ? parsed.email : '',
-        };
-    } catch {
-        return { serverUrl: '', email: '' };
-    }
-}
-
-export function saveDooTaskLoginCache(cache: DooTaskLoginCache): void {
-    mmkv.set(DOOTASK_LOGIN_CACHE_KEY, JSON.stringify(cache));
 }
 
 export function loadRegisteredReposLocal(): { repos: Record<string, any[]>; versions: Record<string, number> } {
