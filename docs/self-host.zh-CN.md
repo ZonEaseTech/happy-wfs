@@ -4,7 +4,7 @@
 
 本仓库支持两种模式：
 
-- **托管（默认）：** 客户端开箱即用 `https://api.happy-ai.com/`。
+- **托管（默认）：** 客户端开箱即用 `https://api.happy.weifashi.cn/`。
 - **自托管：** 使用根目录的 `docker-compose.yml` 运行你自己的 `happy-server`（API + WebSocket）和 `happy-voice`（语音网关）。
 
 本指南文档化了**自托管**路径。

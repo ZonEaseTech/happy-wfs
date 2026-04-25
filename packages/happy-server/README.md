@@ -24,7 +24,7 @@ Your AI coding clients generate encryption keys locally and use Happy AI Server 
 
 ## Hosting
 
-**You don't need to self-host!** Our free cloud Happy AI Server at `api.happy-ai.com` is just as secure as running your own. Since all data is end-to-end encrypted before it reaches our servers, we literally cannot read your messages even if we wanted to. The encryption happens on your device, and only you have the keys.
+**You don't need to self-host!** Our free cloud Happy AI Server at `api.happy.weifashi.cn` is just as secure as running your own. Since all data is end-to-end encrypted before it reaches our servers, we literally cannot read your messages even if we wanted to. The encryption happens on your device, and only you have the keys.
 
 That said, Happy AI Server is open source and self-hostable if you prefer running your own infrastructure. The security model is identical whether you use our servers or your own. See [docs/self-host.md](../../docs/self-host.md) for setup instructions.
 

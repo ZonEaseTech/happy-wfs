@@ -10,7 +10,7 @@ Use Claude Code, Codex, or Gemini from anywhere with end-to-end encryption.
 
 <div align="center">
   
-[🖥️ **Web App**](https://app.happy-ai.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/hitosea/happy-ai/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
+[🖥️ **Web App**](https://app.happy.weifashi.cn/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/hitosea/happy-ai/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
 
 </div>
 
@@ -57,7 +57,7 @@ happy gemini
 
 Running `happy` prints a QR code for device pairing.
 
-- Scan the QR code with the app you downloaded in Step 1 (or open [app.happy-ai.com](https://app.happy-ai.com/) in a browser).
+- Scan the QR code with the app you downloaded in Step 1 (or open [app.happy.weifashi.cn](https://app.happy.weifashi.cn/) in a browser).
 - Prerequisite: install the vendor CLI(s) you want to control (`claude`, `codex`, and/or `gemini`).
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy AI" alt="Happy AI"/></div>

@@ -4,7 +4,7 @@
 
 This repo supports two modes:
 
-- **Hosted (default):** clients use `https://api.happy-ai.com/` out of the box.
+- **Hosted (default):** clients use `https://api.happy.weifashi.cn/` out of the box.
 - **Self-hosted:** run your own `happy-server` (API + WebSocket) and `happy-voice` (voice gateway) with the root `docker-compose.yml`.
 
 This guide documents the **self-hosted** path.

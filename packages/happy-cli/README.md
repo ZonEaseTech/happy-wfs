@@ -92,8 +92,8 @@ happy gemini project get          # Show current Google Cloud Project ID
 
 ### Happy Configuration
 
-- `HAPPY_SERVER_URL` - Custom server URL (default: https://api.happy-ai.com)
-- `HAPPY_WEBAPP_URL` - Custom web app URL (default: https://app.happy-ai.com)
+- `HAPPY_SERVER_URL` - Custom server URL (default: https://api.happy.weifashi.cn)
+- `HAPPY_WEBAPP_URL` - Custom web app URL (default: https://app.happy.weifashi.cn)
 - `HAPPY_HOME_DIR` - Custom home directory for Happy AI data (default: ~/.happy-ai)
 - `HAPPY_DISABLE_CAFFEINATE` - Disable macOS sleep prevention (set to `true`, `1`, or `yes`)
 - `HAPPY_EXPERIMENTAL` - Enable experimental features (set to `true`, `1`, or `yes`)

@@ -24,13 +24,13 @@ const VARIANTS = {
     homeDir: path.join(os.homedir(), '.happy-ai'),
     color: '\x1b[32m', // Green
     label: '✅ STABLE',
-    serverUrl: process.env.HAPPY_SERVER_URL || 'https://api.happy-ai.com'
+    serverUrl: process.env.HAPPY_SERVER_URL || 'https://api.happy.weifashi.cn'
   },
   dev: {
     homeDir: path.join(os.homedir(), '.happy-ai-dev'),
     color: '\x1b[33m', // Yellow
     label: '🔧 DEV',
-    serverUrl: process.env.HAPPY_SERVER_URL || 'https://api.happy-ai.com'
+    serverUrl: process.env.HAPPY_SERVER_URL || 'https://api.happy.weifashi.cn'
   }
 };
 

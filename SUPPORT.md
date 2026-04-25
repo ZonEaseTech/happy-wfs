@@ -11,7 +11,7 @@ Please include:
 
 - Your OS and environment (macOS/Linux/Windows, Docker, Node version if relevant)
 - Which components you are using:
-  - Hosted (`https://api.happy-ai.com/`)
+  - Hosted (`https://api.happy.weifashi.cn/`)
   - Self-hosted (`docker-compose`)
 - Versions:
   - CLI: `happy --version`
