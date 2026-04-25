@@ -3,7 +3,7 @@ name: Docker Publish
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 env:
@@ -23,15 +23,6 @@ jobs:
           - image: happy-app
             dockerfile: Dockerfile.webapp
             context: .
-          - image: happy-voice
-            dockerfile: packages/happy-voice/Dockerfile
-            context: packages/happy-voice
-          - image: happy-docs
-            dockerfile: packages/happy-docs/Dockerfile
-            context: packages/happy-docs
-          - image: happy-web
-            dockerfile: packages/happy-web/Dockerfile
-            context: packages/happy-web
 
     steps:
       - name: Checkout
