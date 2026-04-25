@@ -23,6 +23,7 @@ export const ja: TranslationStructure = {
         inbox: '受信トレイ',
         sessions: 'ターミナル',
         openclaw: 'OpenClaw',
+        dootask: 'DooTask',
         settings: '設定',
     },
 
@@ -335,8 +336,12 @@ export const ja: TranslationStructure = {
             `${name}は${status === 'online' ? 'オンライン' : 'オフライン'}です`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature}を${enabled ? '有効' : '無効'}にしました`,
+        dootaskConnected: ({ username }: { username: string }) => `Connected as @${username}`,
+        connectDootask: 'Connect DooTask',
     },
 
+    dootask: {
+        title: 'DooTask',
         tasks: 'Tasks',
         projects: 'Projects',
         allProjects: 'All Projects',
@@ -365,6 +370,8 @@ export const ja: TranslationStructure = {
         description: 'Description',
         project: 'Project',
         column: 'List',
+        connectFirst: 'Connect DooTask in Settings to get started',
+        reconnect: 'Reconnect DooTask',
         tokenExpired: 'Session expired. Please reconnect.',
         serverUrl: 'Server URL',
         email: 'Email',
@@ -373,6 +380,8 @@ export const ja: TranslationStructure = {
         captchaPlaceholder: 'Enter verification code',
         captchaLoadFailed: 'Load failed',
         connecting: 'Connecting...',
+        disconnect: 'Disconnect DooTask',
+        disconnectConfirm: 'This will remove your DooTask connection and clear cached data.',
         subTasks: 'サブタスク',
         files: 'ファイル',
         tags: 'タグ',
@@ -405,6 +414,7 @@ export const ja: TranslationStructure = {
         loadingChat: 'チャットを読み込み中...',
         errorLoadChat: 'チャットの読み込みに失敗しました',
         errorSendMessage: 'メッセージの送信に失敗しました',
+        unsupportedMessage: 'このメッセージタイプはサポートされていません。DooTaskクライアントでご確認ください。',
         tagged: '{name} bookmarked "{desc}"',
         untagged: '{name} removed bookmark "{desc}"',
         pinned: '{name} pinned "{desc}"',

@@ -319,6 +319,7 @@ export async function runCodex(opts: {
         syncSessionModelInfo({ model: messageModel, reasoningEffort: messageReasoningEffort });
 
         // Capture session-level system prompt from first message.
+        // Combines appendSystemPrompt (Options, DooTask) with first-turn tooling instructions
         // (change_title + orchestrator guidance for controller sessions).
         // Both are passed as baseInstructions to Codex (true system prompt).
         if (sessionSystemPrompt === undefined) {
@@ -1037,6 +1038,7 @@ export async function runCodex(opts: {
                 if (!wasCreated || !backend?.isAlive) {
                     // Reset if backend was killed by abort
                     wasCreated = false;
+                    // System prompt (Options, DooTask, change_title) is passed via baseInstructions
                     const promptText = message.message;
 
                     // Determine resume file

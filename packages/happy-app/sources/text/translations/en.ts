@@ -35,6 +35,7 @@ export const en: TranslationStructure = {
         inbox: 'Inbox',
         sessions: 'Terminals',
         openclaw: 'OpenClaw',
+        dootask: 'DooTask',
         settings: 'Settings',
     },
 
@@ -319,8 +320,12 @@ export const en: TranslationStructure = {
             `${name} is ${status}`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature} ${enabled ? 'enabled' : 'disabled'}`,
+        dootaskConnected: ({ username }: { username: string }) => `Connected as @${username}`,
+        connectDootask: 'Connect DooTask',
     },
 
+    dootask: {
+        title: 'DooTask',
         tasks: 'Tasks',
         projects: 'Projects',
         allProjects: 'All Projects',
@@ -349,6 +354,8 @@ export const en: TranslationStructure = {
         description: 'Description',
         project: 'Project',
         column: 'List',
+        connectFirst: 'Connect DooTask in Settings to get started',
+        reconnect: 'Reconnect DooTask',
         tokenExpired: 'Session expired. Please reconnect.',
         serverUrl: 'Server URL',
         email: 'Email',
@@ -357,6 +364,8 @@ export const en: TranslationStructure = {
         captchaPlaceholder: 'Enter verification code',
         captchaLoadFailed: 'Load failed',
         connecting: 'Connecting...',
+        disconnect: 'Disconnect DooTask',
+        disconnectConfirm: 'This will remove your DooTask connection and clear cached data.',
         subTasks: 'Sub-tasks',
         files: 'Files',
         tags: 'Tags',
@@ -389,6 +398,7 @@ export const en: TranslationStructure = {
         loadingChat: 'Loading chat...',
         errorLoadChat: 'Failed to load chat',
         errorSendMessage: 'Failed to send message',
+        unsupportedMessage: 'Unsupported message type. Please use DooTask client to view.',
         tagged: '{name} bookmarked "{desc}"',
         untagged: '{name} removed bookmark "{desc}"',
         pinned: '{name} pinned "{desc}"',

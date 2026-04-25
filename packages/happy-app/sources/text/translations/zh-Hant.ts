@@ -22,6 +22,7 @@ export const zhHant: TranslationStructure = {
         inbox: '收件匣',
         sessions: '終端',
         openclaw: 'OpenClaw',
+        dootask: 'DooTask',
         settings: '設定',
     },
 
@@ -304,8 +305,12 @@ export const zhHant: TranslationStructure = {
             `${name} ${status === 'online' ? '線上' : '離線'}`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature} 已${enabled ? '啟用' : '停用'}`,
+        dootaskConnected: ({ username }: { username: string }) => `Connected as @${username}`,
+        connectDootask: 'Connect DooTask',
     },
 
+    dootask: {
+        title: 'DooTask',
         tasks: 'Tasks',
         projects: 'Projects',
         allProjects: 'All Projects',
@@ -334,6 +339,8 @@ export const zhHant: TranslationStructure = {
         description: 'Description',
         project: 'Project',
         column: 'List',
+        connectFirst: 'Connect DooTask in Settings to get started',
+        reconnect: 'Reconnect DooTask',
         tokenExpired: 'Session expired. Please reconnect.',
         serverUrl: 'Server URL',
         email: 'Email',
@@ -342,6 +349,8 @@ export const zhHant: TranslationStructure = {
         captchaPlaceholder: 'Enter verification code',
         captchaLoadFailed: 'Load failed',
         connecting: 'Connecting...',
+        disconnect: 'Disconnect DooTask',
+        disconnectConfirm: 'This will remove your DooTask connection and clear cached data.',
         subTasks: '子任務',
         files: '檔案',
         tags: '標籤',
@@ -374,6 +383,7 @@ export const zhHant: TranslationStructure = {
         loadingChat: '載入聊天中...',
         errorLoadChat: '載入聊天失敗',
         errorSendMessage: '發送訊息失敗',
+        unsupportedMessage: '目前客戶端不支援此類訊息，請使用 DooTask 客戶端查看。',
         tagged: '{name} bookmarked "{desc}"',
         untagged: '{name} removed bookmark "{desc}"',
         pinned: '{name} pinned "{desc}"',

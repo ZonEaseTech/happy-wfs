@@ -107,6 +107,7 @@ export async function createMcpContext(session: ApiSessionClient): Promise<McpCo
         },
     };
 
+    // Merge extra MCP servers from environment (e.g., DooTask)
     const extraServersJson = process.env.HAPPY_EXTRA_MCP_SERVERS;
     if (extraServersJson) {
         try {

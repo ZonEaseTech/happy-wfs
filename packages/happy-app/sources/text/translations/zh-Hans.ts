@@ -22,6 +22,7 @@ export const zhHans: TranslationStructure = {
         inbox: '收件箱',
         sessions: '终端',
         openclaw: 'OpenClaw',
+        dootask: 'DooTask',
         settings: '设置',
     },
 
@@ -305,8 +306,12 @@ export const zhHans: TranslationStructure = {
             `${name} ${status === 'online' ? '在线' : '离线'}`,
         featureToggled: ({ feature, enabled }: { feature: string; enabled: boolean }) =>
             `${feature} 已${enabled ? '启用' : '禁用'}`,
+        dootaskConnected: ({ username }: { username: string }) => `已连接为 @${username}`,
+        connectDootask: '连接 DooTask',
     },
 
+    dootask: {
+        title: 'DooTask',
         tasks: '任务',
         projects: '项目',
         allProjects: '所有项目',
@@ -335,6 +340,8 @@ export const zhHans: TranslationStructure = {
         description: '描述',
         project: '项目',
         column: '列表',
+        connectFirst: '请在设置中连接 DooTask 以开始使用',
+        reconnect: '重新连接 DooTask',
         tokenExpired: '会话已过期，请重新连接。',
         serverUrl: '服务器地址',
         email: '邮箱',
@@ -343,6 +350,8 @@ export const zhHans: TranslationStructure = {
         captchaPlaceholder: '请输入验证码',
         captchaLoadFailed: '加载失败',
         connecting: '连接中...',
+        disconnect: '断开 DooTask',
+        disconnectConfirm: '这将移除您的 DooTask 连接并清除缓存数据。',
         subTasks: '子任务',
         files: '文件',
         tags: '标签',
@@ -375,6 +384,7 @@ export const zhHans: TranslationStructure = {
         loadingChat: '加载聊天中...',
         errorLoadChat: '加载聊天失败',
         errorSendMessage: '发送消息失败',
+        unsupportedMessage: '当前客户端不支持此类消息，请使用 DooTask 客户端查看。',
         tagged: '{name} 标注了「{desc}」',
         untagged: '{name} 取消标注「{desc}」',
         pinned: '{name} 置顶了「{desc}」',

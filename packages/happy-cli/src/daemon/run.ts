@@ -655,6 +655,7 @@ export async function startDaemon(): Promise<void> {
         if (options.workspacePath) {
           extraEnv.HAPPY_WORKSPACE_PATH = options.workspacePath;
         }
+        // Extra MCP servers (e.g., DooTask MCP) - serialized as JSON env var
         if (options.mcpServers && options.mcpServers.length > 0) {
           extraEnv.HAPPY_EXTRA_MCP_SERVERS = JSON.stringify(options.mcpServers);
         }
