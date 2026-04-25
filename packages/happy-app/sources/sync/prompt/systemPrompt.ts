@@ -19,11 +19,3 @@ export const systemPrompt = trimIdent(`
     - \`destructive\`: marks dangerous action.
     - Never write labels like "(Recommended)", "(Danger)" in option text — rely on ordering for preference, \`destructive\` attribute for danger.
 `);
-
-    return trimIdent(`
-
-
-        1. Call send_task_ai_message after each major milestone, when blocked, and when finished.
-        2. When all work is done, update the task status accordingly.
-    `);
-}
