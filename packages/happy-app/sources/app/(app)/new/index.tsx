@@ -2287,14 +2287,12 @@ function NewSessionWizard() {
                                         { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
                                         { value: 'read-only' as PermissionMode, label: t('wizard.permReadOnly'), description: t('wizard.permReadOnlyDesc'), icon: 'eye-outline' },
                                         { value: 'safe-yolo' as PermissionMode, label: t('wizard.permSafeYolo'), description: t('wizard.permSafeYoloDesc'), icon: 'shield-checkmark-outline' },
-                                        { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permFullAccess'), icon: 'flash-outline' },
                                     ]
                                     : [
                                         { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
                                         { value: 'acceptEdits' as PermissionMode, label: t('wizard.permAcceptEdits'), description: t('wizard.permAcceptEditsDesc'), icon: 'checkmark-outline' },
                                         { value: 'plan' as PermissionMode, label: t('wizard.permPlan'), description: t('wizard.permPlanDesc'), icon: 'list-outline' },
                                         { value: 'bypassPermissions' as PermissionMode, label: t('wizard.permBypass'), description: t('wizard.permBypassDesc'), icon: 'flash-outline' },
-                                        { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'warning-outline' },
                                     ]
                                 ).map((option, index, array) => (
                                     <Item
