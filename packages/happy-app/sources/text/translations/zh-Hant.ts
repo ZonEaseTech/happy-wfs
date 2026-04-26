@@ -1118,6 +1118,11 @@ export const zhHant: TranslationStructure = {
         searchPlaceholder: '搜尋檔案…',
         noResults: '沒有匹配的檔案',
         globalResults: '全專案搜尋結果',
+        newFileTitle: '新建檔案',
+        newFilePrompt: '輸入檔案名稱（相對目前目錄）：',
+        create: '建立',
+        newFileNameInvalid: '檔案名稱不能包含斜杠。請先切換到目標目錄。',
+        newFileFailed: '建立檔案失敗',
     },
 
     commits: {

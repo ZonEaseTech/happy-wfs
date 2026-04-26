@@ -1116,6 +1116,11 @@ export const es: TranslationStructure = {
         searchPlaceholder: 'Buscar archivos…',
         noResults: 'No se encontraron archivos',
         globalResults: 'Resultados del proyecto',
+        newFileTitle: 'New File',
+        newFilePrompt: 'Enter file name (relative to current directory):',
+        create: 'Create',
+        newFileNameInvalid: 'File name cannot contain a slash. Switch to the target directory first.',
+        newFileFailed: 'Failed to create file',
     },
 
     commits: {

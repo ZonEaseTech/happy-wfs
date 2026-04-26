@@ -1148,6 +1148,11 @@ export const ja: TranslationStructure = {
         searchPlaceholder: 'ファイルを検索…',
         noResults: '一致するファイルがありません',
         globalResults: 'プロジェクト全体の結果',
+        newFileTitle: '新規ファイル',
+        newFilePrompt: 'ファイル名を入力（現在のディレクトリ基準）:',
+        create: '作成',
+        newFileNameInvalid: 'ファイル名にスラッシュを含めることはできません。先に対象ディレクトリへ移動してください。',
+        newFileFailed: 'ファイルの作成に失敗しました',
     },
 
     commits: {

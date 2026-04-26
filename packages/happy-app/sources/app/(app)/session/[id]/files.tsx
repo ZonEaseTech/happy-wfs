@@ -257,10 +257,15 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sessionId, selectedRepoIndex, adHocRepoPath]);
 
-    // When the active path turns out NOT to be a git repo, scan its subdirectories
-    // for nearby repos and offer them as one-tap switches.
+    // When the active path turns out NOT to be a git repo:
+    // - Standalone: redirect to the unified file browser (which lists everything + can create files)
+    // - Embedded (RightPanel): keep the existing "scan nearby repos" empty-state offer
     React.useEffect(() => {
         if (isLoading || gitStatusFiles || !effectiveRepoPath || adHocRepoPath) {
+            return;
+        }
+        if (!embedded) {
+            router.replace(`/session/${sessionId}/browser`);
             return;
         }
         let cancelled = false;
@@ -268,7 +273,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             if (!cancelled) setNearbyRepos(repos);
         });
         return () => { cancelled = true; };
-    }, [sessionId, effectiveRepoPath, isLoading, gitStatusFiles, adHocRepoPath]);
+    }, [sessionId, effectiveRepoPath, isLoading, gitStatusFiles, adHocRepoPath, embedded, router]);
 
     // Refresh silently when screen is focused (after returning from file view)
     useFocusEffect(

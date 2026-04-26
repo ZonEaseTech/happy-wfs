@@ -7,8 +7,9 @@ import { Text } from '@/components/StyledText';
 import { Item } from '@/components/Item';
 import { ItemList } from '@/components/ItemList';
 import { Typography } from '@/constants/Typography';
-import { sessionListDirectory, sessionBash } from '@/sync/ops';
+import { sessionListDirectory, sessionBash, sessionWriteFile } from '@/sync/ops';
 import { getSession } from '@/sync/storage';
+import { Modal } from '@/modal';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
 import { FileIcon } from '@/components/FileIcon';
@@ -194,6 +195,42 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
         }
     }, [searchActive]);
 
+    // Create a new empty file in the current directory and jump straight into the editor.
+    // Uses sessionWriteFile with expectedHash=null which the daemon treats as "create new".
+    const handleNewFile = React.useCallback(async () => {
+        const fileName = await Modal.prompt(
+            t('browser.newFileTitle'),
+            t('browser.newFilePrompt'),
+            {
+                defaultValue: 'untitled.md',
+                confirmText: t('browser.create'),
+                cancelText: t('common.cancel'),
+            },
+        );
+        const trimmed = fileName?.trim();
+        if (!trimmed) return;
+        if (trimmed.includes('/') || trimmed.includes('\\')) {
+            Modal.alert(t('common.error'), t('browser.newFileNameInvalid'));
+            return;
+        }
+        const fullPath = currentPath.endsWith('/') ? `${currentPath}${trimmed}` : `${currentPath}/${trimmed}`;
+        try {
+            const response = await sessionWriteFile(sessionId, fullPath, '', null);
+            if (!response.success) {
+                Modal.alert(t('common.error'), response.error ?? t('browser.newFileFailed'));
+                return;
+            }
+            // Refresh listing in the background; jump into the editor immediately so the user can start typing.
+            void loadDirectory(currentPath, true);
+            const encodedPath = btoa(
+                new TextEncoder().encode(fullPath).reduce((s, b) => s + String.fromCharCode(b), ''),
+            );
+            router.push(`/session/${sessionId}/edit?path=${encodeURIComponent(encodedPath)}`);
+        } catch (err) {
+            Modal.alert(t('common.error'), err instanceof Error ? err.message : t('browser.newFileFailed'));
+        }
+    }, [currentPath, sessionId, router, loadDirectory]);
+
     // Filter current directory entries by search query
     const filteredEntries = React.useMemo(() => {
         if (!searchQuery) return entries;
@@ -236,16 +273,29 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                 <Stack.Screen
                     options={{
                         headerRight: () => (
-                            <Pressable
-                                onPress={toggleSearch}
-                                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-                            >
-                                <Ionicons
-                                    name={searchActive ? 'close' : 'search'}
-                                    size={22}
-                                    color={theme.colors.header.tint}
-                                />
-                            </Pressable>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Pressable
+                                    onPress={handleNewFile}
+                                    style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                                    accessibilityLabel="New File"
+                                >
+                                    <Ionicons
+                                        name="add"
+                                        size={24}
+                                        color={theme.colors.header.tint}
+                                    />
+                                </Pressable>
+                                <Pressable
+                                    onPress={toggleSearch}
+                                    style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                                >
+                                    <Ionicons
+                                        name={searchActive ? 'close' : 'search'}
+                                        size={22}
+                                        color={theme.colors.header.tint}
+                                    />
+                                </Pressable>
+                            </View>
                         ),
                     }}
                 />

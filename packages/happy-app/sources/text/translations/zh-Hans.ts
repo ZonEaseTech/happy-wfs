@@ -1118,6 +1118,11 @@ export const zhHans: TranslationStructure = {
         searchPlaceholder: '搜索文件…',
         noResults: '没有匹配的文件',
         globalResults: '全项目搜索结果',
+        newFileTitle: '新建文件',
+        newFilePrompt: '输入文件名（相对当前目录）：',
+        create: '创建',
+        newFileNameInvalid: '文件名不能包含斜杠。请先切换到目标目录。',
+        newFileFailed: '创建文件失败',
     },
 
     commits: {

@@ -1116,6 +1116,11 @@ export const ca: TranslationStructure = {
         searchPlaceholder: 'Cerca fitxers…',
         noResults: "No s'han trobat fitxers",
         globalResults: 'Resultats del projecte',
+        newFileTitle: 'New File',
+        newFilePrompt: 'Enter file name (relative to current directory):',
+        create: 'Create',
+        newFileNameInvalid: 'File name cannot contain a slash. Switch to the target directory first.',
+        newFileFailed: 'Failed to create file',
     },
 
     commits: {
