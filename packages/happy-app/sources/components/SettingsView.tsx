@@ -237,15 +237,9 @@ export const SettingsView = React.memo(function SettingsView() {
                     loading={connectingGitHub || disconnectingGitHub}
                     showChevron={false}
                 />
-                <Item
-                    title={t('settings.feishuNotification')}
-                    subtitle={t('settings.feishuNotificationSubtitle')}
-                    icon={<Ionicons name="notifications-outline" size={29} color="#34C759" />}
-                    onPress={() => router.push('/settings/notifications-feishu')}
-                />
             </ItemGroup>
 
-            {/* Machine & session preferences (worktree branch prefix, user-level Claude config, etc.) */}
+            {/* Machine & session preferences (worktree branch prefix, user-level Claude config, feishu notifications, etc.) */}
             <ItemGroup title={t('settings.machineConfigSection')}>
                 <Item
                     title={t('settings.worktreeBranchPrefix')}
@@ -261,6 +255,12 @@ export const SettingsView = React.memo(function SettingsView() {
                     subtitle={t('settings.claudeConfigSubtitle')}
                     icon={<Ionicons name="construct-outline" size={29} color="#5856D6" />}
                     onPress={() => router.push('/settings/claude-config')}
+                />
+                <Item
+                    title={t('settings.feishuNotification')}
+                    subtitle={t('settings.feishuNotificationSubtitle')}
+                    icon={<Ionicons name="notifications-outline" size={29} color="#34C759" />}
+                    onPress={() => router.push('/settings/notifications-feishu')}
                 />
             </ItemGroup>
 

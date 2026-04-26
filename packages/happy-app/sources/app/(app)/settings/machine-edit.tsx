@@ -190,6 +190,13 @@ export default function MachineEditScreen() {
                     setContent(decoded);
                     setOriginalContent(decoded);
                     setOriginalHash(currentHash);
+                } else if (response.error && /ENOENT|no such file/i.test(response.error)) {
+                    // File doesn't exist yet — treat as a fresh new file. The save
+                    // path uses expectedHash=null when originalHash is empty string,
+                    // which the daemon interprets as "create new" (rejecting existing).
+                    setContent('');
+                    setOriginalContent('');
+                    setOriginalHash('');
                 } else {
                     setError(response.error || 'Failed to read file');
                 }
@@ -242,7 +249,10 @@ export default function MachineEditScreen() {
     // Save file
     const handleSave = React.useCallback(async () => {
         if (!hasChanges || isSaving) return;
-        if (!originalHash) {
+        // originalHash === null  → load failed with non-ENOENT error, refuse save (don't clobber)
+        // originalHash === ''    → file didn't exist (ENOENT), creating new — pass expectedHash=null
+        // originalHash === <hex> → existing file, pass that hash for optimistic-concurrency check
+        if (originalHash === null) {
             Modal.alert(t('common.error'), 'Failed to save file: missing file version hash');
             return;
         }
@@ -267,7 +277,9 @@ export default function MachineEditScreen() {
             const bytes = new TextEncoder().encode(content);
             const base64 = btoa(bytes.reduce((s, b) => s + String.fromCharCode(b), ''));
 
-            const response = await machineWriteFile(machineId!, filePath, base64, originalHash.toLowerCase());
+            // empty originalHash means "creating a new file" — daemon expects null, not ""
+            const expectedHash = originalHash === '' ? null : originalHash.toLowerCase();
+            const response = await machineWriteFile(machineId!, filePath, base64, expectedHash);
             if (response.success) {
                 setOriginalContent(content);
                 if (response.hash) {
