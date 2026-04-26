@@ -2065,46 +2065,7 @@ function NewSessionWizard() {
                                 </Pressable>
                             )}
 
-                            {/* Profile Action Buttons */}
-                            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                                <Pressable
-                                    style={[styles.addProfileButton, { flex: 1 }]}
-                                    onPress={handleAddProfile}
-                                >
-                                    <Ionicons name="add-circle-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                    <Text style={styles.addProfileButtonText}>
-                                        {t('wizard.add')}
-                                    </Text>
-                                </Pressable>
-                                <Pressable
-                                    style={[
-                                        styles.addProfileButton,
-                                        { flex: 1 },
-                                        !selectedProfile && { opacity: 0.4 }
-                                    ]}
-                                    onPress={() => selectedProfile && handleDuplicateProfile(selectedProfile)}
-                                    disabled={!selectedProfile}
-                                >
-                                    <Ionicons name="copy-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                    <Text style={styles.addProfileButtonText}>
-                                        {t('wizard.duplicate')}
-                                    </Text>
-                                </Pressable>
-                                <Pressable
-                                    style={[
-                                        styles.addProfileButton,
-                                        { flex: 1 },
-                                        (!selectedProfile || selectedProfile.isBuiltIn) && { opacity: 0.4 }
-                                    ]}
-                                    onPress={() => selectedProfile && !selectedProfile.isBuiltIn && handleDeleteProfile(selectedProfile)}
-                                    disabled={!selectedProfile || selectedProfile.isBuiltIn}
-                                >
-                                    <Ionicons name="trash-outline" size={20} color={theme.colors.deleteAction} />
-                                    <Text style={[styles.addProfileButtonText, { color: theme.colors.deleteAction }]}>
-                                        {t('wizard.delete')}
-                                    </Text>
-                                </Pressable>
-                            </View>
+                            {/* Profile Action Buttons (add/duplicate/delete) hidden by request — manage profiles from the per-profile edit pencil instead */}
 
                             {/* Section 2: Machine Selection */}
                             <View ref={machineSectionRef}>
