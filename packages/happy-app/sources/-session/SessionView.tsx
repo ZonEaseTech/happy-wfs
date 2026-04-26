@@ -242,12 +242,12 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         if (isDesktopPanelMode) {
                                             setRightPanelType(prev => (prev === 'files' ? null : 'files'));
                                         } else {
-                                            router.push(`/session/${sessionId}/files`);
+                                            router.push(`/session/${sessionId}/browser`);
                                         }
                                     }}
                                     hitSlop={15}
                                     accessibilityRole="button"
-                                    accessibilityLabel="Files"
+                                    accessibilityLabel="Code"
                                     style={{
                                         width: 38,
                                         height: 38,
