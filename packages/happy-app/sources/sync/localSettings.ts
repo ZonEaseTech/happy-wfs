@@ -13,6 +13,8 @@ export const LocalSettingsSchema = z.object({
     markdownCopyV2: z.boolean().describe('Replace native paragraph selection with long-press modal for full markdown copy'),
     hideNotificationsWhenActive: z.boolean().describe('Hide all notifications while the app is active'),
     hideSessionNotificationsWhenActive: z.boolean().describe('Hide notifications for the currently open session while the app is active'),
+    // Worktree branch naming - prefix prepended to auto-generated branch names (e.g. "vk/" -> "vk/clever-ocean")
+    worktreeBranchPrefix: z.string().describe('Prefix prepended to auto-generated worktree branch names (e.g. "vk/")'),
     // CLI version acknowledgments - keyed by machineId
     acknowledgedCliVersions: z.record(z.string(), z.string()).describe('Acknowledged CLI versions per machine'),
 });
@@ -38,6 +40,7 @@ export const localSettingsDefaults: LocalSettings = {
     markdownCopyV2: false,
     hideNotificationsWhenActive: false,
     hideSessionNotificationsWhenActive: false,
+    worktreeBranchPrefix: '',
     acknowledgedCliVersions: {},
 };
 Object.freeze(localSettingsDefaults);

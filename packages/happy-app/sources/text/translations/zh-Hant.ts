@@ -210,6 +210,10 @@ export const zhHant: TranslationStructure = {
         connectGithubAccount: '連結您的 GitHub 帳戶',
         feishuNotification: '飛書通知',
         feishuNotificationSubtitle: '將會話事件轉發到飛書群機器人',
+        machineConfigSection: '機器與工作階段',
+        worktreeBranchPrefix: 'Worktree 分支前綴',
+        worktreeBranchPrefixSubtitle: '新建 worktree 時分支名自動加這個前綴',
+        worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `目前：${prefix}`,
         githubNotConfigured: '伺服器未設定 GitHub OAuth，請聯絡管理員。',
         claudeAuthSuccess: '成功連結到 Claude',
         exchangingTokens: '正在交換權杖...',
@@ -1104,6 +1108,14 @@ export const zhHant: TranslationStructure = {
         saving: '儲存中…',
         saved: '檔案已儲存',
         saveFailed: '儲存檔案失敗',
+    },
+
+    worktreeConfig: {
+        title: 'Worktree 分支前綴',
+        description: '新建 worktree 時，自動為隨機生成的分支名加這個前綴。留空則不加。',
+        placeholder: '例如 vk/',
+        previewTitle: '預覽',
+        save: '儲存',
     },
 
     repository: {

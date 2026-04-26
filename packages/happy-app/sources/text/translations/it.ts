@@ -238,6 +238,10 @@ export const it: TranslationStructure = {
         connectGithubAccount: 'Collega il tuo account GitHub',
         feishuNotification: 'Feishu Notifications',
         feishuNotificationSubtitle: 'Forward session events to a Feishu group bot',
+        machineConfigSection: 'Machine & session',
+        worktreeBranchPrefix: 'Worktree branch prefix',
+        worktreeBranchPrefixSubtitle: 'Auto-prepended to new worktree branch names',
+        worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `Current: ${prefix}`,
         githubNotConfigured: 'GitHub OAuth non è configurato sul server. Contatta il tuo amministratore.',
         claudeAuthSuccess: 'Connesso a Claude con successo',
         exchangingTokens: 'Scambio dei token...',
@@ -1132,6 +1136,14 @@ export const it: TranslationStructure = {
         saving: 'Salvataggio…',
         saved: 'File salvato',
         saveFailed: 'Impossibile salvare il file',
+    },
+
+    worktreeConfig: {
+        title: 'Worktree branch prefix',
+        description: 'Prepended to auto-generated branch names when creating a worktree. Leave empty for none. Example: with "vk/" the branch becomes "vk/clever-ocean".',
+        placeholder: 'e.g. vk/',
+        previewTitle: 'Preview',
+        save: 'Save',
     },
 
     repository: {

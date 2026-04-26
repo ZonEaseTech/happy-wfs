@@ -241,6 +241,10 @@ export const ja: TranslationStructure = {
         connectGithubAccount: 'GitHubアカウントを接続',
         feishuNotification: 'Feishu Notifications',
         feishuNotificationSubtitle: 'Forward session events to a Feishu group bot',
+        machineConfigSection: 'マシンとセッション',
+        worktreeBranchPrefix: 'Worktree ブランチプレフィックス',
+        worktreeBranchPrefixSubtitle: '新しい worktree のブランチ名に自動で付与されます',
+        worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `現在: ${prefix}`,
         githubNotConfigured: 'サーバーでGitHub OAuthが設定されていません。管理者にお問い合わせください。',
         claudeAuthSuccess: 'Claudeへの接続に成功しました',
         exchangingTokens: 'トークンを交換中...',
@@ -1134,6 +1138,14 @@ export const ja: TranslationStructure = {
         saving: '保存中…',
         saved: 'ファイルを保存しました',
         saveFailed: 'ファイルの保存に失敗しました',
+    },
+
+    worktreeConfig: {
+        title: 'Worktree ブランチプレフィックス',
+        description: 'Worktree を作成するときに自動生成されるブランチ名に付与します。空にすると付与しません。',
+        placeholder: '例: vk/',
+        previewTitle: 'プレビュー',
+        save: '保存',
     },
 
     repository: {

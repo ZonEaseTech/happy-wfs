@@ -211,6 +211,10 @@ export const zhHans: TranslationStructure = {
         connectGithubAccount: '连接您的 GitHub 账户',
         feishuNotification: '飞书通知',
         feishuNotificationSubtitle: '将会话事件转发到飞书群机器人',
+        machineConfigSection: '机器与会话',
+        worktreeBranchPrefix: 'Worktree 分支前缀',
+        worktreeBranchPrefixSubtitle: '新建 worktree 时分支名自动加这个前缀',
+        worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `当前：${prefix}`,
         githubNotConfigured: '服务器未配置 GitHub OAuth，请联系管理员。',
         claudeAuthSuccess: '成功连接到 Claude',
         exchangingTokens: '正在交换令牌...',
@@ -1104,6 +1108,14 @@ export const zhHans: TranslationStructure = {
         saving: '保存中…',
         saved: '文件已保存',
         saveFailed: '保存文件失败',
+    },
+
+    worktreeConfig: {
+        title: 'Worktree 分支前缀',
+        description: '新建 worktree 时，自动给随机生成的分支名加这个前缀。留空则不加。示例：设置 “vk/” 后实际分支名为 “vk/clever-ocean”。',
+        placeholder: '例如 vk/',
+        previewTitle: '预览',
+        save: '保存',
     },
 
     repository: {

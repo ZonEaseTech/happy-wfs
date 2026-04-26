@@ -33,6 +33,7 @@ export const SettingsView = React.memo(function SettingsView() {
     const appVersion = Constants.expoConfig?.version || '1.0.0';
     const auth = useAuth();
     const [devModeEnabled, setDevModeEnabled] = useLocalSettingMutable('devModeEnabled');
+    const [worktreeBranchPrefix] = useLocalSettingMutable('worktreeBranchPrefix');
     const experiments = useSetting('experiments');
     const isCustomServer = isUsingCustomServer();
     const allMachines = useAllMachines();
@@ -241,6 +242,19 @@ export const SettingsView = React.memo(function SettingsView() {
                     subtitle={t('settings.feishuNotificationSubtitle')}
                     icon={<Ionicons name="notifications-outline" size={29} color="#34C759" />}
                     onPress={() => router.push('/settings/notifications-feishu')}
+                />
+            </ItemGroup>
+
+            {/* Machine & session preferences (worktree branch prefix, user-level Claude config, etc.) */}
+            <ItemGroup title={t('settings.machineConfigSection')}>
+                <Item
+                    title={t('settings.worktreeBranchPrefix')}
+                    subtitle={worktreeBranchPrefix
+                        ? t('settings.worktreeBranchPrefixSet', { prefix: worktreeBranchPrefix })
+                        : t('settings.worktreeBranchPrefixSubtitle')
+                    }
+                    icon={<Ionicons name="git-branch-outline" size={29} color="#FF9500" />}
+                    onPress={() => router.push('/settings/worktree-config')}
                 />
             </ItemGroup>
 
