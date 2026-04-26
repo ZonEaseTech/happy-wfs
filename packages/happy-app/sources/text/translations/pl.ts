@@ -1110,6 +1110,7 @@ export const pl: TranslationStructure = {
         title: 'Commits',
         noCommits: 'No commits found',
         failedToLoad: 'Failed to load commits',
+        notAGitRepo: 'Not a Git repository (or any of its parent directories)',
         filesChanged: ({ count }: { count: number }) => `${count} file${count !== 1 ? 's' : ''} changed`,
         insertions: ({ count }: { count: number }) => `${count} insertion${count !== 1 ? 's' : ''}`,
         deletions: ({ count }: { count: number }) => `${count} deletion${count !== 1 ? 's' : ''}`,

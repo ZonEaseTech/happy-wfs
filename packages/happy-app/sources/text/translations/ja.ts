@@ -1131,6 +1131,7 @@ export const ja: TranslationStructure = {
         title: 'コミット',
         noCommits: 'コミットが見つかりません',
         failedToLoad: 'コミットの読み込みに失敗しました',
+        notAGitRepo: 'Git リポジトリではありません（親ディレクトリを含む）',
         filesChanged: ({ count }: { count: number }) => `${count}ファイル変更`,
         insertions: ({ count }: { count: number }) => `${count}件の追加`,
         deletions: ({ count }: { count: number }) => `${count}件の削除`,

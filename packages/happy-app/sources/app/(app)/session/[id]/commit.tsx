@@ -124,7 +124,8 @@ export default function CommitScreen() {
                 if (infoRes.success && infoRes.stdout) {
                     setCommitDetail(parseCommitDetail(infoRes.stdout));
                 } else {
-                    setError(infoRes.error || 'Failed to load commit');
+                    const isNotGitRepo = !!infoRes.error && /not a git repository/i.test(infoRes.error);
+                    setError(isNotGitRepo ? t('commits.notAGitRepo') : (infoRes.error || 'Failed to load commit'));
                 }
 
                 if (filesRes.success && filesRes.stdout) {

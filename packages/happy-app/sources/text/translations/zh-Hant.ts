@@ -1101,6 +1101,7 @@ export const zhHant: TranslationStructure = {
         title: '提交',
         noCommits: '沒有找到提交記錄',
         failedToLoad: '載入提交記錄失敗',
+        notAGitRepo: '當前目錄不是 Git 倉庫（包括所有上級目錄）',
         filesChanged: ({ count }: { count: number }) => `${count} 個檔案變更`,
         insertions: ({ count }: { count: number }) => `${count} 處插入`,
         deletions: ({ count }: { count: number }) => `${count} 處刪除`,

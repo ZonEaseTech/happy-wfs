@@ -1101,6 +1101,7 @@ export const zhHans: TranslationStructure = {
         title: '提交',
         noCommits: '没有找到提交记录',
         failedToLoad: '加载提交记录失败',
+        notAGitRepo: '当前目录不是 Git 仓库（包括所有上级目录）',
         filesChanged: ({ count }: { count: number }) => `${count} 个文件变更`,
         insertions: ({ count }: { count: number }) => `${count} 处插入`,
         deletions: ({ count }: { count: number }) => `${count} 处删除`,

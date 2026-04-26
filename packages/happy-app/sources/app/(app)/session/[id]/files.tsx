@@ -89,8 +89,13 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             if (result && (result.totalStaged > 0 || result.totalUnstaged > 0)) {
                 initialLoadDone.current = true;
                 setIsLoading(false);
+            } else if (!result) {
+                // Not a git repo (or git command failed) — stop loading so the
+                // empty-state UI ("not a git repository" + nearby repos) can render.
+                initialLoadDone.current = true;
+                setIsLoading(false);
             }
-            // For clean repos, keep isLoading=true until file list loads (handled in search effect)
+            // For clean repos (result exists but no changes), keep isLoading=true until file list loads (handled in search effect)
         } catch (error) {
             console.error('Failed to load git status files:', error);
             // Only clear data on initial load failure

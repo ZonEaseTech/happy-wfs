@@ -233,7 +233,10 @@ export default function CommitsScreen() {
                 }
                 setHasMore(parsed.length === PAGE_SIZE);
             } else {
-                if (!append) setError(response.error || t('commits.failedToLoad'));
+                if (!append) {
+                    const isNotGitRepo = !!response.error && /not a git repository/i.test(response.error);
+                    setError(isNotGitRepo ? t('commits.notAGitRepo') : (response.error || t('commits.failedToLoad')));
+                }
                 setHasMore(false);
             }
         } catch {
