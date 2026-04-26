@@ -88,6 +88,7 @@ export const ca: TranslationStructure = {
     common: {
         // Simple string constants
         cancel: 'Cancel·la',
+        collapse: 'Replega',
         authenticate: 'Autentica',
         save: 'Desa',
         saveAs: 'Desa com a',
@@ -1048,6 +1049,7 @@ export const ca: TranslationStructure = {
         sessionOfflineDescription: 'La sessió ha d\'estar en línia per navegar pels fitxers',
         notRepo: 'No és un repositori git',
         notUnderGit: 'Aquest directori no està sota control de versions git',
+        foundNearbyRepos: 'S\'han trobat aquests repositoris git en subdirectoris (toqueu per canviar)',
         searching: 'Cercant fitxers...',
         noFilesFound: 'No s\'han trobat fitxers',
         noFilesInProject: 'No hi ha fitxers al projecte',
@@ -1585,6 +1587,7 @@ export const ca: TranslationStructure = {
 
     wizard: {
         step1Title: 'Choose AI Profile',
+        showMoreProfiles: ({ count }: { count: number }) => `Mostra'n més (${count})`,
         step1Description: 'Choose which AI backend runs your session (Claude or Codex). Create custom profiles for alternative APIs.',
         step2Title: 'Select Machine',
         step3Title: 'Session Mode',

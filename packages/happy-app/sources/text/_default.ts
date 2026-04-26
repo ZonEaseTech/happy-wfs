@@ -90,6 +90,7 @@ export const en = {
     common: {
         // Simple string constants
         cancel: 'Cancel',
+        collapse: 'Collapse',
         authenticate: 'Authenticate',
         save: 'Save',
         saveAs: 'Save As',
@@ -1062,6 +1063,7 @@ export const en = {
         sessionOfflineDescription: 'The session needs to be online to browse files',
         notRepo: 'Not a git repository',
         notUnderGit: 'This directory is not under git version control',
+        foundNearbyRepos: 'Found these git repositories in subdirectories (tap to switch)',
         searching: 'Searching files...',
         noFilesFound: 'No files found',
         noFilesInProject: 'No files in project',
@@ -1607,6 +1609,7 @@ export const en = {
     wizard: {
         // Variant B new session wizard
         step1Title: 'Choose AI Profile',
+        showMoreProfiles: ({ count }: { count: number }) => `Show more (${count})`,
         step1Description: 'Choose which AI backend runs your session (Claude or Codex). Create custom profiles for alternative APIs.',
         step2Title: 'Select Machine',
         step3Title: 'Session Mode',

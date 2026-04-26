@@ -99,6 +99,7 @@ export const ru: TranslationStructure = {
     common: {
         // Simple string constants
         cancel: 'Отмена',
+        collapse: 'Свернуть',
         authenticate: 'Авторизация',
         save: 'Сохранить',
         saveAs: 'Сохранить как',
@@ -1059,6 +1060,7 @@ export const ru: TranslationStructure = {
         sessionOfflineDescription: 'Для просмотра файлов сессия должна быть в сети',
         notRepo: 'Не является git-репозиторием',
         notUnderGit: 'Эта папка не находится под управлением git',
+        foundNearbyRepos: 'Найдены эти git-репозитории в подкаталогах (нажмите, чтобы переключиться)',
         searching: 'Поиск файлов...',
         noFilesFound: 'Файлы не найдены',
         noFilesInProject: 'Файлов в проекте нет',
@@ -1610,6 +1612,7 @@ export const ru: TranslationStructure = {
 
     wizard: {
         step1Title: 'Choose AI Profile',
+        showMoreProfiles: ({ count }: { count: number }) => `Показать ещё (${count})`,
         step1Description: 'Choose which AI backend runs your session (Claude or Codex). Create custom profiles for alternative APIs.',
         step2Title: 'Select Machine',
         step3Title: 'Session Mode',

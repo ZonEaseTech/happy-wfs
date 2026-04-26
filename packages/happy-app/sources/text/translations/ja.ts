@@ -91,6 +91,7 @@ export const ja: TranslationStructure = {
     common: {
         // Simple string constants
         cancel: 'キャンセル',
+        collapse: '折りたたむ',
         authenticate: '認証',
         save: '保存',
         error: 'エラー',
@@ -1080,6 +1081,7 @@ export const ja: TranslationStructure = {
         sessionOfflineDescription: 'ファイルを閲覧するにはセッションがオンラインである必要があります',
         notRepo: 'Gitリポジトリではありません',
         notUnderGit: 'このディレクトリはGitバージョン管理下にありません',
+        foundNearbyRepos: 'サブディレクトリで以下の git リポジトリが見つかりました（タップで切り替え）',
         searching: 'ファイルを検索中...',
         noFilesFound: 'ファイルが見つかりません',
         noFilesInProject: 'プロジェクトにファイルがありません',
@@ -1588,6 +1590,7 @@ export const ja: TranslationStructure = {
 
     wizard: {
         step1Title: 'AI プロファイルを選択',
+        showMoreProfiles: ({ count }: { count: number }) => `さらに表示 (${count})`,
         step1Description: 'セッションを実行する AI バックエンドを選択します（Claude または Codex）。カスタムプロファイルを作成して代替 API を使用できます。',
         step2Title: 'マシンを選択',
         step3Title: 'セッションモード',

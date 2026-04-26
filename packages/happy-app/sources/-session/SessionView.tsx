@@ -35,7 +35,8 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
 import { useMemo } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { RightPanel, RightPanelType } from '@/components/RightPanel';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -54,6 +55,15 @@ export const SessionView = React.memo((props: { id: string }) => {
     const headerHeight = useHeaderHeight();
     const realtimeStatus = useRealtimeStatus();
     const isTablet = useIsTablet();
+    const { width: windowWidth } = useWindowDimensions();
+    // Desktop web: open files/info as a right-side panel instead of pushing routes.
+    // Threshold 1024px = roughly the smallest screen where 480px panel + chat still feels uncramped.
+    const isDesktopPanelMode = Platform.OS === 'web' && windowWidth >= 1024;
+    const [rightPanelType, setRightPanelType] = React.useState<RightPanelType | null>(null);
+    // Reset panel if shrinking out of desktop mode (avoid stale panel state on resize).
+    React.useEffect(() => {
+        if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
+    }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
     const hasRuns = useOrchestratorHasRuns(sessionId);
     const handleOpenSessionRuns = React.useCallback(() => {
@@ -132,16 +142,23 @@ export const SessionView = React.memo((props: { id: string }) => {
             title: getSessionName(session),
             subtitle: session.metadata?.path ? formatPathRelativeToHome(session.metadata.path, session.metadata?.homeDir) : undefined,
             avatarId: getSessionAvatarId(session),
-            onAvatarPress: () => router.push(`/session/${sessionId}/info`),
+            onAvatarPress: () => {
+                if (isDesktopPanelMode) {
+                    setRightPanelType(prev => (prev === 'info' ? null : 'info'));
+                } else {
+                    router.push(`/session/${sessionId}/info`);
+                }
+            },
             isConnected: isConnected,
             flavor: session.metadata?.flavor || null,
             sessionIcon: session.metadata?.sessionIcon || null,
             tintColor: isConnected ? '#000' : '#8E8E93'
         };
-    }, [session, isDataReady, sessionId, router, sessionNotFound]);
+    }, [session, isDataReady, sessionId, router, sessionNotFound, isDesktopPanelMode]);
 
     return (
-        <>
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+            <View style={{ flex: 1, position: 'relative' }}>
             {/* Status bar shadow for landscape mode */}
             {isLandscape && deviceType === 'phone' && (
                 <View style={{
@@ -220,6 +237,31 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         )}
                                     </Pressable>
                                 )}
+                                <Pressable
+                                    onPress={() => {
+                                        if (isDesktopPanelMode) {
+                                            setRightPanelType(prev => (prev === 'files' ? null : 'files'));
+                                        } else {
+                                            router.push(`/session/${sessionId}/files`);
+                                        }
+                                    }}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Files"
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 2,
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="code-slash-outline"
+                                        size={22}
+                                        color={isDesktopPanelMode && rightPanelType === 'files' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                    />
+                                </Pressable>
                                 {headerProps.avatarId && headerProps.onAvatarPress && (
                                     <Pressable
                                         onPress={headerProps.onAvatarPress}
@@ -272,15 +314,36 @@ export const SessionView = React.memo((props: { id: string }) => {
                     </View>
                 ) : session ? (
                     // Normal session view
-                    <SessionViewLoaded key={sessionId} sessionId={sessionId} session={session} />
+                    <SessionViewLoaded
+                        key={sessionId}
+                        sessionId={sessionId}
+                        session={session}
+                        isDesktopPanelMode={isDesktopPanelMode}
+                        rightPanelType={rightPanelType}
+                        setRightPanelType={setRightPanelType}
+                    />
                 ) : null}
             </View>
-        </>
+            </View>
+            {isDesktopPanelMode && rightPanelType && (
+                <RightPanel
+                    sessionId={sessionId}
+                    type={rightPanelType}
+                    onClose={() => setRightPanelType(null)}
+                />
+            )}
+        </View>
     );
 });
 
 
-function SessionViewLoaded({ sessionId, session }: { sessionId: string, session: Session }) {
+function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelType, setRightPanelType }: {
+    sessionId: string;
+    session: Session;
+    isDesktopPanelMode: boolean;
+    rightPanelType: RightPanelType | null;
+    setRightPanelType: React.Dispatch<React.SetStateAction<RightPanelType | null>>;
+}) {
     const { theme } = useUnistyles();
     const router = useRouter();
     const safeArea = useSafeAreaInsets();
@@ -900,7 +963,13 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
             isMicActive={micButtonState.isMicActive}
             onAbort={() => sessionAbort(sessionId)}
             showAbortButton={sessionStatus.state === 'thinking' || sessionStatus.state === 'waiting'}
-            onFileViewerPress={() => router.push(`/session/${sessionId}/files`)}
+            onFileViewerPress={() => {
+                if (isDesktopPanelMode) {
+                    setRightPanelType(prev => (prev === 'files' ? null : 'files'));
+                } else {
+                    router.push(`/session/${sessionId}/files`);
+                }
+            }}
             // Autocomplete configuration
             autocompletePrefixes={['@', '/']}
             autocompleteSuggestions={(query) => getSuggestions(sessionId, query)}

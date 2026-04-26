@@ -90,6 +90,7 @@ export const zhHant: TranslationStructure = {
     common: {
         // Simple string constants
         cancel: '取消',
+        collapse: '收起',
         authenticate: '驗證',
         save: '儲存',
         saveAs: '另存為',
@@ -1050,6 +1051,7 @@ export const zhHant: TranslationStructure = {
         sessionOfflineDescription: '需要工作階段在線才能瀏覽檔案',
         notRepo: '不是 git 倉庫',
         notUnderGit: '此目錄不在 git 版本控制下',
+        foundNearbyRepos: '在子目錄發現以下 git 倉庫（點擊切換）',
         searching: '正在搜尋檔案...',
         noFilesFound: '未找到檔案',
         noFilesInProject: '專案中沒有檔案',
@@ -1588,6 +1590,7 @@ export const zhHant: TranslationStructure = {
 
     wizard: {
         step1Title: '選擇 AI 設定檔',
+        showMoreProfiles: ({ count }: { count: number }) => `顯示更多 (${count})`,
         step1Description: '選擇執行工作階段的 AI 後端（Claude 或 Codex）。可建立自訂設定檔以使用其他 API。',
         step2Title: '選擇機器',
         step3Title: '工作階段模式',

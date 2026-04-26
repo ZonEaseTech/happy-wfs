@@ -9,7 +9,7 @@ import { Text } from '@/components/StyledText';
 import { Item } from '@/components/Item';
 import { ItemList } from '@/components/ItemList';
 import { Typography } from '@/constants/Typography';
-import { getGitStatusFiles, GitFileStatus, GitStatusFiles } from '@/sync/gitStatusFiles';
+import { getGitStatusFiles, GitFileStatus, GitStatusFiles, findNearbyGitRepos, NearbyGitRepo } from '@/sync/gitStatusFiles';
 import { searchFiles, FileItem } from '@/sync/suggestionFile';
 import { useSessionGitStatus, useSessionProjectGitStatus, useSession, getSession } from '@/sync/storage';
 import { sessionBash } from '@/sync/ops';
@@ -23,10 +23,11 @@ import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
 
-export default function FilesScreen() {
+export default function FilesScreen(props?: { sessionId?: string; embedded?: boolean }) {
     const route = useRoute();
     const router = useRouter();
-    const sessionId = (route.params! as any).id as string;
+    const sessionId = props?.sessionId ?? ((route.params as any)?.id as string);
+    const embedded = props?.embedded ?? false;
 
     const [gitStatusFiles, setGitStatusFiles] = React.useState<GitStatusFiles | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
@@ -48,7 +49,13 @@ export default function FilesScreen() {
     const workspaceRepos = getWorkspaceRepos(session?.metadata);
     const [selectedRepoIndex, setSelectedRepoIndex] = React.useState(0);
     const selectedRepo = workspaceRepos[selectedRepoIndex];
-    const repoBaseCwd = selectedRepo?.path || commandCwd;
+
+    // Ad-hoc repo (chosen from "nearby repos" suggestion when cwd itself isn't a git repo)
+    const [adHocRepoPath, setAdHocRepoPath] = React.useState<string | null>(null);
+    const [nearbyRepos, setNearbyRepos] = React.useState<NearbyGitRepo[]>([]);
+
+    const effectiveRepoPath = adHocRepoPath || selectedRepo?.path;
+    const repoBaseCwd = effectiveRepoPath || commandCwd;
 
     const [isOperating, setIsOperating] = React.useState(false);
     const [menuVisible, setMenuVisible] = React.useState(false);
@@ -76,7 +83,7 @@ export default function FilesScreen() {
             if (!silent && !gitStatusFiles) {
                 setIsLoading(true);
             }
-            const result = await getGitStatusFiles(sessionId, selectedRepo?.path);
+            const result = await getGitStatusFiles(sessionId, effectiveRepoPath);
             setGitStatusFiles(result);
             // For repos with changes, initial load is done after git status
             if (result && (result.totalStaged > 0 || result.totalUnstaged > 0)) {
@@ -93,7 +100,7 @@ export default function FilesScreen() {
             initialLoadDone.current = true;
             setIsLoading(false);
         }
-    }, [sessionId, gitStatusFiles, selectedRepo?.path, router]);
+    }, [sessionId, gitStatusFiles, effectiveRepoPath, router]);
 
     // Stage a file
     const handleStageFile = React.useCallback(async (file: GitFileStatus) => {
@@ -243,7 +250,20 @@ export default function FilesScreen() {
         initialLoadDone.current = false;
         loadGitStatusFiles(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sessionId, selectedRepoIndex]);
+    }, [sessionId, selectedRepoIndex, adHocRepoPath]);
+
+    // When the active path turns out NOT to be a git repo, scan its subdirectories
+    // for nearby repos and offer them as one-tap switches.
+    React.useEffect(() => {
+        if (isLoading || gitStatusFiles || !effectiveRepoPath || adHocRepoPath) {
+            return;
+        }
+        let cancelled = false;
+        findNearbyGitRepos(sessionId, effectiveRepoPath).then((repos) => {
+            if (!cancelled) setNearbyRepos(repos);
+        });
+        return () => { cancelled = true; };
+    }, [sessionId, effectiveRepoPath, isLoading, gitStatusFiles, adHocRepoPath]);
 
     // Refresh silently when screen is focused (after returning from file view)
     useFocusEffect(
@@ -299,8 +319,12 @@ export default function FilesScreen() {
             ? `${repoBaseCwd}/${file.fullPath}`
             : file.fullPath;
         const encodedPath = btoa(new TextEncoder().encode(absolutePath).reduce((s, b) => s + String.fromCharCode(b), ''));
-        const stagedParam = staged ? '&staged=1' : '';
-        router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}${stagedParam}`);
+        // Staged files always show as diff (read-only). Unstaged / search results jump straight into editor.
+        if (staged) {
+            router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}&staged=1`);
+        } else {
+            router.push(`/session/${sessionId}/edit?path=${encodeURIComponent(encodedPath)}`);
+        }
     }, [router, sessionId, selectedRepo, repoBaseCwd]);
 
     const renderFileIcon = (file: GitFileStatus) => {
@@ -416,18 +440,20 @@ export default function FilesScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-            <Stack.Screen
-                options={{
-                    headerRight: () => (
-                        <Pressable
-                            onPress={() => router.push(`/session/${sessionId}/commits`)}
-                            style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-                        >
-                            <Octicons name="git-commit" size={20} color={theme.colors.header.tint} />
-                        </Pressable>
-                    ),
-                }}
-            />
+            {!embedded && (
+                <Stack.Screen
+                    options={{
+                        headerRight: () => (
+                            <Pressable
+                                onPress={() => router.push(`/session/${sessionId}/commits`)}
+                                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                            >
+                                <Octicons name="git-commit" size={20} color={theme.colors.header.tint} />
+                            </Pressable>
+                        ),
+                    }}
+                />
+            )}
 
             {/* Repo Selector for multi-repo workspaces */}
             {workspaceRepos.length > 1 && (
@@ -522,7 +548,6 @@ export default function FilesScreen() {
                 ) : !gitStatusFiles ? (
                     <View style={{
                         flex: 1,
-                        justifyContent: 'center',
                         alignItems: 'center',
                         paddingTop: 40,
                         paddingHorizontal: 20
@@ -546,6 +571,49 @@ export default function FilesScreen() {
                         }}>
                             {t('files.notUnderGit')}
                         </Text>
+                        {nearbyRepos.length > 0 && (
+                            <View style={{ marginTop: 32, alignSelf: 'stretch' }}>
+                                <Text style={{
+                                    fontSize: 13,
+                                    color: theme.colors.textSecondary,
+                                    marginBottom: 8,
+                                    ...Typography.default()
+                                }}>
+                                    {t('files.foundNearbyRepos')}
+                                </Text>
+                                {nearbyRepos.map((r) => (
+                                    <Pressable
+                                        key={r.path}
+                                        onPress={() => setAdHocRepoPath(r.path)}
+                                        style={({ pressed }) => ({
+                                            opacity: pressed ? 0.6 : 1,
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            paddingVertical: 10,
+                                        })}
+                                    >
+                                        <Octicons name="repo" size={18} color={theme.colors.textSecondary} />
+                                        <View style={{ marginLeft: 10, flex: 1 }}>
+                                            <Text style={{
+                                                fontSize: 15,
+                                                ...Typography.default()
+                                            }}>
+                                                {r.name}
+                                            </Text>
+                                            <Text style={{
+                                                fontSize: 12,
+                                                color: theme.colors.textSecondary,
+                                                marginTop: 2,
+                                                ...Typography.default()
+                                            }}>
+                                                {r.path}
+                                            </Text>
+                                        </View>
+                                        <Octicons name="chevron-right" size={16} color={theme.colors.textSecondary} />
+                                    </Pressable>
+                                ))}
+                            </View>
+                        )}
                     </View>
                 ) : searchQuery || (gitStatusFiles.totalStaged === 0 && gitStatusFiles.totalUnstaged === 0) ? (
                     // Show search results or all files when clean repo

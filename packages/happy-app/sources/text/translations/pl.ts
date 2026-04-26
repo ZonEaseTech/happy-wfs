@@ -99,6 +99,7 @@ export const pl: TranslationStructure = {
     common: {
         // Simple string constants
         cancel: 'Anuluj',
+        collapse: 'Zwiń',
         authenticate: 'Uwierzytelnij',
         save: 'Zapisz',
         saveAs: 'Zapisz jako',
@@ -1059,6 +1060,7 @@ export const pl: TranslationStructure = {
         sessionOfflineDescription: 'Sesja musi być online, aby przeglądać pliki',
         notRepo: 'To nie jest repozytorium git',
         notUnderGit: 'Ten katalog nie jest pod kontrolą wersji git',
+        foundNearbyRepos: 'Znaleziono następujące repozytoria git w podkatalogach (dotknij, aby przełączyć)',
         searching: 'Wyszukiwanie plików...',
         noFilesFound: 'Nie znaleziono plików',
         noFilesInProject: 'Brak plików w projekcie',
@@ -1611,6 +1613,7 @@ export const pl: TranslationStructure = {
 
     wizard: {
         step1Title: 'Choose AI Profile',
+        showMoreProfiles: ({ count }: { count: number }) => `Pokaż więcej (${count})`,
         step1Description: 'Choose which AI backend runs your session (Claude or Codex). Create custom profiles for alternative APIs.',
         step2Title: 'Select Machine',
         step3Title: 'Session Mode',

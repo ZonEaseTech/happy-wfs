@@ -88,6 +88,7 @@ export const it: TranslationStructure = {
     common: {
         // Simple string constants
         cancel: 'Annulla',
+        collapse: 'Riduci',
         authenticate: 'Autentica',
         save: 'Salva',
         error: 'Errore',
@@ -1078,6 +1079,7 @@ export const it: TranslationStructure = {
         sessionOfflineDescription: 'La sessione deve essere online per sfogliare i file',
         notRepo: 'Non è un repository git',
         notUnderGit: 'Questa directory non è sotto controllo versione git',
+        foundNearbyRepos: 'Trovati questi repository git nelle sottocartelle (tocca per passare)',
         searching: 'Ricerca file...',
         noFilesFound: 'Nessun file trovato',
         noFilesInProject: 'Nessun file nel progetto',
@@ -1586,6 +1588,7 @@ export const it: TranslationStructure = {
 
     wizard: {
         step1Title: 'Choose AI Profile',
+        showMoreProfiles: ({ count }: { count: number }) => `Mostra altri (${count})`,
         step1Description: 'Choose which AI backend runs your session (Claude or Codex). Create custom profiles for alternative APIs.',
         step2Title: 'Select Machine',
         step3Title: 'Session Mode',

@@ -90,6 +90,7 @@ export const zhHans: TranslationStructure = {
     common: {
         // Simple string constants
         cancel: '取消',
+        collapse: '收起',
         authenticate: '认证',
         save: '保存',
         saveAs: '另存为',
@@ -1050,6 +1051,7 @@ export const zhHans: TranslationStructure = {
         sessionOfflineDescription: '需要会话在线才能浏览文件',
         notRepo: '不是 git 仓库',
         notUnderGit: '此目录不在 git 版本控制下',
+        foundNearbyRepos: '在子目录发现以下 git 仓库（点击切换）',
         searching: '正在搜索文件...',
         noFilesFound: '未找到文件',
         noFilesInProject: '项目中没有文件',
@@ -1587,6 +1589,7 @@ export const zhHans: TranslationStructure = {
 
     wizard: {
         step1Title: '选择 AI 配置',
+        showMoreProfiles: ({ count }: { count: number }) => `显示更多 (${count})`,
         step1Description: '选择运行会话的 AI 后端（Claude 或 Codex）。可创建自定义配置以使用其他 API。',
         step2Title: '选择机器',
         step3Title: '会话模式',

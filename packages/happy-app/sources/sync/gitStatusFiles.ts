@@ -189,3 +189,56 @@ function getFileStatusV2(statusChar: string): GitFileStatus['status'] {
         default: return 'modified';
     }
 }
+
+
+// ============================================================
+// Nearby git repo discovery
+// 当 cwd 不是 git 仓库时，扫描其子目录寻找 git 仓库。
+// 用于在文件面板空状态下让用户一键切换到子仓库。
+// 调用方：files.tsx 的空状态分支（待 wei 填实现后由我接入）
+// ============================================================
+
+export interface NearbyGitRepo {
+    path: string;   // 子仓库的绝对路径
+    name: string;   // 显示用的目录名（通常是 basename）
+}
+
+/**
+ * 扫描 cwd 的子目录，返回内含 .git 的目录列表
+ *
+ * 6 个决策点（在 TODO 里实现你想要的策略）：
+ *   1) 命令：推荐 find <cwd> -maxdepth N -type d -name .git -prune
+ *   2) 深度 N：1=直接子目录；2=能命中 我的/happy-ai；3+ 容易扫到 vendor/node_modules
+ *   3) 过滤：必排 /node_modules/ 与 /.git/（防止递归进 .git 内部）
+ *   4) 超时：5000ms 起步，避免慢盘阻塞 UI
+ *   5) 排序：字母序 vs 按 .git/HEAD 修改时间倒序（活跃优先）
+ *   6) 上限：建议 ≤ 20 条，避免列表过长
+ *
+ * 失败请 return [] 而不是抛异常，UI 会回退到原占位符。
+ */
+export async function findNearbyGitRepos(
+    sessionId: string,
+    cwd: string,
+): Promise<NearbyGitRepo[]> {
+    const cmd = `find ${shellEscape(cwd)} -maxdepth 3 \\( -name node_modules -o -name .cache -o -name vendor \\) -prune -o -type d -name .git -print 2>/dev/null`;
+    const result = await sessionBash(sessionId, {
+        command: cmd,
+        cwd,
+        timeout: 5000,
+    });
+    if (!result.success || result.exitCode !== 0) {
+        return [];
+    }
+    const seen = new Set<string>();
+    const repos: NearbyGitRepo[] = [];
+    for (const line of result.stdout.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.endsWith('/.git')) continue;
+        const path = trimmed.replace(/\/\.git$/, '');
+        if (path === cwd || seen.has(path)) continue;
+        seen.add(path);
+        repos.push({ path, name: path.split('/').pop() || path });
+    }
+    repos.sort((a, b) => a.path.localeCompare(b.path));
+    return repos.slice(0, 20);
+}

@@ -324,6 +324,33 @@ function NewSessionWizard() {
         }
         return 'anthropic'; // Default to Anthropic
     });
+
+    // Collapse the AI profile list by default; user expands via "Show more".
+    const [showAllProfiles, setShowAllProfiles] = React.useState(false);
+    const totalProfileCount = profiles.length + DEFAULT_PROFILES.length;
+    const defaultVisibleProfileIds = React.useMemo<Set<string> | null>(() => {
+        // null = no filtering (show all)
+        if (showAllProfiles || totalProfileCount <= 2) return null;
+        const ordered = [
+            ...profiles.map(p => p.id),
+            ...DEFAULT_PROFILES.map(p => p.id),
+        ];
+        const result = new Set<string>();
+        // Always include the currently selected profile so users see what's chosen.
+        if (selectedProfileId && ordered.includes(selectedProfileId)) {
+            result.add(selectedProfileId);
+        }
+        // Fill the rest in display order until we have 2 visible items.
+        for (const id of ordered) {
+            if (result.size >= 2) break;
+            result.add(id);
+        }
+        return result;
+    }, [showAllProfiles, totalProfileCount, profiles, selectedProfileId]);
+    const isProfileVisible = React.useCallback(
+        (id: string) => defaultVisibleProfileIds === null || defaultVisibleProfileIds.has(id),
+        [defaultVisibleProfileIds],
+    );
     const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
@@ -1922,6 +1949,7 @@ function NewSessionWizard() {
 
                             {/* Custom profiles - show first */}
                             {profiles.map((profile) => {
+                                if (!isProfileVisible(profile.id)) return null;
                                 const availability = isProfileAvailable(profile);
 
                                 return (
@@ -1981,6 +2009,7 @@ function NewSessionWizard() {
                             {DEFAULT_PROFILES.map((profileDisplay) => {
                                 const profile = getBuiltInProfile(profileDisplay.id);
                                 if (!profile) return null;
+                                if (!isProfileVisible(profile.id)) return null;
 
                                 const availability = isProfileAvailable(profile);
 
@@ -2016,6 +2045,25 @@ function NewSessionWizard() {
                                     </Pressable>
                                 );
                             })}
+
+                            {/* Show more / collapse toggle for AI profile list */}
+                            {totalProfileCount > 2 && (
+                                <Pressable
+                                    onPress={() => setShowAllProfiles(prev => !prev)}
+                                    style={{
+                                        paddingVertical: 10,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: 8,
+                                    }}
+                                >
+                                    <Text style={{ color: theme.colors.textLink, fontSize: 14, ...Typography.default() }}>
+                                        {showAllProfiles
+                                            ? t('common.collapse')
+                                            : t('wizard.showMoreProfiles', { count: totalProfileCount - (defaultVisibleProfileIds?.size ?? 0) })}
+                                    </Text>
+                                </Pressable>
+                            )}
 
                             {/* Profile Action Buttons */}
                             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
@@ -2118,7 +2166,7 @@ function NewSessionWizard() {
                                     allowCustomInput: false,
                                     compactItems: true,
                                 }}
-                                items={machines}
+                                items={[]}
                                 recentItems={recentMachines}
                                 favoriteItems={machines.filter(m => favoriteMachines.includes(m.id))}
                                 selectedItem={selectedMachine || null}
@@ -2220,13 +2268,13 @@ function NewSessionWizard() {
                                     recentSectionTitle: t('wizard.recentDirectories'),
                                     favoritesSectionTitle: t('wizard.favoriteDirectories'),
                                     noItemsMessage: t('wizard.noRecentDirectories'),
-                                    showFavorites: true,
+                                    showFavorites: false,
                                     showRecent: true,
                                     showSearch: true,
                                     allowCustomInput: true,
                                     compactItems: true,
                                 }}
-                                items={recentPaths}
+                                items={[]}
                                 recentItems={recentPaths}
                                 favoriteItems={(() => {
                                     if (!selectedMachine?.metadata?.homeDir) return [];

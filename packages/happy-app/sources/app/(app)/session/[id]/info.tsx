@@ -71,7 +71,7 @@ function StatusDot({ color, isPulsing, size = 8 }: { color: string; isPulsing?: 
     );
 }
 
-function SessionInfoContent({ session }: { session: Session }) {
+function SessionInfoContent({ session, embedded = false }: { session: Session; embedded?: boolean }) {
     const { theme } = useUnistyles();
     const router = useRouter();
     const devModeEnabled = __DEV__;
@@ -800,15 +800,17 @@ function SessionInfoContent({ session }: { session: Session }) {
 
     return (
         <>
-            <Stack.Screen
-                options={{
-                    headerRight: () => (
-                        <Pressable onPress={handleRenameSession} hitSlop={10}>
-                            <AntDesign name="edit" size={22} color={theme.colors.text} />
-                        </Pressable>
-                    ),
-                }}
-            />
+            {!embedded && (
+                <Stack.Screen
+                    options={{
+                        headerRight: () => (
+                            <Pressable onPress={handleRenameSession} hitSlop={10}>
+                                <AntDesign name="edit" size={22} color={theme.colors.text} />
+                            </Pressable>
+                        ),
+                    }}
+                />
+            )}
             <ItemList>
                 {/* Session Header */}
                 <View style={{ maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
@@ -1317,9 +1319,10 @@ function SessionInfoContent({ session }: { session: Session }) {
     );
 }
 
-export default React.memo(() => {
+export default React.memo((props?: { sessionId?: string; embedded?: boolean }) => {
     const { theme } = useUnistyles();
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const params = useLocalSearchParams<{ id: string }>();
+    const id = props?.sessionId ?? params.id;
     const session = useSession(id);
     const isDataReady = useIsDataReady();
 
@@ -1345,5 +1348,5 @@ export default React.memo(() => {
         );
     }
 
-    return <SessionInfoContent session={session} />;
+    return <SessionInfoContent session={session} embedded={props?.embedded} />;
 });
