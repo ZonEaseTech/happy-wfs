@@ -4,6 +4,7 @@ import { MessageBuffer } from "@/ui/ink/messageBuffer";
 import { RemoteModeDisplay } from "@/ui/ink/RemoteModeDisplay";
 import React from "react";
 import { claudeRemote } from "./claudeRemote";
+import { buildMemoryPromptBlock } from "./utils/systemPrompt";
 import { PermissionHandler } from "./utils/permissionHandler";
 import { Future } from "@/utils/future";
 import { Query, SDKAssistantMessage, SDKMessage, SDKResultMessage, SDKSystemMessage, SDKUserMessage } from "./sdk";
@@ -28,6 +29,15 @@ interface PermissionsField {
 
 export async function claudeRemoteLauncher(session: Session): Promise<'switch' | 'exit'> {
     logger.debug('[claudeRemoteLauncher] Starting remote launcher');
+
+    // Fetch user-saved memories once per session start. Each iteration of the
+    // remote loop spawns a fresh `claudeRemote(...)`, so we resolve the block
+    // up here and reuse it. listMemories swallows errors and returns [].
+    const memoryRows = await session.api.listMemories();
+    const memoryPromptBlock = buildMemoryPromptBlock(memoryRows);
+    if (memoryPromptBlock) {
+        logger.debug(`[claudeRemoteLauncher] Injecting ${memoryRows.length} memory rows into system prompt`);
+    }
 
     // Check if we have a TTY for UI rendering
     const hasTTY = process.stdout.isTTY && process.stdin.isTTY;
@@ -461,6 +471,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                     mcpServers: session.mcpServers,
                     hookSettingsPath: session.hookSettingsPath,
                     jsRuntime: session.jsRuntime,
+                    memoryPromptBlock,
                     canCallTool: permissionHandler.handleToolCall,
                     isAborted: (toolCallId: string) => {
                         return permissionHandler.isAborted(toolCallId);

@@ -383,6 +383,34 @@ export class ApiClient {
   }
 
   /**
+   * Fetch the user's saved memory rows (newest first). Used by run* entry
+   * points to inject `<user_memory>` into Claude/Codex/Gemini system prompts
+   * at session start. Returns [] on any failure so missing/down server never
+   * blocks session creation.
+   */
+  async listMemories(): Promise<Array<{ id: string; content: string; source: string }>> {
+    try {
+      const response = await axios.get(
+        `${configuration.serverUrl}/v1/memory`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.credential.token}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 8000,
+        },
+      );
+      if (response.status !== 200 || !response.data?.memories) {
+        return [];
+      }
+      return response.data.memories as Array<{ id: string; content: string; source: string }>;
+    } catch (err) {
+      logger.debug('[API] listMemories failed (continuing without memory injection):', err);
+      return [];
+    }
+  }
+
+  /**
    * Get vendor API token from the server
    * Returns the token if it exists, null otherwise
    */
