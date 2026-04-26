@@ -6,6 +6,12 @@ import { machineBash } from '@/sync/ops';
 import { generateWorktreeName } from '@/utils/generateWorktreeName';
 import { shellEscape } from '@/utils/shellEscape';
 import type { RegisteredRepo, WorkspaceRepo } from '@/utils/workspaceRepos';
+import { storage } from '@/sync/storage';
+
+/** Read the user's worktree branch prefix preference (e.g. "vk/"). */
+function getBranchPrefix(): string {
+    return storage.getState().localSettings?.worktreeBranchPrefix ?? '';
+}
 
 /** Only allow safe characters in path components (no slashes, no ..) */
 function isSafePathComponent(name: string): boolean {
@@ -41,6 +47,11 @@ export async function createWorkspace(
     repoInputs: WorkspaceRepoInput[],
 ): Promise<CreateWorkspaceResult> {
     const workspaceName = generateWorktreeName();
+    const prefix = getBranchPrefix();
+    // Branch name carries the prefix (so `git branch` lists it under e.g. vk/),
+    // but the workspace directory uses the unprefixed name to avoid nested
+    // folders when the prefix contains "/".
+    const branchName = `${prefix}${workspaceName}`;
     // ~ is left unescaped so the shell expands it; workspaceName is safe (adjective-noun)
     const workspacePath = `~/.happy-ai/workspaces/${shellEscape(workspaceName)}`;
 
@@ -66,7 +77,7 @@ export async function createWorkspace(
 
         // Validate displayName as a safe path component
         if (!isSafePathComponent(repo.displayName)) {
-            await rollbackCreatedRepos(machineId, createdRepos, workspaceName, absoluteWorkspacePath);
+            await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName);
             return {
                 success: false, workspaceName, workspacePath: absoluteWorkspacePath, repos: [],
                 error: `Invalid repo display name: ${repo.displayName}`,
@@ -75,13 +86,14 @@ export async function createWorkspace(
 
         const worktreePath = `${absoluteWorkspacePath}/${repo.displayName}`;
 
-        // Create worktree with a branch named after the workspace
+        // Create worktree with a branch named after the workspace (prefix
+        // applied if set; the directory keeps the unprefixed name).
         const targetArg = targetBranch ? ` ${shellEscape(targetBranch)}` : '';
-        const cmd = `git worktree add -b ${shellEscape(workspaceName)} ${shellEscape(worktreePath)}${targetArg}`;
+        const cmd = `git worktree add -b ${shellEscape(branchName)} ${shellEscape(worktreePath)}${targetArg}`;
         const result = await machineBash(machineId, cmd, repo.path);
 
         if (!result.success) {
-            await rollbackCreatedRepos(machineId, createdRepos, workspaceName, absoluteWorkspacePath);
+            await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName);
             return {
                 success: false, workspaceName, workspacePath: absoluteWorkspacePath, repos: [],
                 error: `Failed to create worktree for ${repo.displayName}: ${result.stderr}`,
@@ -106,7 +118,7 @@ export async function createWorkspace(
             repoId: isRegisteredRepo(repo) ? repo.id : undefined,
             path: worktreePath,
             basePath: repo.path,
-            branchName: workspaceName,
+            branchName: branchName,
             targetBranch,
             displayName: repo.displayName,
         });
@@ -170,17 +182,23 @@ async function generateWorkspaceConfigFiles(
     }
 }
 
-/** Roll back previously created worktrees and remove workspace directory */
+/**
+ * Roll back previously created worktrees and remove workspace directory.
+ * branchName carries the prefix (e.g. "vk/warm-meadow"); workspaceDirName
+ * is the unprefixed dir-component used for the rm -rf cleanup target,
+ * but absoluteWorkspacePath already accounts for that.
+ */
 async function rollbackCreatedRepos(
     machineId: string,
     createdRepos: WorkspaceRepo[],
-    workspaceName: string,
+    branchName: string,
     absoluteWorkspacePath: string,
+    _workspaceDirName: string,
 ): Promise<void> {
     for (const created of createdRepos) {
         await machineBash(
             machineId,
-            `git worktree remove --force ${shellEscape(created.path)} 2>/dev/null; git branch -D ${shellEscape(workspaceName)} 2>/dev/null`,
+            `git worktree remove --force ${shellEscape(created.path)} 2>/dev/null; git branch -D ${shellEscape(branchName)} 2>/dev/null`,
             created.basePath,
         );
     }
