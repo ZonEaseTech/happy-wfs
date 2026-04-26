@@ -194,7 +194,11 @@ export class ApiMachineClient {
             logger: (msg, data) => logger.debug(msg, data)
         });
 
-        registerCommonHandlers(this.rpcHandlerManager, homedir());
+        // Machine-scoped daemon root: defaults to filesystem root so the
+        // FolderPicker can browse anywhere on the host. Set HAPPY_DAEMON_ROOT
+        // to a tighter directory (e.g. ~/projects) if you want directory
+        // traversal protection back.
+        registerCommonHandlers(this.rpcHandlerManager, process.env.HAPPY_DAEMON_ROOT || '/');
         registerOpenClawHandlers(this.rpcHandlerManager, {
             key: this.machine.encryptionKey
         });

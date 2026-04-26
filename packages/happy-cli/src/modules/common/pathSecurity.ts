@@ -17,8 +17,12 @@ export function validatePath(targetPath: string, workingDirectory: string): Path
     const resolvedWorkingDir = resolve(workingDirectory);
 
     // Check if the resolved target path starts with the working directory
-    // This prevents access to files outside the working directory
-    if (!resolvedTarget.startsWith(resolvedWorkingDir + '/') && resolvedTarget !== resolvedWorkingDir) {
+    // This prevents access to files outside the working directory.
+    // Special case: when workingDirectory is "/" (filesystem root), every absolute
+    // path is in scope; using "/" + "/" = "//" as the prefix would otherwise reject
+    // legitimate paths like "/workspace".
+    const prefix = resolvedWorkingDir === '/' ? '/' : resolvedWorkingDir + '/';
+    if (!resolvedTarget.startsWith(prefix) && resolvedTarget !== resolvedWorkingDir) {
         return {
             valid: false,
             error: `Access denied: Path '${targetPath}' is outside the working directory`
