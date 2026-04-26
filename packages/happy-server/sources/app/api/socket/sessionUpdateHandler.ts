@@ -1,4 +1,5 @@
 import { sessionAliveEventsCounter, websocketEventsCounter } from "@/app/monitoring/metrics2";
+import { onMessageCompleted, onInputNeeded } from "@/app/notifications/notifier";
 import { activityCache } from "@/app/presence/sessionCache";
 import { updateThinkingState } from "@/app/presence/sessionTurnRuntime";
 import { dispatchNextPendingIfPossible } from "@/app/session/pendingMessageAutoDispatch";
@@ -161,6 +162,17 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
 
             // Send success response with new version via callback
             callback({ result: 'success', version: expectedVersion + 1, agentState: agentState });
+
+            // Outbound notification: agentState changed → Claude likely transitioned
+            // between thinking/idle/waiting-input. We can't decrypt the state to know
+            // *which* transition; the 30s cooldown in shouldNotify keeps this from
+            // spamming the Feishu group during chatty turns.
+            void onInputNeeded({
+                userId,
+                sessionId: sid,
+                occurredAt: new Date(),
+                reason: null,
+            });
         } catch (error) {
             log({ module: 'websocket', level: 'error' }, `Error in update-state: ${error}`);
             if (callback) {
@@ -438,6 +450,18 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                     payload: buildMessageSyncedEphemeral(sid, count),
                     recipientFilter: { type: 'all-interested-in-session', sessionId: sid }
                 });
+
+                // Outbound notification: a batch of messages just landed (typically the
+                // tail of an assistant streaming turn). 30s cooldown prevents one turn
+                // from generating multiple Feishu cards as chunks arrive.
+                if (count > 0 && batchSessionId) {
+                    void onMessageCompleted({
+                        userId,
+                        sessionId: batchSessionId,
+                        completedAt: new Date(),
+                        preview: null, // E2E-encrypted, server can't peek
+                    });
+                }
 
                 if (callback) {
                     callback({ result: 'success', inserted: count });

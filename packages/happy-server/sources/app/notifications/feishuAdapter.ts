@@ -131,6 +131,49 @@ export function buildSessionCompletedCard(meta: SessionCompletedMeta): FeishuMes
 }
 
 /**
+ * Per-message-completed event metadata (each Claude assistant turn).
+ */
+export interface MessageCompletedMeta {
+    sessionTag: string;
+    preview: string | null;
+    completedAt: number;
+    sessionUrl: string;
+}
+
+/**
+ * Card shown when a single Claude turn finishes. Kept short — the cooldown in
+ * shouldNotify already protects against streaming chunk noise, but every turn
+ * is still much chattier than session-completed so the body must be compact.
+ */
+export function buildMessageCompletedCard(meta: MessageCompletedMeta): FeishuMessagePayload {
+    const lines = [`💬 Happy "${meta.sessionTag}" 完成一次回复`];
+    if (meta.preview) {
+        const trimmed = meta.preview.length > 80 ? `${meta.preview.slice(0, 80)}…` : meta.preview;
+        lines.push(trimmed);
+    }
+    return { msg_type: 'text', content: { text: lines.join('\n') } };
+}
+
+/**
+ * input-needed event metadata (Claude is waiting on a user reply / permission).
+ */
+export interface InputNeededMeta {
+    sessionTag: string;
+    reason: string | null;
+    occurredAt: number;
+    sessionUrl: string;
+}
+
+export function buildInputNeededCard(meta: InputNeededMeta): FeishuMessagePayload {
+    return {
+        msg_type: 'text',
+        content: {
+            text: `⏳ Happy "${meta.sessionTag}" 等待你回复` + (meta.reason ? `（${meta.reason}）` : ''),
+        },
+    };
+}
+
+/**
  * Test-message payload used by the "Send test" button in the settings UI.
  */
 export function buildTestCard(): FeishuMessagePayload {
