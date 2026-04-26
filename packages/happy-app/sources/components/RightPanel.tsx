@@ -6,14 +6,16 @@ import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import FilesScreen from '@/app/(app)/session/[id]/files';
 import InfoScreen from '@/app/(app)/session/[id]/info';
+import BrowserScreen from '@/app/(app)/session/[id]/browser';
 
-export type RightPanelType = 'files' | 'info';
+export type RightPanelType = 'files' | 'info' | 'browser';
 
 export const RIGHT_PANEL_WIDTH = 480;
 
 const TITLES: Record<RightPanelType, string> = {
     files: 'Files',
     info: 'Info',
+    browser: 'Code',
 };
 
 export const RightPanel = React.memo(function RightPanel(props: {
@@ -54,6 +56,8 @@ export const RightPanel = React.memo(function RightPanel(props: {
             <View style={{ flex: 1 }}>
                 {props.type === 'files' ? (
                     <FilesScreen sessionId={props.sessionId} embedded />
+                ) : props.type === 'browser' ? (
+                    <BrowserScreen sessionId={props.sessionId} embedded />
                 ) : (
                     <InfoScreen sessionId={props.sessionId} embedded />
                 )}

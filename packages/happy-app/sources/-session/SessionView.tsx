@@ -240,7 +240,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
-                                            setRightPanelType(prev => (prev === 'files' ? null : 'files'));
+                                            setRightPanelType(prev => (prev === 'browser' ? null : 'browser'));
                                         } else {
                                             router.push(`/session/${sessionId}/browser`);
                                         }
@@ -259,7 +259,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     <Ionicons
                                         name="code-slash-outline"
                                         size={22}
-                                        color={isDesktopPanelMode && rightPanelType === 'files' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                        color={isDesktopPanelMode && rightPanelType === 'browser' ? theme.colors.button.primary.background : theme.colors.header.tint}
                                     />
                                 </Pressable>
                                 {headerProps.avatarId && headerProps.onAvatarPress && (

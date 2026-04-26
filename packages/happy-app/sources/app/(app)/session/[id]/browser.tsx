@@ -46,10 +46,11 @@ function parseGlobalResults(stdout: string): SearchResult[] {
     });
 }
 
-export default function BrowserScreen() {
+export default function BrowserScreen(props?: { sessionId?: string; embedded?: boolean }) {
     const route = useRoute();
     const router = useRouter();
-    const sessionId = (route.params! as any).id as string;
+    const sessionId = props?.sessionId ?? ((route.params as any)?.id as string);
+    const embedded = props?.embedded ?? false;
     const { theme } = useUnistyles();
 
     const session = getSession(sessionId);
@@ -231,22 +232,24 @@ export default function BrowserScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-            <Stack.Screen
-                options={{
-                    headerRight: () => (
-                        <Pressable
-                            onPress={toggleSearch}
-                            style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-                        >
-                            <Ionicons
-                                name={searchActive ? 'close' : 'search'}
-                                size={22}
-                                color={theme.colors.header.tint}
-                            />
-                        </Pressable>
-                    ),
-                }}
-            />
+            {!embedded && (
+                <Stack.Screen
+                    options={{
+                        headerRight: () => (
+                            <Pressable
+                                onPress={toggleSearch}
+                                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                            >
+                                <Ionicons
+                                    name={searchActive ? 'close' : 'search'}
+                                    size={22}
+                                    color={theme.colors.header.tint}
+                                />
+                            </Pressable>
+                        ),
+                    }}
+                />
+            )}
 
             {/* Search bar */}
             {searchActive && (
