@@ -1141,6 +1141,11 @@ export const ru: TranslationStructure = {
         invalidJson: 'Invalid JSON',
     },
 
+    memory: {
+        title: 'Memory',
+        comingSoon: 'Memory features land in v0.6.0 — UI entry only for now.',
+    },
+
     worktreeConfig: {
         title: 'Worktree branch prefix',
         description: 'Prepended to auto-generated branch names when creating a worktree. Leave empty for none. Example: with "vk/" the branch becomes "vk/clever-ocean".',

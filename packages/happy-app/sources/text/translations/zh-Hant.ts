@@ -1132,6 +1132,11 @@ export const zhHant: TranslationStructure = {
         invalidJson: 'JSON 格式错误',
     },
 
+    memory: {
+        title: '記憶',
+        comingSoon: '記憶功能將在 v0.6.0 版本上線，目前僅為入口預留。',
+    },
+
     worktreeConfig: {
         title: 'Worktree 分支前綴',
         description: '新建 worktree 時，自動為隨機生成的分支名加這個前綴。留空則不加。',

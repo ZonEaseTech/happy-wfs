@@ -1132,6 +1132,11 @@ export const zhHans: TranslationStructure = {
         invalidJson: 'JSON 格式错误',
     },
 
+    memory: {
+        title: '记忆',
+        comingSoon: '记忆功能将在 v0.6.0 版本上线，当前仅为入口预留。',
+    },
+
     worktreeConfig: {
         title: 'Worktree 分支前缀',
         description: '新建 worktree 时，自动给随机生成的分支名加这个前缀。留空则不加。示例：设置 “vk/” 后实际分支名为 “vk/clever-ocean”。',

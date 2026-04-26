@@ -1532,6 +1532,36 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
                                 {/* Git Status Badge */}
                                 <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
+
+                                {/* Skills shortcut — quick-open the slash command menu without typing "/" */}
+                                <Pressable
+                                    onPress={() => {
+                                        const newText = '/';
+                                        setInputState({ text: newText, selection: { start: 1, end: 1 } });
+                                        props.onChangeText(newText);
+                                        // Focus on next tick so the autocomplete sheet picks up the new active word
+                                        setTimeout(() => inputRef.current?.focus(), 30);
+                                    }}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Skills"
+                                    style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <Ionicons name="sparkles-outline" size={20} color={theme.colors.button.secondary.tint} />
+                                </Pressable>
+
+                                {/* Memory shortcut — placeholder; full memory system lands in v0.6.0 */}
+                                <Pressable
+                                    onPress={() => {
+                                        Modal.alert(t('memory.title'), t('memory.comingSoon'));
+                                    }}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Memory"
+                                    style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <Ionicons name="library-outline" size={20} color={theme.colors.button.secondary.tint} />
+                                </Pressable>
                                 </View>
 
                                 {/* Image button */}

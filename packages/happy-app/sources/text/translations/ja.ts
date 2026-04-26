@@ -1162,6 +1162,11 @@ export const ja: TranslationStructure = {
         invalidJson: 'Invalid JSON',
     },
 
+    memory: {
+        title: 'メモリ',
+        comingSoon: 'メモリ機能は v0.6.0 で実装予定です。現在は入口のみ。',
+    },
+
     worktreeConfig: {
         title: 'Worktree ブランチプレフィックス',
         description: 'Worktree を作成するときに自動生成されるブランチ名に付与します。空にすると付与しません。',
