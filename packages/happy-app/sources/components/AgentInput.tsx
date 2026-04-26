@@ -1,5 +1,6 @@
 import { Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as React from 'react';
+import { useRouter } from 'expo-router';
 import { View, Platform, useWindowDimensions, ViewStyle, Text, ActivityIndicator, TouchableWithoutFeedback, Image as RNImage, Pressable, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { layout } from './layout';
@@ -362,6 +363,7 @@ const getContextWarning = (contextSize: number, maxContextSize: number, alwaysSh
 export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, AgentInputProps>((props, ref) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
+    const router = useRouter();
     const renderRadioOptions = <T extends string>(
         options: readonly { value: T; label: string; description?: string }[],
         selectedValue: T | null,
@@ -1550,10 +1552,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     <Ionicons name="sparkles-outline" size={20} color={theme.colors.button.secondary.tint} />
                                 </Pressable>
 
-                                {/* Memory shortcut — placeholder; full memory system lands in v0.6.0 */}
+                                {/* Memory shortcut — opens the memory list/edit page */}
                                 <Pressable
                                     onPress={() => {
-                                        Modal.alert(t('memory.title'), t('memory.comingSoon'));
+                                        router.push('/memory');
                                     }}
                                     hitSlop={15}
                                     accessibilityRole="button"

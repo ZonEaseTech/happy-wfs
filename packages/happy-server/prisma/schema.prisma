@@ -66,6 +66,7 @@ model Account {
   sharedBySessions    SessionShare[]           @relation("SharedBySessions")
   sharedWithSessions  SessionShare[]           @relation("SharedWithSessions")
   publicSessionShares PublicSessionShare[]     @relation("PublicSessionShares")
+  memories            Memory[]
   blockedFromShares   PublicShareBlockedUser[]
 }
 
@@ -633,4 +634,27 @@ model PublicShareBlockedUser {
   blockedAt     DateTime           @default(now())
 
   @@unique([publicShareId, userId])
+}
+
+//
+// User-level memories — content the user wants Claude to remember across all
+// sessions. Pinned to an account; happy-cli pulls these on session start and
+// injects them into the system prompt. Source can be 'manual' (user typed
+// it in the memory sheet) or 'message-pin' (saved from a chat message).
+// Content stored plaintext server-side because injection happens in cli, not
+// in the encrypted message stream — the threat model already trusts the
+// server with notificationConfig and similar account-level secrets.
+//
+model Memory {
+  id              String   @id @default(cuid())
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  content         String
+  source          String   @default("manual")
+  sourceSessionId String?
+  sourceMessageId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, createdAt(sort: Desc)])
 }

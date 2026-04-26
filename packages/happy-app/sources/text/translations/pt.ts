@@ -1132,7 +1132,23 @@ export const pt: TranslationStructure = {
 
     memory: {
         title: 'Memory',
-        comingSoon: 'Memory features land in v0.6.0 — UI entry only for now.',
+        subtitle: 'Things Claude should remember across all sessions',
+        emptyTitle: 'No memories yet',
+        emptyDescription: 'Save useful context here. Each session injects these into the system prompt automatically.',
+        addTitle: 'New memory',
+        addPrompt: 'What should Claude remember?',
+        editTitle: 'Edit memory',
+        editPrompt: 'Update this memory',
+        save: 'Save',
+        saved: 'Saved',
+        saveFailed: 'Failed to save memory',
+        deleteTitle: 'Delete memory?',
+        deleteConfirm: 'This memory will no longer be injected into Claude sessions.',
+        deleted: 'Deleted',
+        deleteFailed: 'Failed to delete memory',
+        sourceManual: 'Typed',
+        sourcePin: 'From chat',
+        listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
     },
 
     worktreeConfig: {

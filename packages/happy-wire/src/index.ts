@@ -3,3 +3,4 @@ export * from './legacyProtocol';
 export * from './sessionProtocol';
 export * from './modelCatalog';
 export * from './notifications';
+export * from './memory';

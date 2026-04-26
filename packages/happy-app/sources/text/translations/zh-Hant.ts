@@ -1133,8 +1133,24 @@ export const zhHant: TranslationStructure = {
     },
 
     memory: {
-        title: '記憶',
-        comingSoon: '記憶功能將在 v0.6.0 版本上線，目前僅為入口預留。',
+        title: '记忆',
+        subtitle: 'Claude 在所有会话中应记住的内容',
+        emptyTitle: '暂无记忆',
+        emptyDescription: '把希望 Claude 始终记住的上下文存在这里，每次会话会自动注入到系统提示。',
+        addTitle: '新建记忆',
+        addPrompt: '希望 Claude 记住什么？',
+        editTitle: '编辑记忆',
+        editPrompt: '更新这条记忆',
+        save: '保存',
+        saved: '已保存',
+        saveFailed: '保存失败',
+        deleteTitle: '删除这条记忆？',
+        deleteConfirm: '删除后，新会话不再注入这条记忆。',
+        deleted: '已删除',
+        deleteFailed: '删除失败',
+        sourceManual: '手动',
+        sourcePin: '来自对话',
+        listFooter: ({ count }: { count: number }) => `共 ${count} 条`,
     },
 
     worktreeConfig: {
