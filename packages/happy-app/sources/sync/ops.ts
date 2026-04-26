@@ -507,6 +507,73 @@ export async function machineBash(
 }
 
 /**
+ * Read a file at machine scope (no session).
+ *
+ * happy-cli daemon registers the same readFile/writeFile/listDirectory RPC handlers
+ * for both session and machine clients; the difference is the validatePath root —
+ * session uses session.metadata.path, machine uses HAPPY_DAEMON_ROOT (default "/").
+ * So machine-level RPC can reach paths outside any single session's working dir
+ * (e.g. ~/.claude/settings.json).
+ */
+export async function machineReadFile(machineId: string, path: string): Promise<{
+    success: boolean;
+    content?: string;
+    hash?: string;
+    error?: string;
+}> {
+    try {
+        const response = await apiSocket.machineRPC<{
+            success: boolean;
+            content?: string;
+            hash?: string;
+            error?: string;
+        }, { path: string }>(machineId, 'readFile', { path });
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function machineWriteFile(
+    machineId: string,
+    path: string,
+    content: string,
+    expectedHash?: string | null,
+): Promise<{ success: boolean; hash?: string; error?: string }> {
+    try {
+        const response = await apiSocket.machineRPC<{
+            success: boolean;
+            hash?: string;
+            error?: string;
+        }, { path: string; content: string; expectedHash?: string | null }>(
+            machineId,
+            'writeFile',
+            { path, content, expectedHash },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function machineListDirectory(machineId: string, path: string): Promise<{
+    success: boolean;
+    entries?: Array<{ name: string; type: 'file' | 'directory' | 'other'; size?: number; modified?: number }>;
+    error?: string;
+}> {
+    try {
+        const response = await apiSocket.machineRPC<{
+            success: boolean;
+            entries?: Array<{ name: string; type: 'file' | 'directory' | 'other'; size?: number; modified?: number }>;
+            error?: string;
+        }, { path: string }>(machineId, 'listDirectory', { path });
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+/**
  * Update machine metadata with optimistic concurrency control and automatic retry
  */
 export async function machineUpdateMetadata(

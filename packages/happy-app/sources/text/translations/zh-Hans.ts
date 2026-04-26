@@ -214,6 +214,8 @@ export const zhHans: TranslationStructure = {
         machineConfigSection: '机器与会话',
         worktreeBranchPrefix: 'Worktree 分支前缀',
         worktreeBranchPrefixSubtitle: '新建 worktree 时分支名自动加这个前缀',
+        claudeConfigTitle: '用户级 Claude 配置',
+        claudeConfigSubtitle: '在这台机器上编辑 settings.json / CLAUDE.md，浏览 ~/.claude',
         worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `当前：${prefix}`,
         githubNotConfigured: '服务器未配置 GitHub OAuth，请联系管理员。',
         claudeAuthSuccess: '成功连接到 Claude',
@@ -1108,6 +1110,26 @@ export const zhHans: TranslationStructure = {
         saving: '保存中…',
         saved: '文件已保存',
         saveFailed: '保存文件失败',
+    },
+
+    claudeConfig: {
+        title: '用户级 Claude 配置',
+        machineGroup: '机器上的文件',
+        machineFooter: ({ machine, status }: { machine: string; status: string }) => `编辑将写入 ${machine}（${status}）的 ~/.claude`,
+        noMachine: '尚未连接任何机器。',
+        machineOffline: '机器离线。',
+        noMachineFooter: '连接一台机器后即可编辑。',
+        settingsJson: 'settings.json',
+        settingsJsonSubtitle: 'Hooks、权限、环境变量、MCP 服务器',
+        claudeMd: 'CLAUDE.md',
+        claudeMdSubtitle: '附加在每个项目前的用户级 prompt',
+        browse: '浏览 ~/.claude',
+        browseSubtitle: 'skills/、commands/、agents/ 等',
+        browseTitle: '~/.claude',
+    },
+
+    machineEdit: {
+        invalidJson: 'JSON 格式错误',
     },
 
     worktreeConfig: {

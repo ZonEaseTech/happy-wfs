@@ -256,6 +256,12 @@ export const SettingsView = React.memo(function SettingsView() {
                     icon={<Ionicons name="git-branch-outline" size={29} color="#FF9500" />}
                     onPress={() => router.push('/settings/worktree-config')}
                 />
+                <Item
+                    title={t('settings.claudeConfigTitle')}
+                    subtitle={t('settings.claudeConfigSubtitle')}
+                    icon={<Ionicons name="construct-outline" size={29} color="#5856D6" />}
+                    onPress={() => router.push('/settings/claude-config')}
+                />
             </ItemGroup>
 
             {/* Social */}

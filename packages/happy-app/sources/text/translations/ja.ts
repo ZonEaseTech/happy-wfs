@@ -244,6 +244,8 @@ export const ja: TranslationStructure = {
         machineConfigSection: 'マシンとセッション',
         worktreeBranchPrefix: 'Worktree ブランチプレフィックス',
         worktreeBranchPrefixSubtitle: '新しい worktree のブランチ名に自動で付与されます',
+        claudeConfigTitle: 'User-level Claude config',
+        claudeConfigSubtitle: 'Edit settings.json, CLAUDE.md, and browse ~/.claude on this machine',
         worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `現在: ${prefix}`,
         githubNotConfigured: 'サーバーでGitHub OAuthが設定されていません。管理者にお問い合わせください。',
         claudeAuthSuccess: 'Claudeへの接続に成功しました',
@@ -1138,6 +1140,26 @@ export const ja: TranslationStructure = {
         saving: '保存中…',
         saved: 'ファイルを保存しました',
         saveFailed: 'ファイルの保存に失敗しました',
+    },
+
+    claudeConfig: {
+        title: 'User-level Claude config',
+        machineGroup: 'Files on machine',
+        machineFooter: ({ machine, status }: { machine: string; status: string }) => `Edits go to ~/.claude on ${machine} (${status})`,
+        noMachine: 'No machine connected.',
+        machineOffline: 'Machine is offline.',
+        noMachineFooter: 'Connect a machine to edit user-level Claude config.',
+        settingsJson: 'settings.json',
+        settingsJsonSubtitle: 'Hooks, permissions, env, MCP servers',
+        claudeMd: 'CLAUDE.md',
+        claudeMdSubtitle: 'User-level prompt prepended to every project',
+        browse: 'Browse ~/.claude',
+        browseSubtitle: 'skills/, commands/, agents/, anything else',
+        browseTitle: '~/.claude',
+    },
+
+    machineEdit: {
+        invalidJson: 'Invalid JSON',
     },
 
     worktreeConfig: {

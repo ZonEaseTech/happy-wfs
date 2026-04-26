@@ -212,6 +212,8 @@ export const es: TranslationStructure = {
         machineConfigSection: 'Machine & session',
         worktreeBranchPrefix: 'Worktree branch prefix',
         worktreeBranchPrefixSubtitle: 'Auto-prepended to new worktree branch names',
+        claudeConfigTitle: 'User-level Claude config',
+        claudeConfigSubtitle: 'Edit settings.json, CLAUDE.md, and browse ~/.claude on this machine',
         worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `Current: ${prefix}`,
         githubNotConfigured: 'GitHub OAuth no está configurado en el servidor. Contacta a tu administrador.',
         claudeAuthSuccess: 'Conectado exitosamente con Claude',
@@ -1106,6 +1108,26 @@ export const es: TranslationStructure = {
         saving: 'Guardando…',
         saved: 'Archivo guardado',
         saveFailed: 'Error al guardar archivo',
+    },
+
+    claudeConfig: {
+        title: 'User-level Claude config',
+        machineGroup: 'Files on machine',
+        machineFooter: ({ machine, status }: { machine: string; status: string }) => `Edits go to ~/.claude on ${machine} (${status})`,
+        noMachine: 'No machine connected.',
+        machineOffline: 'Machine is offline.',
+        noMachineFooter: 'Connect a machine to edit user-level Claude config.',
+        settingsJson: 'settings.json',
+        settingsJsonSubtitle: 'Hooks, permissions, env, MCP servers',
+        claudeMd: 'CLAUDE.md',
+        claudeMdSubtitle: 'User-level prompt prepended to every project',
+        browse: 'Browse ~/.claude',
+        browseSubtitle: 'skills/, commands/, agents/, anything else',
+        browseTitle: '~/.claude',
+    },
+
+    machineEdit: {
+        invalidJson: 'Invalid JSON',
     },
 
     worktreeConfig: {
