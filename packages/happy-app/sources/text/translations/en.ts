@@ -1173,6 +1173,8 @@ export const en: TranslationStructure = {
         sourceManual: 'Typed',
         sourcePin: 'From chat',
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
+        pinTitle: 'Save to memory?',
+        pinAction: 'Save to memory',
     },
 
     worktreeConfig: {

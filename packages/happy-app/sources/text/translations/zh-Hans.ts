@@ -1158,6 +1158,8 @@ export const zhHans: TranslationStructure = {
         sourceManual: '手动',
         sourcePin: '来自对话',
         listFooter: ({ count }: { count: number }) => `共 ${count} 条`,
+        pinTitle: '存为记忆？',
+        pinAction: '存为记忆',
     },
 
     worktreeConfig: {

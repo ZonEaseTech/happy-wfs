@@ -15,6 +15,46 @@ import { OptionItem as OptionItemData } from './markdown/parseMarkdown';
 import { Modal } from "@/modal";
 import { sync } from "@/sync/sync";
 import { useSetting } from "@/sync/storage";
+import { getCurrentAuth } from "@/auth/AuthContext";
+import { createMemory } from "@/sync/apiMemory";
+import { showToast } from "./Toast";
+import { hapticsLight } from "./haptics";
+
+// Long-press a chat message → action sheet → POST /v1/memory with source='message-pin'.
+// Reads auth lazily via getCurrentAuth() so MessageView doesn't subscribe to the auth context.
+function pinMessageToMemory(rawText: string, sessionId: string, messageId: string) {
+    const trimmed = rawText.trim();
+    if (!trimmed) return;
+    hapticsLight();
+    const preview = trimmed.length > 200 ? trimmed.slice(0, 200) + '…' : trimmed;
+    Modal.alert(t('memory.pinTitle'), preview, [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+            text: t('memory.pinAction'),
+            onPress: () => {
+                void (async () => {
+                    const auth = getCurrentAuth();
+                    if (!auth?.credentials) {
+                        Modal.alert(t('common.error'), t('memory.saveFailed'));
+                        return;
+                    }
+                    try {
+                        await createMemory(auth.credentials, {
+                            content: trimmed,
+                            source: 'message-pin',
+                            sourceSessionId: sessionId,
+                            sourceMessageId: messageId,
+                        });
+                        hapticsLight();
+                        showToast(t('memory.saved'));
+                    } catch (e) {
+                        Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.saveFailed'));
+                    }
+                })();
+            },
+        },
+    ]);
+}
 
 export const MessageView = (props: {
   message: Message;
@@ -174,12 +214,16 @@ function UserTextBlock(props: {
     return props.message.sentByName || t('message.unknownSender');
   }, [props.isSharedSession, props.showSenderName, props.message.sentBy, props.currentUserId, props.message.sentByName]);
 
+  const handleLongPress = React.useCallback(() => {
+    pinMessageToMemory(props.message.text, props.sessionId, props.message.id);
+  }, [props.message.text, props.message.id, props.sessionId]);
+
   return (
     <View style={styles.userMessageContainer}>
       {senderLabel && (
         <Text style={styles.senderLabel}>{senderLabel}</Text>
       )}
-      <View style={styles.userMessageBubble}>
+      <Pressable style={styles.userMessageBubble} onLongPress={handleLongPress} delayLongPress={400}>
         {images.length > 0 && (
           <>
             <View style={styles.messageImages}>
@@ -215,7 +259,7 @@ function UserTextBlock(props: {
         {props.message.deliveryError ? (
           <Text style={styles.deliveryErrorText}>{props.message.deliveryError}</Text>
         ) : null}
-      </View>
+      </Pressable>
     </View>
   );
 }
@@ -273,8 +317,16 @@ function AgentTextBlock(props: {
 
   const hasOptions = props.message.text.includes('<options>');
 
+  const handleLongPress = React.useCallback(() => {
+    pinMessageToMemory(props.message.text, props.sessionId, props.message.id);
+  }, [props.message.text, props.message.id, props.sessionId]);
+
   return (
-    <View style={[styles.agentMessageContainer, props.message.isThinking && { opacity: 0.3 }, hasOptions && styles.agentMessageContainerStretch]}>
+    <Pressable
+      style={[styles.agentMessageContainer, props.message.isThinking && { opacity: 0.3 }, hasOptions && styles.agentMessageContainerStretch]}
+      onLongPress={handleLongPress}
+      delayLongPress={400}
+    >
       <MarkdownView
         markdown={props.message.text}
         sessionId={props.sessionId}
@@ -285,7 +337,7 @@ function AgentTextBlock(props: {
         optionsLoadingState={props.readOnly ? undefined : optionsLoadingState}
         hideOptions={props.readOnly}
       />
-    </View>
+    </Pressable>
   );
 }
 
