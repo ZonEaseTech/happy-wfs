@@ -252,11 +252,12 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
                                 }}
                             >
                                 <Pressable
-                                    onPress={() => handleEdit(m)}
+                                    onPress={() => onSelect ? handleInsert(m) : handleEdit(m)}
                                     style={({ pressed }) => ({
                                         flex: 1,
                                         opacity: pressed ? 0.6 : 1,
                                     })}
+                                    accessibilityLabel={onSelect ? t('memory.insertIntoInput') : t('memory.editTitle')}
                                 >
                                     <Text style={{ fontSize: 14, color: theme.colors.text, ...Typography.default() }}>
                                         {preview}
@@ -265,12 +266,12 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
                                     {onSelect ? (
                                         <Pressable
-                                            onPress={() => handleInsert(m)}
+                                            onPress={() => handleEdit(m)}
                                             hitSlop={8}
                                             style={({ pressed }) => ({ padding: 6, opacity: pressed ? 0.4 : 0.7 })}
-                                            accessibilityLabel={t('memory.insertIntoInput')}
+                                            accessibilityLabel={t('memory.editTitle')}
                                         >
-                                            <Ionicons name="copy-outline" size={16} color={theme.colors.textSecondary} />
+                                            <Ionicons name="create-outline" size={16} color={theme.colors.textSecondary} />
                                         </Pressable>
                                     ) : null}
                                     <Pressable
