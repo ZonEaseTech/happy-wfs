@@ -67,8 +67,12 @@ export const SessionView = React.memo((props: { id: string }) => {
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
     const hasRuns = useOrchestratorHasRuns(sessionId);
     const handleOpenSessionRuns = React.useCallback(() => {
-        router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
-    }, [router, sessionId]);
+        if (isDesktopPanelMode) {
+            setRightPanelType(prev => (prev === 'orchestrator' ? null : 'orchestrator'));
+        } else {
+            router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
+        }
+    }, [router, sessionId, isDesktopPanelMode]);
 
     // Track if we've confirmed the session doesn't exist after data loads
     const [sessionNotFound, setSessionNotFound] = React.useState(false);

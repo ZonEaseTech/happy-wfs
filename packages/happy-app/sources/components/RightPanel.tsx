@@ -10,19 +10,15 @@ import { Typography } from '@/constants/Typography';
 import FilesScreen from '@/app/(app)/session/[id]/files';
 import InfoScreen from '@/app/(app)/session/[id]/info';
 import BrowserScreen from '@/app/(app)/session/[id]/browser';
+import OrchestratorRunsScreen from '@/app/(app)/orchestrator/index';
+import { t } from '@/text';
 
-export type RightPanelType = 'files' | 'info' | 'browser';
+export type RightPanelType = 'files' | 'info' | 'browser' | 'orchestrator';
 
 export const RIGHT_PANEL_WIDTH = 480; // legacy export — callers use the hook now
 
 const MIN_RIGHT_PANEL_WIDTH = 320;
 const MAX_RIGHT_PANEL_WIDTH = 720;
-
-const TITLES: Record<RightPanelType, string> = {
-    files: 'Files',
-    info: 'Info',
-    browser: 'Code',
-};
 
 export const RightPanel = React.memo(function RightPanel(props: {
     sessionId: string;
@@ -68,7 +64,10 @@ export const RightPanel = React.memo(function RightPanel(props: {
                     color: theme.colors.text,
                     ...Typography.default(),
                 }}>
-                    {TITLES[props.type]}
+                    {props.type === 'files' ? 'Files'
+                        : props.type === 'info' ? 'Info'
+                        : props.type === 'browser' ? 'Code'
+                        : t('settings.orchestratorRuns')}
                 </Text>
                 <Pressable
                     onPress={() => router.push(`/session/${props.sessionId}/commits`)}
@@ -88,6 +87,8 @@ export const RightPanel = React.memo(function RightPanel(props: {
                     <FilesScreen sessionId={props.sessionId} embedded />
                 ) : props.type === 'browser' ? (
                     <BrowserScreen sessionId={props.sessionId} embedded />
+                ) : props.type === 'orchestrator' ? (
+                    <OrchestratorRunsScreen sessionId={props.sessionId} embedded />
                 ) : (
                     <InfoScreen sessionId={props.sessionId} embedded />
                 )}

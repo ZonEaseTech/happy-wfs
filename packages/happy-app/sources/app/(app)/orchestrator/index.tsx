@@ -154,7 +154,13 @@ function getFilterStatus(statusFilter: StatusFilter): ListOrchestratorRunsQuery[
     return statusFilter;
 }
 
-export default function OrchestratorRunsScreen() {
+interface OrchestratorRunsScreenProps {
+    sessionId?: string;
+    embedded?: boolean;
+}
+
+export default function OrchestratorRunsScreen(props: OrchestratorRunsScreenProps = {}) {
+    const { sessionId: propSessionId, embedded } = props;
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const router = useRouter();
@@ -162,15 +168,17 @@ export default function OrchestratorRunsScreen() {
     const searchParams = useLocalSearchParams<{ controllerSessionId?: string | string[]; }>();
     const auth = useAuth();
     const credentials = auth.credentials;
-    const controllerSessionId = React.useMemo(() => (
-        Array.isArray(searchParams.controllerSessionId)
+    const controllerSessionId = React.useMemo(() => {
+        if (propSessionId) return propSessionId;
+        return Array.isArray(searchParams.controllerSessionId)
             ? searchParams.controllerSessionId[0]
-            : searchParams.controllerSessionId
-    ), [searchParams.controllerSessionId]);
+            : searchParams.controllerSessionId;
+    }, [propSessionId, searchParams.controllerSessionId]);
     const isConversationScoped = !!controllerSessionId;
     const navigation = useNavigation();
 
     React.useEffect(() => {
+        if (embedded) return;
         if (isConversationScoped) {
             navigation.setOptions({
                 headerTitle: () => (
@@ -189,7 +197,7 @@ export default function OrchestratorRunsScreen() {
                 headerTitle: t('settings.orchestratorRuns'),
             });
         }
-    }, [isConversationScoped, navigation, theme]);
+    }, [embedded, isConversationScoped, navigation, theme]);
 
     const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('active');
     const [runs, setRuns] = React.useState<RunListItem[]>([]);
