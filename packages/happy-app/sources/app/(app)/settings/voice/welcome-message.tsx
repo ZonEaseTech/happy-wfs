@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -58,7 +59,10 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
 }));
 
+registerDesktopRoute('/settings/voice/welcome-message', () => import('./welcome-message'));
+
 export default function WelcomeMessageScreen() {
+    const { dismiss } = useDesktopRoute();
     const router = useRouter();
     const styles = stylesheet;
     const isCustom = hasCustomWelcomeMessage();
@@ -66,7 +70,7 @@ export default function WelcomeMessageScreen() {
 
     const handleSave = () => {
         setWelcomeMessage(input.trim() || null);
-        router.back();
+        dismiss();
     };
 
     const handleReset = () => {

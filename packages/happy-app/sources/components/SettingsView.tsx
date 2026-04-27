@@ -256,13 +256,13 @@ export const SettingsView = React.memo(function SettingsView() {
                     title={t('settings.claudeConfigTitle')}
                     subtitle={t('settings.claudeConfigSubtitle')}
                     icon={<Ionicons name="construct-outline" size={29} color="#5856D6" />}
-                    onPress={() => router.push('/settings/claude-config')}
+                    onPress={() => openDesktop('/settings/claude-config', { title: t('claudeConfig.title') })}
                 />
                 <Item
                     title={t('settings.feishuNotification')}
                     subtitle={t('settings.feishuNotificationSubtitle')}
                     icon={<Ionicons name="notifications-outline" size={29} color="#34C759" />}
-                    onPress={() => router.push('/settings/notifications-feishu')}
+                    onPress={() => openDesktop('/settings/notifications-feishu', { title: t('settings.feishuNotification') })}
                 />
             </ItemGroup>
 
@@ -345,46 +345,46 @@ export const SettingsView = React.memo(function SettingsView() {
                     title={t('settings.account')}
                     subtitle={t('settings.accountSubtitle')}
                     icon={<Ionicons name="person-circle-outline" size={29} color="#007AFF" />}
-                    onPress={() => router.push('/settings/account')}
+                    onPress={() => openDesktop('/settings/account', { title: t('settings.account') })}
                 />
                 <Item
                     title={t('settings.appearance')}
                     subtitle={t('settings.appearanceSubtitle')}
                     icon={<Ionicons name="color-palette-outline" size={29} color="#5856D6" />}
-                    onPress={() => router.push('/settings/appearance')}
+                    onPress={() => openDesktop('/settings/appearance', { title: t('settings.appearance') })}
                 />
                 <Item
                     title={t('settings.voiceAssistant')}
                     subtitle={t('settings.voiceAssistantSubtitle')}
                     icon={<Ionicons name="mic-outline" size={29} color="#34C759" />}
-                    onPress={() => router.push('/settings/voice')}
+                    onPress={() => openDesktop('/settings/voice', { title: t('settings.voiceAssistant') })}
                 />
                 {Platform.OS !== 'web' && (
                     <Item
                         title={t('settings.notifications')}
                         subtitle={t('settings.notificationsSubtitle')}
                         icon={<Ionicons name="notifications-outline" size={29} color="#FF2D55" />}
-                        onPress={() => router.push('/settings/notifications')}
+                        onPress={() => openDesktop('/settings/notifications', { title: t('settingsNotifications.title') })}
                     />
                 )}
                 <Item
                     title={t('settings.featuresTitle')}
                     subtitle={t('settings.featuresSubtitle')}
                     icon={<Ionicons name="flask-outline" size={29} color="#FF9500" />}
-                    onPress={() => router.push('/settings/features')}
+                    onPress={() => openDesktop('/settings/features', { title: t('settings.features') })}
                 />
                 <Item
                     title={t('settings.profiles')}
                     subtitle={t('settings.profilesSubtitle')}
                     icon={<Ionicons name="person-outline" size={29} color="#AF52DE" />}
-                    onPress={() => router.push('/settings/profiles')}
+                    onPress={() => openDesktop('/settings/profiles', { title: t('settings.profiles') })}
                 />
                 {experiments && (
                     <Item
                         title={t('settings.usage')}
                         subtitle={t('settings.usageSubtitle')}
                         icon={<Ionicons name="analytics-outline" size={29} color="#007AFF" />}
-                        onPress={() => router.push('/settings/usage')}
+                        onPress={() => openDesktop('/settings/usage', { title: t('settings.usage') })}
                     />
                 )}
                 <Item

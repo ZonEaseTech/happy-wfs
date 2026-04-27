@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { StyleSheet } from 'react-native-unistyles';
 import { useUnistyles } from 'react-native-unistyles';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -13,7 +14,10 @@ import { useSettingMutable } from '@/sync/storage';
 import { DEFAULT_PROFILES } from '@/sync/profileUtils';
 import { randomUUID } from 'expo-crypto';
 
+registerDesktopRoute('/settings/profile-edit', () => import('./profile-edit'));
+
 export default function SettingsProfileEditScreen() {
+    const { isInDrawer, dismiss } = useDesktopRoute();
     const { theme } = useUnistyles();
     const router = useRouter();
     const params = useLocalSearchParams<{ profileData?: string }>();
@@ -95,11 +99,11 @@ export default function SettingsProfileEditScreen() {
             setProfiles(updatedProfiles);
         }
 
-        router.back();
+        dismiss();
     };
 
     const handleCancel = () => {
-        router.back();
+        dismiss();
     };
 
     return (
@@ -108,12 +112,12 @@ export default function SettingsProfileEditScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' ? Constants.statusBarHeight + headerHeight : 0}
             style={styles.container}
         >
-            <Stack.Screen
+            {!isInDrawer && <Stack.Screen
                 options={{
                     headerTitle: profile.name ? t('profiles.editProfile') : t('profiles.addProfile'),
                     headerBackTitle: t('common.back'),
                 }}
-            />
+            />}
             <View style={[
                 { flex: 1, paddingHorizontal: screenWidth > 700 ? 16 : 8 }
             ]}>

@@ -1,3 +1,4 @@
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -5,6 +6,8 @@ import { ItemList } from '@/components/ItemList';
 import { Switch } from '@/components/Switch';
 import { useLocalSettingMutable } from '@/sync/storage';
 import { t } from '@/text';
+
+registerDesktopRoute('/settings/notifications', () => import('./notifications'));
 
 export default function NotificationSettingsScreen() {
     const [hideNotificationsWhenActive, setHideNotificationsWhenActive] = useLocalSettingMutable('hideNotificationsWhenActive');

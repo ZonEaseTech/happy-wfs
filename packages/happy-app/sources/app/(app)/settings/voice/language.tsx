@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, TextInput, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
@@ -10,7 +11,10 @@ import { useUnistyles } from 'react-native-unistyles';
 import { LANGUAGES, getLanguageDisplayName, type Language } from '@/constants/Languages';
 import { t } from '@/text';
 
+registerDesktopRoute('/settings/voice/language', () => import('./language'));
+
 export default function LanguageSelectionScreen() {
+    const { dismiss } = useDesktopRoute();
     const { theme } = useUnistyles();
     const router = useRouter();
     const [voiceAssistantLanguage, setVoiceAssistantLanguage] = useSettingMutable('voiceAssistantLanguage');
@@ -32,7 +36,7 @@ export default function LanguageSelectionScreen() {
 
     const handleLanguageSelect = (languageCode: string | null) => {
         setVoiceAssistantLanguage(languageCode);
-        router.back();
+        dismiss();
     };
 
     return (

@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useDesktopRoutes } from '@/components/desktopRoutes';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
@@ -31,8 +33,11 @@ function truncate(s: string, maxLen: number): string {
     return s.length > maxLen ? s.slice(0, maxLen) + '...' : s;
 }
 
+registerDesktopRoute('/settings/voice', () => import('./voice'));
+
 export default function VoiceSettingsScreen() {
     const router = useRouter();
+    const { open: openDesktop } = useDesktopRoutes();
     const [voiceAssistantLanguage] = useSettingMutable('voiceAssistantLanguage');
     const currentLanguage = findLanguageByCode(voiceAssistantLanguage) || LANGUAGES[0];
 
@@ -119,7 +124,7 @@ export default function VoiceSettingsScreen() {
                         icon={<Ionicons name="key-outline" size={29} color="#FF9500" />}
                         detail={agentId ? truncate(agentId, 20) : t('settingsVoice.notConfigured')}
                         subtitle={hasCustomElevenLabsAgentId() ? t('settingsVoice.usingCustomConfig') : t('settingsVoice.usingDefaultConfig')}
-                        onPress={() => router.push('/settings/voice/elevenlabs')}
+                        onPress={() => openDesktop('/settings/voice/elevenlabs', { title: t('settingsVoice.elevenLabsTitle') })}
                     />
                 </ItemGroup>
             )}
@@ -135,14 +140,14 @@ export default function VoiceSettingsScreen() {
                         icon={<Ionicons name="link-outline" size={29} color="#5856D6" />}
                         detail={gatewayUrl ? truncate(gatewayUrl, 25) : t('settingsVoice.notConfigured')}
                         subtitle={hasCustomHappyVoiceGatewayUrl() ? t('settingsVoice.usingCustomConfig') : t('settingsVoice.usingDefaultConfig')}
-                        onPress={() => router.push('/settings/voice/happy-voice')}
+                        onPress={() => openDesktop('/settings/voice/happy-voice', { title: t('settingsVoice.happyVoiceTitle') })}
                     />
                     <Item
                         title={t('settingsVoice.publicKey')}
                         icon={<Ionicons name="shield-outline" size={29} color="#FF2D55" />}
                         detail={publicKey ? '********' : t('settingsVoice.notConfigured')}
                         subtitle={hasCustomHappyVoicePublicKey() ? t('settingsVoice.usingCustomConfig') : t('settingsVoice.usingDefaultConfig')}
-                        onPress={() => router.push('/settings/voice/happy-voice')}
+                        onPress={() => openDesktop('/settings/voice/happy-voice', { title: t('settingsVoice.happyVoiceTitle') })}
                     />
                 </ItemGroup>
             )}
@@ -158,7 +163,7 @@ export default function VoiceSettingsScreen() {
                         icon={<Ionicons name="chatbubble-ellipses-outline" size={29} color="#FF9500" />}
                         detail={welcomeMessage ? truncate(welcomeMessage, 30) : t('settingsVoice.usingDefaultConfig')}
                         subtitle={hasCustomWelcomeMessage() ? t('settingsVoice.usingCustomConfig') : t('settingsVoice.usingDefaultConfig')}
-                        onPress={() => router.push('/settings/voice/welcome-message')}
+                        onPress={() => openDesktop('/settings/voice/welcome-message', { title: t('settingsVoice.welcomeMessage') })}
                     />
                 </ItemGroup>
             )}
@@ -173,7 +178,7 @@ export default function VoiceSettingsScreen() {
                     subtitle={t('settingsVoice.preferredLanguageSubtitle')}
                     icon={<Ionicons name="language-outline" size={29} color="#007AFF" />}
                     detail={getLanguageDisplayName(currentLanguage)}
-                    onPress={() => router.push('/settings/voice/language')}
+                    onPress={() => openDesktop('/settings/voice/language', { title: t('settingsVoice.preferredLanguage') })}
                 />
             </ItemGroup>
 

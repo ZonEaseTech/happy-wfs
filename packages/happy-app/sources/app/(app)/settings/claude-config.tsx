@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -20,7 +21,10 @@ import { t } from '@/text';
  *
  * Picks the first online machine automatically. If none is online, surfaces a hint.
  */
+registerDesktopRoute('/settings/claude-config', () => import('./claude-config'));
+
 export default function ClaudeConfigScreen() {
+    const { isInDrawer } = useDesktopRoute();
     const { theme } = useUnistyles();
     const router = useRouter();
     const allMachines = useAllMachines();
@@ -72,7 +76,7 @@ export default function ClaudeConfigScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
-            <Stack.Screen options={{ title: t('claudeConfig.title') }} />
+            {!isInDrawer && <Stack.Screen options={{ title: t('claudeConfig.title') }} />}
             <ItemList style={{ paddingTop: 0 }}>
                 <ItemGroup
                     title={t('claudeConfig.machineGroup')}

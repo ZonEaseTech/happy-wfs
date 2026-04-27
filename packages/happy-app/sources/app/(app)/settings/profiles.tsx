@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
+import { useDesktopRoutes } from '@/components/desktopRoutes';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { useSettingMutable } from '@/sync/storage';
 import { useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
@@ -18,8 +20,10 @@ interface ProfileManagerProps {
 }
 
 function ProfileManager({ onProfileSelect, selectedProfileId }: ProfileManagerProps) {
+    const { isInDrawer } = useDesktopRoute();
     const { theme } = useUnistyles();
     const router = useRouter();
+    const { open: openDesktop } = useDesktopRoutes();
     const [profiles, setProfiles] = useSettingMutable('profiles');
     const [lastUsedProfile, setLastUsedProfile] = useSettingMutable('lastUsedProfile');
     const safeArea = useSafeAreaInsets();
@@ -99,12 +103,12 @@ function ProfileManager({ onProfileSelect, selectedProfileId }: ProfileManagerPr
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
-            <Stack.Screen
+            {!isInDrawer && <Stack.Screen
                 options={{
                     headerTitle: t('settings.profiles'),
                     headerBackTitle: t('common.back'),
                 }}
-            />
+            />}
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{

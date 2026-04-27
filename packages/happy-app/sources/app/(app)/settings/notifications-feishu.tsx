@@ -1,3 +1,4 @@
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import React from 'react';
 import { View, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,8 @@ import {
     type FeishuConfigPublic,
 } from '@/sync/apiNotifications';
 import { t } from '@/text';
+
+registerDesktopRoute('/settings/notifications-feishu', () => import('./notifications-feishu'));
 
 export default function NotificationsFeishuScreen() {
     const { theme } = useUnistyles();

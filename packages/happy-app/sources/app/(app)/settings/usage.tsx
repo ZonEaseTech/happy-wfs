@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { UsagePanel } from '@/components/usage/UsagePanel';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
@@ -21,18 +22,21 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
 }));
 
+registerDesktopRoute('/settings/usage', () => import('./usage'));
+
 export default function UsageSettingsScreen() {
+    const { isInDrawer } = useDesktopRoute();
     const styles = stylesheet;
     const safeArea = useSafeAreaInsets();
 
     return (
         <View style={styles.container}>
-            <Stack.Screen
+            {!isInDrawer && <Stack.Screen
                 options={{
                     headerTitle: t('settings.usage'),
                     headerBackTitle: t('common.back'),
                 }}
-            />
+            />}
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={[

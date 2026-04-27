@@ -4,6 +4,8 @@ import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { useSettingMutable, useLocalSettingMutable } from '@/sync/storage';
 import { useRouter } from 'expo-router';
+import { useDesktopRoutes } from '@/components/desktopRoutes';
+import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import * as Localization from 'expo-localization';
 import { useUnistyles, UnistylesRuntime } from 'react-native-unistyles';
 import { Switch } from '@/components/Switch';
@@ -19,9 +21,12 @@ const isKnownAvatarStyle = (style: string): style is KnownAvatarStyle => {
     return style === 'pixelated' || style === 'gradient' || style === 'brutalist';
 };
 
+registerDesktopRoute('/settings/appearance', () => import('./appearance'));
+
 export default function AppearanceSettingsScreen() {
     const { theme } = useUnistyles();
     const router = useRouter();
+    const { open: openDesktop } = useDesktopRoutes();
     const [viewInline, setViewInline] = useSettingMutable('viewInline');
     const [expandTodos, setExpandTodos] = useSettingMutable('expandTodos');
     const [showLineNumbers, setShowLineNumbers] = useSettingMutable('showLineNumbers');
@@ -96,7 +101,7 @@ export default function AppearanceSettingsScreen() {
                     title={t('settingsLanguage.currentLanguage')}
                     icon={<Ionicons name="language-outline" size={29} color="#007AFF" />}
                     detail={getLanguageDisplayText()}
-                    onPress={() => router.push('/settings/language')}
+                    onPress={() => openDesktop('/settings/language', { title: t('settingsLanguage.title') })}
                 />
             </ItemGroup>
 
