@@ -30,7 +30,7 @@ import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/u
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
@@ -241,6 +241,35 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         )}
                                     </Pressable>
                                 )}
+                                {/* Commits shortcut — sits next to the </> button so users
+                                    can jump to git history without opening a panel first.
+                                    Same desktop/mobile dispatch as Code: panel toggle on
+                                    desktop, full-screen push on mobile. */}
+                                <Pressable
+                                    onPress={() => {
+                                        if (isDesktopPanelMode) {
+                                            setRightPanelType(prev => (prev === 'commits' ? null : 'commits'));
+                                        } else {
+                                            router.push(`/session/${sessionId}/commits`);
+                                        }
+                                    }}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Commits"
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 2,
+                                    }}
+                                >
+                                    <Octicons
+                                        name="git-commit"
+                                        size={20}
+                                        color={isDesktopPanelMode && rightPanelType === 'commits' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                    />
+                                </Pressable>
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
