@@ -18,8 +18,7 @@ export const systemPrompt = (() => {
   return base + '\n\n# Commit\n\nWhen making commit messages, add this footer:\n\n' + attribution;
 })();
 
-// User memories are NOT injected into the system prompt anymore (was a
-// misdesign — pushed every memory to every session, polluting context).
-// They now live in /memory and the user pastes one explicitly via the
-// memory picker in AgentInput. ApiClient.listMemories stays for the
-// happy-app side; cli no longer reads it.
+// User memories are injected once at session start by runClaude.ts as the
+// initial appendSystemPrompt (a `<user_memory>` block) and the IDs are
+// written to session metadata so happy-app can surface them in session info.
+// The memory picker in AgentInput is a separate manual paste flow.

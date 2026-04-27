@@ -27,6 +27,7 @@ import { layout } from '@/components/layout';
 import { t } from '@/text';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { CodeView } from '@/components/CodeView';
+import { InjectedMemoriesChip } from '@/components/InjectedMemoriesChip';
 import { Session } from '@/sync/storageTypes';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
@@ -841,6 +842,10 @@ function SessionInfoContent({ session, embedded = false }: { session: Session; e
                                 {sessionStatus.statusText}
                             </Text>
                         </View>
+                        <InjectedMemoriesChip
+                            sessionId={session.id}
+                            injectedMemoryIds={session.metadata?.injectedMemoryIds ?? []}
+                        />
                     </View>
                 </View>
 

@@ -280,6 +280,32 @@ export function saveSharedByMeCache(userId: string, data: any[]): void {
     mmkv.set(`shared-by-me-${userId}`, JSON.stringify(data));
 }
 
+// Per-session list of memory IDs the user has muted locally for this session.
+// CLI does not consume this yet — purely a client-side preference for now.
+const MUTED_MEMORY_IDS_KEY_PREFIX = 'mutedMemoryIds:';
+
+export function loadMutedMemoryIds(sessionId: string): string[] {
+    if (!sessionId) return [];
+    const raw = mmkv.getString(MUTED_MEMORY_IDS_KEY_PREFIX + sessionId);
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((v): v is string => typeof v === 'string');
+    } catch {
+        return [];
+    }
+}
+
+export function saveMutedMemoryIds(sessionId: string, ids: string[]): void {
+    if (!sessionId) return;
+    if (ids.length === 0) {
+        mmkv.delete(MUTED_MEMORY_IDS_KEY_PREFIX + sessionId);
+        return;
+    }
+    mmkv.set(MUTED_MEMORY_IDS_KEY_PREFIX + sessionId, JSON.stringify(ids));
+}
+
 export function clearPersistence() {
     mmkv.clearAll();
 }

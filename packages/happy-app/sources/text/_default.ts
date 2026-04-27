@@ -1151,6 +1151,17 @@ export const en = {
         invalidJson: 'Invalid JSON',
     },
 
+    injectedMemories: {
+        // Session-info chip + mute UI surfaced when CLI auto-injected memories at session start.
+        chip: ({ count }: { count: number }) => `${count} ${plural({ count, singular: 'memory', plural: 'memories' })} injected`,
+        mutedCount: ({ count }: { count: number }) => `(${count} muted)`,
+        title: 'Injected memories',
+        muteHint: 'Mute hides a memory from this session locally. The CLI does not yet honor this — coming soon.',
+        empty: 'No memory details available.',
+        mutedBadge: 'Muted for this session',
+        activeBadge: 'Active in this session',
+    },
+
     memory: {
         title: 'Memory',
         manage: 'Manage',

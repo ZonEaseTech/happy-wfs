@@ -281,6 +281,27 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         }));
     }
 
+    // Fetch user memories and inject them into the system prompt as a
+    // <user_memory> block, then record the injected IDs in session metadata so
+    // happy-app can surface "N memories injected" in the session info screen.
+    // Per-session mute filtering is intentionally client-side only for this
+    // iteration — see task mem-C-visible.
+    const injectedMemories = await api.listMemories();
+    let initialMemoryAppendPrompt: string | undefined;
+    if (injectedMemories.length > 0) {
+        const memoryBlock = '<user_memory>\n' +
+            injectedMemories.map((m) => m.content).join('\n\n') +
+            '\n</user_memory>';
+        initialMemoryAppendPrompt = memoryBlock;
+
+        const injectedMemoryIds = injectedMemories.map((m) => m.id);
+        session.updateMetadata((currentMetadata) => ({
+            ...currentMetadata,
+            injectedMemoryIds
+        }));
+        logger.debug(`[START] Injected ${injectedMemoryIds.length} memories into session`);
+    }
+
     // Start MCP servers (Happy MCP etc.) with per-agent adapter
     const mcp = await createMcpContext(session);
     logger.debug(`[START] MCP context created`);
@@ -441,7 +462,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     let currentReasoningEffort: string | undefined = undefined;
     let currentFallbackModel: string | undefined = undefined; // Track current fallback model
     let currentCustomSystemPrompt: string | undefined = undefined; // Track current custom system prompt
-    let currentAppendSystemPrompt: string | undefined = undefined; // Track current append system prompt
+    let currentAppendSystemPrompt: string | undefined = initialMemoryAppendPrompt; // Track current append system prompt (seeded with injected memories)
     let currentAllowedTools: string[] | undefined = undefined; // Track current allowed tools
     let currentDisallowedTools: string[] | undefined = undefined; // Track current disallowed tools
     session.onUserMessage((message) => {

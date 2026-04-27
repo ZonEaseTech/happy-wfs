@@ -376,6 +376,9 @@ export type Metadata = {
     displayName?: string;
   }>;
   workspacePath?: string,
+  // Memory IDs that were injected into the system prompt at session start.
+  // Surfaced in happy-app session info so users see what context Claude has.
+  injectedMemoryIds?: string[],
 };
 
 export type AgentState = {

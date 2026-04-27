@@ -60,6 +60,9 @@ export const MetadataSchema = z.object({
         displayName: z.string().optional(),
     })).optional(),
     workspacePath: z.string().optional(),
+    // IDs of user memories that the CLI injected into the system prompt at
+    // session start. Surfaced in session info as a "N memories injected" chip.
+    injectedMemoryIds: z.array(z.string()).optional(),
     externalContext: z.object({
         source: z.string(),
         sourceUrl: z.string().optional(),
