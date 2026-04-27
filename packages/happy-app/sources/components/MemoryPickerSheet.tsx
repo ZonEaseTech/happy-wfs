@@ -332,27 +332,38 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
     );
 
     if (isWeb) {
-        const drawerWidth = Math.min(420, Math.max(320, width * 0.32));
+        // Slash-menu-style popup: bottom-anchored compact card (not a full-
+        // height drawer / not dimming the chat). Click outside dismisses, ESC
+        // (handled by RNModal onRequestClose) dismisses.
+        const popupWidth = Math.min(560, Math.max(360, width * 0.5));
         return (
             <RNModal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
                 <Pressable
                     onPress={() => setOpen(false)}
-                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' }}
+                    style={{ flex: 1, backgroundColor: 'transparent' }}
                 >
                     <Pressable
                         onPress={(e) => e.stopPropagation?.()}
                         style={{
                             position: 'absolute',
-                            top: 0,
-                            bottom: 0,
-                            right: 0,
-                            width: drawerWidth,
+                            // Hover above the bottom toolbar area where the memory
+                            // button lives. 96px clear of the bottom keeps the card
+                            // away from the input row.
+                            bottom: 96,
+                            left: '50%',
+                            transform: [{ translateX: -popupWidth / 2 }],
+                            width: popupWidth,
+                            maxHeight: '60%',
                             backgroundColor: theme.colors.surface,
+                            borderRadius: 14,
+                            borderWidth: 1,
+                            borderColor: theme.colors.divider,
                             shadowColor: '#000',
-                            shadowOffset: { width: -2, height: 0 },
-                            shadowOpacity: 0.15,
-                            shadowRadius: 12,
-                            elevation: 12,
+                            shadowOffset: { width: 0, height: 8 },
+                            shadowOpacity: 0.18,
+                            shadowRadius: 24,
+                            elevation: 16,
+                            overflow: 'hidden',
                         }}
                     >
                         <PickerContent
