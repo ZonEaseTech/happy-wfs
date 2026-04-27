@@ -61,10 +61,11 @@ function formatRelativeTime(date: Date): string {
     return `${diffYears}y ago`;
 }
 
-export default function CommitsScreen() {
+export default function CommitsScreen(props?: { sessionId?: string; embedded?: boolean }) {
     const route = useRoute();
     const router = useRouter();
-    const sessionId = (route.params! as any).id as string;
+    const sessionId = props?.sessionId ?? ((route.params as any)?.id as string);
+    const embedded = props?.embedded ?? false;
     const searchParams = useLocalSearchParams();
     const fileFilter = searchParams.file as string | undefined;
     const { theme } = useUnistyles();
@@ -402,35 +403,37 @@ export default function CommitsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-            <Stack.Screen
-                options={{
-                    ...(fileFilter ? { headerTitle: fileFilter.split('/').pop() || t('commits.title') } : {}),
-                    headerRight: () => (
-                        <Pressable
-                            onPress={() => router.push(activeCwd && activeCwd !== sessionPath
-                                ? `/session/${sessionId}/status?cwd=${encodeURIComponent(activeCwd)}`
-                                : `/session/${sessionId}/status`
-                            )}
-                            style={diffStats
-                                ? { flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 0, paddingVertical: 4, gap: 6 }
-                                : { paddingHorizontal: 8, paddingVertical: 4 }
-                            }
-                        >
-                            <Ionicons name="git-compare-outline" size={22} color={theme.colors.header.tint} />
-                            {diffStats ? (
-                                <View style={{ flexDirection: 'row', gap: 2 }}>
-                                    <Text style={{ fontSize: 11, color: '#34C759', fontWeight: '700', ...Typography.mono() }}>
-                                        +{diffStats.insertions}
-                                    </Text>
-                                    <Text style={{ fontSize: 11, color: '#FF3B30', fontWeight: '700', ...Typography.mono() }}>
-                                        -{diffStats.deletions}
-                                    </Text>
-                                </View>
-                            ) : null}
-                        </Pressable>
-                    ),
-                }}
-            />
+            {!embedded && (
+                <Stack.Screen
+                    options={{
+                        ...(fileFilter ? { headerTitle: fileFilter.split('/').pop() || t('commits.title') } : {}),
+                        headerRight: () => (
+                            <Pressable
+                                onPress={() => router.push(activeCwd && activeCwd !== sessionPath
+                                    ? `/session/${sessionId}/status?cwd=${encodeURIComponent(activeCwd)}`
+                                    : `/session/${sessionId}/status`
+                                )}
+                                style={diffStats
+                                    ? { flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 0, paddingVertical: 4, gap: 6 }
+                                    : { paddingHorizontal: 8, paddingVertical: 4 }
+                                }
+                            >
+                                <Ionicons name="git-compare-outline" size={22} color={theme.colors.header.tint} />
+                                {diffStats ? (
+                                    <View style={{ flexDirection: 'row', gap: 2 }}>
+                                        <Text style={{ fontSize: 11, color: '#34C759', fontWeight: '700', ...Typography.mono() }}>
+                                            +{diffStats.insertions}
+                                        </Text>
+                                        <Text style={{ fontSize: 11, color: '#FF3B30', fontWeight: '700', ...Typography.mono() }}>
+                                            -{diffStats.deletions}
+                                        </Text>
+                                    </View>
+                                ) : null}
+                            </Pressable>
+                        ),
+                    }}
+                />
+            )}
             <FlatList
                 data={commits}
                 renderItem={renderCommit}

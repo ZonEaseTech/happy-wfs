@@ -334,6 +334,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                     sessionId={sessionId}
                     type={rightPanelType}
                     onClose={() => setRightPanelType(null)}
+                    onSwitchType={(next) => setRightPanelType(next)}
                 />
             )}
         </View>
