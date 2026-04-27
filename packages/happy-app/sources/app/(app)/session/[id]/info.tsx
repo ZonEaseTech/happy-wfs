@@ -368,6 +368,7 @@ function SessionInfoContent({ session, embedded = false }: { session: Session; e
                 approvedNewDirectoryCreation: false,
                 agent,
                 resumeSessionId,
+                intent: 'resume',
                 sessionTitle,
                 skipForkSession: true,
             });
@@ -522,6 +523,7 @@ function SessionInfoContent({ session, embedded = false }: { session: Session; e
                 directory: session.metadata?.path || '',
                 agent,
                 resumeSessionId,
+                intent: 'resume',
                 skipForkSession: true,
                 sessionTitle: session.metadata?.summary?.text,
             });
@@ -747,6 +749,7 @@ function SessionInfoContent({ session, embedded = false }: { session: Session; e
                 directory: worktreePath,
                 approvedNewDirectoryCreation: false,
                 agent: agentChoice,
+                intent: 'new',
                 sessionTitle: `Review: ${originalTitle}`,
                 worktreeBasePath,
                 worktreeBranchName: worktreeBranch,

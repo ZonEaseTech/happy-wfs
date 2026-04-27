@@ -317,6 +317,7 @@ export default function ClaudeSessionHistory() {
                 approvedNewDirectoryCreation: false,
                 agent: 'claude',
                 resumeSessionId: forkResult.newSessionId,
+                intent: 'resume',
                 sessionTitle: sessionTitle || undefined,
                 skipForkSession: true,
             });

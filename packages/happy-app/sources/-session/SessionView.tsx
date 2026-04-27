@@ -655,6 +655,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 directory: sessionPath,
                 agent,
                 resumeSessionId,
+                intent: 'resume',
                 sessionTitle: newSessionTitle,
                 skipForkSession: true,
             });
