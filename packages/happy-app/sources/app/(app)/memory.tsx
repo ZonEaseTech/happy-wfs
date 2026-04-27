@@ -1,12 +1,9 @@
 import * as React from 'react';
-import { View, Pressable, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { View, Pressable, ActivityIndicator, RefreshControl, ScrollView, TextInput, Platform } from 'react-native';
+import { Stack } from 'expo-router';
 import { useDesktopRoute, useDrawerHeaderRight } from '@/components/desktopRoutes';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
-import { Item } from '@/components/Item';
-import { ItemGroup } from '@/components/ItemGroup';
-import { ItemList } from '@/components/ItemList';
 import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
 import { Modal } from '@/modal';
@@ -15,6 +12,10 @@ import { listMemories, createMemory, updateMemory, deleteMemory, type MemoryRow 
 import { showToast } from '@/components/Toast';
 import { hapticsLight } from '@/components/haptics';
 import { t } from '@/text';
+
+type GroupKey = 'manual' | 'message-pin';
+
+const GROUP_ORDER: GroupKey[] = ['manual', 'message-pin'];
 
 /**
  * Top-level memory page. Shows the user's stored memories sorted newest-first.
@@ -29,12 +30,12 @@ import { t } from '@/text';
 export default function MemoryScreen() {
     const { theme } = useUnistyles();
     const { isInDrawer } = useDesktopRoute();
-    const router = useRouter();
     const auth = useAuth();
     const [memories, setMemories] = React.useState<MemoryRow[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = React.useState('');
 
     const refresh = React.useCallback(async (silent: boolean = false) => {
         if (!auth.credentials) return;
@@ -122,14 +123,31 @@ export default function MemoryScreen() {
         return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     };
 
-    const renderRow = (m: MemoryRow) => {
+    const groupedSections = React.useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        const filtered = q
+            ? memories.filter((m) => m.content.toLowerCase().includes(q))
+            : memories;
+        const buckets: Record<GroupKey, MemoryRow[]> = { 'manual': [], 'message-pin': [] };
+        for (const m of filtered) {
+            const key: GroupKey = m.source === 'message-pin' ? 'message-pin' : 'manual';
+            buckets[key].push(m);
+        }
+        for (const k of GROUP_ORDER) {
+            buckets[k].sort((a, b) => b.createdAt - a.createdAt);
+        }
+        return GROUP_ORDER
+            .map((key) => ({ key, items: buckets[key] }))
+            .filter((s) => s.items.length > 0);
+    }, [memories, searchQuery]);
+
+    const renderRow = (m: MemoryRow, isLast: boolean) => {
         const truncated = m.content.length > 200 ? m.content.slice(0, 200) + '…' : m.content;
-        const sourceLabel = m.source === 'message-pin' ? t('memory.sourcePin') : t('memory.sourceManual');
         return (
             <View key={m.id} style={{
                 paddingHorizontal: 16,
                 paddingVertical: 12,
-                borderBottomWidth: 0.5,
+                borderBottomWidth: isLast ? 0 : 0.5,
                 borderBottomColor: theme.colors.divider,
             }}>
                 <Pressable onPress={() => handleEdit(m)} onLongPress={() => handleDelete(m)}>
@@ -142,7 +160,7 @@ export default function MemoryScreen() {
                     </Text>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
                         <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
-                            {sourceLabel} · {formatDate(m.createdAt)}
+                            {formatDate(m.createdAt)}
                         </Text>
                         <Pressable onPress={() => handleDelete(m)} hitSlop={10}>
                             <Ionicons name="trash-outline" size={16} color={theme.colors.deleteAction} />
@@ -152,6 +170,59 @@ export default function MemoryScreen() {
             </View>
         );
     };
+
+    const groupLabel = (key: GroupKey, count: number) => {
+        const label = key === 'manual' ? t('memory.groupManual') : t('memory.groupMessagePin');
+        return `${label} · ${count}`;
+    };
+
+    const searchBar = (
+        <View style={{
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+            borderBottomColor: theme.colors.divider,
+            backgroundColor: theme.colors.surface,
+        }}>
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: theme.colors.input.background,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+            }}>
+                <Octicons name="search" size={16} color={theme.colors.textSecondary} style={{ marginRight: 8 }} />
+                <TextInput
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder={t('memory.searchPlaceholder')}
+                    style={{
+                        flex: 1,
+                        fontSize: 16,
+                        height: 24,
+                        color: theme.colors.text,
+                        ...Typography.default(),
+                    }}
+                    placeholderTextColor={theme.colors.input.placeholder}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                    <Pressable
+                        onPress={() => setSearchQuery('')}
+                        hitSlop={8}
+                        style={{ marginLeft: 8 }}
+                    >
+                        <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
+                    </Pressable>
+                )}
+            </View>
+        </View>
+    );
+
+    const totalFiltered = groupedSections.reduce((sum, s) => sum + s.items.length, 0);
+    const isSearching = searchQuery.trim().length > 0;
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
@@ -201,15 +272,72 @@ export default function MemoryScreen() {
                     </Pressable>
                 </ScrollView>
             ) : (
-                <ScrollView
-                    contentContainerStyle={{ paddingVertical: 8 }}
-                    refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => refresh(true)} />}
-                >
-                    <Text style={{ paddingHorizontal: 16, paddingTop: 8, fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
-                        {t('memory.listFooter', { count: memories.length })}
-                    </Text>
-                    {memories.map(renderRow)}
-                </ScrollView>
+                <>
+                    {searchBar}
+                    <ScrollView
+                        contentContainerStyle={{ paddingBottom: 24 }}
+                        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => refresh(true)} />}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {totalFiltered === 0 ? (
+                            <View style={{
+                                flex: 1,
+                                alignItems: 'center',
+                                paddingTop: 64,
+                                paddingHorizontal: 32,
+                            }}>
+                                <Ionicons name="search-outline" size={48} color={theme.colors.textSecondary} />
+                                <Text style={{
+                                    marginTop: 16,
+                                    fontSize: 15,
+                                    color: theme.colors.text,
+                                    textAlign: 'center',
+                                    ...Typography.default('semiBold'),
+                                }}>
+                                    {t('memory.searchEmpty')}
+                                </Text>
+                                <Text style={{
+                                    marginTop: 6,
+                                    fontSize: 13,
+                                    color: theme.colors.textSecondary,
+                                    textAlign: 'center',
+                                    ...Typography.default(),
+                                }}>
+                                    {t('memory.searchEmptyHint')}
+                                </Text>
+                            </View>
+                        ) : (
+                            <>
+                                <Text style={{ paddingHorizontal: 16, paddingTop: 12, fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                    {isSearching
+                                        ? t('memory.searchResultFooter', { count: totalFiltered })
+                                        : t('memory.listFooter', { count: memories.length })}
+                                </Text>
+                                {groupedSections.map((section) => (
+                                    <View key={section.key} style={{ marginTop: 12 }}>
+                                        <View style={{
+                                            backgroundColor: theme.colors.surfaceHigh,
+                                            paddingHorizontal: 16,
+                                            paddingVertical: 8,
+                                            borderTopWidth: Platform.select({ ios: 0.33, default: 1 }),
+                                            borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                                            borderColor: theme.colors.divider,
+                                        }}>
+                                            <Text style={{
+                                                fontSize: 13,
+                                                color: theme.colors.textSecondary,
+                                                ...Typography.default('semiBold'),
+                                            }}>
+                                                {groupLabel(section.key, section.items.length)}
+                                            </Text>
+                                        </View>
+                                        {section.items.map((m, idx) => renderRow(m, idx === section.items.length - 1))}
+                                    </View>
+                                ))}
+                            </>
+                        )}
+                    </ScrollView>
+                </>
             )}
         </View>
     );
