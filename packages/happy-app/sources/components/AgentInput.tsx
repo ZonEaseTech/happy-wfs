@@ -28,6 +28,12 @@ import { Metadata } from '@/sync/storageTypes';
 import { log } from '@/log';
 import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile } from '@/sync/profileUtils';
+
+/** Spreads a `title` HTML attribute onto Pressable on web (becomes a native
+ *  hover tooltip). No-op on native — RN Core ignores unknown props. */
+const webTooltip = (label: string): Record<string, string> => (
+    Platform.OS === 'web' ? { title: label } : {}
+);
 import { ImagePreview, LocalImage } from '@/components/ImagePreview';
 import { Switch } from '@/components/Switch';
 import { Modal } from '@/modal';
@@ -64,6 +70,12 @@ interface AgentInputProps {
     onPermissionModeChange?: (mode: PermissionMode) => void;
     modelMode?: ModelMode;
     onModelModeChange?: (mode: ModelMode) => void;
+    /** Optional inline archive trigger (active sessions). Shown as archive-outline
+     *  icon in the toolbar right cluster, left of the model selector. */
+    onArchive?: () => void;
+    /** Optional inline resume trigger (archived sessions). Same slot as onArchive,
+     *  shown as play-circle-outline. SessionView passes one based on session.active. */
+    onResume?: () => void;
     metadata?: Metadata | null;
     onAbort?: () => void | Promise<void>;
     showAbortButton?: boolean;
@@ -1202,6 +1214,30 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             gap: 8,
                             zIndex: 1001,
                         }}>
+                            {props.onArchive && (
+                                <Pressable
+                                    {...webTooltip(t('sessionInfo.archiveSession'))}
+                                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                                    onPress={() => { hapticsLight(); props.onArchive?.(); }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('sessionInfo.archiveSession')}
+                                    style={({ pressed }) => ({ opacity: pressed ? 0.5 : 0.9 })}
+                                >
+                                    <Ionicons name="archive-outline" size={14} color={theme.colors.textSecondary} />
+                                </Pressable>
+                            )}
+                            {props.onResume && !props.onArchive && (
+                                <Pressable
+                                    {...webTooltip(t('sessionInfo.resumeSession'))}
+                                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                                    onPress={() => { hapticsLight(); props.onResume?.(); }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('sessionInfo.resumeSession')}
+                                    style={({ pressed }) => ({ opacity: pressed ? 0.5 : 0.9 })}
+                                >
+                                    <Ionicons name="play-circle-outline" size={14} color={theme.colors.textSecondary} />
+                                </Pressable>
+                            )}
                             {props.onModelModeChange && (
                                 <Pressable hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={() => { hapticsLight(); setShowSettings(prev => prev === 'model' ? false : 'model'); }} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
                                     <Text style={{
@@ -1412,6 +1448,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 {/* Settings button */}
                                 {props.onPermissionModeChange && (
                                     <Pressable
+                                        {...webTooltip(t('settings.title'))}
                                         onPress={handleSettingsPress}
                                         hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
                                         style={(p) => ({
@@ -1522,6 +1559,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 {props.onAbort && (
                                     <Shaker ref={shakerRef}>
                                         <Pressable
+                                            {...webTooltip('Stop')}
                                             style={(p) => ({
                                                 flexDirection: 'row',
                                                 alignItems: 'center',
@@ -1557,6 +1595,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
                                 {/* Memory shortcut — opens the picker bottom sheet (clipboard-style) */}
                                 <Pressable
+                                    {...webTooltip(t('memory.title'))}
                                     onPress={() => memoryPickerRef.current?.present()}
                                     hitSlop={15}
                                     accessibilityRole="button"
@@ -1570,6 +1609,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 {/* Image button */}
                                 {props.onImageButtonPress && (
                                     <Pressable
+                                        {...webTooltip('Add image')}
                                         onPress={props.supportsImages !== false ? props.onImageButtonPress : () => {
                                             Modal.alert('Not Supported', 'This AI does not support images');
                                         }}
@@ -1597,6 +1637,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     ]}
                                 >
                                     <Pressable
+                                        {...webTooltip(hasText ? 'Send' : (props.onMicPress ? 'Voice' : 'Send'))}
                                         style={(p) => ({
                                             width: '100%',
                                             height: '100%',
@@ -1697,6 +1738,7 @@ function GitStatusButton({ sessionId, onPress, onBlank }: { sessionId?: string, 
             }}
         >
             <Pressable
+                {...webTooltip('Git status')}
                 style={(p) => ({
                     opacity: p.pressed ? 0.7 : 1,
                 })}

@@ -3,9 +3,9 @@ const abiFilters = process.env.ABI_FILTERS
     ? process.env.ABI_FILTERS.split(',').map(s => s.trim())
     : undefined;
 const name = {
-    development: "Happy Next (dev)",
-    preview: "Happy Next (pre)",
-    production: "Happy Next"
+    development: "Happy AI (dev)",
+    preview: "Happy AI (pre)",
+    production: "Happy AI"
 }[variant];
 const bundleId = {
     development: "com.hitosea.happy.dev",

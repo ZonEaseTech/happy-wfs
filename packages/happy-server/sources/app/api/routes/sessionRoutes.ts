@@ -253,6 +253,52 @@ export function sessionRoutes(app: Fastify) {
         }
     });
 
+    // Abort the running agent on a session — HTTP wrapper around the socket
+    // RPC `${sessionId}:abort`. Body carries already-encrypted RPC params
+    // (E2E: the agent is the only consumer, server just proxies).
+    //
+    // This wrapper exists so non-socket clients (MCP, scripts, integration
+    // tests) can stop a running session without spinning up a full socket.io
+    // connection just to send one RPC.
+    app.post('/v1/sessions/:sessionId/abort', {
+        schema: {
+            params: z.object({ sessionId: z.string() }),
+            body: z.object({
+                params: z.string(), // E2E-encrypted base64 RPC params
+            }),
+        },
+        preHandler: app.authenticate,
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { sessionId } = request.params;
+        const { params } = request.body;
+
+        const session = await db.session.findFirst({
+            where: { id: sessionId, accountId: userId },
+            select: { id: true },
+        });
+        if (!session) {
+            return reply.code(404).send({ ok: false, error: 'Session not found' });
+        }
+
+        try {
+            const result = await invokeUserRpc(
+                userId,
+                `${sessionId}:abort`,
+                params,
+                10000,
+            );
+            return reply.send({ ok: true, result });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'RPC call failed';
+            const isTimeout = message.includes('timeout');
+            return reply.code(isTimeout ? 504 : 502).send({
+                ok: false,
+                error: message,
+            });
+        }
+    });
+
     // Create or load session by tag
     app.post('/v1/sessions', {
         schema: {

@@ -14,11 +14,13 @@ import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useArchiveSession } from '@/hooks/useArchiveSession';
+import { useForkSession } from '@/hooks/useForkSession';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
-import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -65,7 +67,6 @@ export const SessionView = React.memo((props: { id: string }) => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
-    const hasRuns = useOrchestratorHasRuns(sessionId);
     const handleOpenSessionRuns = React.useCallback(() => {
         if (isDesktopPanelMode) {
             setRightPanelType(prev => (prev === 'orchestrator' ? null : 'orchestrator'));
@@ -198,49 +199,49 @@ export const SessionView = React.memo((props: { id: string }) => {
                         onBackPress={() => router.back()}
                         headerRight={session ? () => (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {hasRuns && (
-                                    <Pressable
-                                        onPress={handleOpenSessionRuns}
-                                        hitSlop={15}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={t('settings.orchestratorOpenRuns')}
-                                        style={{
-                                            width: 38,
-                                            height: 38,
+                                <Pressable
+                                    onPress={handleOpenSessionRuns}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('settings.orchestratorOpenRuns')}
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 2,
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="layers-outline"
+                                        size={22}
+                                        color={isDesktopPanelMode && rightPanelType === 'orchestrator' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                    />
+                                    {runningTaskCount > 0 && (
+                                        <View style={{
+                                            position: 'absolute',
+                                            bottom: -2,
+                                            flexDirection: 'row',
                                             alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: 2,
-                                        }}
-                                    >
-                                        <Ionicons
-                                            name="layers-outline"
-                                            size={22}
-                                            color={theme.colors.header.tint}
-                                        />
-                                        {runningTaskCount > 0 && (
+                                            gap: 2,
+                                        }}>
                                             <View style={{
-                                                position: 'absolute',
-                                                top: 2,
-                                                right: 0,
+                                                width: 4,
+                                                height: 4,
+                                                borderRadius: 2,
                                                 backgroundColor: theme.colors.button.primary.background,
-                                                borderRadius: 8,
-                                                minWidth: 16,
-                                                height: 16,
-                                                paddingHorizontal: 3,
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
+                                            }} />
+                                            <Text style={{
+                                                fontSize: 9,
+                                                fontWeight: '600',
+                                                lineHeight: 10,
+                                                color: theme.colors.button.primary.background,
                                             }}>
-                                                <Text style={{
-                                                    color: theme.colors.button.primary.tint,
-                                                    fontSize: 10,
-                                                    fontWeight: '600',
-                                                }}>
-                                                    {runningTaskCount > 99 ? '99+' : runningTaskCount}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </Pressable>
-                                )}
+                                                {runningTaskCount > 99 ? '99+' : runningTaskCount}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </Pressable>
                                 {/* Commits shortcut — sits next to the </> button so users
                                     can jump to git history without opening a panel first.
                                     Same desktop/mobile dispatch as Code: panel toggle on
@@ -384,6 +385,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const isFocused = useIsFocused();
     const isLandscape = useIsLandscape();
     const deviceType = useDeviceType();
+    const { handleArchive: handleArchiveSession, archiveOverlay } = useArchiveSession(session);
+    const { handleFork: handleResumeSession, canFork } = useForkSession(session);
     const [message, setMessage] = React.useState('');
     const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
@@ -927,6 +930,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             onModelModeChange={updateModelMode as any}
             fastMode={fastMode}
             onFastModeChange={updateFastMode}
+            onArchive={session.active ? handleArchiveSession : undefined}
+            onResume={!session.active && canFork ? handleResumeSession : undefined}
             metadata={session.metadata}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
@@ -1157,6 +1162,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 onClose={() => setImagePickerSheetVisible(false)}
                 deferItemPress
             />
+
+            {archiveOverlay}
         </>
     )
 }

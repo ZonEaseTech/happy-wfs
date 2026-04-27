@@ -123,7 +123,7 @@ export function buildSessionCompletedCard(meta: SessionCompletedMeta): FeishuMes
     return {
         msg_type: 'text',
         content: {
-            text: `🎯 Happy session "${meta.sessionTag}" ended` +
+            text: `🎯 Happy session ended` +
                 (meta.machineName ? ` on ${meta.machineName}` : '') +
                 (meta.durationMs > 0 ? ` · ${formatDuration(meta.durationMs)}` : ''),
         },
@@ -146,7 +146,7 @@ export interface MessageCompletedMeta {
  * is still much chattier than session-completed so the body must be compact.
  */
 export function buildMessageCompletedCard(meta: MessageCompletedMeta): FeishuMessagePayload {
-    const lines = [`💬 Happy "${meta.sessionTag}" 完成一次回复`];
+    const lines = [`💬 Happy 完成一次回复`];
     if (meta.preview) {
         const trimmed = meta.preview.length > 80 ? `${meta.preview.slice(0, 80)}…` : meta.preview;
         lines.push(trimmed);
@@ -168,7 +168,7 @@ export function buildInputNeededCard(meta: InputNeededMeta): FeishuMessagePayloa
     return {
         msg_type: 'text',
         content: {
-            text: `⏳ Happy "${meta.sessionTag}" 等待你回复` + (meta.reason ? `（${meta.reason}）` : ''),
+            text: `⏳ Happy 等待你回复` + (meta.reason ? `（${meta.reason}）` : ''),
         },
     };
 }

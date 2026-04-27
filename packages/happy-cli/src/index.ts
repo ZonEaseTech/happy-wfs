@@ -406,6 +406,23 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1)
     }
     return;
+  } else if (subcommand === 'mcp') {
+    // happy-ai-cli mcp serve — stdio MCP exposing read/write tools over the
+    // user's happy sessions. Currently only `serve` is supported.
+    const mcpSubcommand = args[1];
+    if (mcpSubcommand !== 'serve') {
+      console.error(chalk.red('Usage: happy-ai-cli mcp serve'));
+      process.exit(1);
+    }
+    try {
+      const { runMcpServe } = await import('./mcp/serve');
+      await runMcpServe();
+    } catch (error) {
+      // stdio MCP — never write to stdout. Surface to stderr.
+      process.stderr.write(`[happy-mcp] fatal: ${error instanceof Error ? error.message : 'unknown error'}\n`);
+      process.exit(1);
+    }
+    return;
   } else if (subcommand === 'daemon') {
     // Show daemon management help
     const daemonSubcommand = args[1]
