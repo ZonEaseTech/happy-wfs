@@ -122,6 +122,14 @@ export interface SpawnSessionOptions {
     directory: string;
     sessionId?: string;
     resumeSessionId?: string;
+    /**
+     * Caller-declared spawn intent. Required for the daemon to enable
+     * resume-related side effects (Claude --resume, JSONL backfill).
+     * - 'resume': caller deliberately resumes from resumeSessionId
+     * - 'new': caller wants a fresh session; resumeSessionId is ignored
+     * - undefined: legacy behavior (treated as 'new' for safety)
+     */
+    intent?: 'new' | 'resume';
     sessionTitle?: string;
     skipForkSession?: boolean;
     approvedNewDirectoryCreation?: boolean;

@@ -513,8 +513,18 @@ export async function startDaemon(): Promise<void> {
     const spawnSession = async (options: SpawnSessionOptions): Promise<SpawnSessionResult> => {
       logger.debugLargeJson('[DAEMON RUN] Spawning session', options);
 
-      const { directory, sessionId, resumeSessionId, sessionTitle, skipForkSession, machineId, approvedNewDirectoryCreation = true } = options;
+      const { directory, sessionId, resumeSessionId: rawResumeSessionId, sessionTitle, skipForkSession, machineId, approvedNewDirectoryCreation = true, intent } = options;
       const isClaudeAgent = !options.agent || options.agent === 'claude';
+
+      // Resume-related side effects (Claude --resume, JSONL backfill, RESUME_SESSION_ID env)
+      // require an explicit `intent: 'resume'` from the caller. Any other value (including
+      // undefined for legacy callers) is treated as 'new' and resumeSessionId is suppressed.
+      // This prevents stray resumeSessionId values from polluting freshly-spawned sessions
+      // with backfilled history.
+      const resumeSessionId = intent === 'resume' ? rawResumeSessionId : undefined;
+      if (rawResumeSessionId && intent !== 'resume') {
+        logger.debug('[DAEMON RUN] Ignoring resumeSessionId because intent is not "resume"', { rawResumeSessionId, intent });
+      }
       let directoryCreated = false;
 
       try {

@@ -324,6 +324,7 @@ export default function MachineDetailScreen() {
                 machineId: machineId!,
                 directory: actualPath,
                 approvedNewDirectoryCreation,
+                intent: 'new',
                 // Pass worktree metadata so CLI includes it in initial metadata (avoids race condition)
                 ...(sessionType === 'worktree' && worktreeBranchName ? {
                     worktreeBasePath: absolutePath,

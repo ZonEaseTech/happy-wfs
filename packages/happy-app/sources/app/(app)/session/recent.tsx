@@ -424,6 +424,7 @@ function SessionHistory() {
                 approvedNewDirectoryCreation: false,
                 agent,
                 resumeSessionId,
+                intent: 'resume',
                 sessionTitle,
                 skipForkSession: true,
             });
