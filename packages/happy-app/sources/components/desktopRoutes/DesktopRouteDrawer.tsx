@@ -41,10 +41,13 @@ export const DesktopRouteDrawer = React.memo(function DesktopRouteDrawer({ entry
         return () => { cancelled = true; };
     }, [entry.path]);
 
+    const [headerRight, setHeaderRight] = React.useState<React.ReactNode>(null);
+
     const ctxValue = React.useMemo(() => ({
         isInDrawer: true,
         params: entry.params,
         dismiss: onDismiss,
+        setHeaderRight,
     }), [entry.params, onDismiss]);
 
     return (
@@ -86,6 +89,7 @@ export const DesktopRouteDrawer = React.memo(function DesktopRouteDrawer({ entry
                         <Text style={{ flex: 1, fontSize: 16, color: theme.colors.text, ...Typography.default('semiBold') }} numberOfLines={1}>
                             {entry.title ?? ''}
                         </Text>
+                        {headerRight}
                     </View>
                     <View style={{ flex: 1 }}>
                         <DesktopRouteContext.Provider value={ctxValue}>

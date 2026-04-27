@@ -1,26 +1,31 @@
 import { useAuth } from '@/auth/AuthContext';
 import * as React from 'react';
+import { View } from 'react-native';
 import { Drawer } from 'expo-router/drawer';
 import { useIsTablet } from '@/utils/responsive';
 import { SidebarView } from './SidebarView';
-import { Slot } from 'expo-router';
-import { useWindowDimensions } from 'react-native';
+import { ResizableHandle } from './ResizableHandle';
+import { useResizableColumn } from '@/utils/useResizableColumn';
+
+const MIN_SIDEBAR_WIDTH = 250;
+const MAX_SIDEBAR_WIDTH = 500;
+const DEFAULT_SIDEBAR_WIDTH = 300;
 
 export const SidebarNavigator = React.memo(() => {
     const auth = useAuth();
     const isTablet = useIsTablet();
     const showPermanentDrawer = auth.isAuthenticated && isTablet;
-    const { width: windowWidth } = useWindowDimensions();
 
-    // Calculate drawer width only when needed
-    const drawerWidth = React.useMemo(() => {
-        if (!showPermanentDrawer) return 280; // Default width for hidden drawer
-        return Math.min(Math.max(Math.floor(windowWidth * 0.3), 250), 360);
-    }, [windowWidth, showPermanentDrawer]);
+    // Persisted width (web/desktop only); native falls back to default.
+    const { width: sidebarWidth, setWidth, commit } = useResizableColumn({
+        key: 'sidebar',
+        defaultWidth: DEFAULT_SIDEBAR_WIDTH,
+        minWidth: MIN_SIDEBAR_WIDTH,
+        maxWidth: MAX_SIDEBAR_WIDTH,
+    });
 
     const drawerNavigationOptions = React.useMemo(() => {
         if (!showPermanentDrawer) {
-            // When drawer is hidden, use minimal configuration
             return {
                 lazy: false,
                 headerShown: false,
@@ -32,8 +37,6 @@ export const SidebarNavigator = React.memo(() => {
                 },
             };
         }
-        
-        // When drawer is permanent
         return {
             lazy: false,
             headerShown: false,
@@ -41,7 +44,7 @@ export const SidebarNavigator = React.memo(() => {
             drawerStyle: {
                 backgroundColor: 'white',
                 borderRightWidth: 0,
-                width: drawerWidth,
+                width: sidebarWidth,
             },
             swipeEnabled: false,
             drawerActiveTintColor: 'transparent',
@@ -49,12 +52,23 @@ export const SidebarNavigator = React.memo(() => {
             drawerItemStyle: { display: 'none' as const },
             drawerLabelStyle: { display: 'none' as const },
         };
-    }, [showPermanentDrawer, drawerWidth]);
+    }, [showPermanentDrawer, sidebarWidth]);
 
-    // Always render SidebarView but hide it when not needed
     const drawerContent = React.useCallback(
-        () => <SidebarView />,
-        []
+        () => (
+            <View style={{ flex: 1 }}>
+                <SidebarView />
+                <ResizableHandle
+                    side="right"
+                    width={sidebarWidth}
+                    minWidth={MIN_SIDEBAR_WIDTH}
+                    maxWidth={MAX_SIDEBAR_WIDTH}
+                    onResize={setWidth}
+                    onCommit={commit}
+                />
+            </View>
+        ),
+        [sidebarWidth, setWidth, commit],
     );
 
     return (
@@ -62,5 +76,5 @@ export const SidebarNavigator = React.memo(() => {
             screenOptions={drawerNavigationOptions}
             drawerContent={showPermanentDrawer ? drawerContent : undefined}
         />
-    )
+    );
 });

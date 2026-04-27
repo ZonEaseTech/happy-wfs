@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, Pressable, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute, useDrawerHeaderRight } from '@/components/desktopRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
 import { Item } from '@/components/Item';
@@ -29,6 +29,12 @@ import { t } from '@/text';
 export default function MemoryScreen() {
     const { theme } = useUnistyles();
     const { isInDrawer } = useDesktopRoute();
+    const addButton = React.useMemo(() => (
+        <Pressable onPress={handleAdd} style={{ paddingHorizontal: 12, paddingVertical: 4 }}>
+            <Ionicons name="add" size={24} color={theme.colors.header.tint} />
+        </Pressable>
+    ), [theme]);
+    useDrawerHeaderRight(addButton);
     const router = useRouter();
     const auth = useAuth();
     const [memories, setMemories] = React.useState<MemoryRow[]>([]);
@@ -151,11 +157,7 @@ export default function MemoryScreen() {
             {!isInDrawer && <Stack.Screen
                 options={{
                     title: t('memory.title'),
-                    headerRight: () => (
-                        <Pressable onPress={handleAdd} style={{ paddingHorizontal: 12, paddingVertical: 4 }}>
-                            <Ionicons name="add" size={24} color={theme.colors.header.tint} />
-                        </Pressable>
-                    ),
+                    headerRight: () => addButton,
                 }}
             />}
             {isLoading ? (

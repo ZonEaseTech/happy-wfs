@@ -3,6 +3,8 @@ import { View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { Text } from '@/components/StyledText';
+import { ResizableHandle } from './ResizableHandle';
+import { useResizableColumn } from '@/utils/useResizableColumn';
 import { Typography } from '@/constants/Typography';
 import FilesScreen from '@/app/(app)/session/[id]/files';
 import InfoScreen from '@/app/(app)/session/[id]/info';
@@ -10,7 +12,10 @@ import BrowserScreen from '@/app/(app)/session/[id]/browser';
 
 export type RightPanelType = 'files' | 'info' | 'browser';
 
-export const RIGHT_PANEL_WIDTH = 480;
+export const RIGHT_PANEL_WIDTH = 480; // legacy export — callers use the hook now
+
+const MIN_RIGHT_PANEL_WIDTH = 320;
+const MAX_RIGHT_PANEL_WIDTH = 720;
 
 const TITLES: Record<RightPanelType, string> = {
     files: 'Files',
@@ -24,14 +29,28 @@ export const RightPanel = React.memo(function RightPanel(props: {
     onClose: () => void;
 }) {
     const { theme } = useUnistyles();
+    const { width, setWidth, commit } = useResizableColumn({
+        key: 'right-panel',
+        defaultWidth: RIGHT_PANEL_WIDTH,
+        minWidth: MIN_RIGHT_PANEL_WIDTH,
+        maxWidth: MAX_RIGHT_PANEL_WIDTH,
+    });
     return (
         <View style={{
-            width: RIGHT_PANEL_WIDTH,
+            width,
             height: '100%',
             backgroundColor: theme.colors.surface,
             borderLeftWidth: 1,
             borderLeftColor: theme.colors.divider,
         }}>
+            <ResizableHandle
+                side="left"
+                width={width}
+                minWidth={MIN_RIGHT_PANEL_WIDTH}
+                maxWidth={MAX_RIGHT_PANEL_WIDTH}
+                onResize={setWidth}
+                onCommit={commit}
+            />
             <View style={{
                 height: 48,
                 flexDirection: 'row',

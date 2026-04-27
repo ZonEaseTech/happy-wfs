@@ -5,6 +5,8 @@ interface DesktopRouteContextValue {
     isInDrawer: boolean;
     params: Record<string, any>;
     dismiss: () => void;
+    /** Drawer-only: register a node to be rendered in the drawer's header right slot. */
+    setHeaderRight?: (node: React.ReactNode) => void;
 }
 
 export const DesktopRouteContext = React.createContext<DesktopRouteContextValue>({
@@ -36,4 +38,20 @@ export function useRouteParams<T extends Record<string, any> = Record<string, an
     const ctx = React.useContext(DesktopRouteContext);
     const routerParams = useLocalSearchParams();
     return (ctx.isInDrawer ? ctx.params : routerParams) as T;
+}
+
+/**
+ * Inject a header-right node into the drawer header (drawer mode only).
+ * Pass `null` to clear. Re-runs whenever `node` reference changes.
+ *
+ * In route mode this is a no-op — the page's <Stack.Screen options.headerRight>
+ * still controls the native header.
+ */
+export function useDrawerHeaderRight(node: React.ReactNode): void {
+    const ctx = React.useContext(DesktopRouteContext);
+    React.useEffect(() => {
+        if (!ctx.isInDrawer || !ctx.setHeaderRight) return;
+        ctx.setHeaderRight(node);
+        return () => { ctx.setHeaderRight?.(null); };
+    }, [ctx, node]);
 }
