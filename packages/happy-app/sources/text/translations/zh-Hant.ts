@@ -1134,6 +1134,7 @@ export const zhHant: TranslationStructure = {
 
     memory: {
         title: '记忆',
+        manage: '管理',
         subtitle: 'Claude 在所有会话中应记住的内容',
         emptyTitle: '暂无记忆',
         emptyDescription: '把希望 Claude 始终记住的上下文存在这里，每次会话会自动注入到系统提示。',

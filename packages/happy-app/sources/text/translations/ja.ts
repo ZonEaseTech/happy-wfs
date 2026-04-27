@@ -1164,6 +1164,7 @@ export const ja: TranslationStructure = {
 
     memory: {
         title: 'Memory',
+        manage: '管理',
         subtitle: 'Things Claude should remember across all sessions',
         emptyTitle: 'No memories yet',
         emptyDescription: 'Save useful context here. Each session injects these into the system prompt automatically.',

@@ -30,8 +30,6 @@ export async function claudeRemote(opts: {
     hookSettingsPath: string,
     /** JavaScript runtime to use for spawning Claude Code (default: 'node') */
     jsRuntime?: JsRuntime,
-    /** Optional `<user_memory>` block appended to the base system prompt. */
-    memoryPromptBlock?: string,
 
     // Dynamic parameters
     nextMessage: () => Promise<{ message: string | { type: 'text'; text: string } | { type: 'mixed'; text: string; images: ImageContent[] }, mode: EnhancedMode } | null>,
@@ -149,8 +147,8 @@ export async function claudeRemote(opts: {
         model: initial.mode.model,
         effort: initial.mode.reasoningEffort,
         fallbackModel: initial.mode.fallbackModel,
-        customSystemPrompt: initial.mode.customSystemPrompt ? initial.mode.customSystemPrompt + '\n\n' + systemPrompt + (opts.memoryPromptBlock ?? '') : undefined,
-        appendSystemPrompt: initial.mode.appendSystemPrompt ? initial.mode.appendSystemPrompt + '\n\n' + systemPrompt + (opts.memoryPromptBlock ?? '') : systemPrompt + (opts.memoryPromptBlock ?? ''),
+        customSystemPrompt: initial.mode.customSystemPrompt ? initial.mode.customSystemPrompt + '\n\n' + systemPrompt : undefined,
+        appendSystemPrompt: initial.mode.appendSystemPrompt ? initial.mode.appendSystemPrompt + '\n\n' + systemPrompt : systemPrompt,
         allowedTools: initial.mode.allowedTools ? initial.mode.allowedTools.concat(opts.allowedTools) : opts.allowedTools,
         disallowedTools: initial.mode.disallowedTools,
         canCallTool: (toolName: string, input: unknown, options: { signal: AbortSignal }) => opts.canCallTool(toolName, input, mode, options),

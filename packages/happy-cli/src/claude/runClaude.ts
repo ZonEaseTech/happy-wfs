@@ -29,7 +29,6 @@ import { resolve, join } from 'node:path';
 import { detectGitWorktree } from '@/utils/gitWorktree';
 import { startOfflineReconnection, connectionState } from '@/utils/serverConnectionErrors';
 import { claudeLocal } from '@/claude/claudeLocal';
-import { buildMemoryPromptBlock } from '@/claude/utils/systemPrompt';
 import { createSessionScanner } from '@/claude/utils/sessionScanner';
 import { Session } from './session';
 import { findClaudeProjectId } from '@/claude/utils/claudeSessionIndex';
@@ -209,10 +208,6 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         });
 
         try {
-            // Inject user-saved memories into the local session as well — same
-            // behavior as the remote/daemon path.
-            const memoryRows = await api.listMemories();
-            const memoryPromptBlock = buildMemoryPromptBlock(memoryRows);
             await claudeLocal({
                 path: workingDirectory,
                 sessionId: null,
@@ -223,7 +218,6 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
                 claudeArgs: options.claudeArgs,
                 mcpServers: {},
                 allowedTools: [],
-                memoryPromptBlock,
             });
         } finally {
             reconnection.cancel();
