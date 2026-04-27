@@ -27,10 +27,12 @@ export async function createWorktree(
 }> {
     const name = generateWorktreeName();
     const prefix = getBranchPrefix();
-    // Branch name carries the prefix (so it shows up in `git branch` listings),
-    // worktree directory uses the unprefixed name to avoid nested folders when
-    // the prefix contains "/".
+    // Branch name keeps slashes for `git branch` namespacing (e.g. vk/ha-);
+    // worktree directory flattens slashes to dashes so the prefix shows up in
+    // the worktree path without creating nested folders.
     const branchName = `${prefix}${name}`;
+    const dirPrefix = prefix.replace(/\//g, '-');
+    const dirName = `${dirPrefix}${name}`;
 
     // Check if it's a git repository
     const gitCheck = await machineBash(
@@ -49,7 +51,7 @@ export async function createWorktree(
     }
 
     // Create the worktree with new branch
-    const worktreePath = `.dev/worktree/${name}`;
+    const worktreePath = `.dev/worktree/${dirName}`;
     let result = await machineBash(
         machineId,
         `git worktree add -b ${shellEscape(branchName)} ${shellEscape(worktreePath)}`,
@@ -62,7 +64,7 @@ export async function createWorktree(
         for (let i = 2; i <= 4; i++) {
             const newName = `${name}-${i}`;
             const newBranchName = `${prefix}${newName}`;
-            const newWorktreePath = `.dev/worktree/${newName}`;
+            const newWorktreePath = `.dev/worktree/${dirPrefix}${newName}`;
             result = await machineBash(
                 machineId,
                 `git worktree add -b ${shellEscape(newBranchName)} ${shellEscape(newWorktreePath)}`,

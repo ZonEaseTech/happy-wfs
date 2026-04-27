@@ -48,12 +48,14 @@ export async function createWorkspace(
 ): Promise<CreateWorkspaceResult> {
     const workspaceName = generateWorktreeName();
     const prefix = getBranchPrefix();
-    // Branch name carries the prefix (so `git branch` lists it under e.g. vk/),
-    // but the workspace directory uses the unprefixed name to avoid nested
-    // folders when the prefix contains "/".
+    // Branch name keeps slashes for `git branch` namespacing (e.g. vk/ha-).
+    // Directory name flattens slashes to dashes so the prefix shows up in
+    // the workspace dir name without creating nested folders.
     const branchName = `${prefix}${workspaceName}`;
-    // ~ is left unescaped so the shell expands it; workspaceName is safe (adjective-noun)
-    const workspacePath = `~/.happy-ai/workspaces/${shellEscape(workspaceName)}`;
+    const dirPrefix = prefix.replace(/\//g, '-');
+    const dirName = `${dirPrefix}${workspaceName}`;
+    // ~ is left unescaped so the shell expands it; dirName is safe (alphanum + - / .)
+    const workspacePath = `~/.happy-ai/workspaces/${shellEscape(dirName)}`;
 
     // Create workspace directory
     // Use '/' as cwd to bypass daemon path validation (the command itself uses absolute/~ paths)
