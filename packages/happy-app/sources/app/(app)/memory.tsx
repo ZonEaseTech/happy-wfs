@@ -29,12 +29,6 @@ import { t } from '@/text';
 export default function MemoryScreen() {
     const { theme } = useUnistyles();
     const { isInDrawer } = useDesktopRoute();
-    const addButton = React.useMemo(() => (
-        <Pressable onPress={handleAdd} style={{ paddingHorizontal: 12, paddingVertical: 4 }}>
-            <Ionicons name="add" size={24} color={theme.colors.header.tint} />
-        </Pressable>
-    ), [theme]);
-    useDrawerHeaderRight(addButton);
     const router = useRouter();
     const auth = useAuth();
     const [memories, setMemories] = React.useState<MemoryRow[]>([]);
@@ -115,6 +109,13 @@ export default function MemoryScreen() {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.deleteFailed'));
         }
     }, [auth.credentials, refresh]);
+
+    const addButton = React.useMemo(() => (
+        <Pressable onPress={handleAdd} style={{ paddingHorizontal: 12, paddingVertical: 4 }}>
+            <Ionicons name="add" size={24} color={theme.colors.header.tint} />
+        </Pressable>
+    ), [theme, handleAdd]);
+    useDrawerHeaderRight(addButton);
 
     const formatDate = (ms: number) => {
         const d = new Date(ms);
