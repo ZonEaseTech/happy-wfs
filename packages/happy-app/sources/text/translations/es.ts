@@ -1121,6 +1121,10 @@ export const es: TranslationStructure = {
         settingsJsonSubtitle: 'Hooks, permissions, env, MCP servers',
         claudeMd: 'CLAUDE.md',
         claudeMdSubtitle: 'User-level prompt prepended to every project',
+
+        agentsMd: 'AGENTS.md',
+
+        agentsMdSubtitle: 'Instrucciones a nivel de usuario para herramientas compatibles con AGENTS.md (codex, etc.)',
         browse: 'Browse ~/.claude',
         browseSubtitle: 'skills/, commands/, agents/, anything else',
         browseTitle: '~/.claude',

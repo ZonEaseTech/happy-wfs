@@ -1123,6 +1123,10 @@ export const zhHant: TranslationStructure = {
         settingsJsonSubtitle: 'Hooks、权限、环境变量、MCP 服务器',
         claudeMd: 'CLAUDE.md',
         claudeMdSubtitle: '附加在每个项目前的用户级 prompt',
+
+        agentsMd: 'AGENTS.md',
+
+        agentsMdSubtitle: '使用者級指令檔案，被 codex 等 AGENTS.md 相容工具識別',
         browse: '浏览 ~/.claude',
         browseSubtitle: 'skills/、commands/、agents/ 等',
         browseTitle: '~/.claude',

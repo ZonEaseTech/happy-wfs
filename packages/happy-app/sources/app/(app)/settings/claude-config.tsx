@@ -64,6 +64,14 @@ export default function ClaudeConfigScreen() {
         });
     }, [requireOnline, router, machineId, homeDir]);
 
+    const handleEditAgentsMd = React.useCallback(() => {
+        requireOnline(() => {
+            const path = `${homeDir}/.claude/AGENTS.md`;
+            const encodedPath = encodeURIComponent(path);
+            router.push(`/settings/machine-edit?machineId=${machineId}&path=${encodedPath}&language=Markdown`);
+        });
+    }, [requireOnline, router, machineId, homeDir]);
+
     const handleBrowse = React.useCallback(() => {
         requireOnline(() => {
             const path = `${homeDir}/.claude`;
@@ -93,6 +101,12 @@ export default function ClaudeConfigScreen() {
                         subtitle={t('claudeConfig.claudeMdSubtitle')}
                         icon={<Ionicons name="document-text-outline" size={29} color="#34C759" />}
                         onPress={handleEditClaudeMd}
+                    />
+                    <Item
+                        title={t('claudeConfig.agentsMd')}
+                        subtitle={t('claudeConfig.agentsMdSubtitle')}
+                        icon={<Ionicons name="people-outline" size={29} color="#5856D6" />}
+                        onPress={handleEditAgentsMd}
                     />
                     <Item
                         title={t('claudeConfig.browse')}
