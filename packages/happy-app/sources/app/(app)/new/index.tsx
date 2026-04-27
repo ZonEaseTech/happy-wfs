@@ -1364,7 +1364,6 @@ function NewSessionWizard() {
                 directory: actualPath,
                 approvedNewDirectoryCreation: true,
                 agent: agentType,
-                intent: 'new',
                 environmentVariables,
                 // Pass worktree metadata so CLI includes it in initial metadata (avoids race condition)
                 ...(sessionType === 'worktree' && worktreeBranchName ? {

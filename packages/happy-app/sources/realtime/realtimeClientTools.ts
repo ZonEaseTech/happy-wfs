@@ -278,7 +278,6 @@ export const realtimeClientTools = {
             const result = await machineSpawnNewSession({
                 machineId,
                 directory: dir,
-                intent: 'new',
             });
 
             if (result.type === 'success') {

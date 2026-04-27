@@ -141,13 +141,6 @@ export interface SpawnSessionOptions {
     token?: string;
     agent?: 'codex' | 'claude' | 'gemini';
     resumeSessionId?: string;
-    /**
-     * Caller-declared spawn intent. Required for the daemon (>=0.3.3) to honor
-     * resumeSessionId. Pass 'resume' for resume buttons that fork existing
-     * Claude/Gemini/Codex history; pass 'new' for fresh sessions (wizard etc.).
-     * Older daemons ignore this field and fall back to legacy behavior.
-     */
-    intent?: 'new' | 'resume';
     sessionTitle?: string;
     skipForkSession?: boolean;
     // Environment variables from AI backend profile
@@ -239,12 +232,12 @@ export type SessionPreviewMessage = ClaudeSessionPreviewMessage;
  */
 export async function machineSpawnNewSession(options: SpawnSessionOptions): Promise<SpawnSessionResult> {
 
-    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, intent, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
+    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
 
     try {
         const result = await apiSocket.machineSpawnHTTP<SpawnSessionResult>(
             machineId,
-            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, intent, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
+            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
         );
         return result;
     } catch (error) {

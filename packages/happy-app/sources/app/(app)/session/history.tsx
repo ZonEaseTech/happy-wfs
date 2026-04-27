@@ -492,7 +492,6 @@ export default function AgentHistoryPage() {
                 approvedNewDirectoryCreation: false,
                 agent,
                 resumeSessionId,
-                intent: 'resume',
                 sessionTitle: sessionTitle || undefined,
                 skipForkSession: true,
             });
