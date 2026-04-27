@@ -17,6 +17,7 @@ import { SidebarNavigator } from '@/components/SidebarNavigator';
 import sodium from '@/encryption/libsodium.lib';
 import { AppState, View, Platform } from 'react-native';
 import { ModalProvider } from '@/modal';
+import { DesktopRoutesProvider } from '@/components/desktopRoutes';
 import { PostHogProvider } from 'posthog-react-native';
 import { tracking } from '@/track/tracking';
 import { sync, syncRestore } from '@/sync/sync';
@@ -314,6 +315,7 @@ export default function RootLayout() {
                             <ThemeProvider value={navigationTheme}>
                                 <StatusBarProvider />
                                 <ModalProvider>
+                                    <DesktopRoutesProvider>
                                     <CommandPaletteProvider>
                                         <RealtimeProvider>
                                             <HorizontalSafeAreaWrapper>
@@ -321,6 +323,7 @@ export default function RootLayout() {
                                             </HorizontalSafeAreaWrapper>
                                         </RealtimeProvider>
                                     </CommandPaletteProvider>
+                                    </DesktopRoutesProvider>
                                 </ModalProvider>
                                 <ToastHost />
                             </ThemeProvider>

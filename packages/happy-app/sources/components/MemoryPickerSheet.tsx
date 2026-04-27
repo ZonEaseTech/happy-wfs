@@ -3,6 +3,7 @@ import { View, Pressable, ActivityIndicator, Platform, Modal, ScrollView, useWin
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useDesktopRoutes } from './desktopRoutes';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
@@ -145,6 +146,7 @@ PickerContent.displayName = 'PickerContent';
 export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle, MemoryPickerSheetProps>(({ onSelect }, ref) => {
     const { theme } = useUnistyles();
     const router = useRouter();
+    const { open: openDesktop } = useDesktopRoutes();
     const { width } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
 
@@ -177,8 +179,8 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
     const handleManage = React.useCallback(() => {
         if (isWeb) setOpen(false);
         else sheetRef.current?.dismiss();
-        router.push('/memory');
-    }, [router, isWeb]);
+        openDesktop('/memory', { title: t('memory.title') });
+    }, [openDesktop, isWeb]);
 
     const renderBackdrop = React.useCallback(
         (props: any) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} pressBehavior="close" />,

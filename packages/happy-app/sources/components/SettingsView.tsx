@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Image } from 'expo-image';
 import * as React from 'react';
 import { Text } from '@/components/StyledText';
+import { useDesktopRoutes } from './desktopRoutes';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -30,6 +31,7 @@ import { t } from '@/text';
 export const SettingsView = React.memo(function SettingsView() {
     const { theme } = useUnistyles();
     const router = useRouter();
+    const { open: openDesktop } = useDesktopRoutes();
     const appVersion = Constants.expoConfig?.version || '1.0.0';
     const auth = useAuth();
     const [devModeEnabled, setDevModeEnabled] = useLocalSettingMutable('devModeEnabled');
@@ -248,7 +250,7 @@ export const SettingsView = React.memo(function SettingsView() {
                         : t('settings.worktreeBranchPrefixSubtitle')
                     }
                     icon={<Ionicons name="git-branch-outline" size={29} color="#FF9500" />}
-                    onPress={() => router.push('/settings/worktree-config')}
+                    onPress={() => openDesktop('/settings/worktree-config', { title: t('worktreeConfig.title') })}
                 />
                 <Item
                     title={t('settings.claudeConfigTitle')}
