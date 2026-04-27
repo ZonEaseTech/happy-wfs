@@ -14,6 +14,7 @@ import { showToast } from '@/components/Toast';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { t } from '@/text';
 import { CodeEditor, type CodeEditorHandle } from '@/components/CodeEditor';
+import { layout } from '@/components/layout';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -365,7 +366,7 @@ export default function MachineEditScreen() {
                 }}
             />
             {Platform.OS === 'ios' ? (
-                <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={{ flex: 1 }}>
+                <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={{ flex: 1, maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
                     <View style={{
                         paddingHorizontal: 16,
                         paddingTop: 12,
@@ -393,7 +394,7 @@ export default function MachineEditScreen() {
                     </View>
                 </KeyboardAvoidingView>
             ) : Platform.OS === 'android' ? (
-                <RNKeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={{ flex: 1 }}>
+                <RNKeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={{ flex: 1, maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
                     <View style={{
                         paddingHorizontal: 16,
                         paddingTop: 12,
@@ -421,7 +422,7 @@ export default function MachineEditScreen() {
                     </View>
                 </RNKeyboardAvoidingView>
             ) : (
-                <>
+                <View style={{ flex: 1, maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
                     <View style={{
                         paddingHorizontal: 16,
                         paddingTop: 12,
@@ -447,7 +448,7 @@ export default function MachineEditScreen() {
                             language={editorLanguage}
                         />
                     </View>
-                </>
+                </View>
             )}
         </View>
     );
