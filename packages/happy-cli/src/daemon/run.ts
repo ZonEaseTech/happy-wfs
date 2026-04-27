@@ -17,6 +17,41 @@ import { isDebug } from '@/utils/env';
 import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, readSettings, getActiveProfile, getEnvironmentVariables, validateProfileForAgent, getProfileEnvironmentVariables } from '@/persistence';
 
 import { cleanupDaemonState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './controlClient';
+
+/**
+ * Session-scoped HAPPY_* control variables that the daemon injects into
+ * spawned children. They MUST NOT leak across spawns — if the daemon itself
+ * inherits them (typically when restarted from inside a happy session shell),
+ * every subsequent spawn will be polluted with the previous session's
+ * resumeSessionId / backfill flags / title etc., causing fresh sessions to
+ * replay another session's content.
+ */
+const SESSION_SCOPED_HAPPY_ENV_KEYS = [
+  'HAPPY_CLAUDE_RESUME_SESSION_ID',
+  'HAPPY_CLAUDE_BACKFILL',
+  'HAPPY_CLAUDE_BACKFILL_MAX_MESSAGES',
+  'HAPPY_CLAUDE_BACKFILL_MAX_USER_MESSAGES',
+  'HAPPY_CLAUDE_BACKFILL_MAX_BYTES',
+  'HAPPY_CLAUDE_SKIP_FORK_SESSION',
+  'HAPPY_GEMINI_RESUME_SESSION_ID',
+  'HAPPY_GEMINI_BACKFILL',
+  'HAPPY_CODEX_RESUME_FILE',
+  'HAPPY_CODEX_BACKFILL',
+  'HAPPY_SESSION_TITLE',
+  'HAPPY_WORKTREE_BASE_PATH',
+  'HAPPY_WORKTREE_BRANCH_NAME',
+  'HAPPY_WORKSPACE_REPOS',
+  'HAPPY_WORKSPACE_PATH',
+  'HAPPY_EXTRA_MCP_SERVERS',
+] as const;
+
+function stripSessionScopedHappyEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const cleaned = { ...env };
+  for (const key of SESSION_SCOPED_HAPPY_ENV_KEYS) {
+    delete cleaned[key];
+  }
+  return cleaned;
+}
 import { startDaemonControlServer } from './controlServer';
 import { readFileSync } from 'fs';
 import { execSync, exec, type ChildProcess } from 'child_process';
@@ -81,6 +116,17 @@ async function getProfileEnvironmentVariablesForAgent(
 }
 
 export async function startDaemon(): Promise<void> {
+  // Sanitize the daemon's own process.env on entry — strip any session-scoped
+  // HAPPY_* control vars inherited from the launching shell. Without this, a
+  // daemon restarted from inside a happy session would forever poison every
+  // subsequent spawn with that session's resumeSessionId / backfill flags.
+  for (const key of SESSION_SCOPED_HAPPY_ENV_KEYS) {
+    if (process.env[key] !== undefined) {
+      logger.debug(`[DAEMON RUN] Stripping leaked session-scoped env on entry: ${key}`);
+      delete process.env[key];
+    }
+  }
+
   // We don't have cleanup function at the time of server construction
   // Control flow is:
   // 1. Create promise that will resolve when shutdown is requested
@@ -341,7 +387,7 @@ export async function startDaemon(): Promise<void> {
         detached: false,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
-          ...process.env,
+          ...stripSessionScopedHappyEnv(process.env),
           ...oneshotEnv,
         },
       });
@@ -778,8 +824,11 @@ export async function startDaemon(): Promise<void> {
           const windowName = `happy-${Date.now()}-${agent}`;
           const tmuxEnv: Record<string, string> = {};
 
-          // Add all daemon environment variables (filtering out undefined)
-          for (const [key, value] of Object.entries(process.env)) {
+          // Add all daemon environment variables (filtering out undefined),
+          // skipping session-scoped HAPPY_* keys so we never carry the previous
+          // session's resumeSessionId / backfill flags into a fresh spawn.
+          const sanitizedDaemonEnv = stripSessionScopedHappyEnv(process.env);
+          for (const [key, value] of Object.entries(sanitizedDaemonEnv)) {
             if (value !== undefined) {
               tmuxEnv[key] = value;
             }
@@ -889,7 +938,10 @@ export async function startDaemon(): Promise<void> {
             detached: true,  // Sessions stay alive when daemon stops
             stdio: ['ignore', 'pipe', 'pipe'],  // Capture stdout/stderr for debugging
             env: {
-              ...process.env,
+              // Defense-in-depth: even if startDaemon's entry sanitization is
+              // bypassed somehow, the spawn site re-strips session-scoped
+              // HAPPY_* keys before extraEnv adds them back deterministically.
+              ...stripSessionScopedHappyEnv(process.env),
               ...extraEnv
             }
           });
