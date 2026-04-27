@@ -71,7 +71,9 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<BottomSheetModal, M
     return (
         <BottomSheetModal
             ref={ref}
-            snapPoints={['60%', '90%']}
+            // Compact like a clipboard pop-up; the user can drag up to 75% if
+            // they have lots of memories.
+            snapPoints={['35%', '75%']}
             onChange={handleChange}
             backdropComponent={renderBackdrop}
             backgroundStyle={{ backgroundColor: theme.colors.surface }}
