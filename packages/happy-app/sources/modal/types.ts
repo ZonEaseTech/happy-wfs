@@ -44,6 +44,14 @@ export interface PromptModalConfig extends BaseModalConfig {
     confirmText?: string;
     inputType?: 'default' | 'secure-text' | 'email-address' | 'numeric';
     checkbox?: PromptCheckboxConfig;
+    /**
+     * When true, the input becomes a multi-line textarea. Enter inserts a
+     * newline; Cmd/Ctrl+Enter submits. Useful for prompts that want
+     * paragraph-length content (e.g. memory entries).
+     */
+    multiline?: boolean;
+    /** When multiline, override the visible row count (default 6). */
+    multilineRows?: number;
 }
 
 export interface CustomModalConfig extends BaseModalConfig {

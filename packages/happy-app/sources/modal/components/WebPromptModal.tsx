@@ -140,7 +140,15 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
                     )}
                     <TextInput
                         ref={inputRef}
-                        style={[styles.input, Typography.default()]}
+                        style={[
+                            styles.input,
+                            Typography.default(),
+                            config.multiline && {
+                                minHeight: 24 * (config.multilineRows ?? 6),
+                                textAlignVertical: 'top' as const,
+                                paddingTop: 12,
+                            },
+                        ]}
                         value={inputValue}
                         onChangeText={setInputValue}
                         placeholder={config.placeholder}
@@ -150,8 +158,21 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
                         autoCapitalize="none"
                         autoCorrect={false}
                         autoFocus={Platform.OS === 'web'}
-                        onSubmitEditing={handleConfirm}
-                        returnKeyType="done"
+                        // Single-line: Enter submits. Multi-line: Enter inserts a
+                        // newline (handled by the input itself), Cmd/Ctrl+Enter
+                        // submits via onKeyPress below.
+                        multiline={config.multiline ?? false}
+                        numberOfLines={config.multiline ? (config.multilineRows ?? 6) : 1}
+                        onSubmitEditing={config.multiline ? undefined : handleConfirm}
+                        onKeyPress={config.multiline ? (e: any) => {
+                            const key = e?.nativeEvent?.key;
+                            const meta = e?.nativeEvent?.metaKey || e?.nativeEvent?.ctrlKey;
+                            if (key === 'Enter' && meta) {
+                                e.preventDefault?.();
+                                handleConfirm();
+                            }
+                        } : undefined}
+                        returnKeyType={config.multiline ? 'default' : 'done'}
                     />
                     {config.checkbox && (
                         <Pressable

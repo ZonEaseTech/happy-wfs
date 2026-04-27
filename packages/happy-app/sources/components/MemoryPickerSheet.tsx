@@ -81,7 +81,7 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
         const content = await Modal.prompt(
             t('memory.addTitle'),
             t('memory.addPrompt'),
-            { defaultValue: '', confirmText: t('memory.save'), cancelText: t('common.cancel') },
+            { defaultValue: '', confirmText: t('memory.save'), cancelText: t('common.cancel'), multiline: true, multilineRows: 8 },
         );
         const trimmed = content?.trim();
         if (!trimmed) return;
@@ -100,7 +100,7 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
         const content = await Modal.prompt(
             t('memory.editTitle'),
             t('memory.editPrompt'),
-            { defaultValue: m.content, confirmText: t('memory.save'), cancelText: t('common.cancel') },
+            { defaultValue: m.content, confirmText: t('memory.save'), cancelText: t('common.cancel'), multiline: true, multilineRows: 8 },
         );
         const trimmed = content?.trim();
         if (!trimmed || trimmed === m.content) return;
