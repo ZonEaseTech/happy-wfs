@@ -1552,22 +1552,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     </Shaker>
                                 )}
 
-                                {/* Skills shortcut — quick-open the slash command menu without typing "/" */}
-                                <Pressable
-                                    onPress={() => {
-                                        const newText = '/';
-                                        setInputState({ text: newText, selection: { start: 1, end: 1 } });
-                                        props.onChangeText(newText);
-                                        // Focus on next tick so the autocomplete sheet picks up the new active word
-                                        setTimeout(() => inputRef.current?.focus(), 30);
-                                    }}
-                                    hitSlop={15}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Skills"
-                                    style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                    <Ionicons name="sparkles-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                </Pressable>
+                                {/* Git Status Badge */}
+                                <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
 
                                 {/* Memory shortcut — opens the picker bottom sheet (clipboard-style) */}
                                 <Pressable
@@ -1579,9 +1565,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 >
                                     <Ionicons name="library-outline" size={20} color={theme.colors.button.secondary.tint} />
                                 </Pressable>
-
-                                {/* Git Status Badge */}
-                                <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
                                 </View>
 
                                 {/* Image button */}
