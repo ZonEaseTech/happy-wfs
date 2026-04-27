@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useUnistyles } from 'react-native-unistyles';
 import { Text } from '@/components/StyledText';
 import { ResizableHandle } from './ResizableHandle';
@@ -29,6 +30,7 @@ export const RightPanel = React.memo(function RightPanel(props: {
     onClose: () => void;
 }) {
     const { theme } = useUnistyles();
+    const router = useRouter();
     const { width, setWidth, commit } = useResizableColumn({
         key: 'right-panel',
         defaultWidth: RIGHT_PANEL_WIDTH,
@@ -68,6 +70,15 @@ export const RightPanel = React.memo(function RightPanel(props: {
                 }}>
                     {TITLES[props.type]}
                 </Text>
+                <Pressable
+                    onPress={() => router.push(`/session/${props.sessionId}/commits`)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Commits"
+                    style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, marginRight: 14 })}
+                >
+                    <Octicons name="git-commit" size={20} color={theme.colors.text} />
+                </Pressable>
                 <Pressable onPress={props.onClose} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                     <Ionicons name="close" size={22} color={theme.colors.text} />
                 </Pressable>
