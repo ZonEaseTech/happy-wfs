@@ -1168,6 +1168,16 @@ export const ja: TranslationStructure = {
         invalidJson: 'Invalid JSON',
     },
 
+    injectedMemories: {
+        chip: ({ count }: { count: number }) => `${count} 件のメモリを注入`,
+        mutedCount: ({ count }: { count: number }) => `（${count} 件ミュート）`,
+        title: '注入されたメモリ',
+        muteHint: 'ミュートは現在のセッションのローカルでのみ有効です。CLI はまだ未対応 — 近日対応予定。',
+        empty: '表示できるメモリの詳細はありません。',
+        mutedBadge: 'このセッションでミュート',
+        activeBadge: 'このセッションで有効',
+    },
+
     memory: {
         title: 'Memory',
         manage: '管理',
@@ -1190,6 +1200,14 @@ export const ja: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
+        searchPlaceholder: 'メモリを検索...',
+        noResults: '一致するメモリがありません',
+        insertIntoInput: '入力に挿入',
+        searchEmpty: '一致するメモリがありません',
+        searchEmptyHint: 'キーワードを変えるか検索を消去してください。',
+        searchResultFooter: ({ count }: { count: number }) => `${count} 件一致`,
+        groupManual: '手動',
+        groupMessagePin: 'チャットから',
     },
 
     worktreeConfig: {

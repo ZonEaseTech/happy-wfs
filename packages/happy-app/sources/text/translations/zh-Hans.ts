@@ -1138,6 +1138,16 @@ export const zhHans: TranslationStructure = {
         invalidJson: 'JSON 格式错误',
     },
 
+    injectedMemories: {
+        chip: ({ count }: { count: number }) => `${count} 条记忆已注入`,
+        mutedCount: ({ count }: { count: number }) => `（${count} 条已静音）`,
+        title: '已注入的记忆',
+        muteHint: '静音仅在本会话本地生效，CLI 暂未消费此设置——下个版本支持。',
+        empty: '没有可显示的记忆详情。',
+        mutedBadge: '本会话已静音',
+        activeBadge: '本会话生效中',
+    },
+
     memory: {
         title: '记忆',
         manage: '管理',
@@ -1160,6 +1170,14 @@ export const zhHans: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `共 ${count} 条`,
         pinTitle: '存为记忆？',
         pinAction: '存为记忆',
+        searchPlaceholder: '搜索记忆...',
+        noResults: '没有匹配的记忆',
+        insertIntoInput: '插入到输入框',
+        searchEmpty: '没有匹配的记忆',
+        searchEmptyHint: '换个关键词或清除搜索。',
+        searchResultFooter: ({ count }: { count: number }) => `${count} 条匹配`,
+        groupManual: '手动',
+        groupMessagePin: '来自对话',
     },
 
     worktreeConfig: {

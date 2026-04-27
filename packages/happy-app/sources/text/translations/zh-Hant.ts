@@ -1138,6 +1138,16 @@ export const zhHant: TranslationStructure = {
         invalidJson: 'JSON 格式错误',
     },
 
+    injectedMemories: {
+        chip: ({ count }: { count: number }) => `${count} 條記憶已注入`,
+        mutedCount: ({ count }: { count: number }) => `（${count} 條已靜音）`,
+        title: '已注入的記憶',
+        muteHint: '靜音僅在本工作階段本地生效，CLI 尚未消費此設定——下個版本支援。',
+        empty: '沒有可顯示的記憶詳情。',
+        mutedBadge: '本工作階段已靜音',
+        activeBadge: '本工作階段生效中',
+    },
+
     memory: {
         title: '记忆',
         manage: '管理',
@@ -1160,6 +1170,14 @@ export const zhHant: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `共 ${count} 条`,
         pinTitle: '存為記憶？',
         pinAction: '存為記憶',
+        searchPlaceholder: '搜尋記憶...',
+        noResults: '沒有符合的記憶',
+        insertIntoInput: '插入到輸入框',
+        searchEmpty: '沒有符合的記憶',
+        searchEmptyHint: '換個關鍵字或清除搜尋。',
+        searchResultFooter: ({ count }: { count: number }) => `${count} 條符合`,
+        groupManual: '手動',
+        groupMessagePin: '來自對話',
     },
 
     worktreeConfig: {

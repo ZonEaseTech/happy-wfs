@@ -1153,6 +1153,16 @@ export const en: TranslationStructure = {
         invalidJson: 'Invalid JSON',
     },
 
+    injectedMemories: {
+        chip: ({ count }: { count: number }) => `${count} ${count === 1 ? 'memory' : 'memories'} injected`,
+        mutedCount: ({ count }: { count: number }) => `(${count} muted)`,
+        title: 'Injected memories',
+        muteHint: 'Mute hides a memory from this session locally. The CLI does not yet honor this — coming soon.',
+        empty: 'No memory details available.',
+        mutedBadge: 'Muted for this session',
+        activeBadge: 'Active in this session',
+    },
+
     memory: {
         title: 'Memory',
         manage: 'Manage',
@@ -1175,6 +1185,14 @@ export const en: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
+        searchPlaceholder: 'Search memories...',
+        noResults: 'No matching memories',
+        insertIntoInput: 'Insert into input',
+        searchEmpty: 'No matching memories',
+        searchEmptyHint: 'Try a different keyword or clear the search.',
+        searchResultFooter: ({ count }: { count: number }) => `${count} match${count === 1 ? '' : 'es'}`,
+        groupManual: 'Typed',
+        groupMessagePin: 'From chat',
     },
 
     worktreeConfig: {
