@@ -1552,9 +1552,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     </Shaker>
                                 )}
 
-                                {/* Git Status Badge */}
-                                <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
-
                                 {/* Skills shortcut — quick-open the slash command menu without typing "/" */}
                                 <Pressable
                                     onPress={() => {
@@ -1582,6 +1579,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 >
                                     <Ionicons name="library-outline" size={20} color={theme.colors.button.secondary.tint} />
                                 </Pressable>
+
+                                {/* Git Status Badge */}
+                                <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
                                 </View>
 
                                 {/* Image button */}
