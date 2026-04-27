@@ -186,7 +186,8 @@ export const SidebarView = React.memo(() => {
     const { width: windowWidth } = useWindowDimensions();
     const sidebarWidth = Math.min(Math.max(Math.floor(windowWidth * 0.3), 250), 360);
     // 3 icons (108px total), threshold 328px → left-justify below ~340px
-    const shouldLeftJustify = sidebarWidth < 340;
+    // Always left-justify the title (was: sidebarWidth < 340) — preference: keep title pinned next to the logo
+    const shouldLeftJustify = true;
 
     const handleNewSession = React.useCallback(() => {
         router.push('/new');
