@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
+import { layout } from './layout';
 import { useAuth } from '@/auth/AuthContext';
 import { listMemories, type MemoryRow } from '@/sync/apiMemory';
 import { hapticsLight } from '@/components/haptics';
@@ -71,14 +72,16 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<BottomSheetModal, M
     return (
         <BottomSheetModal
             ref={ref}
-            // Compact like a clipboard pop-up; the user can drag up to 75% if
-            // they have lots of memories.
-            snapPoints={['35%', '75%']}
+            snapPoints={['60%']}
+            enableDynamicSizing={false}
             onChange={handleChange}
             backdropComponent={renderBackdrop}
+            // Constrain to chat column width on tablet/web; full width on phones.
+            style={{ maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}
             backgroundStyle={{ backgroundColor: theme.colors.surface }}
             handleIndicatorStyle={{ backgroundColor: theme.colors.divider }}
         >
+            <View style={{ flex: 1 }}>
             <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -153,6 +156,7 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<BottomSheetModal, M
                     })
                 )}
             </BottomSheetScrollView>
+            </View>
         </BottomSheetModal>
     );
 }));
