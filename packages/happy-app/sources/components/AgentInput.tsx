@@ -1,7 +1,7 @@
 import { Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as React from 'react';
 import { useRouter } from 'expo-router';
-import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import type { MemoryPickerHandle } from "./MemoryPickerSheet";
 import { MemoryPickerSheet } from './MemoryPickerSheet';
 import { View, Platform, useWindowDimensions, ViewStyle, Text, ActivityIndicator, TouchableWithoutFeedback, Image as RNImage, Pressable, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
@@ -493,7 +493,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const inputRef = React.useRef<MultiTextInputHandle>(null);
     // Memory clipboard-style picker bottom sheet (handler defined below where
     // setInputState/latestTextRef are in scope)
-    const memoryPickerRef = React.useRef<BottomSheetModal>(null);
+    const memoryPickerRef = React.useRef<MemoryPickerHandle>(null);
 
     // Drag and drop state (web only)
     const [isDragging, setIsDragging] = React.useState(false);
