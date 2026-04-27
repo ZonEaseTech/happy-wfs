@@ -259,9 +259,14 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
 
     // When the active path turns out NOT to be a git repo:
     // - Standalone: redirect to the unified file browser (which lists everything + can create files)
-    // - Embedded (RightPanel): keep the existing "scan nearby repos" empty-state offer
+    // - Embedded (RightPanel): scan one level down for nested git repos and offer them as one-tap switches
+    //
+    // Use repoBaseCwd (effectiveRepoPath || commandCwd) so the scan still
+    // runs in the common case where the user has neither a workspaceRepos
+    // entry nor an ad-hoc repo selected — falling back to the session's
+    // metadata.path means "scan the dir Claude was started in".
     React.useEffect(() => {
-        if (isLoading || gitStatusFiles || !effectiveRepoPath || adHocRepoPath) {
+        if (isLoading || gitStatusFiles || !repoBaseCwd || adHocRepoPath) {
             return;
         }
         if (!embedded) {
@@ -269,11 +274,11 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             return;
         }
         let cancelled = false;
-        findNearbyGitRepos(sessionId, effectiveRepoPath).then((repos) => {
+        findNearbyGitRepos(sessionId, repoBaseCwd).then((repos) => {
             if (!cancelled) setNearbyRepos(repos);
         });
         return () => { cancelled = true; };
-    }, [sessionId, effectiveRepoPath, isLoading, gitStatusFiles, adHocRepoPath, embedded, router]);
+    }, [sessionId, repoBaseCwd, isLoading, gitStatusFiles, adHocRepoPath, embedded, router]);
 
     // Refresh silently when screen is focused (after returning from file view)
     useFocusEffect(
