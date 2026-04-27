@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useDesktopRoutes } from '@/components/desktopRoutes';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
@@ -32,8 +31,6 @@ import {
 function truncate(s: string, maxLen: number): string {
     return s.length > maxLen ? s.slice(0, maxLen) + '...' : s;
 }
-
-registerDesktopRoute('/settings/voice', () => import('./voice'));
 
 export default function VoiceSettingsScreen() {
     const router = useRouter();

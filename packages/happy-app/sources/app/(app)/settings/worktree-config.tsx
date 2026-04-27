@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, TextInput, Pressable, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute } from '@/components/desktopRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -11,8 +11,6 @@ import { useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
 import { useLocalSettingMutable } from '@/sync/storage';
 import { t } from '@/text';
-
-registerDesktopRoute('/settings/worktree-config', () => import('./worktree-config'));
 
 /**
  * Edit the user-level worktree branch prefix used when creating new worktrees

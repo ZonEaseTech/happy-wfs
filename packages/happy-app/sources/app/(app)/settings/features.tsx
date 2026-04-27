@@ -1,4 +1,3 @@
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Item } from '@/components/Item';
@@ -7,8 +6,6 @@ import { ItemList } from '@/components/ItemList';
 import { useSettingMutable, useLocalSettingMutable } from '@/sync/storage';
 import { Switch } from '@/components/Switch';
 import { t } from '@/text';
-
-registerDesktopRoute('/settings/features', () => import('./features'));
 
 export default function FeaturesSettingsScreen() {
     const [experiments, setExperiments] = useSettingMutable('experiments');

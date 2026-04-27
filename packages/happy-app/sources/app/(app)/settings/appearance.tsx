@@ -5,7 +5,6 @@ import { ItemList } from '@/components/ItemList';
 import { useSettingMutable, useLocalSettingMutable } from '@/sync/storage';
 import { useRouter } from 'expo-router';
 import { useDesktopRoutes } from '@/components/desktopRoutes';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import * as Localization from 'expo-localization';
 import { useUnistyles, UnistylesRuntime } from 'react-native-unistyles';
 import { Switch } from '@/components/Switch';
@@ -20,8 +19,6 @@ type KnownAvatarStyle = 'pixelated' | 'gradient' | 'brutalist';
 const isKnownAvatarStyle = (style: string): style is KnownAvatarStyle => {
     return style === 'pixelated' || style === 'gradient' || style === 'brutalist';
 };
-
-registerDesktopRoute('/settings/appearance', () => import('./appearance'));
 
 export default function AppearanceSettingsScreen() {
     const { theme } = useUnistyles();

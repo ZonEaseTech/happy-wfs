@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute } from '@/components/desktopRoutes';
 import { UsagePanel } from '@/components/usage/UsagePanel';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
@@ -21,8 +21,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         maxWidth: layout.maxWidth,
     },
 }));
-
-registerDesktopRoute('/settings/usage', () => import('./usage'));
 
 export default function UsageSettingsScreen() {
     const { isInDrawer } = useDesktopRoute();

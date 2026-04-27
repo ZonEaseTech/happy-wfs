@@ -1,4 +1,4 @@
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute } from '@/components/desktopRoutes';
 import React, { useState } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';

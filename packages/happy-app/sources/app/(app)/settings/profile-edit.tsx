@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute } from '@/components/desktopRoutes';
 import { StyleSheet } from 'react-native-unistyles';
 import { useUnistyles } from 'react-native-unistyles';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -13,8 +13,6 @@ import { layout } from '@/components/layout';
 import { useSettingMutable } from '@/sync/storage';
 import { DEFAULT_PROFILES } from '@/sync/profileUtils';
 import { randomUUID } from 'expo-crypto';
-
-registerDesktopRoute('/settings/profile-edit', () => import('./profile-edit'));
 
 export default function SettingsProfileEditScreen() {
     const { isInDrawer, dismiss } = useDesktopRoute();

@@ -1,4 +1,3 @@
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Item } from '@/components/Item';
@@ -18,8 +17,6 @@ interface LanguageItem {
     title: string;
     subtitle?: string;
 }
-
-registerDesktopRoute('/settings/language', () => import('./language'));
 
 export default function LanguageSettingsScreen() {
     const { theme } = useUnistyles();

@@ -1,9 +1,17 @@
 import * as React from 'react';
 import { Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { hasDesktopRoute, parseQuery } from './registry';
 import { isDesktopLayout } from './isDesktop';
 import { DesktopRouteDrawer, type DrawerEntry } from './DesktopRouteDrawer';
+import './registrations'; // eager registration of all desktop drawer routes
+import { DESKTOP_ROUTE_TITLES } from './registrations';
+import { t } from '@/text';
+
+function computeParent(path: string): string {
+    const i = path.lastIndexOf('/');
+    return i <= 0 ? '/' : path.slice(0, i);
+}
 
 interface OpenOptions {
     params?: Record<string, any>;
@@ -57,6 +65,22 @@ export function DesktopRoutesProvider({ children }: { children: React.ReactNode 
     }, []);
 
     const value = React.useMemo(() => ({ open, dismissTop, dismissAll, entries }), [open, dismissTop, dismissAll, entries]);
+
+    // Deep-link redirector: if user lands directly on a registered route on desktop,
+    // bounce to the parent route and open the page as a drawer instead.
+    const pathname = usePathname();
+    const lastRedirectedRef = React.useRef<string | null>(null);
+    React.useEffect(() => {
+        if (!pathname) return;
+        if (lastRedirectedRef.current === pathname) return;
+        if (!isDesktopLayout(Dimensions.get('window').width)) return;
+        if (!hasDesktopRoute(pathname)) return;
+        lastRedirectedRef.current = pathname;
+        const parent = computeParent(pathname);
+        router.replace(parent as any);
+        const titleKey = DESKTOP_ROUTE_TITLES[pathname];
+        open(pathname, { title: titleKey ? ((t as (k: string) => string)(titleKey)) : undefined });
+    }, [pathname, router, open]);
 
     return (
         <Ctx.Provider value={value}>

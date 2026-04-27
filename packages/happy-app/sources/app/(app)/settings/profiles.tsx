@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useDesktopRoutes } from '@/components/desktopRoutes';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute } from '@/components/desktopRoutes';
 import { useSettingMutable } from '@/sync/storage';
 import { useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';

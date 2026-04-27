@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute } from '@/components/desktopRoutes';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -58,8 +58,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         textAlign: 'center' as const,
     },
 }));
-
-registerDesktopRoute('/settings/voice/welcome-message', () => import('./welcome-message'));
 
 export default function WelcomeMessageScreen() {
     const { dismiss } = useDesktopRoute();

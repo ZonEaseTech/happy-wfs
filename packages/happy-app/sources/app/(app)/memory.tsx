@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, Pressable, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useDesktopRoute, registerDesktopRoute } from '@/components/desktopRoutes';
+import { useDesktopRoute } from '@/components/desktopRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
 import { Item } from '@/components/Item';
@@ -26,8 +26,6 @@ import { t } from '@/text';
  *   - long-press a chat message → "save to memory" action (added separately
  *     in MessageList; this page only owns the list/edit/delete UI)
  */
-registerDesktopRoute('/memory', () => import('./memory'));
-
 export default function MemoryScreen() {
     const { theme } = useUnistyles();
     const { isInDrawer } = useDesktopRoute();
