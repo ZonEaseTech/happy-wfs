@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Pressable, Keyboard, Platform, KeyboardAvoidingView as RNKeyboardAvoidingView } from 'react-native';
+import { View, ActivityIndicator, Pressable, Keyboard, Platform, KeyboardAvoidingView as RNKeyboardAvoidingView, ScrollView } from 'react-native';
+import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
@@ -157,6 +158,8 @@ export default function MachineEditScreen() {
 
     const hasChanges = content !== originalContent;
     const lineCount = React.useMemo(() => Math.max(1, content.split('\n').length), [content]);
+    const isMarkdown = language === 'Markdown';
+    const [viewMode, setViewMode] = React.useState<'edit' | 'preview'>('edit');
     const editorBottomPadding = React.useMemo(() => {
         if (Platform.OS === 'web') {
             return 16;
@@ -430,23 +433,52 @@ export default function MachineEditScreen() {
                         borderBottomWidth: 1,
                         borderBottomColor: theme.colors.divider,
                         backgroundColor: theme.colors.surfaceHigh,
+                        flexDirection: 'row',
+                        alignItems: 'center',
                     }}>
                         <Text style={{
                             ...Typography.mono(),
                             fontSize: 12,
                             color: theme.colors.textSecondary,
+                            flex: 1,
                         }}>
                             {language}  •  {lineCount}
                         </Text>
+                        {isMarkdown && (
+                            <Pressable
+                                onPress={() => setViewMode(m => m === 'edit' ? 'preview' : 'edit')}
+                                style={({ pressed }) => ({
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 4,
+                                    borderRadius: 6,
+                                    backgroundColor: viewMode === 'preview' ? theme.colors.button.primary.background : theme.colors.surfacePressed,
+                                    opacity: pressed ? 0.7 : 1,
+                                })}
+                            >
+                                <Text style={{
+                                    fontSize: 12,
+                                    color: viewMode === 'preview' ? theme.colors.button.primary.tint : theme.colors.text,
+                                    ...Typography.default('semiBold'),
+                                }}>
+                                    {viewMode === 'preview' ? t('machineEdit.editMode') : t('machineEdit.previewMode')}
+                                </Text>
+                            </Pressable>
+                        )}
                     </View>
                     <View style={{ flex: 1 }}>
-                        <CodeEditor
-                            ref={editorRef}
-                            value={content}
-                            onChangeText={setContent}
-                            bottomPadding={editorBottomPadding}
-                            language={editorLanguage}
-                        />
+                        {isMarkdown && viewMode === 'preview' ? (
+                            <ScrollView contentContainerStyle={{ padding: 16 }}>
+                                <MarkdownView markdown={content} />
+                            </ScrollView>
+                        ) : (
+                            <CodeEditor
+                                ref={editorRef}
+                                value={content}
+                                onChangeText={setContent}
+                                bottomPadding={editorBottomPadding}
+                                language={editorLanguage}
+                            />
+                        )}
                     </View>
                 </View>
             )}

@@ -1131,6 +1131,8 @@ export const pt: TranslationStructure = {
     },
 
     machineEdit: {
+                editMode: 'Edit',
+        previewMode: 'Preview',
         invalidJson: 'Invalid JSON',
     },
 

@@ -1163,6 +1163,8 @@ export const ja: TranslationStructure = {
     },
 
     machineEdit: {
+                editMode: '編集',
+        previewMode: 'プレビュー',
         invalidJson: 'Invalid JSON',
     },
 

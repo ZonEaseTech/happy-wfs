@@ -1133,6 +1133,8 @@ export const zhHans: TranslationStructure = {
     },
 
     machineEdit: {
+                editMode: '编辑',
+        previewMode: '预览',
         invalidJson: 'JSON 格式错误',
     },
 

@@ -1146,6 +1146,8 @@ export const en = {
     },
 
     machineEdit: {
+                editMode: 'Edit',
+        previewMode: 'Preview',
         invalidJson: 'Invalid JSON',
     },
 

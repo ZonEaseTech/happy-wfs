@@ -1142,6 +1142,8 @@ export const ru: TranslationStructure = {
     },
 
     machineEdit: {
+                editMode: 'Edit',
+        previewMode: 'Preview',
         invalidJson: 'Invalid JSON',
     },
 
