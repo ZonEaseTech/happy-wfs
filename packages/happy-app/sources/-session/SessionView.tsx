@@ -22,6 +22,8 @@ import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCou
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
+import { listMemories } from '@/sync/apiMemory';
+import { useAuth } from '@/auth/AuthContext';
 import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -66,6 +68,20 @@ export const SessionView = React.memo((props: { id: string }) => {
     }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
     const hasRuns = useOrchestratorHasRuns(sessionId);
+
+    // Memory-injected count badge — same data source as the /memory page; refetch
+    // when this view focuses so newly-added memories show up without reload.
+    const auth = useAuth();
+    const [memoryCount, setMemoryCount] = React.useState<number>(0);
+    const refreshMemoryCount = React.useCallback(() => {
+        if (!auth.credentials) return;
+        let cancelled = false;
+        listMemories(auth.credentials)
+            .then(rows => { if (!cancelled) setMemoryCount(rows.length); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [auth.credentials]);
+    React.useEffect(() => { refreshMemoryCount(); }, [refreshMemoryCount]);
     const handleOpenSessionRuns = React.useCallback(() => {
         router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
     }, [router, sessionId]);
@@ -194,6 +210,34 @@ export const SessionView = React.memo((props: { id: string }) => {
                         onBackPress={() => router.back()}
                         headerRight={session ? () => (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                {/* Memory count badge — shown when at least one memory is injected
+                                    into the system prompt. Tap to navigate to the memory page. */}
+                                {memoryCount > 0 && (
+                                    <Pressable
+                                        onPress={() => router.push('/memory')}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Memories"
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            gap: 3,
+                                            paddingHorizontal: 8,
+                                            height: 38,
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons name="library-outline" size={18} color={theme.colors.header.tint} />
+                                        <Text style={{
+                                            fontSize: 12,
+                                            fontWeight: '600',
+                                            color: theme.colors.header.tint,
+                                        }}>
+                                            {memoryCount}
+                                        </Text>
+                                    </Pressable>
+                                )}
                                 {hasRuns && (
                                     <Pressable
                                         onPress={handleOpenSessionRuns}
