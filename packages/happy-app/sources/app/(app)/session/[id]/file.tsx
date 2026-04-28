@@ -9,6 +9,7 @@ import { Typography } from '@/constants/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { sessionReadFile, sessionBash, sessionWriteFile } from '@/sync/ops';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
+import { DropdownMenu } from '@/components/DropdownMenu';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { getSession, useSetting } from '@/sync/storage';
 import { Modal } from '@/modal';
@@ -161,6 +162,10 @@ export default function FileScreen(props?: FileScreenProps) {
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
     const [menuVisible, setMenuVisible] = React.useState(false);
+    // Anchor for the embedded "..." dropdown menu (web). Native + standalone
+    // /file route still use the bottom-sheet ActionMenuModal.
+    const menuTriggerRef = React.useRef<View>(null);
+    const useDropdownMenu = !!props?.embedded && Platform.OS === 'web';
     const wordWrap = useSetting('wrapLinesInDiffs');
 
     const fileName = filePath.split('/').pop() || filePath;
@@ -726,20 +731,31 @@ export default function FileScreen(props?: FileScreenProps) {
                         <Text style={{ fontSize: 14, color: theme.colors.text }}>{fileName || 'Back'}</Text>
                     </Pressable>
                     <View style={{ flex: 1 }} />
-                    <Pressable
-                        onPress={() => setMenuVisible(true)}
-                        hitSlop={10}
-                        style={{ paddingHorizontal: 6 }}
-                    >
-                        <Ionicons name="ellipsis-horizontal" size={18} color={theme.colors.textSecondary} />
-                    </Pressable>
+                    <View ref={menuTriggerRef}>
+                        <Pressable
+                            onPress={() => setMenuVisible(true)}
+                            hitSlop={10}
+                            style={{ paddingHorizontal: 6 }}
+                        >
+                            <Ionicons name="ellipsis-horizontal" size={18} color={theme.colors.textSecondary} />
+                        </Pressable>
+                    </View>
                 </View>
             )}
-            <ActionMenuModal
-                visible={menuVisible}
-                items={menuItems}
-                onClose={() => setMenuVisible(false)}
-            />
+            {useDropdownMenu ? (
+                <DropdownMenu
+                    anchorRef={menuTriggerRef}
+                    visible={menuVisible}
+                    items={menuItems}
+                    onClose={() => setMenuVisible(false)}
+                />
+            ) : (
+                <ActionMenuModal
+                    visible={menuVisible}
+                    items={menuItems}
+                    onClose={() => setMenuVisible(false)}
+                />
+            )}
 
             {/* File path header - single line, scrollable, long press to copy */}
             <View style={{

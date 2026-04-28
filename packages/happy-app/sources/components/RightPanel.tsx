@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
+import { ResizableHandle } from './ResizableHandle';
+import { useResizableColumn } from '@/utils/useResizableColumn';
 import FilesScreen from '@/app/(app)/session/[id]/files';
 import InfoScreen from '@/app/(app)/session/[id]/info';
 import BrowserScreen from '@/app/(app)/session/[id]/browser';
@@ -13,7 +15,9 @@ import { t } from '@/text';
 
 export type RightPanelType = 'files' | 'info' | 'browser' | 'commits' | 'orchestrator';
 
-export const RIGHT_PANEL_WIDTH = 480;
+export const RIGHT_PANEL_WIDTH = 480; // legacy default — runtime width comes from useResizableColumn
+const MIN_RIGHT_PANEL_WIDTH = 320;
+const MAX_RIGHT_PANEL_WIDTH = 720;
 
 function getTitle(type: RightPanelType): string {
     switch (type) {
@@ -34,14 +38,28 @@ export const RightPanel = React.memo(function RightPanel(props: {
 }) {
     const { theme } = useUnistyles();
     const supportsBack = props.type === 'browser' || props.type === 'commits';
+    const { width, setWidth, commit } = useResizableColumn({
+        key: 'right-panel',
+        defaultWidth: RIGHT_PANEL_WIDTH,
+        minWidth: MIN_RIGHT_PANEL_WIDTH,
+        maxWidth: MAX_RIGHT_PANEL_WIDTH,
+    });
     return (
         <View style={{
-            width: RIGHT_PANEL_WIDTH,
+            width,
             height: '100%',
             backgroundColor: theme.colors.surface,
             borderLeftWidth: 1,
             borderLeftColor: theme.colors.divider,
         }}>
+            <ResizableHandle
+                side="left"
+                width={width}
+                minWidth={MIN_RIGHT_PANEL_WIDTH}
+                maxWidth={MAX_RIGHT_PANEL_WIDTH}
+                onResize={setWidth}
+                onCommit={commit}
+            />
             <View style={{
                 height: 48,
                 flexDirection: 'row',
