@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { View, Pressable, ActivityIndicator, RefreshControl, ScrollView, TextInput, Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useDesktopRoute, useDrawerHeaderRight } from '@/components/desktopRoutes';
+import { setPendingMemoryInjection } from '@/sync/memoryInjection';
 import { Ionicons, Octicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
@@ -36,6 +37,25 @@ export default function MemoryScreen() {
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [searchQuery, setSearchQuery] = React.useState('');
+    const router = useRouter();
+
+    /**
+     * Tap a memory row → stash the content in module-level transient state,
+     * then navigate back to the previous screen (typically the session view).
+     * SessionView's useFocusEffect picks it up and appends to the input.
+     * Edit/delete remain available via the explicit per-row icons.
+     */
+    const handleUse = React.useCallback((m: MemoryRow) => {
+        setPendingMemoryInjection(m.content);
+        hapticsLight();
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            // Edge case: opened directly via deep link with no back stack.
+            // Drop user on the inbox so the session input on screen is visible.
+            router.replace('/');
+        }
+    }, [router]);
 
     const refresh = React.useCallback(async (silent: boolean = false) => {
         if (!auth.credentials) return;
@@ -150,7 +170,7 @@ export default function MemoryScreen() {
                 borderBottomWidth: isLast ? 0 : 0.5,
                 borderBottomColor: theme.colors.divider,
             }}>
-                <Pressable onPress={() => handleEdit(m)} onLongPress={() => handleDelete(m)}>
+                <Pressable onPress={() => handleUse(m)} onLongPress={() => handleDelete(m)}>
                     <Text style={{
                         fontSize: 15,
                         color: theme.colors.text,
@@ -158,13 +178,18 @@ export default function MemoryScreen() {
                     }}>
                         {truncated}
                     </Text>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                         <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
                             {formatDate(m.createdAt)}
                         </Text>
-                        <Pressable onPress={() => handleDelete(m)} hitSlop={10}>
-                            <Ionicons name="trash-outline" size={16} color={theme.colors.deleteAction} />
-                        </Pressable>
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <Pressable onPress={() => handleEdit(m)} hitSlop={10}>
+                                <Ionicons name="create-outline" size={16} color={theme.colors.textSecondary} />
+                            </Pressable>
+                            <Pressable onPress={() => handleDelete(m)} hitSlop={10}>
+                                <Ionicons name="trash-outline" size={16} color={theme.colors.deleteAction} />
+                            </Pressable>
+                        </View>
                     </View>
                 </Pressable>
             </View>

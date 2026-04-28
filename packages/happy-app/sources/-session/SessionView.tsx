@@ -34,6 +34,7 @@ import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
 import { Ionicons, Octicons } from '@expo/vector-icons';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { consumePendingMemoryInjection } from '@/sync/memoryInjection';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
 import { useMemo } from 'react';
@@ -846,6 +847,13 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             void sync.refreshSessions().catch(() => {
                 // Silent refresh indicator handles delayed feedback if status stays stale.
             });
+            // If the user just tapped a row on /memory, that page stashed the
+            // content in module-level state and called router.back(). Pick it
+            // up here and append to the input so the user can edit / send.
+            const pendingMemory = consumePendingMemoryInjection();
+            if (pendingMemory) {
+                setMessage(prev => prev ? `${prev}\n\n${pendingMemory}` : pendingMemory);
+            }
         }, [sessionId, startSilentRefreshTracking])
     );
 
