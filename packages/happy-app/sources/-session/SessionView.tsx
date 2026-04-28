@@ -14,13 +14,11 @@ import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
-import { useArchiveSession } from '@/hooks/useArchiveSession';
-import { useForkSession } from '@/hooks/useForkSession';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
-import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -32,9 +30,8 @@ import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/u
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
-import { Ionicons, Octicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { consumePendingMemoryInjection } from '@/sync/memoryInjection';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
 import { useMemo } from 'react';
@@ -68,13 +65,10 @@ export const SessionView = React.memo((props: { id: string }) => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
+    const hasRuns = useOrchestratorHasRuns(sessionId);
     const handleOpenSessionRuns = React.useCallback(() => {
-        if (isDesktopPanelMode) {
-            setRightPanelType(prev => (prev === 'orchestrator' ? null : 'orchestrator'));
-        } else {
-            router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
-        }
-    }, [router, sessionId, isDesktopPanelMode]);
+        router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
+    }, [router, sessionId]);
 
     // Track if we've confirmed the session doesn't exist after data loads
     const [sessionNotFound, setSessionNotFound] = React.useState(false);
@@ -200,89 +194,60 @@ export const SessionView = React.memo((props: { id: string }) => {
                         onBackPress={() => router.back()}
                         headerRight={session ? () => (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Pressable
-                                    onPress={handleOpenSessionRuns}
-                                    hitSlop={15}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={t('settings.orchestratorOpenRuns')}
-                                    style={{
-                                        width: 38,
-                                        height: 38,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: 2,
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="layers-outline"
-                                        size={22}
-                                        color={isDesktopPanelMode && rightPanelType === 'orchestrator' ? theme.colors.button.primary.background : theme.colors.header.tint}
-                                    />
-                                    {runningTaskCount > 0 && (
-                                        <View style={{
-                                            position: 'absolute',
-                                            bottom: -2,
-                                            flexDirection: 'row',
+                                {hasRuns && (
+                                    <Pressable
+                                        onPress={handleOpenSessionRuns}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('settings.orchestratorOpenRuns')}
+                                        style={{
+                                            width: 38,
+                                            height: 38,
                                             alignItems: 'center',
-                                            gap: 2,
-                                        }}>
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name="layers-outline"
+                                            size={22}
+                                            color={theme.colors.header.tint}
+                                        />
+                                        {runningTaskCount > 0 && (
                                             <View style={{
-                                                width: 4,
-                                                height: 4,
-                                                borderRadius: 2,
+                                                position: 'absolute',
+                                                top: 2,
+                                                right: 0,
                                                 backgroundColor: theme.colors.button.primary.background,
-                                            }} />
-                                            <Text style={{
-                                                fontSize: 9,
-                                                fontWeight: '600',
-                                                lineHeight: 10,
-                                                color: theme.colors.button.primary.background,
+                                                borderRadius: 8,
+                                                minWidth: 16,
+                                                height: 16,
+                                                paddingHorizontal: 3,
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
                                             }}>
-                                                {runningTaskCount > 99 ? '99+' : runningTaskCount}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </Pressable>
-                                {/* Commits shortcut — sits next to the </> button so users
-                                    can jump to git history without opening a panel first.
-                                    Same desktop/mobile dispatch as Code: panel toggle on
-                                    desktop, full-screen push on mobile. */}
+                                                <Text style={{
+                                                    color: theme.colors.button.primary.tint,
+                                                    fontSize: 10,
+                                                    fontWeight: '600',
+                                                }}>
+                                                    {runningTaskCount > 99 ? '99+' : runningTaskCount}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </Pressable>
+                                )}
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
-                                            setRightPanelType(prev => (prev === 'commits' ? null : 'commits'));
+                                            setRightPanelType(prev => (prev === 'files' ? null : 'files'));
                                         } else {
-                                            router.push(`/session/${sessionId}/commits`);
+                                            router.push(`/session/${sessionId}/files`);
                                         }
                                     }}
                                     hitSlop={15}
                                     accessibilityRole="button"
-                                    accessibilityLabel="Commits"
-                                    style={{
-                                        width: 38,
-                                        height: 38,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: 2,
-                                    }}
-                                >
-                                    <Octicons
-                                        name="git-commit"
-                                        size={20}
-                                        color={isDesktopPanelMode && rightPanelType === 'commits' ? theme.colors.button.primary.background : theme.colors.header.tint}
-                                    />
-                                </Pressable>
-                                <Pressable
-                                    onPress={() => {
-                                        if (isDesktopPanelMode) {
-                                            setRightPanelType(prev => (prev === 'browser' ? null : 'browser'));
-                                        } else {
-                                            router.push(`/session/${sessionId}/browser`);
-                                        }
-                                    }}
-                                    hitSlop={15}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Code"
+                                    accessibilityLabel="Files"
                                     style={{
                                         width: 38,
                                         height: 38,
@@ -294,7 +259,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     <Ionicons
                                         name="code-slash-outline"
                                         size={22}
-                                        color={isDesktopPanelMode && rightPanelType === 'browser' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                        color={isDesktopPanelMode && rightPanelType === 'files' ? theme.colors.button.primary.background : theme.colors.header.tint}
                                     />
                                 </Pressable>
                                 {headerProps.avatarId && headerProps.onAvatarPress && (
@@ -365,7 +330,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                     sessionId={sessionId}
                     type={rightPanelType}
                     onClose={() => setRightPanelType(null)}
-                    onSwitchType={(next) => setRightPanelType(next)}
+                    onTypeChange={setRightPanelType}
                 />
             )}
         </View>
@@ -386,8 +351,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const isFocused = useIsFocused();
     const isLandscape = useIsLandscape();
     const deviceType = useDeviceType();
-    const { handleArchive: handleArchiveSession, archiveOverlay } = useArchiveSession(session);
-    const { handleFork: handleResumeSession, canFork } = useForkSession(session);
     const [message, setMessage] = React.useState('');
     const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
@@ -693,7 +656,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 directory: sessionPath,
                 agent,
                 resumeSessionId,
-                intent: 'resume',
                 sessionTitle: newSessionTitle,
                 skipForkSession: true,
             });
@@ -847,13 +809,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             void sync.refreshSessions().catch(() => {
                 // Silent refresh indicator handles delayed feedback if status stays stale.
             });
-            // If the user just tapped a row on /memory, that page stashed the
-            // content in module-level state and called router.back(). Pick it
-            // up here and append to the input so the user can edit / send.
-            const pendingMemory = consumePendingMemoryInjection();
-            if (pendingMemory) {
-                setMessage(prev => prev ? `${prev}\n\n${pendingMemory}` : pendingMemory);
-            }
         }, [sessionId, startSilentRefreshTracking])
     );
 
@@ -938,8 +893,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             onModelModeChange={updateModelMode as any}
             fastMode={fastMode}
             onFastModeChange={updateFastMode}
-            onArchive={session.active ? handleArchiveSession : undefined}
-            onResume={!session.active && canFork ? handleResumeSession : undefined}
             metadata={session.metadata}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
@@ -1170,8 +1123,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 onClose={() => setImagePickerSheetVisible(false)}
                 deferItemPress
             />
-
-            {archiveOverlay}
         </>
     )
 }

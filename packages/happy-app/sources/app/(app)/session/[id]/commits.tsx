@@ -6,7 +6,6 @@ import { Ionicons, Octicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { sessionBash } from '@/sync/ops';
-import { findNearbyGitRepos, NearbyGitRepo } from '@/sync/gitStatusFiles';
 import { getSession } from '@/sync/storage';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
@@ -85,10 +84,6 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
     const [hasMore, setHasMore] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
 
-    // Ad-hoc repo: chosen from "nearby repos" suggestion when activeCwd isn't a git repo
-    const [nearbyRepos, setNearbyRepos] = React.useState<NearbyGitRepo[]>([]);
-    const [adHocRepoPath, setAdHocRepoPath] = React.useState<string | null>(null);
-
     // Diff stats for headerRight badge
     const [diffStats, setDiffStats] = React.useState<{ insertions: number; deletions: number } | null>(null);
 
@@ -164,14 +159,12 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
     }, [sessionId, repoBaseCwd]);
 
     // Resolve the working directory for the active branch
-    // adHocRepoPath wins (user picked from nearby-repo suggestion)
     // selectedBranch='' means current branch (use repoBaseCwd)
     // Otherwise check if this branch has a worktree
     const activeCwd = React.useMemo(() => {
-        if (adHocRepoPath) return adHocRepoPath;
-        if (!selectedBranch) return repoBaseCwd;
-        return worktreeMap[selectedBranch] || null;
-    }, [adHocRepoPath, selectedBranch, worktreeMap, repoBaseCwd]);
+        if (!selectedBranch) return repoBaseCwd; // current branch = repo's own path
+        return worktreeMap[selectedBranch] || null; // null = no worktree for this branch
+    }, [selectedBranch, worktreeMap, repoBaseCwd]);
 
     // Load diff stats when active branch/worktree changes
     React.useEffect(() => {
@@ -222,7 +215,6 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
         if (!append) setIsLoading(true);
         else setIsLoadingMore(true);
         setError(null);
-        if (!append) setNearbyRepos([]);
 
         try {
             const branchArg = selectedBranch ? `"${selectedBranch}" ` : '';
@@ -242,18 +234,7 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
                 }
                 setHasMore(parsed.length === PAGE_SIZE);
             } else {
-                if (!append) {
-                    const isNotGitRepo = !!response.error && /not a git repository/i.test(response.error);
-                    if (isNotGitRepo) {
-                        setError(t('commits.notAGitRepo'));
-                        // Auto-scan subdirs for nested git repos so the user can switch into one
-                        findNearbyGitRepos(sessionId, activeCwd).then((repos) => {
-                            setNearbyRepos(repos);
-                        });
-                    } else {
-                        setError(response.error || t('commits.failedToLoad'));
-                    }
-                }
+                if (!append) setError(response.error || t('commits.failedToLoad'));
                 setHasMore(false);
             }
         } catch {
@@ -350,42 +331,12 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
     }
 
     if (error && commits.length === 0) {
-        const isNotARepo = nearbyRepos.length > 0 || error === t('commits.notAGitRepo');
         return (
-            <View style={[styles.container, { backgroundColor: theme.colors.surface, alignItems: 'center', padding: 20, paddingTop: 40 }]}>
-                <Octicons name={isNotARepo ? 'git-branch' : 'alert'} size={48} color={theme.colors.textSecondary} />
+            <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+                <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
                 <Text style={{ fontSize: 16, color: theme.colors.textSecondary, textAlign: 'center', marginTop: 16, ...Typography.default() }}>
                     {error}
                 </Text>
-                {nearbyRepos.length > 0 && (
-                    <View style={{ marginTop: 32, alignSelf: 'stretch' }}>
-                        <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 8, ...Typography.default() }}>
-                            {t('files.foundNearbyRepos')}
-                        </Text>
-                        {nearbyRepos.map((r) => (
-                            <Pressable
-                                key={r.path}
-                                onPress={() => setAdHocRepoPath(r.path)}
-                                style={({ pressed }) => ({
-                                    opacity: pressed ? 0.6 : 1,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    paddingVertical: 10,
-                                })}
-                            >
-                                <Octicons name="repo" size={18} color={theme.colors.textSecondary} />
-                                <View style={{ marginLeft: 10, flex: 1 }}>
-                                    <Text style={{ fontSize: 15, color: theme.colors.text, ...Typography.default() }}>
-                                        {r.name}
-                                    </Text>
-                                    <Text style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, ...Typography.default() }}>
-                                        {r.path}
-                                    </Text>
-                                </View>
-                            </Pressable>
-                        ))}
-                    </View>
-                )}
             </View>
         );
     }
