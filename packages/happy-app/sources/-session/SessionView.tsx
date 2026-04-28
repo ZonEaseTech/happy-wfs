@@ -82,8 +82,12 @@ export const SessionView = React.memo((props: { id: string }) => {
     }, [auth.credentials]);
     React.useEffect(() => { refreshMemoryCount(); }, [refreshMemoryCount]);
     const handleOpenSessionRuns = React.useCallback(() => {
-        router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
-    }, [router, sessionId]);
+        if (isDesktopPanelMode) {
+            setRightPanelType(prev => (prev === 'orchestrator' ? null : 'orchestrator'));
+        } else {
+            router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
+        }
+    }, [router, sessionId, isDesktopPanelMode]);
 
     // Track if we've confirmed the session doesn't exist after data loads
     const [sessionNotFound, setSessionNotFound] = React.useState(false);
@@ -253,7 +257,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     <Ionicons
                                         name="layers-outline"
                                         size={22}
-                                        color={theme.colors.header.tint}
+                                        color={isDesktopPanelMode && rightPanelType === 'orchestrator' ? theme.colors.button.primary.background : theme.colors.header.tint}
                                     />
                                     {runningTaskCount > 0 && (
                                         <View style={{

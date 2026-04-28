@@ -8,17 +8,22 @@ import FilesScreen from '@/app/(app)/session/[id]/files';
 import InfoScreen from '@/app/(app)/session/[id]/info';
 import BrowserScreen from '@/app/(app)/session/[id]/browser';
 import CommitsScreen from '@/app/(app)/session/[id]/commits';
+import OrchestratorRunsScreen from '@/app/(app)/orchestrator/index';
+import { t } from '@/text';
 
-export type RightPanelType = 'files' | 'info' | 'browser' | 'commits';
+export type RightPanelType = 'files' | 'info' | 'browser' | 'commits' | 'orchestrator';
 
 export const RIGHT_PANEL_WIDTH = 480;
 
-const TITLES: Record<RightPanelType, string> = {
-    files: 'Files',
-    info: 'Info',
-    browser: 'Code',
-    commits: 'Commits',
-};
+function getTitle(type: RightPanelType): string {
+    switch (type) {
+        case 'files': return 'Files';
+        case 'info': return 'Info';
+        case 'browser': return 'Code';
+        case 'commits': return 'Commits';
+        case 'orchestrator': return t('settings.orchestratorRuns');
+    }
+}
 
 export const RightPanel = React.memo(function RightPanel(props: {
     sessionId: string;
@@ -61,7 +66,7 @@ export const RightPanel = React.memo(function RightPanel(props: {
                     color: theme.colors.text,
                     ...Typography.default(),
                 }}>
-                    {TITLES[props.type]}
+                    {getTitle(props.type)}
                 </Text>
                 <Pressable onPress={props.onClose} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                     <Ionicons name="close" size={22} color={theme.colors.text} />
@@ -74,6 +79,8 @@ export const RightPanel = React.memo(function RightPanel(props: {
                     <BrowserScreen sessionId={props.sessionId} embedded />
                 ) : props.type === 'commits' ? (
                     <CommitsScreen sessionId={props.sessionId} embedded />
+                ) : props.type === 'orchestrator' ? (
+                    <OrchestratorRunsScreen sessionId={props.sessionId} embedded />
                 ) : (
                     <InfoScreen sessionId={props.sessionId} embedded onSelectRepoTab={props.onTypeChange} />
                 )}
