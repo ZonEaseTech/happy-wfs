@@ -1,8 +1,6 @@
 import { Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as React from 'react';
 import { useRouter } from 'expo-router';
-import type { MemoryPickerHandle } from "./MemoryPickerSheet";
-import { MemoryPickerSheet } from './MemoryPickerSheet';
 import { View, Platform, useWindowDimensions, ViewStyle, Text, ActivityIndicator, TouchableWithoutFeedback, Image as RNImage, Pressable, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { layout } from './layout';
@@ -504,9 +502,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const shakerRef = React.useRef<ShakeInstance>(null);
     const inputRef = React.useRef<MultiTextInputHandle>(null);
     // Memory clipboard-style picker bottom sheet (handler defined below where
-    // setInputState/latestTextRef are in scope)
-    const memoryPickerRef = React.useRef<MemoryPickerHandle>(null);
-
     // Drag and drop state (web only)
     const [isDragging, setIsDragging] = React.useState(false);
     const dragCounterRef = React.useRef(0);
@@ -582,20 +577,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         latestTextRef.current = props.value;
     }, [props.value]);
 
-    /**
-     * Append a picked memory to the existing input. Adds a newline separator
-     * if there's already text and it doesn't end with one — avoids gluing
-     * the memory onto an unrelated half-typed sentence.
-     */
-    const handleMemoryPick = React.useCallback((content: string) => {
-        const current = latestTextRef.current ?? props.value ?? '';
-        const sep = current && !current.endsWith('\n') ? '\n' : '';
-        const newText = current + sep + content;
-        setInputState({ text: newText, selection: { start: newText.length, end: newText.length } });
-        latestTextRef.current = newText;
-        props.onChangeText(newText);
-        setTimeout(() => inputRef.current?.focus(), 30);
-    }, [props.onChangeText, props.value]);
+    // Memory picker callback removed — sheet not yet available; AgentInput
+    // memory button routes to /memory page where SessionView's useFocusEffect
+    // does the same content-append on return via memoryInjection module state.
 
     // Sync inputState.text when props.value changes externally (e.g., after send clears the input).
     // Without this, inputState.text retains the old message text because prop changes don't trigger
@@ -1090,17 +1074,18 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                     </>
                 )}
 
-                {/* Connection status, context warning, and permission mode */}
+                {/* Connection status, context warning, model + permission mode — all left-aligned */}
                 {(props.connectionStatus || contextWarning || props.permissionMode) && (
                     <View style={{
                         flexDirection: 'row',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 11,
                         paddingHorizontal: 16,
                         paddingBottom: 4,
                         minHeight: 20, // Fixed minimum height to prevent jumping
                     }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 11 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
                             {props.connectionStatus && (
                                 <>
                                     {(props.connectionStatus.onPress || props.connectionStatus.action) ? (
@@ -1593,10 +1578,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 {/* Git Status Badge */}
                                 <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
 
-                                {/* Memory shortcut — opens the picker bottom sheet (clipboard-style) */}
+                                {/* Memory shortcut — opens the /memory page (picker sheet not yet available) */}
                                 <Pressable
-                                    {...webTooltip(t('memory.title'))}
-                                    onPress={() => memoryPickerRef.current?.present()}
+                                    {...webTooltip('Memory')}
+                                    onPress={() => router.push('/memory')}
                                     hitSlop={15}
                                     accessibilityRole="button"
                                     accessibilityLabel="Memory"
@@ -1708,8 +1693,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 </View>
             </View>
 
-            {/* Memory clipboard-style picker — present()'d by the toolbar memory button. */}
-            <MemoryPickerSheet ref={memoryPickerRef} onSelect={handleMemoryPick} />
+            {/* Memory picker sheet rendering removed — toolbar button routes to /memory page. */}
         </View>
     );
 }));
