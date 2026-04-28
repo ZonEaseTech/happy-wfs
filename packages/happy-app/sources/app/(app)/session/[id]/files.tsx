@@ -470,6 +470,30 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                 />
             )}
 
+            {/* Embedded mode: when the user picked a nearby repo from the
+                empty-state list there's no header back button — give them an
+                explicit "← back to repo picker" so they can switch repos. */}
+            {embedded && adHocRepoPath && (
+                <Pressable
+                    onPress={() => setAdHocRepoPath(null)}
+                    style={({ pressed }) => ({
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                        borderBottomColor: theme.colors.divider,
+                        opacity: pressed ? 0.6 : 1,
+                    })}
+                >
+                    <Ionicons name="chevron-back" size={16} color={theme.colors.textSecondary} />
+                    <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
+                        {adHocRepoPath.split('/').pop() || adHocRepoPath}
+                    </Text>
+                </Pressable>
+            )}
+
             {/* Repo Selector for multi-repo workspaces */}
             {workspaceRepos.length > 1 && (
                 <View style={{
