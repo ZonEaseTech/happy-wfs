@@ -369,6 +369,7 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                 approvedNewDirectoryCreation: false,
                 agent,
                 resumeSessionId,
+                intent: 'resume',
                 sessionTitle,
                 skipForkSession: true,
             });
@@ -523,6 +524,7 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                 directory: session.metadata?.path || '',
                 agent,
                 resumeSessionId,
+                intent: 'resume',
                 skipForkSession: true,
                 sessionTitle: session.metadata?.summary?.text,
             });
