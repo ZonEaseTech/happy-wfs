@@ -130,14 +130,27 @@ function getEditorLanguage(path: string): string {
     }
 }
 
-export default function EditScreen() {
+interface EditScreenProps {
+    /** Wins over URL param. Required in embedded mode. */
+    sessionId?: string;
+    /** Base64-encoded path. Required in embedded mode. */
+    encodedPath?: string;
+    /** When true, skip Stack.Screen header and render an inline header bar. */
+    embedded?: boolean;
+    /** Inline back action (embedded mode). Caller decides where back goes. */
+    onBack?: () => void;
+}
+
+export default function EditScreen(props?: EditScreenProps) {
     const router = useRouter();
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
-    const { id: sessionId } = useLocalSearchParams<{ id: string }>();
+    const urlParams = useLocalSearchParams<{ id: string }>();
+    const sessionId = props?.sessionId ?? urlParams.id;
+    const embedded = !!props?.embedded;
     const editorRef = React.useRef<CodeEditorHandle>(null);
     const searchParams = useLocalSearchParams();
-    const encodedPath = searchParams.path as string;
+    const encodedPath = props?.encodedPath ?? (searchParams.path as string);
     let filePath = '';
 
     try {
@@ -283,7 +296,9 @@ export default function EditScreen() {
         }
     }, [content, hasChanges, isSaving, originalHash, sessionId, filePath]);
 
-    // Confirm discard on back navigation
+    // Confirm discard on back navigation. In embedded mode, the caller's
+    // onBack decides where back goes (typically: exit edit mode and return to
+    // the file viewer in the same panel). In standalone mode, just router.back.
     const handleBack = React.useCallback(async () => {
         if (hasChanges) {
             const confirmed = await Modal.confirm(
@@ -292,13 +307,61 @@ export default function EditScreen() {
             );
             if (!confirmed) return;
         }
-        router.back();
-    }, [hasChanges, router]);
+        if (embedded && props?.onBack) props.onBack();
+        else router.back();
+    }, [hasChanges, router, embedded, props]);
+
+    // Inline header bar shown only in embedded mode — back chevron + filename
+    // + Save button on the right.
+    const embeddedHeader = embedded ? (
+        <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+            borderBottomColor: theme.colors.divider,
+        }}>
+            <Pressable
+                onPress={handleBack}
+                hitSlop={10}
+                style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    opacity: pressed ? 0.6 : 1,
+                })}
+            >
+                <Ionicons name="chevron-back" size={18} color={theme.colors.text} />
+                <Text style={{ fontSize: 14, color: theme.colors.text }}>{fileName}</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <Pressable
+                onPress={handleSave}
+                disabled={!hasChanges || isSaving}
+                hitSlop={10}
+                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+            >
+                {isSaving ? (
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                ) : (
+                    <Text style={{
+                        fontSize: 14,
+                        color: hasChanges ? theme.colors.button.primary.background : theme.colors.textSecondary,
+                        ...Typography.default('semiBold'),
+                    }}>
+                        {t('common.save')}
+                    </Text>
+                )}
+            </Pressable>
+        </View>
+    ) : null;
 
     if (isLoading) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center' }]}>
-                <Stack.Screen options={{ headerTitle: fileName }} />
+                {!embedded && <Stack.Screen options={{ headerTitle: fileName }} />}
+                {embeddedHeader}
                 <ActivityIndicator size="small" color={theme.colors.textSecondary} />
             </View>
         );
@@ -307,7 +370,8 @@ export default function EditScreen() {
     if (error) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-                <Stack.Screen options={{ headerTitle: fileName }} />
+                {!embedded && <Stack.Screen options={{ headerTitle: fileName }} />}
+                {embeddedHeader}
                 <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
                 <Text style={{ fontSize: 16, color: theme.colors.textSecondary, textAlign: 'center', marginTop: 16, ...Typography.default() }}>
                     {error}
@@ -318,36 +382,39 @@ export default function EditScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-            <Stack.Screen
-                options={{
-                    headerTitle: fileName,
-                    headerLeft: () => (
-                        <Pressable onPress={handleBack} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-                            <Ionicons name="chevron-back" size={24} color={theme.colors.header.tint} />
-                        </Pressable>
-                    ),
-                    headerRight: () => (
-                        <Pressable
-                            onPress={handleSave}
-                            disabled={!hasChanges || isSaving}
-                            style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-                        >
-                            {isSaving ? (
-                                <ActivityIndicator size="small" color={theme.colors.header.tint} />
-                            ) : (
-                                <Text style={{
-                                    fontSize: 17,
-                                    color: hasChanges ? theme.colors.header.tint : theme.colors.textSecondary,
-                                    ...Typography.default('semiBold'),
-                                }}>
-                                    {t('common.save')}
-                                </Text>
-                            )}
-                        </Pressable>
-                    ),
-                    headerBackVisible: false,
-                }}
-            />
+            {!embedded && (
+                <Stack.Screen
+                    options={{
+                        headerTitle: fileName,
+                        headerLeft: () => (
+                            <Pressable onPress={handleBack} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+                                <Ionicons name="chevron-back" size={24} color={theme.colors.header.tint} />
+                            </Pressable>
+                        ),
+                        headerRight: () => (
+                            <Pressable
+                                onPress={handleSave}
+                                disabled={!hasChanges || isSaving}
+                                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                            >
+                                {isSaving ? (
+                                    <ActivityIndicator size="small" color={theme.colors.header.tint} />
+                                ) : (
+                                    <Text style={{
+                                        fontSize: 17,
+                                        color: hasChanges ? theme.colors.header.tint : theme.colors.textSecondary,
+                                        ...Typography.default('semiBold'),
+                                    }}>
+                                        {t('common.save')}
+                                    </Text>
+                                )}
+                            </Pressable>
+                        ),
+                        headerBackVisible: false,
+                    }}
+                />
+            )}
+            {embeddedHeader}
             {Platform.OS === 'ios' ? (
                 <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={{ flex: 1, maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
                     <View style={{

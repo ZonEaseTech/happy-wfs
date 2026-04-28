@@ -23,6 +23,53 @@ import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
 
+// ── Tree-view helpers ────────────────────────────────────────────────────
+type TreeDirNode = { type: 'dir'; name: string; path: string; children: TreeNode[] };
+type TreeFileNode = { type: 'file'; name: string; path: string; file: GitFileStatus };
+type TreeNode = TreeDirNode | TreeFileNode;
+
+function buildGitFileTree(files: GitFileStatus[]): TreeNode[] {
+    const root: TreeDirNode = { type: 'dir', name: '', path: '', children: [] };
+    for (const f of files) {
+        const rel = f.filePath || f.fileName;
+        const parts = rel.split('/').filter(Boolean);
+        let cur = root;
+        for (let i = 0; i < parts.length - 1; i++) {
+            const dirName = parts[i];
+            const pathSoFar = parts.slice(0, i + 1).join('/');
+            let next = cur.children.find(c => c.type === 'dir' && c.name === dirName) as TreeDirNode | undefined;
+            if (!next) {
+                next = { type: 'dir', name: dirName, path: pathSoFar, children: [] };
+                cur.children.push(next);
+            }
+            cur = next;
+        }
+        cur.children.push({
+            type: 'file',
+            name: parts[parts.length - 1] ?? f.fileName,
+            path: rel,
+            file: f,
+        });
+    }
+    return root.children;
+}
+
+/** Collapse single-child directory chains: a/b/c/file.ts → "a/b/c" / file.ts */
+function collapseTreeChain(node: TreeNode): TreeNode {
+    if (node.type !== 'dir') return node;
+    let cur = node;
+    while (cur.children.length === 1 && cur.children[0].type === 'dir') {
+        const child = cur.children[0] as TreeDirNode;
+        cur = {
+            type: 'dir',
+            name: cur.name ? `${cur.name}/${child.name}` : child.name,
+            path: child.path,
+            children: child.children,
+        };
+    }
+    return { ...cur, children: cur.children.map(collapseTreeChain) };
+}
+
 export default function FilesScreen(props?: { sessionId?: string; embedded?: boolean }) {
     const route = useRoute();
     const router = useRouter();
@@ -60,6 +107,19 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     const [isOperating, setIsOperating] = React.useState(false);
     const [menuVisible, setMenuVisible] = React.useState(false);
     const [menuItems, setMenuItems] = React.useState<ActionMenuItem[]>([]);
+    // Tree view state. Default is list view; user toggles via header button.
+    // Collapsed-dirs set tracks which folder paths are currently collapsed
+    // (default empty = all expanded for best overview on small change sets).
+    const [treeView, setTreeView] = React.useState(false);
+    const [collapsedDirs, setCollapsedDirs] = React.useState<Set<string>>(() => new Set());
+    const toggleDir = React.useCallback((path: string) => {
+        setCollapsedDirs(prev => {
+            const next = new Set(prev);
+            if (next.has(path)) next.delete(path);
+            else next.add(path);
+            return next;
+        });
+    }, []);
 
     // Track whether initial data has been fully loaded (git status + file list if clean)
     const initialLoadDone = React.useRef(false);
@@ -418,6 +478,65 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         return file.filePath || t('files.projectRoot');
     };
 
+    /** Recursive tree renderer for the staged / unstaged sections.
+     *  - Dirs render as a Pressable row (folder icon + name) that toggles
+     *    collapse; collapsed dirs show their children only after expanding.
+     *  - Files reuse the same Item shape as list mode (icon, subtitle, +/-,
+     *    longPress, chevron) but with depth-based left padding. */
+    const renderTreeNodes = (nodes: TreeNode[], depth: number, isStaged: boolean): React.ReactElement[] => {
+        const out: React.ReactElement[] = [];
+        for (const node of nodes) {
+            if (node.type === 'dir') {
+                const collapsed = collapsedDirs.has(node.path);
+                out.push(
+                    <Pressable
+                        key={`dir-${isStaged ? 'staged' : 'unstaged'}-${node.path}`}
+                        onPress={() => toggleDir(node.path)}
+                        style={({ pressed }) => ({
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingLeft: 16 + depth * 16,
+                            paddingRight: 16,
+                            paddingVertical: 8,
+                            backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                            borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                            borderBottomColor: theme.colors.divider,
+                        })}
+                    >
+                        <Ionicons
+                            name={collapsed ? 'chevron-forward' : 'chevron-down'}
+                            size={14}
+                            color={theme.colors.textSecondary}
+                            style={{ marginRight: 6 }}
+                        />
+                        <Octicons name="file-directory" size={20} color="#007AFF" style={{ marginRight: 8 }} />
+                        <Text style={{ flex: 1, fontSize: 14, color: theme.colors.text, ...Typography.default('semiBold') }} numberOfLines={1}>
+                            {node.name}
+                        </Text>
+                    </Pressable>,
+                );
+                if (!collapsed) {
+                    out.push(...renderTreeNodes(node.children, depth + 1, isStaged));
+                }
+            } else {
+                out.push(
+                    <Item
+                        key={`file-${isStaged ? 'staged' : 'unstaged'}-${node.file.fullPath}`}
+                        title={node.name}
+                        icon={renderFileIcon(node.file)}
+                        rightElement={renderRightElement(node.file, isStaged)}
+                        onPress={() => handleFilePress(node.file, isStaged)}
+                        onLongPress={() => handleLongPress(node.file, isStaged)}
+                        showChevron={true}
+                        showDivider
+                        pressableStyle={{ paddingLeft: 16 + depth * 16 }}
+                    />,
+                );
+            }
+        }
+        return out;
+    };
+
     const renderFileIconForSearch = (file: FileItem) => {
         if (file.fileType === 'folder') {
             return <Octicons name="file-directory" size={29} color="#007AFF" />;
@@ -740,6 +859,43 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                     )
                 ) : (
                     <>
+                        {/* View-mode toggle bar (list / tree). Single global toggle
+                            that flips both staged + unstaged sections at once. */}
+                        {(gitStatusFiles.stagedFiles.length > 0 || gitStatusFiles.unstagedFiles.length > 0) && (
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'flex-end',
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                                borderBottomColor: theme.colors.divider,
+                                backgroundColor: theme.colors.surface,
+                            }}>
+                                <Pressable
+                                    onPress={() => setTreeView(v => !v)}
+                                    hitSlop={8}
+                                    style={({ pressed }) => ({
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        paddingHorizontal: 8,
+                                        paddingVertical: 4,
+                                        borderRadius: 6,
+                                        opacity: pressed ? 0.6 : 1,
+                                    })}
+                                >
+                                    <Ionicons
+                                        name={treeView ? 'list-outline' : 'git-network-outline'}
+                                        size={16}
+                                        color={theme.colors.textLink}
+                                    />
+                                    <Text style={{ fontSize: 12, color: theme.colors.textLink, ...Typography.default() }}>
+                                        {treeView ? t('files.viewList') : t('files.viewTree')}
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        )}
                         {/* Staged Changes Section */}
                         {gitStatusFiles.stagedFiles.length > 0 && (
                             <>
@@ -773,19 +929,22 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                         {t('status.unstageAll')}
                                     </Text>
                                 </Pressable>
-                                {gitStatusFiles.stagedFiles.map((file, index) => (
-                                    <Item
-                                        key={`staged-${file.fullPath}-${index}`}
-                                        title={file.fileName}
-                                        subtitle={renderFileSubtitle(file)}
-                                        icon={renderFileIcon(file)}
-                                        rightElement={renderRightElement(file, true)}
-                                        onPress={() => handleFilePress(file, true)}
-                                        onLongPress={() => handleLongPress(file, true)}
-                                        showChevron={true}
-                                        showDivider={index < gitStatusFiles.stagedFiles.length - 1 || gitStatusFiles.unstagedFiles.length > 0}
-                                    />
-                                ))}
+                                {treeView
+                                    ? renderTreeNodes(buildGitFileTree(gitStatusFiles.stagedFiles).map(collapseTreeChain), 0, true)
+                                    : gitStatusFiles.stagedFiles.map((file, index) => (
+                                        <Item
+                                            key={`staged-${file.fullPath}-${index}`}
+                                            title={file.fileName}
+                                            subtitle={renderFileSubtitle(file)}
+                                            icon={renderFileIcon(file)}
+                                            rightElement={renderRightElement(file, true)}
+                                            onPress={() => handleFilePress(file, true)}
+                                            onLongPress={() => handleLongPress(file, true)}
+                                            showChevron={true}
+                                            showDivider={index < gitStatusFiles.stagedFiles.length - 1 || gitStatusFiles.unstagedFiles.length > 0}
+                                        />
+                                    ))
+                                }
                             </>
                         )}
 
@@ -822,19 +981,22 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                         {t('status.stageAll')}
                                     </Text>
                                 </Pressable>
-                                {gitStatusFiles.unstagedFiles.map((file, index) => (
-                                    <Item
-                                        key={`unstaged-${file.fullPath}-${index}`}
-                                        title={file.fileName}
-                                        subtitle={renderFileSubtitle(file)}
-                                        icon={renderFileIcon(file)}
-                                        rightElement={renderRightElement(file, false)}
-                                        onPress={() => handleFilePress(file)}
-                                        onLongPress={() => handleLongPress(file, false)}
-                                        showChevron={true}
-                                        showDivider={index < gitStatusFiles.unstagedFiles.length - 1}
-                                    />
-                                ))}
+                                {treeView
+                                    ? renderTreeNodes(buildGitFileTree(gitStatusFiles.unstagedFiles).map(collapseTreeChain), 0, false)
+                                    : gitStatusFiles.unstagedFiles.map((file, index) => (
+                                        <Item
+                                            key={`unstaged-${file.fullPath}-${index}`}
+                                            title={file.fileName}
+                                            subtitle={renderFileSubtitle(file)}
+                                            icon={renderFileIcon(file)}
+                                            rightElement={renderRightElement(file, false)}
+                                            onPress={() => handleFilePress(file)}
+                                            onLongPress={() => handleLongPress(file, false)}
+                                            showChevron={true}
+                                            showDivider={index < gitStatusFiles.unstagedFiles.length - 1}
+                                        />
+                                    ))
+                                }
                             </>
                         )}
                     </>

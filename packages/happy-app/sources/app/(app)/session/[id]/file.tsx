@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { sessionReadFile, sessionBash, sessionWriteFile } from '@/sync/ops';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { DropdownMenu } from '@/components/DropdownMenu';
+import EditScreen from '@/app/(app)/session/[id]/edit';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { getSession, useSetting } from '@/sync/storage';
 import { Modal } from '@/modal';
@@ -166,6 +167,9 @@ export default function FileScreen(props?: FileScreenProps) {
     // /file route still use the bottom-sheet ActionMenuModal.
     const menuTriggerRef = React.useRef<View>(null);
     const useDropdownMenu = !!props?.embedded && Platform.OS === 'web';
+    // Embedded inline edit mode: when true, render EditScreen inside this
+    // panel instead of pushing /edit. Only meaningful in embedded mode.
+    const [editMode, setEditMode] = React.useState(false);
     const wordWrap = useSetting('wrapLinesInDiffs');
 
     const fileName = filePath.split('/').pop() || filePath;
@@ -267,15 +271,53 @@ export default function FileScreen(props?: FileScreenProps) {
             });
         }
 
-        // Edit: only for non-ref, non-binary files
+        // Edit: only for non-ref, non-binary files. In embedded mode, swap to
+        // inline EditScreen instead of pushing /edit (keeps chat column visible).
         if (!ref && fileContent && !fileContent.isBinary && !isPreviewImageFile) {
             items.push({
                 label: t('files.editFile'),
                 onPress: () => {
+                    if (props?.embedded) {
+                        setEditMode(true);
+                        return;
+                    }
                     const encodedPath = btoa(
                         new TextEncoder().encode(filePath).reduce((s, b) => s + String.fromCharCode(b), '')
                     );
                     router.push(`/session/${sessionId}/edit?path=${encodeURIComponent(encodedPath)}`);
+                },
+            });
+        }
+
+        // Download: web-only (uses Blob + anchor.click). On native we'd need
+        // expo-file-system + expo-sharing. Skip on native rather than expose a
+        // button that does nothing.
+        if (Platform.OS === 'web' && sessionId) {
+            items.push({
+                label: t('files.downloadFile'),
+                onPress: async () => {
+                    try {
+                        const response = await sessionReadFile(sessionId, filePath);
+                        if (!response.success || !response.content) {
+                            Modal.alert(t('common.error'), response.error || 'Failed to download file');
+                            return;
+                        }
+                        // content is base64 — decode to bytes then Blob.
+                        const binary = atob(response.content);
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                        const blob = new Blob([bytes]);
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    } catch (e) {
+                        Modal.alert(t('common.error'), e instanceof Error ? e.message : 'Failed to download file');
+                    }
                 },
             });
         }
@@ -689,6 +731,17 @@ export default function FileScreen(props?: FileScreenProps) {
                     {fileName}
                 </Text>
             </View>
+        );
+    }
+
+    if (editMode && embedded) {
+        return (
+            <EditScreen
+                sessionId={sessionId}
+                encodedPath={encodedPath}
+                embedded
+                onBack={() => setEditMode(false)}
+            />
         );
     }
 

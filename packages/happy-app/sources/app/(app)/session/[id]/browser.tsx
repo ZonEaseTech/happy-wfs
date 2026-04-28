@@ -7,7 +7,10 @@ import { Text } from '@/components/StyledText';
 import { Item } from '@/components/Item';
 import { ItemList } from '@/components/ItemList';
 import { Typography } from '@/constants/Typography';
-import { sessionListDirectory, sessionBash } from '@/sync/ops';
+import { sessionListDirectory, sessionBash, sessionReadFile } from '@/sync/ops';
+import { Modal } from '@/modal';
+import { showToast } from '@/components/Toast';
+import { hapticsLight } from '@/components/haptics';
 import { getSession } from '@/sync/storage';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
@@ -64,6 +67,15 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
     // Embedded mode (right panel): swap content to FileScreen in-place
     // when a file is tapped, instead of pushing the full /file route.
     const [selectedFilePath, setSelectedFilePath] = React.useState<string | null>(null);
+    // Multi-select / compress-download state. selectedNames are entry names
+    // within `currentPath`; reset when navigating directories or exiting mode.
+    const [selectMode, setSelectMode] = React.useState(false);
+    const [selectedNames, setSelectedNames] = React.useState<Set<string>>(() => new Set());
+    const [downloading, setDownloading] = React.useState(false);
+    React.useEffect(() => {
+        // Reset selection when changing directory or exiting select mode.
+        setSelectedNames(new Set());
+    }, [currentPath, selectMode]);
 
     // Search state
     const [searchActive, setSearchActive] = React.useState(false);
@@ -162,6 +174,16 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
     }, [loadDirectory]);
 
     const handleEntryPress = React.useCallback((entry: DirectoryEntry) => {
+        // In select mode, row tap toggles selection — chevron-press still navigates.
+        if (selectMode) {
+            setSelectedNames(prev => {
+                const next = new Set(prev);
+                if (next.has(entry.name)) next.delete(entry.name);
+                else next.add(entry.name);
+                return next;
+            });
+            return;
+        }
         const fullPath = `${currentPath}/${entry.name}`;
         if (entry.type === 'directory') {
             navigateTo(fullPath);
@@ -175,7 +197,100 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                 router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}`);
             }
         }
-    }, [currentPath, navigateTo, router, sessionId, embedded]);
+    }, [currentPath, navigateTo, router, sessionId, embedded, selectMode]);
+
+    const handleSelectAll = React.useCallback(() => {
+        setSelectedNames(new Set(entries.map(e => e.name)));
+    }, [entries]);
+
+    const handleInvertSelection = React.useCallback(() => {
+        setSelectedNames(prev => {
+            const next = new Set<string>();
+            for (const e of entries) if (!prev.has(e.name)) next.add(e.name);
+            return next;
+        });
+    }, [entries]);
+
+    const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+
+    const handleCompressDownload = React.useCallback(async () => {
+        if (!sessionId || selectedNames.size === 0 || downloading) return;
+        const names = Array.from(selectedNames);
+        const cwd = currentPath;
+        const ts = new Date();
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
+        const tmpZip = `/tmp/happy-download-${stamp}.zip`;
+        const downloadName = `download-${stamp}.zip`;
+
+        setDownloading(true);
+        try {
+            // 1. Estimate total size with du -sh for warning gate.
+            const duArgs = names.map(shellQuote).join(' ');
+            const duRes = await sessionBash(sessionId, {
+                command: `du -sk -- ${duArgs} | awk '{s+=$1} END {print s}'`,
+                cwd,
+                timeout: 15000,
+            });
+            const sizeKb = parseInt((duRes.stdout || '0').trim(), 10) || 0;
+            const sizeMb = sizeKb / 1024;
+            if (sizeMb > 100) {
+                const ok = await Modal.confirm(
+                    t('browser.compressDownload'),
+                    t('browser.compressLargeWarning', { sizeMb: sizeMb.toFixed(1) }),
+                );
+                if (!ok) { setDownloading(false); return; }
+            }
+
+            // 2. Zip into /tmp. -r recursive, -q quiet, -X strip extra attrs.
+            const zipArgs = names.map(shellQuote).join(' ');
+            const zipRes = await sessionBash(sessionId, {
+                command: `zip -rqX -- ${shellQuote(tmpZip)} ${zipArgs}`,
+                cwd,
+                timeout: 600000,
+            });
+            if (!zipRes.success) {
+                Modal.alert(t('common.error'), zipRes.stderr || t('browser.compressFailed'));
+                return;
+            }
+
+            // 3. Read zip back, decode base64, trigger download.
+            const readRes = await sessionReadFile(sessionId, tmpZip);
+            if (!readRes.success || !readRes.content) {
+                Modal.alert(t('common.error'), readRes.error || t('browser.compressFailed'));
+                return;
+            }
+            if (Platform.OS === 'web') {
+                const binary = atob(readRes.content);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: 'application/zip' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = downloadName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                hapticsLight();
+                showToast(t('browser.downloadStarted'));
+            }
+
+            // 4. Cleanup tmp file (best effort).
+            await sessionBash(sessionId, {
+                command: `rm -f -- ${shellQuote(tmpZip)}`,
+                cwd: '/tmp',
+                timeout: 5000,
+            }).catch(() => {});
+
+            setSelectMode(false);
+        } catch (e) {
+            Modal.alert(t('common.error'), e instanceof Error ? e.message : t('browser.compressFailed'));
+        } finally {
+            setDownloading(false);
+        }
+    }, [sessionId, selectedNames, currentPath, downloading]);
 
     const handleSearchResultPress = React.useCallback((result: SearchResult) => {
         const fullPath = `${rootPath}/${result.relativePath}`;
@@ -317,17 +432,24 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                 </View>
             )}
 
-            {/* Breadcrumb navigation - hidden during search */}
+            {/* Breadcrumb navigation row — hidden during search. Wrapped in
+                a flex row so the right-side select / select-mode toolbar can
+                sit aligned with the breadcrumb scroll. */}
             {!searchActive && (
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                borderBottomColor: theme.colors.divider,
+                backgroundColor: theme.colors.surfaceHigh,
+            }}>
                 <ScrollView
                     ref={breadcrumbRef}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     style={{
-                        borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
-                        borderBottomColor: theme.colors.divider,
-                        backgroundColor: theme.colors.surfaceHigh,
-                        flexGrow: 0,
+                        flexGrow: 1,
+                        flexShrink: 1,
                     }}
                     contentContainerStyle={{
                         paddingHorizontal: 16,
@@ -360,6 +482,34 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                         </React.Fragment>
                     ))}
                 </ScrollView>
+                {/* Right-side action: enter select mode (or 全选/反选/取消 inside select mode). */}
+                {!selectMode ? (
+                    <Pressable
+                        onPress={() => setSelectMode(true)}
+                        hitSlop={10}
+                        style={({ pressed }) => ({
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            opacity: pressed ? 0.5 : 1,
+                        })}
+                        accessibilityLabel={t('browser.select')}
+                    >
+                        <Ionicons name="checkmark-done-outline" size={18} color={theme.colors.textLink} />
+                    </Pressable>
+                ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 }}>
+                        <Pressable onPress={handleSelectAll} hitSlop={10} style={({ pressed }) => ({ paddingHorizontal: 8, paddingVertical: 12, opacity: pressed ? 0.5 : 1 })}>
+                            <Text style={{ fontSize: 13, color: theme.colors.textLink, ...Typography.default('semiBold') }}>{t('browser.selectAll')}</Text>
+                        </Pressable>
+                        <Pressable onPress={handleInvertSelection} hitSlop={10} style={({ pressed }) => ({ paddingHorizontal: 8, paddingVertical: 12, opacity: pressed ? 0.5 : 1 })}>
+                            <Text style={{ fontSize: 13, color: theme.colors.textLink, ...Typography.default('semiBold') }}>{t('browser.invertSelection')}</Text>
+                        </Pressable>
+                        <Pressable onPress={() => setSelectMode(false)} hitSlop={10} style={({ pressed }) => ({ paddingHorizontal: 8, paddingVertical: 12, opacity: pressed ? 0.5 : 1 })}>
+                            <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>{t('common.cancel')}</Text>
+                        </Pressable>
+                    </View>
+                )}
+            </View>
             )}
 
             {/* Directory listing / Search results */}
@@ -462,23 +612,81 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                         )}
 
                         {/* Directory and file entries */}
-                        {entries.map((entry, index) => (
-                            <Item
-                                key={entry.name}
-                                title={entry.name}
-                                subtitle={entry.type === 'file' ? formatFileSize(entry.size) : undefined}
-                                icon={entry.type === 'directory'
-                                    ? <Ionicons name="folder" size={29} color="#007AFF" />
-                                    : <FileIcon fileName={entry.name} size={29} />
-                                }
-                                onPress={() => handleEntryPress(entry)}
-                                showDivider={index < entries.length - 1}
-                                showChevron={entry.type === 'directory'}
-                            />
-                        ))}
+                        {entries.map((entry, index) => {
+                            const checked = selectedNames.has(entry.name);
+                            const baseIcon = entry.type === 'directory'
+                                ? <Ionicons name="folder" size={29} color="#007AFF" />
+                                : <FileIcon fileName={entry.name} size={29} />;
+                            const icon = selectMode ? (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <Ionicons
+                                        name={checked ? 'checkbox' : 'square-outline'}
+                                        size={22}
+                                        color={checked ? theme.colors.button.primary.background : theme.colors.textSecondary}
+                                    />
+                                    {baseIcon}
+                                </View>
+                            ) : baseIcon;
+                            return (
+                                <Item
+                                    key={entry.name}
+                                    title={entry.name}
+                                    subtitle={entry.type === 'file' ? formatFileSize(entry.size) : undefined}
+                                    icon={icon}
+                                    onPress={() => handleEntryPress(entry)}
+                                    showDivider={index < entries.length - 1}
+                                    showChevron={!selectMode && entry.type === 'directory'}
+                                />
+                            );
+                        })}
                     </>
                 )}
             </ItemList>
+
+            {/* Bottom action bar in select mode: 压缩下载 (N) */}
+            {selectMode && (
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderTopWidth: Platform.select({ ios: 0.33, default: 1 }),
+                    borderTopColor: theme.colors.divider,
+                    backgroundColor: theme.colors.surfaceHigh,
+                }}>
+                    <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
+                        {t('browser.selectedCount', { count: selectedNames.size })}
+                    </Text>
+                    <Pressable
+                        onPress={handleCompressDownload}
+                        disabled={selectedNames.size === 0 || downloading}
+                        style={({ pressed }) => ({
+                            paddingHorizontal: 14,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: selectedNames.size === 0 || downloading
+                                ? theme.colors.surfacePressed
+                                : theme.colors.button.primary.background,
+                            opacity: pressed ? 0.7 : 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                        })}
+                    >
+                        {downloading && <ActivityIndicator size="small" color={theme.colors.button.primary.tint} />}
+                        <Text style={{
+                            fontSize: 13,
+                            color: selectedNames.size === 0 || downloading
+                                ? theme.colors.textSecondary
+                                : theme.colors.button.primary.tint,
+                            ...Typography.default('semiBold'),
+                        }}>
+                            {downloading ? t('browser.compressing') : t('browser.compressDownload')}
+                        </Text>
+                    </Pressable>
+                </View>
+            )}
         </View>
     );
 }
