@@ -392,11 +392,13 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     }, [searchQuery, gitStatusFiles, sessionId]);
 
     const handleFilePress = React.useCallback((file: GitFileStatus | FileItem, staged?: boolean) => {
-        // Navigate to file viewer with the file path (base64 encoded for special characters)
-        // encodeURIComponent ensures base64 chars (+, /, =) are URL-safe on web
-        // For multi-repo: git status returns paths relative to the repo, but file viewer needs
-        // absolute paths for sessionReadFile. Prepend repo path to make it absolute.
-        const absolutePath = selectedRepo && !file.fullPath.startsWith('/')
+        // git status reports paths RELATIVE to the repo root in every mode (single
+        // repo, multi-repo workspace, ad-hoc nearby repo). sessionReadFile needs an
+        // absolute path. Prepend repoBaseCwd whenever it's known and the path isn't
+        // already absolute. Previously this only triggered in multi-repo mode
+        // (selectedRepo set) — single-repo / ad-hoc modes ENOENT'd because the
+        // relative path went straight through.
+        const absolutePath = repoBaseCwd && !file.fullPath.startsWith('/')
             ? `${repoBaseCwd}/${file.fullPath}`
             : file.fullPath;
         const encodedPath = btoa(new TextEncoder().encode(absolutePath).reduce((s, b) => s + String.fromCharCode(b), ''));
@@ -406,7 +408,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         } else {
             router.push(`/session/${sessionId}/edit?path=${encodeURIComponent(encodedPath)}`);
         }
-    }, [router, sessionId, selectedRepo, repoBaseCwd]);
+    }, [router, sessionId, repoBaseCwd]);
 
     const renderFileIcon = (file: GitFileStatus) => {
         return <FileIcon fileName={file.fileName} size={32} />;
