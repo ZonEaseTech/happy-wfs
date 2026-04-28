@@ -1176,6 +1176,14 @@ export const es: TranslationStructure = {
         searchResultFooter: ({ count }: { count: number }) => `${count} match${count === 1 ? '' : 'es'}`,
         groupManual: 'Typed',
         groupMessagePin: 'From chat',
+        archive: 'Archivar',
+        unarchive: 'Desarchivar',
+        archived: 'Archivado',
+        unarchived: 'Desarchivado',
+        archiveFailed: 'Error al archivar',
+        tabActive: 'Activos',
+        tabArchived: 'Archivados',
+        tabAll: 'Todos',
     },
 
     worktreeConfig: {

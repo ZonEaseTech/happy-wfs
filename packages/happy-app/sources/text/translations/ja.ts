@@ -1208,6 +1208,14 @@ export const ja: TranslationStructure = {
         searchResultFooter: ({ count }: { count: number }) => `${count} 件一致`,
         groupManual: '手動',
         groupMessagePin: 'チャットから',
+        archive: 'アーカイブ',
+        unarchive: 'アーカイブ解除',
+        archived: 'アーカイブ済み',
+        unarchived: 'アーカイブ解除',
+        archiveFailed: 'アーカイブに失敗しました',
+        tabActive: 'アクティブ',
+        tabArchived: 'アーカイブ',
+        tabAll: 'すべて',
     },
 
     worktreeConfig: {

@@ -18,7 +18,7 @@ import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
-import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -67,7 +67,6 @@ export const SessionView = React.memo((props: { id: string }) => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
-    const hasRuns = useOrchestratorHasRuns(sessionId);
 
     // Memory-injected count badge — same data source as the /memory page; refetch
     // when this view focuses so newly-added memories show up without reload.
@@ -238,49 +237,47 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         </Text>
                                     </Pressable>
                                 )}
-                                {hasRuns && (
-                                    <Pressable
-                                        onPress={handleOpenSessionRuns}
-                                        hitSlop={15}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={t('settings.orchestratorOpenRuns')}
-                                        style={{
-                                            width: 38,
-                                            height: 38,
-                                            alignItems: 'center',
+                                <Pressable
+                                    onPress={handleOpenSessionRuns}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('settings.orchestratorOpenRuns')}
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 2,
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="layers-outline"
+                                        size={22}
+                                        color={theme.colors.header.tint}
+                                    />
+                                    {runningTaskCount > 0 && (
+                                        <View style={{
+                                            position: 'absolute',
+                                            top: 2,
+                                            right: 0,
+                                            backgroundColor: theme.colors.button.primary.background,
+                                            borderRadius: 8,
+                                            minWidth: 16,
+                                            height: 16,
+                                            paddingHorizontal: 3,
                                             justifyContent: 'center',
-                                            marginRight: 2,
-                                        }}
-                                    >
-                                        <Ionicons
-                                            name="layers-outline"
-                                            size={22}
-                                            color={theme.colors.header.tint}
-                                        />
-                                        {runningTaskCount > 0 && (
-                                            <View style={{
-                                                position: 'absolute',
-                                                top: 2,
-                                                right: 0,
-                                                backgroundColor: theme.colors.button.primary.background,
-                                                borderRadius: 8,
-                                                minWidth: 16,
-                                                height: 16,
-                                                paddingHorizontal: 3,
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
+                                            alignItems: 'center',
+                                        }}>
+                                            <Text style={{
+                                                color: theme.colors.button.primary.tint,
+                                                fontSize: 10,
+                                                fontWeight: '600',
                                             }}>
-                                                <Text style={{
-                                                    color: theme.colors.button.primary.tint,
-                                                    fontSize: 10,
-                                                    fontWeight: '600',
-                                                }}>
-                                                    {runningTaskCount > 99 ? '99+' : runningTaskCount}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </Pressable>
-                                )}
+                                                {runningTaskCount > 99 ? '99+' : runningTaskCount}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </Pressable>
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {

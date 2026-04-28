@@ -1192,6 +1192,14 @@ export const en = {
         searchResultFooter: ({ count }: { count: number }) => `${count} match${count === 1 ? '' : 'es'}`,
         groupManual: 'Typed',
         groupMessagePin: 'From chat',
+        archive: 'Archive',
+        unarchive: 'Unarchive',
+        archived: 'Archived',
+        unarchived: 'Unarchived',
+        archiveFailed: 'Failed to archive',
+        tabActive: 'Active',
+        tabArchived: 'Archived',
+        tabAll: 'All',
     },
 
     worktreeConfig: {

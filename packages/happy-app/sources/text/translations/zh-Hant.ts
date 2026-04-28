@@ -1178,6 +1178,14 @@ export const zhHant: TranslationStructure = {
         searchResultFooter: ({ count }: { count: number }) => `${count} 條符合`,
         groupManual: '手動',
         groupMessagePin: '來自對話',
+        archive: '歸檔',
+        unarchive: '取消歸檔',
+        archived: '已歸檔',
+        unarchived: '已取消歸檔',
+        archiveFailed: '歸檔失敗',
+        tabActive: '活躍',
+        tabArchived: '歸檔',
+        tabAll: '全部',
     },
 
     worktreeConfig: {

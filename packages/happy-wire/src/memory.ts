@@ -14,6 +14,7 @@ export const MemorySchema = z.object({
     source: MemorySourceSchema,
     sourceSessionId: z.string().nullable(),
     sourceMessageId: z.string().nullable(),
+    archivedAt: z.number().nullable(),
     createdAt: z.number(),
     updatedAt: z.number(),
 });

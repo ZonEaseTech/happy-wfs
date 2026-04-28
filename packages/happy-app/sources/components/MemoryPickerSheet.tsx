@@ -6,7 +6,7 @@ import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
 import { useAuth } from '@/auth/AuthContext';
-import { listMemories, createMemory, updateMemory, deleteMemory, type MemoryRow } from '@/sync/apiMemory';
+import { listMemories, createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, type MemoryRow, type MemoryArchiveFilter } from '@/sync/apiMemory';
 import { hapticsLight } from '@/components/haptics';
 import { showToast } from '@/components/Toast';
 import { Modal } from '@/modal';
@@ -29,6 +29,8 @@ interface ManagedList {
     loading: boolean;
     error: string | null;
     setMemories: React.Dispatch<React.SetStateAction<MemoryRow[]>>;
+    filter: MemoryArchiveFilter;
+    setFilter: React.Dispatch<React.SetStateAction<MemoryArchiveFilter>>;
 }
 
 const useMemoryList = (open: boolean): ManagedList => {
@@ -36,26 +38,27 @@ const useMemoryList = (open: boolean): ManagedList => {
     const [memories, setMemories] = React.useState<MemoryRow[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+    const [filter, setFilter] = React.useState<MemoryArchiveFilter>('active');
 
     const refresh = React.useCallback(async () => {
         if (!auth.credentials) return;
         setLoading(true);
         setError(null);
         try {
-            const list = await listMemories(auth.credentials);
+            const list = await listMemories(auth.credentials, { archived: filter });
             setMemories(list);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load memories');
         } finally {
             setLoading(false);
         }
-    }, [auth.credentials]);
+    }, [auth.credentials, filter]);
 
     React.useEffect(() => {
         if (open) void refresh();
     }, [open, refresh]);
 
-    return { memories, loading, error, setMemories };
+    return { memories, loading, error, setMemories, filter, setFilter };
 };
 
 interface ContentProps {
@@ -66,7 +69,7 @@ interface ContentProps {
 }
 
 const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentProps) => {
-    const { memories, loading, error, setMemories } = list;
+    const { memories, loading, error, setMemories, filter, setFilter } = list;
     const auth = useAuth();
     const [search, setSearch] = React.useState('');
 
@@ -138,6 +141,36 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
         onSelect(m.content);
     }, [onSelect]);
 
+    const handleArchive = React.useCallback(async (m: MemoryRow) => {
+        if (!auth.credentials) return;
+        try {
+            await archiveMemory(auth.credentials, m.id);
+            hapticsLight();
+            showToast(t('memory.archived'));
+            // Filter is per-tab: 'active' tab drops the row, 'archived' tab keeps it,
+            // 'all' tab updates archivedAt in place.
+            setMemories(prev => filter === 'active'
+                ? prev.filter(x => x.id !== m.id)
+                : prev.map(x => x.id === m.id ? { ...x, archivedAt: Date.now() } : x));
+        } catch (e) {
+            Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
+        }
+    }, [auth.credentials, setMemories, filter]);
+
+    const handleUnarchive = React.useCallback(async (m: MemoryRow) => {
+        if (!auth.credentials) return;
+        try {
+            await unarchiveMemory(auth.credentials, m.id);
+            hapticsLight();
+            showToast(t('memory.unarchived'));
+            setMemories(prev => filter === 'archived'
+                ? prev.filter(x => x.id !== m.id)
+                : prev.map(x => x.id === m.id ? { ...x, archivedAt: null } : x));
+        } catch (e) {
+            Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
+        }
+    }, [auth.credentials, setMemories, filter]);
+
     return (
         <>
             <View style={{
@@ -154,6 +187,35 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
                 <Pressable onPress={handleAdd} hitSlop={10} style={({ pressed }) => ({ paddingHorizontal: 4, opacity: pressed ? 0.5 : 1 })}>
                     <Ionicons name="add" size={26} color={theme.colors.button.primary.background} />
                 </Pressable>
+            </View>
+            <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 8, gap: 6 }}>
+                {(['active', 'archived', 'all'] as MemoryArchiveFilter[]).map(f => {
+                    const active = filter === f;
+                    const label = f === 'active' ? t('memory.tabActive')
+                        : f === 'archived' ? t('memory.tabArchived')
+                        : t('memory.tabAll');
+                    return (
+                        <Pressable
+                            key={f}
+                            onPress={() => setFilter(f)}
+                            style={({ pressed }) => ({
+                                paddingHorizontal: 10,
+                                paddingVertical: 5,
+                                borderRadius: 12,
+                                backgroundColor: active ? theme.colors.button.primary.background : theme.colors.surfacePressed,
+                                opacity: pressed ? 0.7 : 1,
+                            })}
+                        >
+                            <Text style={{
+                                fontSize: 12,
+                                color: active ? theme.colors.button.primary.tint : theme.colors.textSecondary,
+                                ...Typography.default('semiBold'),
+                            }}>
+                                {label}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
             </View>
             <View style={{
                 flexDirection: 'row',
@@ -274,6 +336,25 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
                                             <Ionicons name="create-outline" size={16} color={theme.colors.textSecondary} />
                                         </Pressable>
                                     ) : null}
+                                    {m.archivedAt ? (
+                                        <Pressable
+                                            onPress={() => handleUnarchive(m)}
+                                            hitSlop={8}
+                                            style={({ pressed }) => ({ padding: 6, opacity: pressed ? 0.5 : 0.85 })}
+                                            accessibilityLabel={t('memory.unarchive')}
+                                        >
+                                            <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.textSecondary} />
+                                        </Pressable>
+                                    ) : (
+                                        <Pressable
+                                            onPress={() => handleArchive(m)}
+                                            hitSlop={8}
+                                            style={({ pressed }) => ({ padding: 6, opacity: pressed ? 0.5 : 0.85 })}
+                                            accessibilityLabel={t('memory.archive')}
+                                        >
+                                            <Ionicons name="archive-outline" size={16} color={theme.colors.textSecondary} />
+                                        </Pressable>
+                                    )}
                                     <Pressable
                                         onPress={() => handleDelete(m)}
                                         hitSlop={8}

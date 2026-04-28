@@ -1187,6 +1187,14 @@ export const ru: TranslationStructure = {
         searchResultFooter: ({ count }: { count: number }) => `${count} match${count === 1 ? '' : 'es'}`,
         groupManual: 'Typed',
         groupMessagePin: 'From chat',
+        archive: 'Архивировать',
+        unarchive: 'Разархивировать',
+        archived: 'Архивировано',
+        unarchived: 'Разархивировано',
+        archiveFailed: 'Не удалось архивировать',
+        tabActive: 'Активные',
+        tabArchived: 'Архив',
+        tabAll: 'Все',
     },
 
     worktreeConfig: {

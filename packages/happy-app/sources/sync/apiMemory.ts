@@ -9,16 +9,25 @@ export interface MemoryRow {
     source: 'manual' | 'message-pin';
     sourceSessionId: string | null;
     sourceMessageId: string | null;
+    archivedAt: number | null;
     createdAt: number;
     updatedAt: number;
 }
 
+export type MemoryArchiveFilter = 'active' | 'archived' | 'all';
+
 const json = { 'Content-Type': 'application/json' };
 
-export async function listMemories(credentials: AuthCredentials): Promise<MemoryRow[]> {
+export async function listMemories(
+    credentials: AuthCredentials,
+    options?: { archived?: MemoryArchiveFilter },
+): Promise<MemoryRow[]> {
     const API = getServerUrl();
+    const archived = options?.archived ?? 'active';
     return await backoff(async () => {
-        const res = await fetch(`${API}/v1/memory`, {
+        const url = new URL(`${API}/v1/memory`);
+        url.searchParams.set('archived', archived);
+        const res = await fetch(url.toString(), {
             method: 'GET',
             headers: { Authorization: `Bearer ${credentials.token}` },
         });
@@ -64,6 +73,32 @@ export async function updateMemory(
     });
     if (!res.ok) {
         throw new HappyError(`updateMemory: ${res.status}`, false);
+    }
+    const data = (await res.json()) as { memory: MemoryRow };
+    return data.memory;
+}
+
+export async function archiveMemory(credentials: AuthCredentials, id: string): Promise<MemoryRow> {
+    const API = getServerUrl();
+    const res = await fetch(`${API}/v1/memory/${id}/archive`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${credentials.token}` },
+    });
+    if (!res.ok) {
+        throw new HappyError(`archiveMemory: ${res.status}`, false);
+    }
+    const data = (await res.json()) as { memory: MemoryRow };
+    return data.memory;
+}
+
+export async function unarchiveMemory(credentials: AuthCredentials, id: string): Promise<MemoryRow> {
+    const API = getServerUrl();
+    const res = await fetch(`${API}/v1/memory/${id}/unarchive`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${credentials.token}` },
+    });
+    if (!res.ok) {
+        throw new HappyError(`unarchiveMemory: ${res.status}`, false);
     }
     const data = (await res.json()) as { memory: MemoryRow };
     return data.memory;

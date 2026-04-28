@@ -653,8 +653,10 @@ model Memory {
   source          String   @default("manual")
   sourceSessionId String?
   sourceMessageId String?
+  archivedAt      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([accountId, createdAt(sort: Desc)])
+  @@index([accountId, archivedAt])
 }

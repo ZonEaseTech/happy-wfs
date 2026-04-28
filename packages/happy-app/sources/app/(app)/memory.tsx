@@ -9,7 +9,7 @@ import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
 import { Modal } from '@/modal';
 import { useAuth } from '@/auth/AuthContext';
-import { listMemories, createMemory, updateMemory, deleteMemory, type MemoryRow } from '@/sync/apiMemory';
+import { listMemories, createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, type MemoryRow, type MemoryArchiveFilter } from '@/sync/apiMemory';
 import { showToast } from '@/components/Toast';
 import { hapticsLight } from '@/components/haptics';
 import { t } from '@/text';
@@ -37,6 +37,7 @@ export default function MemoryScreen() {
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [searchQuery, setSearchQuery] = React.useState('');
+    const [archiveFilter, setArchiveFilter] = React.useState<MemoryArchiveFilter>('active');
     const router = useRouter();
 
     /**
@@ -63,7 +64,7 @@ export default function MemoryScreen() {
         else setIsLoading(true);
         setError(null);
         try {
-            const list = await listMemories(auth.credentials);
+            const list = await listMemories(auth.credentials, { archived: archiveFilter });
             setMemories(list);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load memories');
@@ -71,7 +72,7 @@ export default function MemoryScreen() {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [auth.credentials]);
+    }, [auth.credentials, archiveFilter]);
 
     React.useEffect(() => { void refresh(); }, [refresh]);
 
@@ -110,6 +111,30 @@ export default function MemoryScreen() {
             void refresh(true);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.saveFailed'));
+        }
+    }, [auth.credentials, refresh]);
+
+    const handleArchive = React.useCallback(async (m: MemoryRow) => {
+        if (!auth.credentials) return;
+        try {
+            await archiveMemory(auth.credentials, m.id);
+            hapticsLight();
+            showToast(t('memory.archived'));
+            void refresh(true);
+        } catch (e) {
+            Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
+        }
+    }, [auth.credentials, refresh]);
+
+    const handleUnarchive = React.useCallback(async (m: MemoryRow) => {
+        if (!auth.credentials) return;
+        try {
+            await unarchiveMemory(auth.credentials, m.id);
+            hapticsLight();
+            showToast(t('memory.unarchived'));
+            void refresh(true);
+        } catch (e) {
+            Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
         }
     }, [auth.credentials, refresh]);
 
@@ -186,6 +211,15 @@ export default function MemoryScreen() {
                             <Pressable onPress={() => handleEdit(m)} hitSlop={10}>
                                 <Ionicons name="create-outline" size={16} color={theme.colors.textSecondary} />
                             </Pressable>
+                            {m.archivedAt ? (
+                                <Pressable onPress={() => handleUnarchive(m)} hitSlop={10}>
+                                    <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.textSecondary} />
+                                </Pressable>
+                            ) : (
+                                <Pressable onPress={() => handleArchive(m)} hitSlop={10}>
+                                    <Ionicons name="archive-outline" size={16} color={theme.colors.textSecondary} />
+                                </Pressable>
+                            )}
                             <Pressable onPress={() => handleDelete(m)} hitSlop={10}>
                                 <Ionicons name="trash-outline" size={16} color={theme.colors.deleteAction} />
                             </Pressable>
@@ -242,6 +276,35 @@ export default function MemoryScreen() {
                         <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
                     </Pressable>
                 )}
+            </View>
+            <View style={{ flexDirection: 'row', marginTop: 10, gap: 6 }}>
+                {(['active', 'archived', 'all'] as MemoryArchiveFilter[]).map(f => {
+                    const active = archiveFilter === f;
+                    const label = f === 'active' ? t('memory.tabActive')
+                        : f === 'archived' ? t('memory.tabArchived')
+                        : t('memory.tabAll');
+                    return (
+                        <Pressable
+                            key={f}
+                            onPress={() => setArchiveFilter(f)}
+                            style={({ pressed }) => ({
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 12,
+                                backgroundColor: active ? theme.colors.button.primary.background : theme.colors.input.background,
+                                opacity: pressed ? 0.7 : 1,
+                            })}
+                        >
+                            <Text style={{
+                                fontSize: 13,
+                                color: active ? theme.colors.button.primary.tint : theme.colors.textSecondary,
+                                ...Typography.default('semiBold'),
+                            }}>
+                                {label}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
             </View>
         </View>
     );
