@@ -302,6 +302,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
     actionButtonsLeft: {
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 8,
         flex: 1,
         overflow: 'hidden',

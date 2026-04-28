@@ -268,7 +268,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                             marginRight: 2,
                                         }}
                                     >
-                                        <Ionicons name="code-outline" size={20} color={theme.colors.header.tint} />
+                                        <Ionicons name="key-outline" size={20} color={theme.colors.header.tint} />
                                     </Pressable>
                                 )}
                                 {/* Injected-memories badge — count = memories actually merged into
@@ -1081,7 +1081,20 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             isSending={isSending}
             onMicPress={micButtonState.onMicPress}
             isMicActive={micButtonState.isMicActive}
-            onAbort={() => sessionAbort(sessionId)}
+            onAbort={() => {
+                Modal.alert(
+                    t('session.abortConfirmTitle'),
+                    t('session.abortConfirmMessage'),
+                    [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                            text: t('session.abortConfirmAction'),
+                            style: 'destructive',
+                            onPress: () => sessionAbort(sessionId),
+                        },
+                    ],
+                );
+            }}
             showAbortButton={sessionStatus.state === 'thinking' || sessionStatus.state === 'waiting'}
             onFileViewerPress={() => {
                 if (isDesktopPanelMode) {
