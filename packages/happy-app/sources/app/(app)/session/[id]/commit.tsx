@@ -19,6 +19,7 @@ import { t } from '@/text';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
 import { shellEscape } from '@/utils/shellEscape';
+import { DesktopModalShell } from '@/components/DesktopModalShell';
 
 const SPLIT_BREAKPOINT = 900;
 const LEFT_PANEL_WIDTH = 380;
@@ -462,20 +463,24 @@ export default function CommitScreen() {
 
     if (isLoading) {
         return (
-            <View style={[styles.containerCentered, { backgroundColor: theme.colors.surface }]}>
-                <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-            </View>
+            <DesktopModalShell title="">
+                <View style={[styles.containerCentered, { backgroundColor: theme.colors.surface }]}>
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                </View>
+            </DesktopModalShell>
         );
     }
 
     if (error || !commitDetail) {
         return (
-            <View style={[styles.containerCentered, { backgroundColor: theme.colors.surface, padding: 20 }]}>
-                <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
-                <Text style={{ fontSize: 16, color: theme.colors.textSecondary, textAlign: 'center', marginTop: 16, ...Typography.default() }}>
-                    {error || 'Failed to load commit'}
-                </Text>
-            </View>
+            <DesktopModalShell title="">
+                <View style={[styles.containerCentered, { backgroundColor: theme.colors.surface, padding: 20 }]}>
+                    <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
+                    <Text style={{ fontSize: 16, color: theme.colors.textSecondary, textAlign: 'center', marginTop: 16, ...Typography.default() }}>
+                        {error || 'Failed to load commit'}
+                    </Text>
+                </View>
+            </DesktopModalShell>
         );
     }
 
@@ -556,6 +561,7 @@ export default function CommitScreen() {
     );
 
     return (
+        <DesktopModalShell title={commitDetail?.title || commitDetail?.shortHash || ''}>
         <View style={[
             { flex: 1, backgroundColor: theme.colors.groupped?.background || theme.colors.surface },
             !isSplit && { maxWidth: layout.maxWidth, alignSelf: 'center' as const, width: '100%' },
@@ -610,6 +616,7 @@ export default function CommitScreen() {
                 )}
             </View>
         </View>
+        </DesktopModalShell>
     );
 }
 

@@ -1228,8 +1228,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 // which prop to pass based on session.active.
                                 const isArchive = !!props.onArchive;
                                 const label = isArchive
-                                    ? t('sessionInfo.archiveSession')
-                                    : t('sessionInfo.resumeSession');
+                                    ? t('sessionInfo.archive')
+                                    : t('sessionInfo.resume');
                                 const handlePress = () => {
                                     hapticsLight();
                                     (isArchive ? props.onArchive : props.onResume)?.();

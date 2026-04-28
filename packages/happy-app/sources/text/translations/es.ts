@@ -797,6 +797,8 @@ export const es: TranslationStructure = {
         killSession: 'Terminar sesión',
         killSessionConfirm: '¿Seguro que quieres terminar esta sesión?',
         archiveSession: 'Archivar sesión',
+        archive: 'Archivar',
+        resume: 'Reanudar',
         archiveSessionConfirm: '¿Seguro que quieres archivar esta sesión?',
         happySessionIdCopied: 'ID de sesión de Happy AI copiado al portapapeles',
         failedToCopySessionId: 'Falló al copiar ID de sesión de Happy AI',

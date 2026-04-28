@@ -19,6 +19,22 @@ export const RIGHT_PANEL_WIDTH = 480; // legacy default — runtime width comes 
 const MIN_RIGHT_PANEL_WIDTH = 320;
 const MAX_RIGHT_PANEL_WIDTH = 720;
 
+/** Setter for the right-side area of the panel header bar. Embedded screens
+ *  call useRightPanelHeaderSlot(node) to project content (e.g. files panel
+ *  pushes its search input here so it sits at the very top). */
+const RightPanelHeaderSlotContext = React.createContext<((node: React.ReactNode) => void) | null>(null);
+
+/** Embedded children: render `node` into the right side of the panel header.
+ *  Pass `null` (or pass a memoized stable node) to avoid re-injection thrash. */
+export function useRightPanelHeaderSlot(node: React.ReactNode) {
+    const setSlot = React.useContext(RightPanelHeaderSlotContext);
+    React.useEffect(() => {
+        if (!setSlot) return;
+        setSlot(node);
+        return () => setSlot(null);
+    }, [setSlot, node]);
+}
+
 function getTitle(type: RightPanelType): string {
     switch (type) {
         case 'files': return 'Files';
@@ -44,6 +60,9 @@ export const RightPanel = React.memo(function RightPanel(props: {
         minWidth: MIN_RIGHT_PANEL_WIDTH,
         maxWidth: MAX_RIGHT_PANEL_WIDTH,
     });
+    const [headerSlot, setHeaderSlot] = React.useState<React.ReactNode>(null);
+    // Reset slot when panel type changes — old screen's slot would leak otherwise.
+    React.useEffect(() => { setHeaderSlot(null); }, [props.type]);
     return (
         <View style={{
             width,
@@ -67,41 +86,47 @@ export const RightPanel = React.memo(function RightPanel(props: {
                 paddingHorizontal: 16,
                 borderBottomWidth: 1,
                 borderBottomColor: theme.colors.divider,
+                gap: 12,
             }}>
                 {supportsBack && props.onTypeChange && (
                     <Pressable
                         onPress={() => props.onTypeChange?.('info')}
                         hitSlop={10}
-                        style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, marginRight: 8 })}
+                        style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
                     >
                         <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
                     </Pressable>
                 )}
                 <Text style={{
-                    flex: 1,
                     fontSize: 16,
                     fontWeight: '600',
                     color: theme.colors.text,
+                    flexShrink: 0,
                     ...Typography.default(),
                 }}>
                     {getTitle(props.type)}
                 </Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                    {headerSlot}
+                </View>
                 <Pressable onPress={props.onClose} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                     <Ionicons name="close" size={22} color={theme.colors.text} />
                 </Pressable>
             </View>
             <View style={{ flex: 1 }}>
-                {props.type === 'files' ? (
-                    <FilesScreen sessionId={props.sessionId} embedded />
-                ) : props.type === 'browser' ? (
-                    <BrowserScreen sessionId={props.sessionId} embedded />
-                ) : props.type === 'commits' ? (
-                    <CommitsScreen sessionId={props.sessionId} embedded />
-                ) : props.type === 'orchestrator' ? (
-                    <OrchestratorRunsScreen sessionId={props.sessionId} embedded />
-                ) : (
-                    <InfoScreen sessionId={props.sessionId} embedded onSelectRepoTab={props.onTypeChange} />
-                )}
+                <RightPanelHeaderSlotContext.Provider value={setHeaderSlot}>
+                    {props.type === 'files' ? (
+                        <FilesScreen sessionId={props.sessionId} embedded />
+                    ) : props.type === 'browser' ? (
+                        <BrowserScreen sessionId={props.sessionId} embedded />
+                    ) : props.type === 'commits' ? (
+                        <CommitsScreen sessionId={props.sessionId} embedded />
+                    ) : props.type === 'orchestrator' ? (
+                        <OrchestratorRunsScreen sessionId={props.sessionId} embedded />
+                    ) : (
+                        <InfoScreen sessionId={props.sessionId} embedded onSelectRepoTab={props.onTypeChange} />
+                    )}
+                </RightPanelHeaderSlotContext.Provider>
             </View>
         </View>
     );

@@ -829,6 +829,8 @@ export const ja: TranslationStructure = {
         killSession: 'セッションを終了',
         killSessionConfirm: 'このセッションを終了してもよろしいですか？',
         archiveSession: 'セッションをアーカイブ',
+        archive: 'アーカイブ',
+        resume: '再開',
         archiveSessionConfirm: 'このセッションをアーカイブしてもよろしいですか？',
         happySessionIdCopied: 'Happy AI Session IDがクリップボードにコピーされました',
         failedToCopySessionId: 'Happy AI Session IDのコピーに失敗しました',

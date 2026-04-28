@@ -808,6 +808,8 @@ export const en = {
         killSession: 'Kill Session',
         killSessionConfirm: 'Are you sure you want to terminate this session?',
         archiveSession: 'Archive Session',
+        archive: 'Archive',
+        resume: 'Resume',
         archiveSessionConfirm: 'Are you sure you want to archive this session?',
         happySessionIdCopied: 'Happy AI Session ID copied to clipboard',
         failedToCopySessionId: 'Failed to copy Happy AI Session ID',

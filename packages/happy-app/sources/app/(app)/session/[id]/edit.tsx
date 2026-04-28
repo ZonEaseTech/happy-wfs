@@ -17,6 +17,7 @@ import { CodeEditor, type CodeEditorHandle } from '@/components/CodeEditor';
 import { layout } from '@/components/layout';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DesktopModalShell } from '@/components/DesktopModalShell';
 
 function getFileLanguage(path: string): string {
     const ext = path.split('.').pop()?.toLowerCase();
@@ -359,28 +360,33 @@ export default function EditScreen(props?: EditScreenProps) {
 
     if (isLoading) {
         return (
-            <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center' }]}>
-                {!embedded && <Stack.Screen options={{ headerTitle: fileName }} />}
-                {embeddedHeader}
-                <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-            </View>
+            <DesktopModalShell title={fileName} disabled={embedded}>
+                <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center' }]}>
+                    {!embedded && <Stack.Screen options={{ headerTitle: fileName }} />}
+                    {embeddedHeader}
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                </View>
+            </DesktopModalShell>
         );
     }
 
     if (error) {
         return (
-            <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-                {!embedded && <Stack.Screen options={{ headerTitle: fileName }} />}
-                {embeddedHeader}
-                <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
-                <Text style={{ fontSize: 16, color: theme.colors.textSecondary, textAlign: 'center', marginTop: 16, ...Typography.default() }}>
-                    {error}
-                </Text>
-            </View>
+            <DesktopModalShell title={fileName} disabled={embedded}>
+                <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+                    {!embedded && <Stack.Screen options={{ headerTitle: fileName }} />}
+                    {embeddedHeader}
+                    <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
+                    <Text style={{ fontSize: 16, color: theme.colors.textSecondary, textAlign: 'center', marginTop: 16, ...Typography.default() }}>
+                        {error}
+                    </Text>
+                </View>
+            </DesktopModalShell>
         );
     }
 
     return (
+        <DesktopModalShell title={fileName} disabled={embedded}>
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             {!embedded && (
                 <Stack.Screen
@@ -501,6 +507,7 @@ export default function EditScreen(props?: EditScreenProps) {
                 </View>
             )}
         </View>
+        </DesktopModalShell>
     );
 }
 

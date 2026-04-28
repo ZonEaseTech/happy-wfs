@@ -799,6 +799,8 @@ export const zhHant: TranslationStructure = {
         killSession: '終止工作階段',
         killSessionConfirm: '您確定要終止此工作階段嗎？',
         archiveSession: '封存工作階段',
+        archive: '歸檔',
+        resume: '恢復',
         archiveSessionConfirm: '您確定要封存此工作階段嗎？',
         happySessionIdCopied: 'Happy AI 工作階段 ID 已複製到剪貼簿',
         failedToCopySessionId: '複製 Happy AI 工作階段 ID 失敗',

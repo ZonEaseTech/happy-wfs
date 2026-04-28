@@ -19,6 +19,7 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { t } from '@/text';
 import { shellEscape } from '@/utils/shellEscape';
+import { DesktopModalShell } from '@/components/DesktopModalShell';
 
 export default function StatusScreen() {
     const route = useRoute();
@@ -318,6 +319,7 @@ export default function StatusScreen() {
     const hasStagedFiles = (gitStatus?.totalStaged ?? 0) > 0;
 
     return (
+        <DesktopModalShell title={t('status.title')}>
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             <Stack.Screen
                 options={{
@@ -462,6 +464,7 @@ export default function StatusScreen() {
             </ItemList>
             <ActionMenuModal visible={menuVisible} items={menuItems} onClose={() => setMenuVisible(false)} />
         </View>
+        </DesktopModalShell>
     );
 }
 

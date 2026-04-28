@@ -220,9 +220,6 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
         const ts = new Date();
         const pad = (n: number) => n.toString().padStart(2, '0');
         const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
-        const tmpZip = `/tmp/happy-download-${stamp}.zip`;
-        const downloadName = `download-${stamp}.zip`;
-
         setDownloading(true);
         try {
             // 1. Estimate total size with du -sh for warning gate.
@@ -242,20 +239,38 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                 if (!ok) { setDownloading(false); return; }
             }
 
-            // 2. Zip into /tmp. -r recursive, -q quiet, -X strip extra attrs.
-            const zipArgs = names.map(shellQuote).join(' ');
-            const zipRes = await sessionBash(sessionId, {
-                command: `zip -rqX -- ${shellQuote(tmpZip)} ${zipArgs}`,
+            // 2. Detect available archiver. Prefer zip (Windows-friendly),
+            //    fall back to tar.gz which is universally available on Unix.
+            const probe = await sessionBash(sessionId, {
+                command: `command -v zip >/dev/null 2>&1 && echo zip || echo tar`,
+                cwd,
+                timeout: 5000,
+            });
+            const useZip = (probe.stdout || '').trim() === 'zip';
+            const ext = useZip ? 'zip' : 'tar.gz';
+            const mime = useZip ? 'application/zip' : 'application/gzip';
+            const tmpArchive = `/tmp/happy-download-${stamp}.${ext}`;
+            const downloadName = `download-${stamp}.${ext}`;
+
+            // 3. Pack into /tmp. zip: -r recursive, -q quiet, -X strip attrs.
+            //    tar: -c create, -z gzip, -f file. Both run with cwd = currentPath
+            //    so paths inside the archive stay relative to the listing.
+            const fileArgs = names.map(shellQuote).join(' ');
+            const packCmd = useZip
+                ? `zip -rqX -- ${shellQuote(tmpArchive)} ${fileArgs}`
+                : `tar -czf ${shellQuote(tmpArchive)} -- ${fileArgs}`;
+            const packRes = await sessionBash(sessionId, {
+                command: packCmd,
                 cwd,
                 timeout: 600000,
             });
-            if (!zipRes.success) {
-                Modal.alert(t('common.error'), zipRes.stderr || t('browser.compressFailed'));
+            if (!packRes.success) {
+                Modal.alert(t('common.error'), packRes.stderr || t('browser.compressFailed'));
                 return;
             }
 
-            // 3. Read zip back, decode base64, trigger download.
-            const readRes = await sessionReadFile(sessionId, tmpZip);
+            // 4. Read archive back, decode base64, trigger download.
+            const readRes = await sessionReadFile(sessionId, tmpArchive);
             if (!readRes.success || !readRes.content) {
                 Modal.alert(t('common.error'), readRes.error || t('browser.compressFailed'));
                 return;
@@ -264,7 +279,7 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                 const binary = atob(readRes.content);
                 const bytes = new Uint8Array(binary.length);
                 for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                const blob = new Blob([bytes], { type: 'application/zip' });
+                const blob = new Blob([bytes], { type: mime });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -277,9 +292,9 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                 showToast(t('browser.downloadStarted'));
             }
 
-            // 4. Cleanup tmp file (best effort).
+            // 5. Cleanup tmp file (best effort).
             await sessionBash(sessionId, {
-                command: `rm -f -- ${shellQuote(tmpZip)}`,
+                command: `rm -f -- ${shellQuote(tmpArchive)}`,
                 cwd: '/tmp',
                 timeout: 5000,
             }).catch(() => {});

@@ -799,6 +799,8 @@ export const zhHans: TranslationStructure = {
         killSession: '终止会话',
         killSessionConfirm: '您确定要终止此会话吗？',
         archiveSession: '归档会话',
+        archive: '归档',
+        resume: '恢复',
         archiveSessionConfirm: '您确定要归档此会话吗？',
         happySessionIdCopied: 'Happy AI 会话 ID 已复制到剪贴板',
         failedToCopySessionId: '复制 Happy AI 会话 ID 失败',

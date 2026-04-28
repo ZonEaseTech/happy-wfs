@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { consumePreviewHtml } from '@/components/tools/previewHtmlStore';
 import { StyleSheet } from 'react-native-unistyles';
+import { DesktopModalShell } from '@/components/DesktopModalShell';
 
 const WebView = require('react-native-webview').default;
 
@@ -16,15 +17,17 @@ export default React.memo(() => {
     }
 
     return (
-        <View style={styles.container}>
-            <WebView
-                source={{ html }}
-                style={styles.webview}
-                originWhitelist={['*']}
-                javaScriptEnabled={true}
-                scrollEnabled={true}
-            />
-        </View>
+        <DesktopModalShell title="Preview">
+            <View style={styles.container}>
+                <WebView
+                    source={{ html }}
+                    style={styles.webview}
+                    originWhitelist={['*']}
+                    javaScriptEnabled={true}
+                    scrollEnabled={true}
+                />
+            </View>
+        </DesktopModalShell>
     );
 });
 

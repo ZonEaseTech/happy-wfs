@@ -681,6 +681,8 @@ export const ru: TranslationStructure = {
         killSession: 'Завершить сессию',
         killSessionConfirm: 'Вы уверены, что хотите завершить эту сессию?',
         archiveSession: 'Архивировать сессию',
+        archive: 'Архив',
+        resume: 'Возобн.',
         archiveSessionConfirm: 'Вы уверены, что хотите архивировать эту сессию?',
         happySessionIdCopied: 'ID сессии Happy AI скопирован в буфер обмена',
         failedToCopySessionId: 'Не удалось скопировать ID сессии Happy AI',

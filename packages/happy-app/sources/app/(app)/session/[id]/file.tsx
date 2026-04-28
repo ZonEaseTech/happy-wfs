@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { sessionReadFile, sessionBash, sessionWriteFile } from '@/sync/ops';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { DropdownMenu } from '@/components/DropdownMenu';
+import { DesktopModalShell } from '@/components/DesktopModalShell';
 import EditScreen from '@/app/(app)/session/[id]/edit';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { getSession, useSetting } from '@/sync/storage';
@@ -644,93 +645,104 @@ export default function FileScreen(props?: FileScreenProps) {
         [currentContent, handleLongPress]
     );
 
+    // Wrap every return in DesktopModalShell so PC users see the file viewer
+    // as a centered card overlay instead of a full-screen route push. Shell
+    // is a no-op (passthrough) on native or width<1024 or when embedded.
+    const shellTitle = fileName || t('common.fileViewer');
+
     if (isLoading) {
         return (
-            <View style={{
-                flex: 1,
-                backgroundColor: theme.colors.surface,
-                justifyContent: 'center',
-                alignItems: 'center'
-            }}>
-                <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-                <Text style={{
-                    marginTop: 16,
-                    fontSize: 16,
-                    color: theme.colors.textSecondary,
-                    ...Typography.default()
+            <DesktopModalShell title={shellTitle} disabled={embedded}>
+                <View style={{
+                    flex: 1,
+                    backgroundColor: theme.colors.surface,
+                    justifyContent: 'center',
+                    alignItems: 'center'
                 }}>
-                    {t('files.loadingFile', { fileName })}
-                </Text>
-            </View>
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                    <Text style={{
+                        marginTop: 16,
+                        fontSize: 16,
+                        color: theme.colors.textSecondary,
+                        ...Typography.default()
+                    }}>
+                        {t('files.loadingFile', { fileName })}
+                    </Text>
+                </View>
+            </DesktopModalShell>
         );
     }
 
     if (error) {
         return (
-            <View style={{
-                flex: 1,
-                backgroundColor: theme.colors.surface,
-                justifyContent: 'center',
-                alignItems: 'center',
-                padding: 20
-            }}>
-                <Text style={{
-                    fontSize: 18,
-                    fontWeight: 'bold',
-                    color: theme.colors.textDestructive,
-                    marginBottom: 8,
-                    ...Typography.default('semiBold')
+            <DesktopModalShell title={shellTitle} disabled={embedded}>
+                <View style={{
+                    flex: 1,
+                    backgroundColor: theme.colors.surface,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 20
                 }}>
-                    {t('common.error')}
-                </Text>
-                <Text style={{
-                    fontSize: 16,
-                    color: theme.colors.textSecondary,
-                    textAlign: 'center',
-                    ...Typography.default()
-                }}>
-                    {error}
-                </Text>
-            </View>
+                    <Text style={{
+                        fontSize: 18,
+                        fontWeight: 'bold',
+                        color: theme.colors.textDestructive,
+                        marginBottom: 8,
+                        ...Typography.default('semiBold')
+                    }}>
+                        {t('common.error')}
+                    </Text>
+                    <Text style={{
+                        fontSize: 16,
+                        color: theme.colors.textSecondary,
+                        textAlign: 'center',
+                        ...Typography.default()
+                    }}>
+                        {error}
+                    </Text>
+                </View>
+            </DesktopModalShell>
         );
     }
 
     if (fileContent?.isBinary) {
         return (
-            <View style={{
-                flex: 1,
-                backgroundColor: theme.colors.surface,
-                justifyContent: 'center',
-                alignItems: 'center',
-                padding: 20
-            }}>
-                <Text style={{
-                    fontSize: 18,
-                    fontWeight: 'bold',
-                    color: theme.colors.textSecondary,
-                    marginBottom: 8,
-                    ...Typography.default('semiBold')
+            <DesktopModalShell title={shellTitle} disabled={embedded}>
+                <View style={{
+                    flex: 1,
+                    backgroundColor: theme.colors.surface,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 20
                 }}>
-                    {t('files.binaryFile')}
-                </Text>
-                <Text style={{
-                    fontSize: 16,
-                    color: theme.colors.textSecondary,
-                    textAlign: 'center',
-                    ...Typography.default()
-                }}>
-                    {t('files.cannotDisplayBinary')}
-                </Text>
-                <Text style={{
-                    fontSize: 14,
-                    color: '#999',
-                    textAlign: 'center',
-                    marginTop: 8,
-                    ...Typography.default()
-                }}>
-                    {fileName}
-                </Text>
-            </View>
+                    <Text style={{
+                        fontSize: 18,
+                        fontWeight: 'bold',
+                        color: theme.colors.textSecondary,
+                        marginBottom: 8,
+                        ...Typography.default('semiBold')
+                    }}>
+                        {t('files.binaryFile')}
+                    </Text>
+                    <Text style={{
+                        fontSize: 16,
+                        color: theme.colors.textSecondary,
+                        textAlign: 'center',
+                        ...Typography.default()
+                    }}>
+                        {t('files.cannotDisplayBinary')}
+                    </Text>
+                    <Text style={{
+                        fontSize: 14,
+                        color: '#999',
+                        textAlign: 'center',
+                        marginTop: 8,
+                        ...Typography.default()
+                    }}>
+                        {fileName}
+                    </Text>
+                </View>
+            </DesktopModalShell>
         );
     }
 
@@ -746,6 +758,7 @@ export default function FileScreen(props?: FileScreenProps) {
     }
 
     return (
+    <DesktopModalShell title={shellTitle} disabled={embedded}>
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             {!embedded && (
                 <Stack.Screen
@@ -1003,6 +1016,7 @@ export default function FileScreen(props?: FileScreenProps) {
                 </>
             )}
         </View>
+    </DesktopModalShell>
     );
 }
 

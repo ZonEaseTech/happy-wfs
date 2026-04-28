@@ -11,6 +11,7 @@ import { layout } from '@/components/layout';
 import { FileIcon } from '@/components/FileIcon';
 import { trimIdent } from '@/utils/trimIdent';
 import { LongPressCopy, useCopySelectable } from '@/components/LongPressCopy';
+import { DesktopModalShell } from '@/components/DesktopModalShell';
 
 interface DiffDetailResponse {
     success: boolean;
@@ -207,6 +208,7 @@ function ToolDiffScreen() {
     }, [sessionId, callId, filePath, mode, editCount]);
 
     return (
+        <DesktopModalShell title={fileName}>
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             <Stack.Screen options={{ headerTitle: fileName }} />
 
@@ -301,6 +303,7 @@ function ToolDiffScreen() {
                 </LongPressCopy>
             )}
         </View>
+        </DesktopModalShell>
     );
 }
 

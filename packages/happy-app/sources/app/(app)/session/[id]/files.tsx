@@ -22,6 +22,7 @@ import { ActionMenuItem } from '@/components/ActionMenu';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
+import { useRightPanelHeaderSlot } from '@/components/RightPanel';
 
 // ── Tree-view helpers ────────────────────────────────────────────────────
 type TreeDirNode = { type: 'dir'; name: string; path: string; children: TreeNode[] };
@@ -31,7 +32,12 @@ type TreeNode = TreeDirNode | TreeFileNode;
 function buildGitFileTree(files: GitFileStatus[]): TreeNode[] {
     const root: TreeDirNode = { type: 'dir', name: '', path: '', children: [] };
     for (const f of files) {
-        const rel = f.filePath || f.fileName;
+        // GitFileStatus.filePath = directory portion only; fileName = basename.
+        // Joining them gives the relative path we want to split into tree segments.
+        // Fall back to fullPath if available, then bare fileName for repo-root files.
+        const rel = f.filePath
+            ? `${f.filePath}/${f.fileName}`
+            : f.fileName;
         const parts = rel.split('/').filter(Boolean);
         let cur = root;
         for (let i = 0; i < parts.length - 1; i++) {
@@ -545,6 +551,46 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         return <FileIcon fileName={file.fileName} size={29} />;
     };
 
+    // Project a compact search input into the RightPanel header (embedded mode).
+    // Memoized on searchQuery so the slot doesn't churn every render.
+    const headerSearchSlot = React.useMemo(() => {
+        if (!embedded) return null;
+        return (
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: theme.colors.input.background,
+                borderRadius: 8,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                width: '100%',
+            }}>
+                <Octicons name="search" size={13} color={theme.colors.textSecondary} style={{ marginRight: 6 }} />
+                <TextInput
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder={t('files.searchPlaceholder')}
+                    style={{
+                        flex: 1,
+                        fontSize: 13,
+                        height: 22,
+                        color: theme.colors.text,
+                        ...Typography.default(),
+                    }}
+                    placeholderTextColor={theme.colors.input.placeholder}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                    <Pressable onPress={() => setSearchQuery('')} hitSlop={6}>
+                        <Ionicons name="close-circle" size={14} color={theme.colors.textSecondary} />
+                    </Pressable>
+                )}
+            </View>
+        );
+    }, [embedded, searchQuery, theme]);
+    useRightPanelHeaderSlot(headerSearchSlot);
+
     if (!isOnline) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.surface, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }]}>
@@ -627,38 +673,42 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                 </View>
             )}
 
-            {/* Search Input */}
-            <View style={{
-                padding: 16,
-                borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
-                borderBottomColor: theme.colors.divider
-            }}>
+            {/* Search Input — inline only when NOT embedded.
+                Embedded mode projects the search into the RightPanel header
+                (see headerSearchSlot above) so it sits at the very top. */}
+            {!embedded && (
                 <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: theme.colors.input.background,
-                    borderRadius: 10,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8
+                    padding: 16,
+                    borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                    borderBottomColor: theme.colors.divider
                 }}>
-                    <Octicons name="search" size={16} color={theme.colors.textSecondary} style={{ marginRight: 8 }} />
-                    <TextInput
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        placeholder={t('files.searchPlaceholder')}
-                        style={{
-                            flex: 1,
-                            fontSize: 16,
-                            height: 24,
-                            color: theme.colors.text,
-                            ...Typography.default()
-                        }}
-                        placeholderTextColor={theme.colors.input.placeholder}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: theme.colors.input.background,
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8
+                    }}>
+                        <Octicons name="search" size={16} color={theme.colors.textSecondary} style={{ marginRight: 8 }} />
+                        <TextInput
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholder={t('files.searchPlaceholder')}
+                            style={{
+                                flex: 1,
+                                fontSize: 16,
+                                height: 24,
+                                color: theme.colors.text,
+                                ...Typography.default()
+                            }}
+                            placeholderTextColor={theme.colors.input.placeholder}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    </View>
                 </View>
-            </View>
+            )}
 
             {/* Header with branch info */}
             {!isLoading && gitStatusFiles && (
