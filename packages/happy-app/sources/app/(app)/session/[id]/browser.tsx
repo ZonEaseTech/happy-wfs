@@ -14,6 +14,7 @@ import { layout } from '@/components/layout';
 import { FileIcon } from '@/components/FileIcon';
 import { t } from '@/text';
 import { loadBrowserLastPath, saveBrowserLastPath } from '@/sync/persistence';
+import FileScreen from '@/app/(app)/session/[id]/file';
 
 interface DirectoryEntry {
     name: string;
@@ -60,6 +61,9 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
     const [entries, setEntries] = React.useState<DirectoryEntry[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+    // Embedded mode (right panel): swap content to FileScreen in-place
+    // when a file is tapped, instead of pushing the full /file route.
+    const [selectedFilePath, setSelectedFilePath] = React.useState<string | null>(null);
 
     // Search state
     const [searchActive, setSearchActive] = React.useState(false);
@@ -165,17 +169,25 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
             const encodedPath = btoa(
                 new TextEncoder().encode(fullPath).reduce((s, b) => s + String.fromCharCode(b), '')
             );
-            router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}`);
+            if (embedded) {
+                setSelectedFilePath(encodedPath);
+            } else {
+                router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}`);
+            }
         }
-    }, [currentPath, navigateTo, router, sessionId]);
+    }, [currentPath, navigateTo, router, sessionId, embedded]);
 
     const handleSearchResultPress = React.useCallback((result: SearchResult) => {
         const fullPath = `${rootPath}/${result.relativePath}`;
         const encodedPath = btoa(
             new TextEncoder().encode(fullPath).reduce((s, b) => s + String.fromCharCode(b), '')
         );
-        router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}`);
-    }, [rootPath, router, sessionId]);
+        if (embedded) {
+            setSelectedFilePath(encodedPath);
+        } else {
+            router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}`);
+        }
+    }, [rootPath, router, sessionId, embedded]);
 
     const handleNavigateUp = React.useCallback(() => {
         if (currentPath === rootPath) return;
@@ -229,6 +241,17 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
             breadcrumbRef.current?.scrollToEnd({ animated: true });
         }, 50);
     }, [currentPath]);
+
+    if (embedded && selectedFilePath) {
+        return (
+            <FileScreen
+                sessionId={sessionId}
+                encodedPath={selectedFilePath}
+                embedded
+                onBack={() => setSelectedFilePath(null)}
+            />
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>

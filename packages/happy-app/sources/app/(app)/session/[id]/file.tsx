@@ -100,13 +100,26 @@ const DiffDisplay: React.FC<{ diffContent: string }> = ({ diffContent }) => {
     );
 };
 
-export default function FileScreen() {
+interface FileScreenProps {
+    /** When provided, takes precedence over route param. Used in embedded mode. */
+    sessionId?: string;
+    /** Base64-encoded path (same shape as URL `?path=...`). Required in embedded mode. */
+    encodedPath?: string;
+    /** When true, skip Stack.Screen header + render inline back bar instead. */
+    embedded?: boolean;
+    /** Called from the inline back button in embedded mode. */
+    onBack?: () => void;
+}
+
+export default function FileScreen(props?: FileScreenProps) {
     const route = useRoute();
     const router = useRouter();
     const { theme } = useUnistyles();
-    const { id: sessionId } = useLocalSearchParams<{ id: string }>();
+    const urlParams = useLocalSearchParams<{ id: string }>();
+    const sessionId = props?.sessionId ?? urlParams.id;
+    const embedded = !!props?.embedded;
     const searchParams = useLocalSearchParams();
-    const encodedPath = searchParams.path as string;
+    const encodedPath = props?.encodedPath ?? (searchParams.path as string);
     const ref = searchParams.ref as string | undefined;
     const preferredView = searchParams.view as 'file' | 'diff' | undefined;
     const isStaged = searchParams.staged === '1';
@@ -676,18 +689,52 @@ export default function FileScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-            <Stack.Screen
-                options={{
-                    headerRight: () => (
-                        <Pressable
-                            onPress={() => setMenuVisible(true)}
-                            style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-                        >
-                            <Ionicons name="ellipsis-horizontal" size={22} color={theme.colors.header.tint} />
-                        </Pressable>
-                    ),
-                }}
-            />
+            {!embedded && (
+                <Stack.Screen
+                    options={{
+                        headerRight: () => (
+                            <Pressable
+                                onPress={() => setMenuVisible(true)}
+                                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                            >
+                                <Ionicons name="ellipsis-horizontal" size={22} color={theme.colors.header.tint} />
+                            </Pressable>
+                        ),
+                    }}
+                />
+            )}
+            {embedded && props?.onBack && (
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                    borderBottomColor: theme.colors.divider,
+                }}>
+                    <Pressable
+                        onPress={props.onBack}
+                        hitSlop={10}
+                        style={({ pressed }) => ({
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            opacity: pressed ? 0.6 : 1,
+                        })}
+                    >
+                        <Ionicons name="chevron-back" size={18} color={theme.colors.text} />
+                        <Text style={{ fontSize: 14, color: theme.colors.text }}>{fileName || 'Back'}</Text>
+                    </Pressable>
+                    <View style={{ flex: 1 }} />
+                    <Pressable
+                        onPress={() => setMenuVisible(true)}
+                        hitSlop={10}
+                        style={{ paddingHorizontal: 6 }}
+                    >
+                        <Ionicons name="ellipsis-horizontal" size={18} color={theme.colors.textSecondary} />
+                    </Pressable>
+                </View>
+            )}
             <ActionMenuModal
                 visible={menuVisible}
                 items={menuItems}

@@ -435,6 +435,19 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
         if (open && isWeb) measureAnchor();
     }, [open, isWeb, width, windowHeight, measureAnchor]);
 
+    // Wrap the consumer's onSelect so picking a row both inserts the content
+    // AND auto-dismisses the picker (clipboard-style flow). Manage actions
+    // (edit pencil / archive / delete) intentionally don't go through this
+    // path — they keep the picker open for further management.
+    const handleSelectAndDismiss = React.useMemo(() => {
+        if (!onSelect) return undefined;
+        return (content: string) => {
+            onSelect(content);
+            if (isWeb) setOpen(false);
+            else sheetRef.current?.dismiss();
+        };
+    }, [onSelect, isWeb]);
+
     const renderBackdrop = React.useCallback(
         (props: any) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} pressBehavior="close" />,
         [],
@@ -488,7 +501,7 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
                         <PickerContent
                             list={webList}
                             theme={theme}
-                            onSelect={onSelect}
+                            onSelect={handleSelectAndDismiss}
                             Scroller={ScrollView}
                         />
                     </Pressable>
@@ -517,7 +530,7 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
                 <PickerContent
                     list={nativeList}
                     theme={theme}
-                    onSelect={onSelect}
+                    onSelect={handleSelectAndDismiss}
                     Scroller={BottomSheetScrollView}
                 />
             </View>
