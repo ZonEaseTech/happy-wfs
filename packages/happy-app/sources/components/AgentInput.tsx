@@ -302,6 +302,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
     actionButtonsLeft: {
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 8,
         flex: 1,
         overflow: 'hidden',
@@ -506,6 +507,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Memory clipboard-style picker bottom sheet (handler defined below where
     // setInputState/latestTextRef are in scope)
     const memoryPickerRef = React.useRef<MemoryPickerHandle>(null);
+    // Anchor used by MemoryPickerSheet (web) to position the popup flush
+    // above the input column, matching its width.
+    const innerContainerRef = React.useRef<View>(null);
 
     // Drag and drop state (web only)
     const [isDragging, setIsDragging] = React.useState(false);
@@ -840,6 +844,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             { paddingHorizontal: screenWidth > 700 ? 16 : 8 }
         ]}>
             <View
+                ref={innerContainerRef}
                 style={[
                     styles.innerContainer,
                     { maxWidth: layout.maxWidth },
@@ -1728,7 +1733,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             </View>
 
             {/* Memory clipboard-style picker — present()'d by the toolbar memory button. */}
-            <MemoryPickerSheet ref={memoryPickerRef} onSelect={handleMemoryPick} />
+            <MemoryPickerSheet ref={memoryPickerRef} anchorRef={innerContainerRef} onSelect={handleMemoryPick} />
         </View>
     );
 }));

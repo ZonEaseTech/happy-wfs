@@ -13,6 +13,7 @@ import { resolveOrchestratorSummaryLineData, resolveMachineName } from '@/compon
 import { useMachineNameMap } from '@/hooks/useMachineNameMap';
 import { formatDate } from '@/utils/formatDate';
 import { Typography } from '@/constants/Typography';
+import OrchestratorRunDetailScreen from '@/app/(app)/orchestrator/[runId]';
 import { t } from '@/text';
 
 type RunListItem = Pick<OrchestratorRunDetail, 'runId' | 'title' | 'status' | 'createdAt' | 'updatedAt' | 'summary'> & { machines?: string[]; };
@@ -176,6 +177,9 @@ export default function OrchestratorRunsScreen(props: OrchestratorRunsScreenProp
     }, [propSessionId, searchParams.controllerSessionId]);
     const isConversationScoped = !!controllerSessionId;
     const navigation = useNavigation();
+    // Embedded mode (right panel): tapping a run swaps content to its detail
+    // view in-place rather than pushing a full route.
+    const [selectedRunId, setSelectedRunId] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         if (embedded) return;
@@ -289,7 +293,10 @@ export default function OrchestratorRunsScreen(props: OrchestratorRunsScreenProp
         return (
             <Pressable
                 style={styles.card}
-                onPress={() => router.push(`/orchestrator/${item.runId}`)}
+                onPress={() => embedded
+                    ? setSelectedRunId(item.runId)
+                    : router.push(`/orchestrator/${item.runId}`)
+                }
             >
                 <View style={styles.cardHeader}>
                     <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
@@ -317,7 +324,7 @@ export default function OrchestratorRunsScreen(props: OrchestratorRunsScreenProp
                 ) : null}
             </Pressable>
         );
-    }, [router, styles]);
+    }, [router, styles, embedded]);
 
     const listEmpty = React.useMemo(() => {
         if (loading) {
@@ -340,6 +347,16 @@ export default function OrchestratorRunsScreen(props: OrchestratorRunsScreenProp
             </View>
         );
     }, [loading, styles, error, isConversationScoped]);
+
+    if (embedded && selectedRunId) {
+        return (
+            <OrchestratorRunDetailScreen
+                runId={selectedRunId}
+                embedded
+                onBack={() => setSelectedRunId(null)}
+            />
+        );
+    }
 
     return (
         <View style={styles.container}>

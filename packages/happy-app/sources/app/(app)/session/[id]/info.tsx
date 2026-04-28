@@ -784,8 +784,10 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                     </ItemGroup>
                 )}
 
-                {/* Repository */}
-                {isAdmin && session.metadata?.path && sessionStatus.isConnected && (
+                {/* Repository — hidden when embedded since the SessionView header
+                    already exposes the </> (browser) shortcut. Standalone Info
+                    page still shows it because there's no header equivalent. */}
+                {!embedded && isAdmin && session.metadata?.path && sessionStatus.isConnected && (
                     <ItemGroup>
                         <Item
                             title={t('repository.code')}
@@ -812,15 +814,19 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                     </ItemGroup>
                 )}
 
-                {/* Session Details */}
+                {/* Session Details — ID rows hidden when embedded; the header has
+                    icon-only quick-copy buttons for those IDs. The rest of this
+                    group (connection / created / updated / sequence) stays. */}
                 <ItemGroup>
-                    <Item
-                        title={t('sessionInfo.happySessionId')}
-                        subtitle={`${session.id.substring(0, 8)}...${session.id.substring(session.id.length - 8)}`}
-                        icon={<Ionicons name="finger-print-outline" size={29} color="#007AFF" />}
-                        onPress={handleCopySessionId}
-                    />
-                    {session.metadata?.claudeSessionId && (
+                    {!embedded && (
+                        <Item
+                            title={t('sessionInfo.happySessionId')}
+                            subtitle={`${session.id.substring(0, 8)}...${session.id.substring(session.id.length - 8)}`}
+                            icon={<Ionicons name="finger-print-outline" size={29} color="#007AFF" />}
+                            onPress={handleCopySessionId}
+                        />
+                    )}
+                    {!embedded && session.metadata?.claudeSessionId && (
                         <Item
                             title={t('sessionInfo.claudeCodeSessionId')}
                             subtitle={`${session.metadata.claudeSessionId.substring(0, 8)}...${session.metadata.claudeSessionId.substring(session.metadata.claudeSessionId.length - 8)}`}
@@ -828,7 +834,7 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                             onPress={handleCopyClaudeSessionId}
                         />
                     )}
-                    {session.metadata?.codexSessionId && (
+                    {!embedded && session.metadata?.codexSessionId && (
                         <Item
                             title={t('sessionInfo.codexSessionId')}
                             subtitle={`${session.metadata.codexSessionId.substring(0, 8)}...${session.metadata.codexSessionId.substring(session.metadata.codexSessionId.length - 8)}`}
@@ -836,7 +842,7 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                             onPress={handleCopyCodexSessionId}
                         />
                     )}
-                    {geminiSessionId && (
+                    {!embedded && geminiSessionId && (
                         <Item
                             title={t('sessionInfo.geminiSessionId')}
                             subtitle={`${geminiSessionId.substring(0, 8)}...${geminiSessionId.substring(geminiSessionId.length - 8)}`}

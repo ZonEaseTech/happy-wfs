@@ -25,6 +25,9 @@ import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { InjectedMemoriesModal } from '@/components/InjectedMemoriesModal';
+import * as Clipboard from 'expo-clipboard';
+import { hapticsLight } from '@/components/haptics';
+import { showCopiedToast } from '@/components/Toast';
 import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -45,6 +48,12 @@ import { useUnistyles } from 'react-native-unistyles';
 
 const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
+
+// Spreads a `title` HTML attribute onto Pressable on web (becomes a native
+// hover tooltip). No-op on native — RN Core ignores unknown props.
+const webTooltip = (label: string): Record<string, string> => (
+    Platform.OS === 'web' ? { title: label } : {}
+);
 
 export const SessionView = React.memo((props: { id: string }) => {
     const sessionId = props.id;
@@ -208,8 +217,60 @@ export const SessionView = React.memo((props: { id: string }) => {
                     <ChatHeaderView
                         {...headerProps}
                         onBackPress={() => router.back()}
-                        headerRight={session ? () => (
+                        headerRight={session ? () => {
+                            // Resolve the agent-side session ID. claudeSessionId / codexSessionId
+                            // are stored on metadata; for Gemini the Happy session id IS the
+                            // agent id (same as info.tsx line 104), so skip the second button.
+                            const agentSessionId =
+                                session.metadata?.claudeSessionId
+                                ?? session.metadata?.codexSessionId
+                                ?? null;
+                            const agentLabel = session.metadata?.codexSessionId
+                                ? t('sessionInfo.codexSessionId')
+                                : t('sessionInfo.claudeCodeSessionId');
+                            const copyId = async (id: string) => {
+                                await Clipboard.setStringAsync(id);
+                                hapticsLight();
+                                showCopiedToast();
+                            };
+                            return (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                {/* Quick copy: Happy session ID (always present). */}
+                                <Pressable
+                                    {...webTooltip(t('sessionInfo.happySessionId'))}
+                                    onPress={() => copyId(session.id)}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('sessionInfo.happySessionId')}
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 2,
+                                    }}
+                                >
+                                    <Ionicons name="finger-print-outline" size={20} color={theme.colors.header.tint} />
+                                </Pressable>
+                                {/* Quick copy: Claude/Codex/Gemini session ID (whichever this session uses). */}
+                                {agentSessionId && (
+                                    <Pressable
+                                        {...webTooltip(agentLabel)}
+                                        onPress={() => copyId(agentSessionId)}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={agentLabel}
+                                        style={{
+                                            width: 38,
+                                            height: 38,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons name="key-outline" size={20} color={theme.colors.header.tint} />
+                                    </Pressable>
+                                )}
                                 {/* Injected-memories badge — count = memories actually merged into
                                     THIS session's system prompt. Tap opens the same modal as the
                                     Info-panel chip (mute toggles + manage-all link). */}
@@ -283,14 +344,14 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
-                                            setRightPanelType(prev => (prev === 'files' ? null : 'files'));
+                                            setRightPanelType(prev => (prev === 'browser' ? null : 'browser'));
                                         } else {
-                                            router.push(`/session/${sessionId}/files`);
+                                            router.push(`/session/${sessionId}/browser`);
                                         }
                                     }}
                                     hitSlop={15}
                                     accessibilityRole="button"
-                                    accessibilityLabel="Files"
+                                    accessibilityLabel="Code"
                                     style={{
                                         width: 38,
                                         height: 38,
@@ -302,7 +363,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     <Ionicons
                                         name="code-slash-outline"
                                         size={22}
-                                        color={isDesktopPanelMode && rightPanelType === 'files' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                        color={isDesktopPanelMode && rightPanelType === 'browser' ? theme.colors.button.primary.background : theme.colors.header.tint}
                                     />
                                 </Pressable>
                                 {headerProps.avatarId && headerProps.onAvatarPress && (
@@ -327,7 +388,8 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     </Pressable>
                                 )}
                             </View>
-                        ) : undefined}
+                            );
+                        } : undefined}
                     />
                     {/* Voice status bar below header - not on tablet (shown in sidebar) */}
                     {!isTablet && realtimeStatus !== 'disconnected' && (
@@ -1019,7 +1081,20 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             isSending={isSending}
             onMicPress={micButtonState.onMicPress}
             isMicActive={micButtonState.isMicActive}
-            onAbort={() => sessionAbort(sessionId)}
+            onAbort={() => {
+                Modal.alert(
+                    t('session.abortConfirmTitle'),
+                    t('session.abortConfirmMessage'),
+                    [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                            text: t('session.abortConfirmAction'),
+                            style: 'destructive',
+                            onPress: () => sessionAbort(sessionId),
+                        },
+                    ],
+                );
+            }}
             showAbortButton={sessionStatus.state === 'thinking' || sessionStatus.state === 'waiting'}
             onFileViewerPress={() => {
                 if (isDesktopPanelMode) {
