@@ -1146,6 +1146,7 @@ export const zhHans: TranslationStructure = {
         empty: '没有可显示的记忆详情。',
         mutedBadge: '本会话已静音',
         activeBadge: '本会话生效中',
+        manageAll: '管理全部记忆',
     },
 
     memory: {

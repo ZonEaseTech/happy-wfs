@@ -1155,6 +1155,7 @@ export const pl: TranslationStructure = {
         empty: 'No memory details available.',
         mutedBadge: 'Muted for this session',
         activeBadge: 'Active in this session',
+        manageAll: 'Zarządzaj wszystkimi wspomnieniami',
     },
 
     memory: {

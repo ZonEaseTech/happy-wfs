@@ -1214,31 +1214,47 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             alignItems: 'center',
                             gap: 8,
                             zIndex: 1001,
+                            marginLeft: 'auto',
                         }}>
-                            {props.onArchive && (
-                                <Pressable
-                                    {...webTooltip(t('sessionInfo.archiveSession'))}
-                                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                                    onPress={() => { hapticsLight(); props.onArchive?.(); }}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={t('sessionInfo.archiveSession')}
-                                    style={({ pressed }) => ({ opacity: pressed ? 0.5 : 0.9 })}
-                                >
-                                    <Ionicons name="archive-outline" size={14} color={theme.colors.textSecondary} />
-                                </Pressable>
-                            )}
-                            {props.onResume && !props.onArchive && (
-                                <Pressable
-                                    {...webTooltip(t('sessionInfo.resumeSession'))}
-                                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                                    onPress={() => { hapticsLight(); props.onResume?.(); }}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={t('sessionInfo.resumeSession')}
-                                    style={({ pressed }) => ({ opacity: pressed ? 0.5 : 0.9 })}
-                                >
-                                    <Ionicons name="play-circle-outline" size={14} color={theme.colors.textSecondary} />
-                                </Pressable>
-                            )}
+                            {(props.onArchive || props.onResume) && (() => {
+                                // Pill text button: shows "归档" while session is active
+                                // (onArchive provided), flips to "恢复会话" once archived
+                                // (onResume provided). Mutually exclusive — caller decides
+                                // which prop to pass based on session.active.
+                                const isArchive = !!props.onArchive;
+                                const label = isArchive
+                                    ? t('sessionInfo.archiveSession')
+                                    : t('sessionInfo.resumeSession');
+                                const handlePress = () => {
+                                    hapticsLight();
+                                    (isArchive ? props.onArchive : props.onResume)?.();
+                                };
+                                return (
+                                    <Pressable
+                                        {...webTooltip(label)}
+                                        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                                        onPress={handlePress}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={label}
+                                        style={({ pressed }) => ({
+                                            paddingHorizontal: 10,
+                                            paddingVertical: 4,
+                                            borderRadius: 12,
+                                            backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surface,
+                                            borderWidth: Platform.select({ ios: 0.5, default: 1 }),
+                                            borderColor: theme.colors.divider,
+                                        })}
+                                    >
+                                        <Text style={{
+                                            fontSize: 11,
+                                            color: isArchive ? theme.colors.textSecondary : theme.colors.button.primary.background,
+                                            ...Typography.default('semiBold'),
+                                        }}>
+                                            {label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })()}
                             {props.onModelModeChange && (
                                 <Pressable hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={() => { hapticsLight(); setShowSettings(prev => prev === 'model' ? false : 'model'); }} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
                                     <Text style={{
@@ -1591,10 +1607,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     </Shaker>
                                 )}
 
-                                {/* Git Status Badge */}
-                                <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
-
-                                {/* Memory shortcut — opens the picker bottom sheet (clipboard-style) */}
+                                {/* Memory shortcut — opens the picker bottom sheet (clipboard-style).
+                                    Placed BEFORE GitStatusButton so the latter's flex:1 blank tap
+                                    area trails to the right edge instead of pushing memory there. */}
                                 <Pressable
                                     {...webTooltip(t('memory.title'))}
                                     onPress={() => memoryPickerRef.current?.present()}
@@ -1605,6 +1620,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 >
                                     <Ionicons name="library-outline" size={20} color={theme.colors.button.secondary.tint} />
                                 </Pressable>
+
+                                {/* Git Status Badge */}
+                                <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
                                 </View>
 
                                 {/* Image button */}

@@ -1155,6 +1155,7 @@ export const ru: TranslationStructure = {
         empty: 'No memory details available.',
         mutedBadge: 'Muted for this session',
         activeBadge: 'Active in this session',
+        manageAll: 'Управление всеми воспоминаниями',
     },
 
     memory: {

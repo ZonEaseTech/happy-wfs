@@ -1160,6 +1160,7 @@ export const en = {
         empty: 'No memory details available.',
         mutedBadge: 'Muted for this session',
         activeBadge: 'Active in this session',
+        manageAll: 'Manage all memories',
     },
 
     memory: {

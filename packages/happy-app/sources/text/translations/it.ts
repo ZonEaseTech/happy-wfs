@@ -1174,6 +1174,7 @@ export const it: TranslationStructure = {
         empty: 'No memory details available.',
         mutedBadge: 'Muted for this session',
         activeBadge: 'Active in this session',
+        manageAll: 'Gestisci tutte le memorie',
     },
 
     memory: {

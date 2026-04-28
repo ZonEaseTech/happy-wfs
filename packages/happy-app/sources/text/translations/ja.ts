@@ -1176,6 +1176,7 @@ export const ja: TranslationStructure = {
         empty: '表示できるメモリの詳細はありません。',
         mutedBadge: 'このセッションでミュート',
         activeBadge: 'このセッションで有効',
+        manageAll: 'すべての記憶を管理',
     },
 
     memory: {

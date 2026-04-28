@@ -14,6 +14,8 @@ import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useArchiveSession } from '@/hooks/useArchiveSession';
+import { useResumeSession } from '@/hooks/useResumeSession';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
@@ -22,8 +24,7 @@ import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCou
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
-import { listMemories } from '@/sync/apiMemory';
-import { useAuth } from '@/auth/AuthContext';
+import { InjectedMemoriesModal } from '@/components/InjectedMemoriesModal';
 import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -68,19 +69,15 @@ export const SessionView = React.memo((props: { id: string }) => {
     }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
 
-    // Memory-injected count badge — same data source as the /memory page; refetch
-    // when this view focuses so newly-added memories show up without reload.
-    const auth = useAuth();
-    const [memoryCount, setMemoryCount] = React.useState<number>(0);
-    const refreshMemoryCount = React.useCallback(() => {
-        if (!auth.credentials) return;
-        let cancelled = false;
-        listMemories(auth.credentials)
-            .then(rows => { if (!cancelled) setMemoryCount(rows.length); })
-            .catch(() => {});
-        return () => { cancelled = true; };
-    }, [auth.credentials]);
-    React.useEffect(() => { refreshMemoryCount(); }, [refreshMemoryCount]);
+    // Header memory chip — count of memories actually injected into THIS session's
+    // system prompt (not total user memories). Tap opens the same modal as the
+    // Info-panel chip so semantics stay aligned across both surfaces.
+    const injectedMemoryIds = React.useMemo(
+        () => session?.metadata?.injectedMemoryIds ?? [],
+        [session?.metadata?.injectedMemoryIds],
+    );
+    const memoryCount = injectedMemoryIds.length;
+    const [injectedMemoriesOpen, setInjectedMemoriesOpen] = React.useState(false);
     const handleOpenSessionRuns = React.useCallback(() => {
         if (isDesktopPanelMode) {
             setRightPanelType(prev => (prev === 'orchestrator' ? null : 'orchestrator'));
@@ -213,11 +210,12 @@ export const SessionView = React.memo((props: { id: string }) => {
                         onBackPress={() => router.back()}
                         headerRight={session ? () => (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {/* Memory count badge — shown when at least one memory is injected
-                                    into the system prompt. Tap to navigate to the memory page. */}
+                                {/* Injected-memories badge — count = memories actually merged into
+                                    THIS session's system prompt. Tap opens the same modal as the
+                                    Info-panel chip (mute toggles + manage-all link). */}
                                 {memoryCount > 0 && (
                                     <Pressable
-                                        onPress={() => router.push('/memory')}
+                                        onPress={() => setInjectedMemoriesOpen(true)}
                                         hitSlop={15}
                                         accessibilityRole="button"
                                         accessibilityLabel="Memories"
@@ -378,6 +376,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                     onTypeChange={setRightPanelType}
                 />
             )}
+            {/* Injected-memories modal — opened by the header memory chip */}
+            <InjectedMemoriesModal
+                visible={injectedMemoriesOpen}
+                onClose={() => setInjectedMemoriesOpen(false)}
+                sessionId={sessionId}
+                injectedMemoryIds={injectedMemoryIds}
+            />
         </View>
     );
 });
@@ -518,6 +523,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
     // Ref for the input component (used for web auto-focus)
     const inputRef = React.useRef<MultiTextInputHandle>(null);
+
+    // Pill toggle in the status row: archive when active, resume when archived.
+    // Both flows confirm via Modal first, so an accidental tap is recoverable.
+    const { handleArchive, archiveOverlay } = useArchiveSession(session);
+    const { handleResume } = useResumeSession(session);
 
     // Handler for filling the input from option selection
     const handleFillInput = React.useCallback(async (text: string, allOptions?: string[]) => {
@@ -939,6 +949,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             fastMode={fastMode}
             onFastModeChange={updateFastMode}
             metadata={session.metadata}
+            onArchive={session.active ? handleArchive : undefined}
+            onResume={!session.active ? handleResume : undefined}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
                 // Block sending during CLI upgrade
@@ -1168,6 +1180,9 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 onClose={() => setImagePickerSheetVisible(false)}
                 deferItemPress
             />
+
+            {/* Worktree-aware archive confirmation menu (used by useArchiveSession) */}
+            {archiveOverlay}
         </>
     )
 }

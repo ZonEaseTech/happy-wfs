@@ -1146,6 +1146,7 @@ export const zhHant: TranslationStructure = {
         empty: '沒有可顯示的記憶詳情。',
         mutedBadge: '本工作階段已靜音',
         activeBadge: '本工作階段生效中',
+        manageAll: '管理全部記憶',
     },
 
     memory: {

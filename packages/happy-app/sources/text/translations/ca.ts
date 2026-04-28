@@ -1144,6 +1144,7 @@ export const ca: TranslationStructure = {
         empty: 'No memory details available.',
         mutedBadge: 'Muted for this session',
         activeBadge: 'Active in this session',
+        manageAll: 'Gestiona totes les memòries',
     },
 
     memory: {
