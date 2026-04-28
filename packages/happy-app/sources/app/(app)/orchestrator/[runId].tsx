@@ -132,10 +132,21 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
 }));
 
-export default function OrchestratorRunDetailScreen() {
+interface OrchestratorRunDetailScreenProps {
+    /** When provided, takes precedence over the URL param. Used for embedded mode. */
+    runId?: string;
+    /** When true, skip Stack.Screen header and render an inline back button instead. */
+    embedded?: boolean;
+    /** Called from the inline back button (embedded mode only). */
+    onBack?: () => void;
+}
+
+export default function OrchestratorRunDetailScreen(props?: OrchestratorRunDetailScreenProps) {
     const { theme } = useUnistyles();
     const styles = stylesheet;
-    const { runId } = useLocalSearchParams<{ runId: string; }>();
+    const urlParams = useLocalSearchParams<{ runId: string; }>();
+    const runId = props?.runId ?? urlParams.runId;
+    const embedded = !!props?.embedded;
     const router = useRouter();
     const auth = useAuth();
     const credentials = auth.credentials;
@@ -278,10 +289,31 @@ export default function OrchestratorRunDetailScreen() {
         }];
     }, [canCancel, canceling, run?.status, handleCancelRun]);
 
+    // Inline back-bar shown only in embedded mode — gives the user a way out
+    // without falling back to the panel's close button (which dismisses the whole panel).
+    const embeddedBackBar = embedded && props?.onBack ? (
+        <Pressable
+            onPress={props.onBack}
+            hitSlop={10}
+            style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                gap: 4,
+                opacity: pressed ? 0.6 : 1,
+            })}
+        >
+            <Ionicons name="chevron-back" size={18} color={theme.colors.text} />
+            <Text style={{ fontSize: 14, color: theme.colors.text }}>{t('settings.orchestratorRuns')}</Text>
+        </Pressable>
+    ) : null;
+
     if (loading && !run) {
         return (
             <View style={styles.center}>
-                <Stack.Screen options={{ headerTitle: t('settings.orchestratorRunDetails') }} />
+                {!embedded && <Stack.Screen options={{ headerTitle: t('settings.orchestratorRunDetails') }} />}
+                {embeddedBackBar}
                 <ActivityIndicator size="large" />
                 <Text style={styles.metaText}>{t('settings.orchestratorLoadingRun')}</Text>
             </View>
@@ -291,7 +323,8 @@ export default function OrchestratorRunDetailScreen() {
     if (!run) {
         return (
             <View style={styles.center}>
-                <Stack.Screen options={{ headerTitle: t('settings.orchestratorRunDetails') }} />
+                {!embedded && <Stack.Screen options={{ headerTitle: t('settings.orchestratorRunDetails') }} />}
+                {embeddedBackBar}
                 <Text style={styles.sectionTitle}>{t('settings.orchestratorRunNotFound')}</Text>
                 {!!error && <Text style={styles.error}>{error}</Text>}
             </View>
@@ -300,19 +333,22 @@ export default function OrchestratorRunDetailScreen() {
 
     return (
         <View style={styles.container}>
-            <Stack.Screen
-                options={{
-                    headerTitle: run.title || t('settings.orchestratorRunDetails'),
-                    headerRight: canCancel ? () => (
-                        <Pressable
-                            style={styles.menuButton}
-                            onPress={() => setMenuVisible(true)}
-                        >
-                            <Ionicons name="ellipsis-horizontal" size={22} color={theme.colors.header.tint} />
-                        </Pressable>
-                    ) : undefined,
-                }}
-            />
+            {!embedded && (
+                <Stack.Screen
+                    options={{
+                        headerTitle: run.title || t('settings.orchestratorRunDetails'),
+                        headerRight: canCancel ? () => (
+                            <Pressable
+                                style={styles.menuButton}
+                                onPress={() => setMenuVisible(true)}
+                            >
+                                <Ionicons name="ellipsis-horizontal" size={22} color={theme.colors.header.tint} />
+                            </Pressable>
+                        ) : undefined,
+                    }}
+                />
+            )}
+            {embeddedBackBar}
             <ActionMenuModal
                 visible={menuVisible}
                 items={menuItems}
