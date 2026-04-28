@@ -20,6 +20,12 @@ interface MemoryPickerSheetProps {
      * copy-into-input button. The primary row tap is now edit-in-place.
      */
     onSelect?: (content: string) => void;
+    /**
+     * Web-only: when provided, the popup measures this element on present()
+     * and positions itself flush above it, matching its width. Falls back to
+     * a window-centered popup when absent.
+     */
+    anchorRef?: React.RefObject<View | null>;
 }
 
 const SheetTextInputComp: React.ComponentType<any> = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
@@ -384,9 +390,9 @@ PickerContent.displayName = 'PickerContent';
  * keeps `onSelect` as a hidden secondary action so existing callers (e.g.
  * AgentInput) can still insert a memory into the input.
  */
-export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle, MemoryPickerSheetProps>(({ onSelect }, ref) => {
+export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle, MemoryPickerSheetProps>(({ onSelect, anchorRef }, ref) => {
     const { theme } = useUnistyles();
-    const { width } = useWindowDimensions();
+    const { width, height: windowHeight } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
 
     const [open, setOpen] = React.useState(false);
@@ -396,16 +402,38 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
     const [nativeOpen, setNativeOpen] = React.useState(false);
     const nativeList = useMemoryList(nativeOpen);
 
+    // Measured anchor box (web). Updated on present() and on window resize so
+    // the popup stays aligned with the chat-input column even when the right
+    // panel toggles or the window is resized.
+    const [anchor, setAnchor] = React.useState<{ x: number; y: number; width: number } | null>(null);
+    const measureAnchor = React.useCallback(() => {
+        const el = anchorRef?.current;
+        if (!el || typeof (el as any).measureInWindow !== 'function') return;
+        (el as any).measureInWindow((x: number, y: number, w: number) => {
+            setAnchor({ x, y, width: w });
+        });
+    }, [anchorRef]);
+
     React.useImperativeHandle(ref, () => ({
         present: () => {
-            if (isWeb) setOpen(true);
+            if (isWeb) {
+                measureAnchor();
+                setOpen(true);
+            }
             else sheetRef.current?.present();
         },
         dismiss: () => {
             if (isWeb) setOpen(false);
             else sheetRef.current?.dismiss();
         },
-    }), [isWeb]);
+    }), [isWeb, measureAnchor]);
+
+    // Re-measure when the window resizes while the popup is open. Window-size
+    // changes don't catch right-panel toggles within the same window, but they
+    // do catch device rotation / browser resize / dev tools opening.
+    React.useEffect(() => {
+        if (open && isWeb) measureAnchor();
+    }, [open, isWeb, width, windowHeight, measureAnchor]);
 
     const renderBackdrop = React.useCallback(
         (props: any) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} pressBehavior="close" />,
@@ -413,10 +441,25 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
     );
 
     if (isWeb) {
-        // Slash-menu-style popup: bottom-anchored compact card (not a full-
-        // height drawer / not dimming the chat). Click outside dismisses, ESC
-        // (handled by RNModal onRequestClose) dismisses.
-        const popupWidth = Math.min(560, Math.max(360, width * 0.5));
+        // Slash-menu-style popup: bottom-anchored to the chat-input column.
+        // Click outside dismisses, ESC (handled by RNModal onRequestClose)
+        // dismisses. When anchor is missing (first paint or unanchored caller),
+        // fall back to a window-centered card so we never render off-screen.
+        const fallbackWidth = Math.min(560, Math.max(360, width * 0.5));
+        const POPUP_GAP = 8;       // gap between popup bottom and input top
+        const POPUP_MIN_HEIGHT = 360;
+        const positionStyle = anchor
+            ? {
+                left: anchor.x,
+                width: anchor.width,
+                bottom: Math.max(0, windowHeight - anchor.y + POPUP_GAP),
+            }
+            : {
+                left: '50%' as const,
+                width: fallbackWidth,
+                bottom: 96,
+                transform: [{ translateX: -fallbackWidth / 2 }],
+            };
         return (
             <RNModal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
                 <Pressable
@@ -427,13 +470,8 @@ export const MemoryPickerSheet = React.memo(React.forwardRef<MemoryPickerHandle,
                         onPress={(e) => e.stopPropagation?.()}
                         style={{
                             position: 'absolute',
-                            // Hover above the bottom toolbar area where the memory
-                            // button lives. 96px clear of the bottom keeps the card
-                            // away from the input row.
-                            bottom: 96,
-                            left: '50%',
-                            transform: [{ translateX: -popupWidth / 2 }],
-                            width: popupWidth,
+                            ...positionStyle,
+                            minHeight: POPUP_MIN_HEIGHT,
                             maxHeight: '60%',
                             backgroundColor: theme.colors.surface,
                             borderRadius: 14,
