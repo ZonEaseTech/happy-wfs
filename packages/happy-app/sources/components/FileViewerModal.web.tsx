@@ -246,8 +246,12 @@ export function FileViewerModal({
 
     return (
         <View
+            // @ts-ignore — RN web accepts CSS `position: fixed`. fixed (not absolute)
+            // is critical: when FilesScreen runs in embedded mode inside the RightPanel,
+            // the panel becomes the nearest positioned ancestor and `absolute` would
+            // clip the modal to the panel's bounds. `fixed` anchors to the viewport.
             style={{
-                position: 'absolute',
+                position: 'fixed' as any,
                 top: 0, left: 0, right: 0, bottom: 0,
                 zIndex: 1000,
                 justifyContent: 'center',

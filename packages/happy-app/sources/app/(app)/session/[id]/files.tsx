@@ -410,10 +410,11 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             ? `${repoBaseCwd}/${file.fullPath}`
             : file.fullPath;
         // PC: open the bt-style FileViewerModal in place instead of routing to a
-        // dedicated screen. Only when wide (≥768) AND not embedded — the right
-        // panel is always narrow + already inside another modal, so keep the
-        // route push there.
-        if (isWeb && width >= 768 && !embedded) {
+        // dedicated screen. Triggers in BOTH the full-screen files route AND when
+        // FilesScreen is embedded inside the RightPanel — the modal uses fixed
+        // positioning to escape any container's stacking context, so the right
+        // panel is not a constraint.
+        if (isWeb && width >= 768) {
             setViewerPath(absolutePath);
             setShowViewer(true);
             return;
