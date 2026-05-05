@@ -410,8 +410,17 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         }
     }, [router, sessionId, repoBaseCwd]);
 
+    // Compact density when rendered inside the right panel — list rows, fonts
+    // and icons all shrink so a long change list fits without big gaps.
+    const compact = !!embedded;
+    const compactItemProps = compact ? {
+        pressableStyle: { paddingVertical: 6 } as const,
+        titleStyle: { fontSize: 13 } as const,
+        subtitleStyle: { fontSize: 11 } as const,
+    } : {};
+
     const renderFileIcon = (file: GitFileStatus) => {
-        return <FileIcon fileName={file.fileName} size={32} />;
+        return <FileIcon fileName={file.fileName} size={compact ? 20 : 32} />;
     };
 
     const renderStatusIcon = (file: GitFileStatus) => {
@@ -537,7 +546,9 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                         onLongPress={() => handleLongPress(node.file, isStaged)}
                         showChevron={true}
                         showDivider
-                        pressableStyle={{ paddingLeft: 16 + depth * 16 }}
+                        titleStyle={compact ? { fontSize: 13 } : undefined}
+                        subtitleStyle={compact ? { fontSize: 11 } : undefined}
+                        pressableStyle={{ paddingLeft: 16 + depth * 16, ...(compact ? { paddingVertical: 6 } : {}) }}
                     />,
                 );
             }
@@ -546,11 +557,11 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     };
 
     const renderFileIconForSearch = (file: FileItem) => {
+        const sz = compact ? 20 : 29;
         if (file.fileType === 'folder') {
-            return <Octicons name="file-directory" size={29} color="#007AFF" />;
+            return <Octicons name="file-directory" size={sz} color="#007AFF" />;
         }
-
-        return <FileIcon fileName={file.fileName} size={29} />;
+        return <FileIcon fileName={file.fileName} size={sz} />;
     };
 
     // Project a compact search input into the RightPanel header (embedded mode).
@@ -905,6 +916,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                     icon={renderFileIconForSearch(file)}
                                     onPress={() => handleFilePress(file)}
                                     showDivider={index < searchResults.length - 1}
+                                    {...compactItemProps}
                                 />
                             ))}
                         </>
@@ -994,6 +1006,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                             onLongPress={() => handleLongPress(file, true)}
                                             showChevron={true}
                                             showDivider={index < gitStatusFiles.stagedFiles.length - 1 || gitStatusFiles.unstagedFiles.length > 0}
+                                            {...compactItemProps}
                                         />
                                     ))
                                 }
@@ -1046,6 +1059,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                             onLongPress={() => handleLongPress(file, false)}
                                             showChevron={true}
                                             showDivider={index < gitStatusFiles.unstagedFiles.length - 1}
+                                            {...compactItemProps}
                                         />
                                     ))
                                 }
