@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native';
+import { createPortal } from 'react-dom';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { Text } from '@/components/StyledText';
@@ -244,14 +245,17 @@ export function FileViewerModal({
 
     if (!visible) return null;
 
-    return (
+    // Render through a React portal anchored on document.body. Without the
+    // portal, even with position:fixed + zIndex:99999, the modal stays trapped
+    // inside whatever ancestor stacking context the React-Navigation drawer /
+    // Sidebar / RightPanel established (any `transform`, `filter`, `will-change`
+    // on an ancestor pins fixed elements to that container, not the viewport).
+    // The portal physically detaches the DOM subtree so it can truly cover the
+    // whole viewport including the Sidebar.
+    return createPortal(
         <View
-            // @ts-ignore — RN web accepts CSS `position: fixed`. fixed (not absolute)
-            // is critical: when FilesScreen runs in embedded mode inside the RightPanel,
-            // the panel becomes the nearest positioned ancestor and `absolute` would
-            // clip the modal to the panel's bounds. `fixed` anchors to the viewport.
-            // zIndex 99999 escapes the Sidebar / drawer / Toast (9999) — this is meant
-            // to be the topmost overlay in the app while open.
+            // @ts-ignore — RN web accepts CSS `position: fixed`. With the portal
+            // above, the body is the parent so fixed = viewport-anchored.
             style={{
                 position: 'fixed' as any,
                 top: 0, left: 0, right: 0, bottom: 0,
@@ -459,7 +463,8 @@ export function FileViewerModal({
                     </Pressable>
                 </View>
             </View>
-        </View>
+        </View>,
+        document.body,
     );
 }
 
