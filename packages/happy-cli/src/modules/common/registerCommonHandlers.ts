@@ -2,8 +2,7 @@ import { logger } from '@/ui/logger';
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
 import { readFile, writeFile, readdir, stat } from 'fs/promises';
-import { createHash } from 'crypto';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { run as runRipgrep } from '@/modules/ripgrep/index';
 import { run as runDifftastic } from '@/modules/difftastic/index';
 import { RpcHandlerManager } from '../../api/rpc/RpcHandlerManager';
@@ -40,29 +39,30 @@ interface ReadFileResponse {
 interface WriteFileRequest {
     path: string;
     content: string; // base64 encoded
-    expectedHash?: string | null; // null for new files, hash for existing files
 }
 
 interface WriteFileResponse {
     success: boolean;
-    hash?: string; // hash of written file
     error?: string;
+    bytesWritten?: number;
 }
 
-interface ListDirectoryRequest {
+interface ListDirRequest {
     path: string;
+    hideSystem?: boolean;
 }
 
-interface DirectoryEntry {
+interface DirEntry {
     name: string;
-    type: 'file' | 'directory' | 'other';
+    path: string;
+    type: 'file' | 'dir';
     size?: number;
-    modified?: number; // timestamp
+    mtime?: number;
 }
 
-interface ListDirectoryResponse {
+interface ListDirResponse {
     success: boolean;
-    entries?: DirectoryEntry[];
+    entries?: DirEntry[];
     error?: string;
 }
 
@@ -293,124 +293,80 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         }
     });
 
-    // Write file handler - with hash verification
+    // Write file handler - A3 policy: read-anywhere / write-with-deny-list
     rpcHandlerManager.registerHandler<WriteFileRequest, WriteFileResponse>('writeFile', async (data) => {
         logger.debug('Write file request:', data.path);
 
-        // Validate path is within working directory
+        const absPath = resolve(workingDirectory, data.path);
+
         const validation = validatePath(data.path, workingDirectory);
         if (!validation.valid) {
+            logger.debug('[writeFile] path=%s ok=%s reason=%s', absPath, false, validation.error);
             return { success: false, error: validation.error };
         }
 
+        if (!isWritableForSession(absPath)) {
+            logger.debug('[writeFile] path=%s ok=%s reason=%s', absPath, false, 'system path is read-only');
+            return { success: false, error: `Path '${absPath}' is on the system write deny-list` };
+        }
+
         try {
-            // If expectedHash is provided (not null), verify existing file
-            if (data.expectedHash !== null && data.expectedHash !== undefined) {
-                try {
-                    const existingBuffer = await readFile(data.path);
-                    const existingHash = createHash('sha256').update(existingBuffer).digest('hex');
-
-                    if (existingHash !== data.expectedHash) {
-                        return {
-                            success: false,
-                            error: `File hash mismatch. Expected: ${data.expectedHash}, Actual: ${existingHash}`
-                        };
-                    }
-                } catch (error) {
-                    const nodeError = error as NodeJS.ErrnoException;
-                    if (nodeError.code !== 'ENOENT') {
-                        throw error;
-                    }
-                    // File doesn't exist but hash was provided
-                    return {
-                        success: false,
-                        error: 'File does not exist but hash was provided'
-                    };
-                }
-            } else {
-                // expectedHash is null - expecting new file
-                try {
-                    await stat(data.path);
-                    // File exists but we expected it to be new
-                    return {
-                        success: false,
-                        error: 'File already exists but was expected to be new'
-                    };
-                } catch (error) {
-                    const nodeError = error as NodeJS.ErrnoException;
-                    if (nodeError.code !== 'ENOENT') {
-                        throw error;
-                    }
-                    // File doesn't exist - this is expected
-                }
-            }
-
-            // Write the file
-            const buffer = Buffer.from(data.content, 'base64');
-            await writeFile(data.path, buffer);
-
-            // Calculate and return hash of written file
-            const hash = createHash('sha256').update(buffer).digest('hex');
-
-            return { success: true, hash };
+            const buf = Buffer.from(data.content, 'base64');
+            await writeFile(absPath, buf);
+            logger.debug('[writeFile] path=%s bytes=%d ok=%s', absPath, buf.length, true);
+            return { success: true, bytesWritten: buf.length };
         } catch (error) {
-            logger.debug('Failed to write file:', error);
-            return { success: false, error: error instanceof Error ? error.message : 'Failed to write file' };
+            const message = error instanceof Error ? error.message : 'Failed to write file';
+            logger.debug('[writeFile] path=%s ok=%s reason=%s', absPath, false, message);
+            return { success: false, error: message };
         }
     });
 
-    // List directory handler
-    rpcHandlerManager.registerHandler<ListDirectoryRequest, ListDirectoryResponse>('listDirectory', async (data) => {
+    // List directory handler - one-level listing with optional system-noise filter
+    rpcHandlerManager.registerHandler<ListDirRequest, ListDirResponse>('listDirectory', async (data) => {
         logger.debug('List directory request:', data.path);
 
-        // Validate path is within working directory
+        const absPath = resolve(workingDirectory, data.path);
+
         const validation = validatePath(data.path, workingDirectory);
         if (!validation.valid) {
             return { success: false, error: validation.error };
         }
 
+        const hideSystem = data.hideSystem !== false;
+
         try {
-            const entries = await readdir(data.path, { withFileTypes: true });
+            const rawEntries = await readdir(absPath, { withFileTypes: true });
+            const visible = hideSystem
+                ? rawEntries.filter((e) => !isSystemNoise(e.name))
+                : rawEntries;
 
-            const directoryEntries: DirectoryEntry[] = await Promise.all(
-                entries.map(async (entry) => {
-                    const fullPath = join(data.path, entry.name);
-                    let type: 'file' | 'directory' | 'other' = 'other';
+            const entries: DirEntry[] = await Promise.all(
+                visible.map(async (entry) => {
+                    const fullPath = join(absPath, entry.name);
+                    const type: 'file' | 'dir' = entry.isDirectory() ? 'dir' : 'file';
                     let size: number | undefined;
-                    let modified: number | undefined;
-
-                    if (entry.isDirectory()) {
-                        type = 'directory';
-                    } else if (entry.isFile()) {
-                        type = 'file';
-                    }
+                    let mtime: number | undefined;
 
                     try {
                         const stats = await stat(fullPath);
                         size = stats.size;
-                        modified = stats.mtime.getTime();
+                        mtime = stats.mtime.getTime();
                     } catch (error) {
-                        // Ignore stat errors for individual files
                         logger.debug(`Failed to stat ${fullPath}:`, error);
                     }
 
-                    return {
-                        name: entry.name,
-                        type,
-                        size,
-                        modified
-                    };
+                    return { name: entry.name, path: fullPath, type, size, mtime };
                 })
             );
 
-            // Sort entries: directories first, then files, alphabetically
-            directoryEntries.sort((a, b) => {
-                if (a.type === 'directory' && b.type !== 'directory') return -1;
-                if (a.type !== 'directory' && b.type === 'directory') return 1;
+            entries.sort((a, b) => {
+                if (a.type === 'dir' && b.type !== 'dir') return -1;
+                if (a.type !== 'dir' && b.type === 'dir') return 1;
                 return a.name.localeCompare(b.name);
             });
 
-            return { success: true, entries: directoryEntries };
+            return { success: true, entries };
         } catch (error) {
             logger.debug('Failed to list directory:', error);
             return { success: false, error: error instanceof Error ? error.message : 'Failed to list directory' };
@@ -602,4 +558,42 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             };
         });
     }
+}
+
+// A3 path policy: read anywhere, but block writes to OS-managed system paths.
+// macOS-specific roots like /System and /Library are intentionally NOT included
+// here — sessions on Mac dev boxes legitimately edit user files under those
+// trees via symlinks; the deny list targets only the Linux/POSIX system roots
+// that should never be written from a session.
+const SYSTEM_WRITE_DENY = [
+    /^\/etc\//,
+    /^\/usr\//,
+    /^\/sbin\//,
+    /^\/bin\//,
+    /^\/sys\//,
+    /^\/proc\//,
+    /^\/dev\//,
+    /^\/boot\//,
+    /^\/var\/log\//,
+    /\/\.docker\/config\.json$/,
+];
+
+export function isWritableForSession(absPath: string): boolean {
+    return !SYSTEM_WRITE_DENY.some((re) => re.test(absPath));
+}
+
+const SYSTEM_NOISE_NAMES = new Set([
+    '.git',
+    'node_modules',
+    'dist',
+    'build',
+    '.cache',
+    '.DS_Store',
+    '.next',
+    '.expo',
+]);
+
+function isSystemNoise(name: string): boolean {
+    if (SYSTEM_NOISE_NAMES.has(name)) return true;
+    return name.endsWith('.lock');
 }
