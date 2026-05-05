@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Platform, Pressable, ScrollView, TextInput } from 'react-native';
+import { View, ActivityIndicator, Platform, Pressable, ScrollView, TextInput, useWindowDimensions } from 'react-native';
 import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ import { FileIcon } from '@/components/FileIcon';
 import { t } from '@/text';
 import { loadBrowserLastPath, saveBrowserLastPath } from '@/sync/persistence';
 import FileScreen from '@/app/(app)/session/[id]/file';
+import { FileViewerModal } from '@/components/FileViewerModal';
 
 interface DirectoryEntry {
     name: string;
@@ -68,6 +69,12 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
     // Embedded mode (right panel): swap content to FileScreen in-place
     // when a file is tapped, instead of pushing the full /file route.
     const [selectedFilePath, setSelectedFilePath] = React.useState<string | null>(null);
+    // PC bt-style modal: opens for any wide-Web viewport regardless of embedded.
+    // Takes precedence over both selectedFilePath swap and router.push.
+    const [showViewer, setShowViewer] = React.useState(false);
+    const [viewerPath, setViewerPath] = React.useState<string>('');
+    const { width } = useWindowDimensions();
+    const isWeb = Platform.OS === 'web';
     // Multi-select / compress-download state. selectedNames are entry names
     // within `currentPath`; reset when navigating directories or exiting mode.
     const [selectMode, setSelectMode] = React.useState(false);
@@ -189,6 +196,13 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
         if (entry.type === 'dir') {
             navigateTo(fullPath);
         } else {
+            // PC: open the bt-style FileViewerModal regardless of embedded.
+            // Mobile / narrow web: keep the existing in-panel or full-route flow.
+            if (isWeb && width >= 768) {
+                setViewerPath(fullPath);
+                setShowViewer(true);
+                return;
+            }
             const encodedPath = btoa(
                 new TextEncoder().encode(fullPath).reduce((s, b) => s + String.fromCharCode(b), '')
             );
@@ -198,7 +212,7 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                 router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}`);
             }
         }
-    }, [currentPath, navigateTo, router, sessionId, embedded, selectMode]);
+    }, [currentPath, navigateTo, router, sessionId, embedded, selectMode, isWeb, width]);
 
     const handleSelectAll = React.useCallback(() => {
         setSelectedNames(new Set(entries.map(e => e.name)));
@@ -310,6 +324,11 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
 
     const handleSearchResultPress = React.useCallback((result: SearchResult) => {
         const fullPath = `${rootPath}/${result.relativePath}`;
+        if (isWeb && width >= 768) {
+            setViewerPath(fullPath);
+            setShowViewer(true);
+            return;
+        }
         const encodedPath = btoa(
             new TextEncoder().encode(fullPath).reduce((s, b) => s + String.fromCharCode(b), '')
         );
@@ -318,7 +337,7 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
         } else {
             router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}`);
         }
-    }, [rootPath, router, sessionId, embedded]);
+    }, [rootPath, router, sessionId, embedded, isWeb, width]);
 
     const handleNavigateUp = React.useCallback(() => {
         if (currentPath === rootPath) return;
@@ -703,6 +722,13 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                     </Pressable>
                 </View>
             )}
+            <FileViewerModal
+                visible={showViewer}
+                onClose={() => setShowViewer(false)}
+                sessionId={sessionId}
+                initialFilePath={viewerPath}
+                initialCwd={rootPath}
+            />
         </View>
     );
 }
