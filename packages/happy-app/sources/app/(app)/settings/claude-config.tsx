@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { View, Platform, useWindowDimensions } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useDesktopRoute } from '@/components/desktopRoutes';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useAllMachines } from '@/sync/storage';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { Modal } from '@/modal';
 import { t } from '@/text';
+import { FileViewerModal } from '@/components/FileViewerModal';
 
 /**
  * Entry page for editing user-level Claude config files on a machine.
@@ -26,6 +27,30 @@ export default function ClaudeConfigScreen() {
     const { theme } = useUnistyles();
     const router = useRouter();
     const allMachines = useAllMachines();
+    const { width } = useWindowDimensions();
+    // PC mode = desktop web. Mobile / native still navigates to the dedicated
+    // /settings/machine-edit route so it gets the platform-native editor UX.
+    const isPC = Platform.OS === 'web' && width >= 768;
+
+    const [showViewer, setShowViewer] = React.useState(false);
+    // When `viewerPath` points to a file -> opens that file. When it points
+    // to a directory (e.g. ~/.claude for "Browse"), `viewerCwd` carries the
+    // root and `viewerPath` stays undefined so the modal shows tree-only.
+    const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
+    const [viewerCwd, setViewerCwd] = React.useState<string | undefined>(undefined);
+
+    const openInModal = React.useCallback((path: string, asDirectory = false) => {
+        if (asDirectory) {
+            setViewerPath(undefined);
+            setViewerCwd(path);
+        } else {
+            setViewerPath(path);
+            // Anchor the tree at the file's parent for context.
+            const parent = path.substring(0, path.lastIndexOf('/')) || path;
+            setViewerCwd(parent);
+        }
+        setShowViewer(true);
+    }, []);
 
     const onlineMachine = React.useMemo(() => {
         return allMachines.find(isMachineOnline) ?? allMachines[0];
@@ -51,34 +76,38 @@ export default function ClaudeConfigScreen() {
     const handleEditSettings = React.useCallback(() => {
         requireOnline(() => {
             const path = `${homeDir}/.claude/settings.json`;
+            if (isPC) { openInModal(path); return; }
             const encodedPath = encodeURIComponent(path);
             router.push(`/settings/machine-edit?machineId=${machineId}&path=${encodedPath}&language=JSON&validateJson=1`);
         });
-    }, [requireOnline, router, machineId, homeDir]);
+    }, [requireOnline, router, machineId, homeDir, isPC, openInModal]);
 
     const handleEditClaudeMd = React.useCallback(() => {
         requireOnline(() => {
             const path = `${homeDir}/.claude/CLAUDE.md`;
+            if (isPC) { openInModal(path); return; }
             const encodedPath = encodeURIComponent(path);
             router.push(`/settings/machine-edit?machineId=${machineId}&path=${encodedPath}&language=Markdown`);
         });
-    }, [requireOnline, router, machineId, homeDir]);
+    }, [requireOnline, router, machineId, homeDir, isPC, openInModal]);
 
     const handleEditAgentsMd = React.useCallback(() => {
         requireOnline(() => {
             const path = `${homeDir}/.claude/AGENTS.md`;
+            if (isPC) { openInModal(path); return; }
             const encodedPath = encodeURIComponent(path);
             router.push(`/settings/machine-edit?machineId=${machineId}&path=${encodedPath}&language=Markdown`);
         });
-    }, [requireOnline, router, machineId, homeDir]);
+    }, [requireOnline, router, machineId, homeDir, isPC, openInModal]);
 
     const handleBrowse = React.useCallback(() => {
         requireOnline(() => {
             const path = `${homeDir}/.claude`;
+            if (isPC) { openInModal(path, true); return; }
             const encodedPath = encodeURIComponent(path);
             router.push(`/settings/machine-browser?machineId=${machineId}&path=${encodedPath}`);
         });
-    }, [requireOnline, router, machineId, homeDir]);
+    }, [requireOnline, router, machineId, homeDir, isPC, openInModal]);
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
@@ -116,6 +145,15 @@ export default function ClaudeConfigScreen() {
                     />
                 </ItemGroup>
             </ItemList>
+            {machineId && (
+                <FileViewerModal
+                    visible={showViewer}
+                    onClose={() => setShowViewer(false)}
+                    machineId={machineId}
+                    initialFilePath={viewerPath}
+                    initialCwd={viewerCwd}
+                />
+            )}
         </View>
     );
 }

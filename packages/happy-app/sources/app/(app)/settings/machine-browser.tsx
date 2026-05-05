@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Platform, Pressable, ScrollView } from 'react-native';
+import { View, ActivityIndicator, Platform, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
@@ -12,6 +12,7 @@ import { layout } from '@/components/layout';
 import { FileIcon } from '@/components/FileIcon';
 import { Modal } from '@/modal';
 import { t } from '@/text';
+import { FileViewerModal } from '@/components/FileViewerModal';
 
 interface DirectoryEntry {
     name: string;
@@ -45,6 +46,11 @@ export default function MachineBrowserScreen() {
     const [entries, setEntries] = React.useState<DirectoryEntry[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+
+    const { width } = useWindowDimensions();
+    const isPC = Platform.OS === 'web' && width >= 768;
+    const [showViewer, setShowViewer] = React.useState(false);
+    const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
 
     const loadDirectory = React.useCallback(async (path: string, silent?: boolean) => {
         if (!silent) setIsLoading(true);
@@ -81,13 +87,18 @@ export default function MachineBrowserScreen() {
             return;
         }
         if (entry.type === 'file') {
+            if (isPC) {
+                setViewerPath(fullPath);
+                setShowViewer(true);
+                return;
+            }
             const encodedPath = encodeURIComponent(fullPath);
             const language = fullPath.toLowerCase().endsWith('.json') ? 'JSON' : (fullPath.toLowerCase().endsWith('.md') ? 'Markdown' : '');
             const validateJson = fullPath.toLowerCase().endsWith('.json') ? '&validateJson=1' : '';
             const langParam = language ? `&language=${language}` : '';
             router.push(`/settings/machine-edit?machineId=${machineId}&path=${encodedPath}${langParam}${validateJson}`);
         }
-    }, [currentPath, loadDirectory, router, machineId]);
+    }, [currentPath, loadDirectory, router, machineId, isPC]);
 
     const handleNavigateUp = React.useCallback(() => {
         if (currentPath === rootPath) return;
@@ -119,12 +130,17 @@ export default function MachineBrowserScreen() {
                 return;
             }
             void loadDirectory(currentPath, true);
+            if (isPC) {
+                setViewerPath(fullPath);
+                setShowViewer(true);
+                return;
+            }
             const encodedPath = encodeURIComponent(fullPath);
             router.push(`/settings/machine-edit?machineId=${machineId}&path=${encodedPath}`);
         } catch (err) {
             Modal.alert(t('common.error'), err instanceof Error ? err.message : t('browser.newFileFailed'));
         }
-    }, [currentPath, machineId, router, loadDirectory]);
+    }, [currentPath, machineId, router, loadDirectory, isPC]);
 
     const breadcrumbs = React.useMemo(() => {
         if (!rootPath || !currentPath.startsWith(rootPath)) return [];
@@ -231,6 +247,15 @@ export default function MachineBrowserScreen() {
                         </View>
                     )}
                 </ItemList>
+            )}
+            {machineId && (
+                <FileViewerModal
+                    visible={showViewer}
+                    onClose={() => setShowViewer(false)}
+                    machineId={machineId}
+                    initialFilePath={viewerPath}
+                    initialCwd={currentPath || rootPath}
+                />
             )}
         </View>
     );

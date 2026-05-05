@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { View, ActivityIndicator, Platform, Pressable, useWindowDimensions } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +20,7 @@ import { ActionMenuItem } from '@/components/ActionMenu';
 import { t } from '@/text';
 import { shellEscape } from '@/utils/shellEscape';
 import { DesktopModalShell } from '@/components/DesktopModalShell';
+import { FileViewerModal } from '@/components/FileViewerModal';
 
 export default function StatusScreen() {
     const route = useRoute();
@@ -44,6 +45,11 @@ export default function StatusScreen() {
     const [gitStatus, setGitStatus] = React.useState<GitStatusFiles | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isOperating, setIsOperating] = React.useState(false);
+
+    const { width } = useWindowDimensions();
+    const isPC = Platform.OS === 'web' && width >= 768;
+    const [showViewer, setShowViewer] = React.useState(false);
+    const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
 
     const loadStatus = React.useCallback(async (silent?: boolean) => {
         if (!silent) setIsLoading(true);
@@ -208,12 +214,21 @@ export default function StatusScreen() {
 
     // Navigate to file diff viewer
     const handleFilePress = React.useCallback((file: GitFileStatus, staged?: boolean) => {
+        // PC: open the bt-style FileViewerModal. MVP limitation: the modal
+        // shows the *working tree* version of the file — it does NOT render
+        // staged-vs-HEAD diff. Staged-only diffing still requires the
+        // /session/[id]/file?staged=1 route. Tracked as follow-up.
+        if (isPC) {
+            setViewerPath(file.fullPath);
+            setShowViewer(true);
+            return;
+        }
         const encodedPath = btoa(
             new TextEncoder().encode(file.fullPath).reduce((s, b) => s + String.fromCharCode(b), '')
         );
         const stagedParam = staged ? '&staged=1' : '';
         router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}${stagedParam}`);
-    }, [router, sessionId]);
+    }, [router, sessionId, isPC]);
 
     // Long press menu
     const [menuVisible, setMenuVisible] = React.useState(false);
@@ -463,6 +478,13 @@ export default function StatusScreen() {
                 )}
             </ItemList>
             <ActionMenuModal visible={menuVisible} items={menuItems} onClose={() => setMenuVisible(false)} />
+            <FileViewerModal
+                visible={showViewer}
+                onClose={() => setShowViewer(false)}
+                sessionId={sessionId}
+                initialFilePath={viewerPath}
+                initialCwd={targetRepoPath}
+            />
         </View>
         </DesktopModalShell>
     );

@@ -577,6 +577,76 @@ export async function machineListDirectory(
 }
 
 /**
+ * Rename / move a path at machine scope. happy-cli registers the same
+ * 'rename' RPC for machine clients; the only difference vs sessionRename is
+ * the validatePath root (HAPPY_DAEMON_ROOT vs session.metadata.path).
+ */
+export async function machineRename(
+    machineId: string,
+    from: string,
+    to: string,
+): Promise<SessionRenameResponse> {
+    try {
+        const response = await apiSocket.machineRPC<SessionRenameResponse, SessionRenameRequest>(
+            machineId,
+            'rename',
+            { from, to },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function machineDeleteFile(
+    machineId: string,
+    path: string,
+): Promise<SessionDeleteFileResponse> {
+    try {
+        const response = await apiSocket.machineRPC<SessionDeleteFileResponse, SessionDeleteFileRequest>(
+            machineId,
+            'deleteFile',
+            { path },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function machineDeleteDirectory(
+    machineId: string,
+    path: string,
+): Promise<SessionDeleteDirectoryResponse> {
+    try {
+        const response = await apiSocket.machineRPC<SessionDeleteDirectoryResponse, SessionDeleteDirectoryRequest>(
+            machineId,
+            'deleteDirectory',
+            { path },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function machineCreateDirectory(
+    machineId: string,
+    path: string,
+): Promise<SessionCreateDirectoryResponse> {
+    try {
+        const response = await apiSocket.machineRPC<SessionCreateDirectoryResponse, SessionCreateDirectoryRequest>(
+            machineId,
+            'createDirectory',
+            { path },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+/**
  * Update machine metadata with optimistic concurrency control and automatic retry
  */
 export async function machineUpdateMetadata(

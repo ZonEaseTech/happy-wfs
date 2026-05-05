@@ -4,7 +4,8 @@
 export interface FileViewerModalProps {
     visible: boolean;
     onClose: () => void;
-    sessionId: string;
+    sessionId?: string;
+    machineId?: string;
     initialFilePath?: string;
     initialCwd?: string;
 }

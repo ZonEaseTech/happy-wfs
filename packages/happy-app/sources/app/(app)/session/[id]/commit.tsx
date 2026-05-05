@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import { View, ActivityIndicator, Pressable, ScrollView, useWindowDimensions, Platform } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,7 @@ import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
 import { shellEscape } from '@/utils/shellEscape';
 import { DesktopModalShell } from '@/components/DesktopModalShell';
+import { FileViewerModal } from '@/components/FileViewerModal';
 
 const SPLIT_BREAKPOINT = 900;
 const LEFT_PANEL_WIDTH = 380;
@@ -352,6 +353,9 @@ export default function CommitScreen() {
     const [error, setError] = React.useState<string | null>(null);
     const [selectedFilePath, setSelectedFilePath] = React.useState<string | null>(null);
     const [collapsedDirs, setCollapsedDirs] = React.useState<Set<string>>(() => new Set());
+    const isPC = Platform.OS === 'web' && windowWidth >= 768;
+    const [showViewer, setShowViewer] = React.useState(false);
+    const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -420,14 +424,23 @@ export default function CommitScreen() {
     const handleFileSelect = React.useCallback((file: CommitFile) => {
         if (isSplit) {
             setSelectedFilePath(file.filePath);
-        } else {
-            const fullPath = `${repoCwd}/${file.filePath}`;
-            const encodedPath = btoa(
-                new TextEncoder().encode(fullPath).reduce((s, b) => s + String.fromCharCode(b), '')
-            );
-            router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}&ref=${hash}`);
+            return;
         }
-    }, [isSplit, router, sessionId, repoCwd, hash]);
+        const fullPath = `${repoCwd}/${file.filePath}`;
+        // PC: open the bt-style FileViewerModal. MVP limitation: the modal
+        // shows the *current head* of the file, not the historical version
+        // at this commit's `ref` — historical browsing still requires the
+        // /session/[id]/file route. Tracked as follow-up.
+        if (isPC) {
+            setViewerPath(fullPath);
+            setShowViewer(true);
+            return;
+        }
+        const encodedPath = btoa(
+            new TextEncoder().encode(fullPath).reduce((s, b) => s + String.fromCharCode(b), '')
+        );
+        router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}&ref=${hash}`);
+    }, [isSplit, router, sessionId, repoCwd, hash, isPC]);
 
     const selectedFile = React.useMemo(() => {
         if (!selectedFilePath) return null;
@@ -615,6 +628,13 @@ export default function CommitScreen() {
                     </View>
                 )}
             </View>
+            <FileViewerModal
+                visible={showViewer}
+                onClose={() => setShowViewer(false)}
+                sessionId={sessionId}
+                initialFilePath={viewerPath}
+                initialCwd={repoCwd}
+            />
         </View>
         </DesktopModalShell>
     );

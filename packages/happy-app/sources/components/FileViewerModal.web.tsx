@@ -15,6 +15,14 @@ import {
     sessionDeleteDirectory,
     sessionCreateFile,
     sessionCreateDirectory,
+    sessionListDirectory,
+    machineReadFile,
+    machineWriteFile,
+    machineRename,
+    machineDeleteFile,
+    machineDeleteDirectory,
+    machineCreateDirectory,
+    machineListDirectory,
 } from '@/sync/ops';
 import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
 import { getSession } from '@/sync/storage';
@@ -28,7 +36,14 @@ const tx = t as unknown as (key: string, ...args: any[]) => string;
 export interface FileViewerModalProps {
     visible: boolean;
     onClose: () => void;
-    sessionId: string;
+    /**
+     * Provide either sessionId OR machineId. If both are passed, sessionId
+     * wins and the modal operates in session mode. Machine mode reaches
+     * paths under HAPPY_DAEMON_ROOT (e.g. ~/.claude/...) without needing
+     * an active session.
+     */
+    sessionId?: string;
+    machineId?: string;
     initialFilePath?: string;
     initialCwd?: string;
 }
@@ -126,13 +141,49 @@ export function FileViewerModal({
     visible,
     onClose,
     sessionId,
+    machineId,
     initialFilePath,
     initialCwd,
 }: FileViewerModalProps) {
     const { theme } = useUnistyles();
-    const session = getSession(sessionId);
+    // sessionId wins if both are provided; machine mode is the fallback.
+    const isMachineMode = !sessionId && !!machineId;
+    const session = sessionId ? getSession(sessionId) : undefined;
     const baseRoot = initialCwd ?? session?.metadata?.path ?? '';
     const [rootPath, setRootPath] = React.useState<string>(baseRoot);
+
+    // Bind RPCs to the active mode once. Each closure dispatches to the right
+    // implementation; the rest of the component stays mode-agnostic.
+    const readFile = React.useCallback((p: string) => (
+        isMachineMode ? machineReadFile(machineId!, p) : sessionReadFile(sessionId!, p)
+    ), [isMachineMode, machineId, sessionId]);
+    const writeFile = React.useCallback((p: string, content: string) => (
+        isMachineMode ? machineWriteFile(machineId!, p, content) : sessionWriteFile(sessionId!, p, content)
+    ), [isMachineMode, machineId, sessionId]);
+    const renameFn = React.useCallback((from: string, to: string) => (
+        isMachineMode ? machineRename(machineId!, from, to) : sessionRename(sessionId!, from, to)
+    ), [isMachineMode, machineId, sessionId]);
+    const deleteFile = React.useCallback((p: string) => (
+        isMachineMode ? machineDeleteFile(machineId!, p) : sessionDeleteFile(sessionId!, p)
+    ), [isMachineMode, machineId, sessionId]);
+    const deleteDirectory = React.useCallback((p: string) => (
+        isMachineMode ? machineDeleteDirectory(machineId!, p) : sessionDeleteDirectory(sessionId!, p)
+    ), [isMachineMode, machineId, sessionId]);
+    const createFile = React.useCallback((p: string, content?: string) => (
+        // Machine RPC has no explicit createFile; writeFile creates-or-truncates
+        // which is the same MVP semantic the session createFile guarantees here.
+        isMachineMode
+            ? machineWriteFile(machineId!, p, content ?? '')
+            : sessionCreateFile(sessionId!, p, content)
+    ), [isMachineMode, machineId, sessionId]);
+    const createDirectory = React.useCallback((p: string) => (
+        isMachineMode ? machineCreateDirectory(machineId!, p) : sessionCreateDirectory(sessionId!, p)
+    ), [isMachineMode, machineId, sessionId]);
+    const listDirectoryFn = React.useCallback((p: string) => (
+        isMachineMode ? machineListDirectory(machineId!, p) : sessionListDirectory(sessionId!, p)
+    ), [isMachineMode, machineId, sessionId]);
+
+    const entityId = (sessionId ?? machineId ?? '');
 
     // When the session/initial cwd changes we want to reset the tree root.
     React.useEffect(() => {
@@ -180,7 +231,7 @@ export function FileViewerModal({
         }
         setLoadingPath(path);
         try {
-            const resp = await sessionReadFile(sessionId, path);
+            const resp = await readFile(path);
             if (!resp.success || !resp.content) {
                 Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
                 return;
@@ -205,7 +256,7 @@ export function FileViewerModal({
         } finally {
             setLoadingPath(null);
         }
-    }, [sessionId]);
+    }, [readFile]);
 
     // Auto-open initialFilePath when modal becomes visible. When the modal is
     // hidden we also reset the entire tab state so reopening doesn't surface stale
@@ -230,7 +281,7 @@ export function FileViewerModal({
         if (!tab) return false;
         setSaving(true);
         try {
-            const resp = await sessionWriteFile(sessionId, tab.path, encodeUtf8Base64(tab.content));
+            const resp = await writeFile(tab.path, encodeUtf8Base64(tab.content));
             if (!resp.success) {
                 Modal.alert(t('common.error'), resp.error || tx('fileViewer.saveFailed'));
                 return false;
@@ -243,7 +294,7 @@ export function FileViewerModal({
         } finally {
             setSaving(false);
         }
-    }, [sessionId]);
+    }, [writeFile]);
 
     const saveAllDirty = React.useCallback(async () => {
         const dirtyTabs = tabsRef.current.filter(t => t.dirty);
@@ -314,7 +365,7 @@ export function FileViewerModal({
                 if (!ok) return;
             }
         }
-        const resp = await sessionReadFile(sessionId, tab.path);
+        const resp = await readFile(tab.path);
         if (!resp.success || !resp.content) {
             Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
             return;
@@ -330,7 +381,7 @@ export function FileViewerModal({
             ? { ...p, content: text, original: text, dirty: false }
             : p,
         ));
-    }, [activeTab, saveTab, sessionId]);
+    }, [activeTab, saveTab, readFile]);
 
     // Esc closes the modal — but we route through requestClose so dirty tabs
     // still get the save/discard prompt.
@@ -355,7 +406,7 @@ export function FileViewerModal({
         ));
     }, [activeTabId]);
 
-    const tree = useDirectoryTree(sessionId, rootPath);
+    const tree = useDirectoryTree(entityId, rootPath, listDirectoryFn);
 
     // --- Tree-toolbar handlers ---
     const goUpOneLevel = React.useCallback(() => {
@@ -379,14 +430,14 @@ export function FileViewerModal({
         if (!trimmed) return;
         const target = joinPath(rootPath, trimmed);
         const resp = kind === 'file'
-            ? await sessionCreateFile(sessionId, target, '')
-            : await sessionCreateDirectory(sessionId, target);
+            ? await createFile(target, '')
+            : await createDirectory(target);
         if (!resp.success) {
             Modal.alert(t('common.error'), resp.error || tx(kind === 'file' ? 'fileViewer.fileExists' : 'fileViewer.dirExists'));
             return;
         }
         await tree.refresh(rootPath);
-    }, [rootPath, sessionId, tree]);
+    }, [rootPath, createFile, createDirectory, tree]);
 
     const handleNewClick = React.useCallback(() => {
         Modal.alert(tx('fileViewer.newItem'), undefined, [
@@ -443,24 +494,24 @@ export function FileViewerModal({
         if (!trimmed || trimmed === entry.name) return;
         const parent = dirname(entry.path);
         const target = joinPath(parent, trimmed);
-        const resp = await sessionRename(sessionId, entry.path, target);
+        const resp = await renameFn(entry.path, target);
         if (!resp.success) {
             Modal.alert(t('common.error'), resp.error || tx('fileViewer.saveFailed'));
             return;
         }
         await tree.refresh(parent);
-    }, [sessionId, tree]);
+    }, [renameFn, tree]);
 
     const handleDownload = React.useCallback(async (entry: { path: string; name: string; type: 'file' | 'dir' }) => {
         setContextMenu(null);
-        const resp = await sessionReadFile(sessionId, entry.path);
+        const resp = await readFile(entry.path);
         if (!resp.success || !resp.content) {
             Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
             return;
         }
         const bytes = decodeBase64Bytes(resp.content);
         downloadBlob(entry.name, bytes);
-    }, [sessionId]);
+    }, [readFile]);
 
     const handleDelete = React.useCallback(async (entry: { path: string; name: string; type: 'file' | 'dir' }) => {
         setContextMenu(null);
@@ -474,8 +525,8 @@ export function FileViewerModal({
         );
         if (!confirmed) return;
         const resp = isDir
-            ? await sessionDeleteDirectory(sessionId, entry.path)
-            : await sessionDeleteFile(sessionId, entry.path);
+            ? await deleteDirectory(entry.path)
+            : await deleteFile(entry.path);
         if (!resp.success) {
             Modal.alert(t('common.error'), resp.error || tx('fileViewer.saveFailed'));
             return;
@@ -483,7 +534,7 @@ export function FileViewerModal({
         // Close any open tabs for files under the deleted path.
         setTabs(prev => prev.filter(t => !(t.path === entry.path || (isDir && t.path.startsWith(entry.path + '/')))));
         await tree.refresh(dirname(entry.path));
-    }, [sessionId, tree]);
+    }, [deleteDirectory, deleteFile, tree]);
 
     if (!visible) return null;
 

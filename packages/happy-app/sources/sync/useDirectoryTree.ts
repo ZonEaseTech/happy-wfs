@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { sessionListDirectory } from './ops';
-import type { DirEntry } from './ops';
+import type { DirEntry, SessionListDirectoryResponse } from './ops';
 
 export interface DirectoryTreeNode {
     entry: DirEntry;
@@ -18,17 +18,39 @@ export interface UseDirectoryTreeResult {
 }
 
 /**
- * Lazy directory-tree state for a session.
+ * Optional listDirectory function — when provided, it replaces the default
+ * session-scoped sessionListDirectory call. Used by FileViewerModal in
+ * machine mode (no session id) to call machineListDirectory instead.
+ */
+export type ListDirectoryFn = (path: string) => Promise<SessionListDirectoryResponse>;
+
+/**
+ * Lazy directory-tree state for a session or machine.
  *
- * Each level is fetched on-demand via sessionListDirectory; results are cached
- * in `entries` keyed by absolute path. The visible `tree` is a recursive
- * projection of the initial path's children, attaching children for any node
- * whose path is in `expanded`.
+ * `entityId` is just used to re-key the effect that loads the initial path
+ * (and as a dependency on the load callback) — it is NOT passed into the RPC
+ * directly, since the listDirectoryFn already closes over the session/machine
+ * id it needs.
+ *
+ * Each level is fetched on-demand; results are cached in `entries` keyed by
+ * absolute path. The visible `tree` is a recursive projection of the initial
+ * path's children, attaching children for any node whose path is in `expanded`.
  */
 export function useDirectoryTree(
-    sessionId: string,
+    entityId: string,
     initialPath: string,
+    listDirectoryFn?: ListDirectoryFn,
 ): UseDirectoryTreeResult {
+    // The listFn closure changes on every parent render (callers don't generally
+    // memoize), so we keep a ref to the latest version. `load` then stays stable
+    // and the load-on-mount effect doesn't refire on every render.
+    const listFnRef = React.useRef<ListDirectoryFn>(
+        listDirectoryFn ?? ((path: string) => sessionListDirectory(entityId, path)),
+    );
+    React.useEffect(() => {
+        listFnRef.current = listDirectoryFn ?? ((path: string) => sessionListDirectory(entityId, path));
+    }, [listDirectoryFn, entityId]);
+
     const [entries, setEntries] = React.useState<Map<string, DirEntry[]>>(() => new Map());
     const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set());
     const [isLoading, setIsLoading] = React.useState<Map<string, boolean>>(() => new Map());
@@ -56,7 +78,7 @@ export function useDirectoryTree(
         setLoading(path, true);
         setError(path, null);
         try {
-            const response = await sessionListDirectory(sessionId, path);
+            const response = await listFnRef.current(path);
             if (response.success && response.entries) {
                 // Normalize entries to be forward-compatible with older happy-cli versions
                 // (npm-installed CLIs in the wild) that return {name, type:'directory'|'file'|
@@ -92,13 +114,13 @@ export function useDirectoryTree(
         } finally {
             setLoading(path, false);
         }
-    }, [sessionId, setLoading, setError]);
+    }, [setLoading, setError]);
 
-    // Always load the root once on mount / when sessionId or initialPath change.
+    // Always load the root once on mount / when entityId or initialPath change.
     React.useEffect(() => {
-        if (!sessionId || !initialPath) return;
+        if (!entityId || !initialPath) return;
         void load(initialPath);
-    }, [sessionId, initialPath, load]);
+    }, [entityId, initialPath, load]);
 
     const expand = React.useCallback(async (path: string) => {
         setExpanded(prev => {
