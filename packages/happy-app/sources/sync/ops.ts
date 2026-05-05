@@ -55,30 +55,31 @@ interface SessionReadFileResponse {
 interface SessionWriteFileRequest {
     path: string;
     content: string; // base64 encoded
-    expectedHash?: string | null;
 }
 
 interface SessionWriteFileResponse {
     success: boolean;
-    hash?: string;
     error?: string;
+    bytesWritten?: number;
 }
 
 // List directory operation types
 interface SessionListDirectoryRequest {
     path: string;
+    hideSystem?: boolean;
 }
 
-interface DirectoryEntry {
+interface DirEntry {
     name: string;
-    type: 'file' | 'directory' | 'other';
+    path: string;
+    type: 'file' | 'dir';
     size?: number;
-    modified?: number;
+    mtime?: number;
 }
 
 interface SessionListDirectoryResponse {
     success: boolean;
-    entries?: DirectoryEntry[];
+    entries?: DirEntry[];
     error?: string;
 }
 
@@ -545,17 +546,12 @@ export async function machineWriteFile(
     machineId: string,
     path: string,
     content: string,
-    expectedHash?: string | null,
-): Promise<{ success: boolean; hash?: string; error?: string }> {
+): Promise<SessionWriteFileResponse> {
     try {
-        const response = await apiSocket.machineRPC<{
-            success: boolean;
-            hash?: string;
-            error?: string;
-        }, { path: string; content: string; expectedHash?: string | null }>(
+        const response = await apiSocket.machineRPC<SessionWriteFileResponse, SessionWriteFileRequest>(
             machineId,
             'writeFile',
-            { path, content, expectedHash },
+            { path, content },
         );
         return response;
     } catch (error) {
@@ -563,17 +559,17 @@ export async function machineWriteFile(
     }
 }
 
-export async function machineListDirectory(machineId: string, path: string): Promise<{
-    success: boolean;
-    entries?: Array<{ name: string; type: 'file' | 'directory' | 'other'; size?: number; modified?: number }>;
-    error?: string;
-}> {
+export async function machineListDirectory(
+    machineId: string,
+    path: string,
+    hideSystem = true,
+): Promise<SessionListDirectoryResponse> {
     try {
-        const response = await apiSocket.machineRPC<{
-            success: boolean;
-            entries?: Array<{ name: string; type: 'file' | 'directory' | 'other'; size?: number; modified?: number }>;
-            error?: string;
-        }, { path: string }>(machineId, 'listDirectory', { path });
+        const response = await apiSocket.machineRPC<SessionListDirectoryResponse, SessionListDirectoryRequest>(
+            machineId,
+            'listDirectory',
+            { path, hideSystem },
+        );
         return response;
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -845,10 +841,9 @@ export async function sessionWriteFile(
     sessionId: string,
     path: string,
     content: string,
-    expectedHash?: string | null
 ): Promise<SessionWriteFileResponse> {
     try {
-        const request: SessionWriteFileRequest = { path, content, expectedHash };
+        const request: SessionWriteFileRequest = { path, content };
         const response = await apiSocket.sessionRPC<SessionWriteFileResponse, SessionWriteFileRequest>(
             sessionId,
             'writeFile',
@@ -866,9 +861,13 @@ export async function sessionWriteFile(
 /**
  * List directory contents in the session
  */
-export async function sessionListDirectory(sessionId: string, path: string): Promise<SessionListDirectoryResponse> {
+export async function sessionListDirectory(
+    sessionId: string,
+    path: string,
+    hideSystem = true,
+): Promise<SessionListDirectoryResponse> {
     try {
-        const request: SessionListDirectoryRequest = { path };
+        const request: SessionListDirectoryRequest = { path, hideSystem };
         const response = await apiSocket.sessionRPC<SessionListDirectoryResponse, SessionListDirectoryRequest>(
             sessionId,
             'listDirectory',
@@ -1348,7 +1347,7 @@ export type {
     SessionReadFileResponse,
     SessionWriteFileResponse,
     SessionListDirectoryResponse,
-    DirectoryEntry,
+    DirEntry,
     SessionGetDirectoryTreeResponse,
     TreeNode,
     SessionRipgrepResponse,

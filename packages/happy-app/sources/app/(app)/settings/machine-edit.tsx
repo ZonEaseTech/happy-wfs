@@ -281,17 +281,11 @@ export default function MachineEditScreen() {
             const bytes = new TextEncoder().encode(content);
             const base64 = btoa(bytes.reduce((s, b) => s + String.fromCharCode(b), ''));
 
-            // empty originalHash means "creating a new file" — daemon expects null, not ""
-            const expectedHash = originalHash === '' ? null : originalHash.toLowerCase();
-            const response = await machineWriteFile(machineId!, filePath, base64, expectedHash);
+            const response = await machineWriteFile(machineId!, filePath, base64);
             if (response.success) {
                 setOriginalContent(content);
-                if (response.hash) {
-                    setOriginalHash(response.hash.toLowerCase());
-                } else {
-                    const savedHashBuffer = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
-                    setOriginalHash(encodeHex(new Uint8Array(savedHashBuffer)).toLowerCase());
-                }
+                const savedHashBuffer = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
+                setOriginalHash(encodeHex(new Uint8Array(savedHashBuffer)).toLowerCase());
                 hapticsLight(); showToast(t('files.saved'));
             } else {
                 Modal.alert(t('common.error'), response.error || t('files.saveFailed'));

@@ -277,15 +277,11 @@ export default function EditScreen(props?: EditScreenProps) {
             const bytes = new TextEncoder().encode(content);
             const base64 = btoa(bytes.reduce((s, b) => s + String.fromCharCode(b), ''));
 
-            const response = await sessionWriteFile(sessionId!, filePath, base64, originalHash.toLowerCase());
+            const response = await sessionWriteFile(sessionId!, filePath, base64);
             if (response.success) {
                 setOriginalContent(content);
-                if (response.hash) {
-                    setOriginalHash(response.hash.toLowerCase());
-                } else {
-                    const savedHashBuffer = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
-                    setOriginalHash(encodeHex(new Uint8Array(savedHashBuffer)).toLowerCase());
-                }
+                const savedHashBuffer = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
+                setOriginalHash(encodeHex(new Uint8Array(savedHashBuffer)).toLowerCase());
                 hapticsLight(); showToast(t('files.saved'));
             } else {
                 Modal.alert(t('common.error'), response.error || t('files.saveFailed'));

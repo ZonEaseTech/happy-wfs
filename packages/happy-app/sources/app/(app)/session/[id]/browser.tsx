@@ -21,9 +21,10 @@ import FileScreen from '@/app/(app)/session/[id]/file';
 
 interface DirectoryEntry {
     name: string;
-    type: 'file' | 'directory' | 'other';
+    path: string;
+    type: 'file' | 'dir';
     size?: number;
-    modified?: number;
+    mtime?: number;
 }
 
 interface SearchResult {
@@ -185,7 +186,7 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
             return;
         }
         const fullPath = `${currentPath}/${entry.name}`;
-        if (entry.type === 'directory') {
+        if (entry.type === 'dir') {
             navigateTo(fullPath);
         } else {
             const encodedPath = btoa(
@@ -548,13 +549,13 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                                 key={entry.name}
                                 title={entry.name}
                                 subtitle={entry.type === 'file' ? formatFileSize(entry.size) : undefined}
-                                icon={entry.type === 'directory'
+                                icon={entry.type === 'dir'
                                     ? <Ionicons name="folder" size={29} color="#007AFF" />
                                     : <FileIcon fileName={entry.name} size={29} />
                                 }
                                 onPress={() => handleEntryPress(entry)}
                                 showDivider={index < filteredEntries.length - 1 || globalResults.length > 0}
-                                showChevron={entry.type === 'directory'}
+                                showChevron={entry.type === 'dir'}
                             />
                         ))}
 
@@ -629,7 +630,7 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                         {/* Directory and file entries */}
                         {entries.map((entry, index) => {
                             const checked = selectedNames.has(entry.name);
-                            const baseIcon = entry.type === 'directory'
+                            const baseIcon = entry.type === 'dir'
                                 ? <Ionicons name="folder" size={29} color="#007AFF" />
                                 : <FileIcon fileName={entry.name} size={29} />;
                             const icon = selectMode ? (
@@ -650,7 +651,7 @@ export default function BrowserScreen(props?: { sessionId?: string; embedded?: b
                                     icon={icon}
                                     onPress={() => handleEntryPress(entry)}
                                     showDivider={index < entries.length - 1}
-                                    showChevron={!selectMode && entry.type === 'directory'}
+                                    showChevron={!selectMode && entry.type === 'dir'}
                                 />
                             );
                         })}

@@ -15,9 +15,10 @@ import { t } from '@/text';
 
 interface DirectoryEntry {
     name: string;
-    type: 'file' | 'directory' | 'other';
+    path: string;
+    type: 'file' | 'dir';
     size?: number;
-    modified?: number;
+    mtime?: number;
 }
 
 function formatFileSize(bytes?: number): string {
@@ -52,7 +53,7 @@ export default function MachineBrowserScreen() {
             const response = await machineListDirectory(machineId, path);
             if (response.success && response.entries) {
                 const sorted = [...response.entries].sort((a, b) => {
-                    if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+                    if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
                     return a.name.localeCompare(b.name);
                 });
                 setEntries(sorted);
@@ -75,7 +76,7 @@ export default function MachineBrowserScreen() {
 
     const handleEntryPress = React.useCallback((entry: DirectoryEntry) => {
         const fullPath = currentPath.endsWith('/') ? `${currentPath}${entry.name}` : `${currentPath}/${entry.name}`;
-        if (entry.type === 'directory') {
+        if (entry.type === 'dir') {
             void loadDirectory(fullPath);
             return;
         }
@@ -112,7 +113,7 @@ export default function MachineBrowserScreen() {
         }
         const fullPath = currentPath.endsWith('/') ? `${currentPath}${trimmed}` : `${currentPath}/${trimmed}`;
         try {
-            const response = await machineWriteFile(machineId, fullPath, '', null);
+            const response = await machineWriteFile(machineId, fullPath, '');
             if (!response.success) {
                 Modal.alert(t('common.error'), response.error ?? t('browser.newFileFailed'));
                 return;
@@ -215,11 +216,11 @@ export default function MachineBrowserScreen() {
                             key={entry.name}
                             title={entry.name}
                             subtitle={entry.type === 'file' ? formatFileSize(entry.size) : undefined}
-                            icon={entry.type === 'directory'
+                            icon={entry.type === 'dir'
                                 ? <Ionicons name="folder" size={28} color="#1F8FFF" />
                                 : <FileIcon fileName={entry.name} size={28} />}
                             onPress={() => handleEntryPress(entry)}
-                            showChevron={entry.type === 'directory'}
+                            showChevron={entry.type === 'dir'}
                         />
                     ))}
                     {entries.length === 0 && currentPath === rootPath && (
