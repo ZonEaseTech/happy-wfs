@@ -33,9 +33,10 @@ function getMaxLayoutWidth(): number {
     if (isRunningOnMac()) {
         return 1400;
     }
-    
-    // For tablets and web, use 700px
-    return 800;
+
+    // For tablets and web, use 1000px (widened from 800 on user request to give
+    // the chat content area more breathing room on PC web).
+    return 1000;
 }
 
 export const layout = {
