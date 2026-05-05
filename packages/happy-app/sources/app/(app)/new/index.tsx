@@ -1289,10 +1289,11 @@ function NewSessionWizard() {
             if (sessionType === 'worktree') {
                 if (selectedRepos.length > 0 && branchMode === 'existing') {
                     // Existing branch mode: checkout selected branches directly, no worktree.
-                    // We still emit workspaceRepos / repoScripts metadata for multi-repo
-                    // sessions so the agent and daemon know the full repo set; in this mode
-                    // path === basePath signals "no worktree was created" — used by the
-                    // archive-workspace RPC to skip worktree/branch cleanup.
+                    // We deliberately DO NOT emit worktreeBranchName / workspaceRepos / repoScripts
+                    // here, because those fields make the daemon spawn flow create a worktree.
+                    // The agent will still see all repos' git status by virtue of running with
+                    // the chosen repo as cwd; multi-repo metadata for archive cleanup is moot
+                    // because no worktree exists to clean up.
                     const allRegisteredRepos = storage.getState().registeredRepos[selectedMachineId] || [];
                     for (const sr of selectedRepos) {
                         if (sr.targetBranch) {
@@ -1305,29 +1306,10 @@ function NewSessionWizard() {
                         const registered = 'id' in repo ? allRegisteredRepos.find(rr => rr.id === repo.id) : undefined;
                         const subdir = registered?.defaultWorkingDir;
                         actualPath = subdir ? `${sr.repo.path}/${subdir}` : sr.repo.path;
-                        worktreeBranchName = sr.targetBranch;
+                        // worktreeBranchName intentionally left unset — see comment above.
                     } else {
                         actualPath = selectedRepos[0].repo.path;
-                        workspaceRepos = selectedRepos.map(sr => ({
-                            repoId: 'id' in sr.repo ? sr.repo.id : undefined,
-                            path: sr.repo.path,
-                            basePath: sr.repo.path,
-                            branchName: sr.targetBranch || '',
-                            targetBranch: sr.targetBranch,
-                            displayName: sr.repo.displayName,
-                        }));
-                        repoScripts = workspaceRepos.map(r => {
-                            const reg = r.repoId ? allRegisteredRepos.find(rr => rr.id === r.repoId) : undefined;
-                            return {
-                                repoDisplayName: r.displayName || '',
-                                worktreePath: r.path,
-                                setupScript: reg?.setupScript,
-                                parallelSetup: reg?.parallelSetup,
-                                cleanupScript: reg?.cleanupScript,
-                                archiveScript: reg?.archiveScript,
-                                devServerScript: reg?.devServerScript,
-                            };
-                        });
+                        // workspaceRepos / repoScripts intentionally left unset — see comment above.
                     }
                 } else if (selectedRepos.length > 0) {
                     // New branch mode: multi-repo workspace creation
