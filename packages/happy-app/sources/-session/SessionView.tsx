@@ -218,16 +218,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                         {...headerProps}
                         onBackPress={() => router.back()}
                         headerRight={session ? () => {
-                            // Resolve the agent-side session ID. claudeSessionId / codexSessionId
-                            // are stored on metadata; for Gemini the Happy session id IS the
-                            // agent id (same as info.tsx line 104), so skip the second button.
-                            const agentSessionId =
-                                session.metadata?.claudeSessionId
-                                ?? session.metadata?.codexSessionId
-                                ?? null;
-                            const agentLabel = session.metadata?.codexSessionId
-                                ? t('sessionInfo.codexSessionId')
-                                : t('sessionInfo.claudeCodeSessionId');
                             const copyId = async (id: string) => {
                                 await Clipboard.setStringAsync(id);
                                 hapticsLight();
@@ -252,25 +242,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 >
                                     <Ionicons name="finger-print-outline" size={20} color={theme.colors.header.tint} />
                                 </Pressable>
-                                {/* Quick copy: Claude/Codex/Gemini session ID (whichever this session uses). */}
-                                {agentSessionId && (
-                                    <Pressable
-                                        {...webTooltip(agentLabel)}
-                                        onPress={() => copyId(agentSessionId)}
-                                        hitSlop={15}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={agentLabel}
-                                        style={{
-                                            width: 38,
-                                            height: 38,
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: 2,
-                                        }}
-                                    >
-                                        <Ionicons name="key-outline" size={20} color={theme.colors.header.tint} />
-                                    </Pressable>
-                                )}
                                 {/* Injected-memories badge — count = memories actually merged into
                                     THIS session's system prompt. Tap opens the same modal as the
                                     Info-panel chip (mute toggles + manage-all link). */}
