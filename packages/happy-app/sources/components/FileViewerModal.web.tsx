@@ -26,8 +26,64 @@ import {
 } from '@/sync/ops';
 import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
 import { getSession } from '@/sync/storage';
-import { Modal } from '@/modal';
 import { t } from '@/text';
+
+// Override the app's Modal Manager with native browser dialogs INSIDE this
+// file. Reason: the FileViewerModal is rendered via createPortal directly into
+// document.body with zIndex: 99999, so any Modal.alert / Modal.prompt that
+// renders into the React app root ends up DOM-ordered BEHIND the portal and
+// becomes invisible. window.alert/confirm/prompt are painted by the browser
+// chrome and always sit on top of anything else, so they're the only reliable
+// path here. Local `Modal` shadows the import entirely so existing call sites
+// (Modal.alert(...) / Modal.prompt(...)) keep their current shape.
+type AlertButton = { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void };
+const Modal = {
+    alert(title: string, message?: string, buttons?: AlertButton[]): void {
+        const body = message ? `${title}\n\n${message}` : title;
+        if (!buttons || buttons.length === 0) {
+            window.alert(body);
+            return;
+        }
+        if (buttons.length === 1) {
+            window.alert(body);
+            buttons[0].onPress?.();
+            return;
+        }
+        if (buttons.length === 2) {
+            // Map cancel-style to "Cancel" of the confirm: OK = the other action.
+            const cancelIdx = buttons.findIndex(b => b.style === 'cancel');
+            const cancelBtn = cancelIdx >= 0 ? buttons[cancelIdx] : buttons[0];
+            const okBtn = buttons.find((_, i) => i !== buttons.indexOf(cancelBtn)) ?? buttons[1];
+            const ok = window.confirm(`${body}\n\n[OK = ${okBtn.text}, Cancel = ${cancelBtn.text}]`);
+            (ok ? okBtn : cancelBtn).onPress?.();
+            return;
+        }
+        // 3+ buttons: prompt for a numeric choice.
+        const labels = buttons.map((b, i) => `${i + 1}. ${b.text}${b.style === 'cancel' ? ' (default)' : ''}`).join('\n');
+        const cancelBtn = buttons.find(b => b.style === 'cancel');
+        const cancelIdx = cancelBtn ? buttons.indexOf(cancelBtn) : 0;
+        const raw = window.prompt(`${body}\n\n${labels}\n\nEnter number:`, String(cancelIdx + 1));
+        if (raw == null) {
+            cancelBtn?.onPress?.();
+            return;
+        }
+        const idx = parseInt(raw, 10) - 1;
+        const target = buttons[idx];
+        target?.onPress?.();
+    },
+    async prompt(
+        title: string,
+        message?: string,
+        // happy-app's real Modal.prompt takes an options object as 3rd arg
+        // ({ defaultValue, confirmText, cancelText }); we accept a plain string
+        // too for forward compat.
+        opts?: string | { defaultValue?: string; confirmText?: string; cancelText?: string },
+    ): Promise<string | null> {
+        const defaultValue = typeof opts === 'string' ? opts : opts?.defaultValue ?? '';
+        const body = message ? `${title}\n\n${message}` : title;
+        return window.prompt(body, defaultValue);
+    },
+};
 
 // `fileViewer.*` keys are added later by impl-integrate; cast through any to
 // keep this file independent of the translation files for now.
