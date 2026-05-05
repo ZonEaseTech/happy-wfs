@@ -43,6 +43,7 @@ import * as React from 'react';
 import { useMemo } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { RightPanel, RightPanelType } from '@/components/RightPanel';
+import { FileViewerModal } from '@/components/FileViewerModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -315,7 +316,9 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
-                                            setRightPanelType(prev => (prev === 'browser' ? null : 'browser'));
+                                            // PC: open the full bt-style modal directly,
+                                            // skip the RightPanel browser drawer.
+                                            setShowFileViewer(true);
                                         } else {
                                             router.push(`/session/${sessionId}/browser`);
                                         }
@@ -334,7 +337,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     <Ionicons
                                         name="code-slash-outline"
                                         size={22}
-                                        color={isDesktopPanelMode && rightPanelType === 'browser' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                        color={isDesktopPanelMode && showFileViewer ? theme.colors.button.primary.background : theme.colors.header.tint}
                                     />
                                 </Pressable>
                                 {headerProps.avatarId && headerProps.onAvatarPress && (
@@ -435,6 +438,10 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const isLandscape = useIsLandscape();
     const deviceType = useDeviceType();
     const [message, setMessage] = React.useState('');
+    // PC code-slash button now opens the bt-style FileViewerModal directly
+    // (over the whole viewport via portal), instead of the side RightPanel
+    // drawer. Old drawer flow still kicks in on narrow web (router.push).
+    const [showFileViewer, setShowFileViewer] = React.useState(false);
     const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
     const pendingMessages = useSessionPendingMessages(sessionId);
@@ -1229,6 +1236,15 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
             {/* Worktree-aware archive confirmation menu (used by useArchiveSession) */}
             {archiveOverlay}
+
+            {/* PC: bt-style file viewer fired by header code-slash button. Uses
+                a portal so it covers the whole viewport including the Sidebar. */}
+            <FileViewerModal
+                visible={showFileViewer}
+                onClose={() => setShowFileViewer(false)}
+                sessionId={sessionId}
+                initialCwd={session.metadata?.path}
+            />
         </>
     )
 }
