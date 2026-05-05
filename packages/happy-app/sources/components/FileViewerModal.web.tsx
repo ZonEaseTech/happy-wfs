@@ -986,10 +986,10 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                     })}
                 >
                     {isDir
-                        ? <Ionicons name={expanded ? 'chevron-down' : 'chevron-forward'} size={12} color={theme.colors.textSecondary} />
-                        : <View style={{ width: 12 }} />}
+                        ? <Ionicons name={expanded ? 'caret-down' : 'caret-forward'} size={11} color={theme.colors.textSecondary} />
+                        : <View style={{ width: 11 }} />}
                     {isDir
-                        ? <Ionicons name="folder" size={14} color="#007AFF" />
+                        ? <Ionicons name={expanded ? 'folder-open' : 'folder'} size={14} color="#FFC233" />
                         : <FileIcon fileName={entry.name} size={14} />}
                     <Text
                         numberOfLines={1}
