@@ -1116,6 +1116,24 @@ export const zhHans: TranslationStructure = {
         saveFailed: '保存文件失败',
     },
 
+    fileViewer: {
+        save: '保存',
+        discard: '放弃',
+        cancel: '取消',
+        close: '关闭',
+        openFailed: '打开文件失败。',
+        saveFailed: '保存文件失败。',
+        binaryNotSupported: '无法打开二进制文件。',
+        unsavedChangesTitle: '未保存的更改',
+        unsavedChangesSingle: ({ name }: { name: string }) => `「${name}」有未保存的更改。关闭前是否保存？`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `有 ${count} 个文件存在未保存的更改。关闭前是否全部保存？`,
+        noFileOpen: '未打开文件',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `第 ${line} 行，第 ${column} 列`,
+        cursorPositionUnknown: '第 — 行，第 — 列',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `语言：${language}`,
+    },
+
     claudeConfig: {
         title: '用户级 Claude 配置',
         machineGroup: '机器上的文件',

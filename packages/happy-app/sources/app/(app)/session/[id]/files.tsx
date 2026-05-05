@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Platform, TextInput, Pressable } from 'react-native';
+import { View, ActivityIndicator, Platform, TextInput, Pressable, useWindowDimensions } from 'react-native';
 import { t } from '@/text';
+import { FileViewerModal } from '@/components/FileViewerModal';
 import { useRoute } from '@react-navigation/native';
 import { useRouter, Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -93,6 +94,13 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     const gitStatus = projectGitStatus || sessionGitStatus;
     const { theme } = useUnistyles();
     const isWeb = Platform.OS === 'web';
+    const { width } = useWindowDimensions();
+
+    // PC desktop file viewer modal — replaces router.push to /file or /edit
+    // when the viewport is wide enough (web + ≥768px) and the page isn't
+    // embedded inside the right panel.
+    const [showViewer, setShowViewer] = React.useState(false);
+    const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
 
     const session = useSession(sessionId);
     const isOnline = session?.presence === "online";
@@ -401,6 +409,15 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         const absolutePath = repoBaseCwd && !file.fullPath.startsWith('/')
             ? `${repoBaseCwd}/${file.fullPath}`
             : file.fullPath;
+        // PC: open the bt-style FileViewerModal in place instead of routing to a
+        // dedicated screen. Only when wide (≥768) AND not embedded — the right
+        // panel is always narrow + already inside another modal, so keep the
+        // route push there.
+        if (isWeb && width >= 768 && !embedded) {
+            setViewerPath(absolutePath);
+            setShowViewer(true);
+            return;
+        }
         const encodedPath = btoa(new TextEncoder().encode(absolutePath).reduce((s, b) => s + String.fromCharCode(b), ''));
         // Staged files always show as diff (read-only). Unstaged / search results jump straight into editor.
         if (staged) {
@@ -408,7 +425,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         } else {
             router.push(`/session/${sessionId}/edit?path=${encodeURIComponent(encodedPath)}`);
         }
-    }, [router, sessionId, repoBaseCwd]);
+    }, [router, sessionId, repoBaseCwd, isWeb, width, embedded]);
 
     // Compact density when rendered inside the right panel — list rows, fonts
     // and icons all shrink so a long change list fits without big gaps.
@@ -1069,6 +1086,15 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                 )}
             </ItemList>
             <ActionMenuModal visible={menuVisible} items={menuItems} onClose={() => setMenuVisible(false)} />
+            {showViewer && (
+                <FileViewerModal
+                    visible={showViewer}
+                    onClose={() => setShowViewer(false)}
+                    sessionId={sessionId}
+                    initialFilePath={viewerPath}
+                    initialCwd={repoBaseCwd}
+                />
+            )}
         </View>
     );
 }

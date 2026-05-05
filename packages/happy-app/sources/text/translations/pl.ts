@@ -1125,6 +1125,24 @@ export const pl: TranslationStructure = {
         saveFailed: 'Nie udało się zapisać pliku',
     },
 
+    fileViewer: {
+        save: 'Zapisz',
+        discard: 'Odrzuć',
+        cancel: 'Anuluj',
+        close: 'Zamknij',
+        openFailed: 'Nie udało się otworzyć pliku.',
+        saveFailed: 'Nie udało się zapisać pliku.',
+        binaryNotSupported: 'Nie można otworzyć pliku binarnego.',
+        unsavedChangesTitle: 'Niezapisane zmiany',
+        unsavedChangesSingle: ({ name }: { name: string }) => `Plik „${name}" zawiera niezapisane zmiany. Zapisać przed zamknięciem?`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `${count} plików zawiera niezapisane zmiany. Zapisać wszystkie przed zamknięciem?`,
+        noFileOpen: 'Brak otwartego pliku',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `Wiersz ${line}, kol. ${column}`,
+        cursorPositionUnknown: 'Wiersz —, kol. —',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `Język: ${language}`,
+    },
+
     claudeConfig: {
         title: 'User-level Claude config',
         machineGroup: 'Files on machine',

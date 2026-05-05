@@ -1146,6 +1146,24 @@ export const ja: TranslationStructure = {
         saveFailed: 'ファイルの保存に失敗しました',
     },
 
+    fileViewer: {
+        save: '保存',
+        discard: '破棄',
+        cancel: 'キャンセル',
+        close: '閉じる',
+        openFailed: 'ファイルを開けませんでした。',
+        saveFailed: 'ファイルを保存できませんでした。',
+        binaryNotSupported: 'バイナリファイルは開けません。',
+        unsavedChangesTitle: '未保存の変更',
+        unsavedChangesSingle: ({ name }: { name: string }) => `「${name}」に未保存の変更があります。閉じる前に保存しますか？`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `${count} 個のファイルに未保存の変更があります。閉じる前にすべて保存しますか？`,
+        noFileOpen: 'ファイルが開かれていません',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `${line} 行、${column} 列`,
+        cursorPositionUnknown: '— 行、— 列',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `言語: ${language}`,
+    },
+
     claudeConfig: {
         title: 'User-level Claude config',
         machineGroup: 'Files on machine',

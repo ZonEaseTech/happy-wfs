@@ -1114,6 +1114,24 @@ export const pt: TranslationStructure = {
         saveFailed: 'Falha ao salvar arquivo',
     },
 
+    fileViewer: {
+        save: 'Salvar',
+        discard: 'Descartar',
+        cancel: 'Cancelar',
+        close: 'Fechar',
+        openFailed: 'Não foi possível abrir o arquivo.',
+        saveFailed: 'Não foi possível salvar o arquivo.',
+        binaryNotSupported: 'Não é possível abrir um arquivo binário.',
+        unsavedChangesTitle: 'Alterações não salvas',
+        unsavedChangesSingle: ({ name }: { name: string }) => `«${name}» tem alterações não salvas. Salvar antes de fechar?`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `${count} arquivos têm alterações não salvas. Salvar todos antes de fechar?`,
+        noFileOpen: 'Nenhum arquivo aberto',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `Lin. ${line}, col. ${column}`,
+        cursorPositionUnknown: 'Lin. —, col. —',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `Idioma: ${language}`,
+    },
+
     claudeConfig: {
         title: 'User-level Claude config',
         machineGroup: 'Files on machine',

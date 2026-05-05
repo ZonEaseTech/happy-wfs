@@ -1125,6 +1125,24 @@ export const ru: TranslationStructure = {
         saveFailed: 'Не удалось сохранить файл',
     },
 
+    fileViewer: {
+        save: 'Сохранить',
+        discard: 'Отменить',
+        cancel: 'Отмена',
+        close: 'Закрыть',
+        openFailed: 'Не удалось открыть файл.',
+        saveFailed: 'Не удалось сохранить файл.',
+        binaryNotSupported: 'Невозможно открыть двоичный файл.',
+        unsavedChangesTitle: 'Несохранённые изменения',
+        unsavedChangesSingle: ({ name }: { name: string }) => `«${name}» содержит несохранённые изменения. Сохранить перед закрытием?`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `${count} файлов содержат несохранённые изменения. Сохранить все перед закрытием?`,
+        noFileOpen: 'Файл не открыт',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `Стр. ${line}, кол. ${column}`,
+        cursorPositionUnknown: 'Стр. —, кол. —',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `Язык: ${language}`,
+    },
+
     claudeConfig: {
         title: 'User-level Claude config',
         machineGroup: 'Files on machine',

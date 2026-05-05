@@ -1129,6 +1129,24 @@ export const en = {
         saveFailed: 'Failed to save file',
     },
 
+    fileViewer: {
+        save: 'Save',
+        discard: 'Discard',
+        cancel: 'Cancel',
+        close: 'Close',
+        openFailed: 'Failed to open file.',
+        saveFailed: 'Failed to save file.',
+        binaryNotSupported: 'Cannot open binary file.',
+        unsavedChangesTitle: 'Unsaved changes',
+        unsavedChangesSingle: ({ name }: { name: string }) => `"${name}" has unsaved changes. Save before closing?`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `${count} files have unsaved changes. Save them all before closing?`,
+        noFileOpen: 'No file open',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `Ln ${line}, Col ${column}`,
+        cursorPositionUnknown: 'Ln —, Col —',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `Language: ${language}`,
+    },
+
     claudeConfig: {
         title: 'User-level Claude config',
         machineGroup: 'Files on machine',

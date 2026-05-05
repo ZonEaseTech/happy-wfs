@@ -1114,6 +1114,24 @@ export const ca: TranslationStructure = {
         saveFailed: "No s'ha pogut desar l'arxiu",
     },
 
+    fileViewer: {
+        save: 'Desa',
+        discard: 'Descarta',
+        cancel: 'Cancel·la',
+        close: 'Tanca',
+        openFailed: "No s'ha pogut obrir el fitxer.",
+        saveFailed: "No s'ha pogut desar el fitxer.",
+        binaryNotSupported: 'No es pot obrir el fitxer binari.',
+        unsavedChangesTitle: 'Canvis sense desar',
+        unsavedChangesSingle: ({ name }: { name: string }) => `«${name}» té canvis sense desar. Voleu desar-los abans de tancar?`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `${count} fitxers tenen canvis sense desar. Voleu desar-los tots abans de tancar?`,
+        noFileOpen: 'Cap fitxer obert',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `Lín. ${line}, col. ${column}`,
+        cursorPositionUnknown: 'Lín. —, col. —',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `Idioma: ${language}`,
+    },
+
     claudeConfig: {
         title: 'User-level Claude config',
         machineGroup: 'Files on machine',

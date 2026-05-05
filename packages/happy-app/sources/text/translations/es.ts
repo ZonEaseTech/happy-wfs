@@ -1114,6 +1114,24 @@ export const es: TranslationStructure = {
         saveFailed: 'Error al guardar archivo',
     },
 
+    fileViewer: {
+        save: 'Guardar',
+        discard: 'Descartar',
+        cancel: 'Cancelar',
+        close: 'Cerrar',
+        openFailed: 'No se pudo abrir el archivo.',
+        saveFailed: 'No se pudo guardar el archivo.',
+        binaryNotSupported: 'No se puede abrir el archivo binario.',
+        unsavedChangesTitle: 'Cambios sin guardar',
+        unsavedChangesSingle: ({ name }: { name: string }) => `«${name}» tiene cambios sin guardar. ¿Guardar antes de cerrar?`,
+        unsavedChangesMulti: ({ count }: { count: number }) => `${count} archivos tienen cambios sin guardar. ¿Guardarlos todos antes de cerrar?`,
+        noFileOpen: 'Ningún archivo abierto',
+        cursorPosition: ({ line, column }: { line: number; column: number }) => `Lín. ${line}, col. ${column}`,
+        cursorPositionUnknown: 'Lín. —, col. —',
+        encodingUtf8: 'UTF-8',
+        languageLabel: ({ language }: { language: string }) => `Idioma: ${language}`,
+    },
+
     claudeConfig: {
         title: 'User-level Claude config',
         machineGroup: 'Files on machine',
