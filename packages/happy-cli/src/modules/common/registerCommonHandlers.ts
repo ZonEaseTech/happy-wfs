@@ -1,7 +1,7 @@
 import { logger } from '@/ui/logger';
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
-import { readFile, writeFile, readdir, stat } from 'fs/promises';
+import { readFile, writeFile, readdir, stat, rename, unlink, rm, mkdir, lstat } from 'fs/promises';
 import { join, resolve } from 'path';
 import { run as runRipgrep } from '@/modules/ripgrep/index';
 import { run as runDifftastic } from '@/modules/difftastic/index';
@@ -109,6 +109,54 @@ interface DifftasticResponse {
     exitCode?: number;
     stdout?: string;
     stderr?: string;
+    error?: string;
+}
+
+interface RenameRequest {
+    from: string;
+    to: string;
+}
+
+interface RenameResponse {
+    success: boolean;
+    error?: string;
+}
+
+interface DeleteFileRequest {
+    path: string;
+}
+
+interface DeleteFileResponse {
+    success: boolean;
+    error?: string;
+}
+
+interface DeleteDirectoryRequest {
+    path: string;
+}
+
+interface DeleteDirectoryResponse {
+    success: boolean;
+    deletedCount?: number;
+    error?: string;
+}
+
+interface CreateFileRequest {
+    path: string;
+    content?: string; // base64 encoded; defaults to empty
+}
+
+interface CreateFileResponse {
+    success: boolean;
+    error?: string;
+}
+
+interface CreateDirectoryRequest {
+    path: string;
+}
+
+interface CreateDirectoryResponse {
+    success: boolean;
     error?: string;
 }
 
@@ -318,6 +366,189 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to write file';
             logger.debug('[writeFile] path=%s ok=%s reason=%s', absPath, false, message);
+            return { success: false, error: message };
+        }
+    });
+
+    // Rename / move handler - both endpoints must satisfy A3 write policy
+    rpcHandlerManager.registerHandler<RenameRequest, RenameResponse>('rename', async (data) => {
+        logger.debug('Rename request:', data.from, '->', data.to);
+
+        const absFrom = resolve(workingDirectory, data.from);
+        const absTo = resolve(workingDirectory, data.to);
+
+        const fromValidation = validatePath(data.from, workingDirectory);
+        if (!fromValidation.valid) {
+            return { success: false, error: fromValidation.error };
+        }
+        const toValidation = validatePath(data.to, workingDirectory);
+        if (!toValidation.valid) {
+            return { success: false, error: toValidation.error };
+        }
+
+        if (!isWritableForSession(absFrom)) {
+            logger.info('[rename] %s -> %s ok=%s', absFrom, absTo, false);
+            return { success: false, error: `Path '${absFrom}' is on the system write deny-list` };
+        }
+        if (!isWritableForSession(absTo)) {
+            logger.info('[rename] %s -> %s ok=%s', absFrom, absTo, false);
+            return { success: false, error: `Path '${absTo}' is on the system write deny-list` };
+        }
+
+        try {
+            await rename(absFrom, absTo);
+            logger.info('[rename] %s -> %s ok=%s', absFrom, absTo, true);
+            return { success: true };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to rename';
+            logger.info('[rename] %s -> %s ok=%s', absFrom, absTo, false);
+            return { success: false, error: message };
+        }
+    });
+
+    // Delete file handler - rejects directories so callers must use deleteDirectory
+    rpcHandlerManager.registerHandler<DeleteFileRequest, DeleteFileResponse>('deleteFile', async (data) => {
+        logger.debug('Delete file request:', data.path);
+
+        const absPath = resolve(workingDirectory, data.path);
+
+        const validation = validatePath(data.path, workingDirectory);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
+        if (!isWritableForSession(absPath)) {
+            logger.info('[deleteFile] path=%s ok=%s reason=%s', absPath, false, 'system path is read-only');
+            return { success: false, error: `Path '${absPath}' is on the system write deny-list` };
+        }
+
+        try {
+            // lstat so a symlink-to-directory is treated as a file (we unlink the link itself)
+            const st = await lstat(absPath);
+            if (st.isDirectory()) {
+                logger.info('[deleteFile] path=%s ok=%s reason=%s', absPath, false, 'is directory');
+                return { success: false, error: 'Not a file, use deleteDirectory' };
+            }
+            await unlink(absPath);
+            logger.info('[deleteFile] path=%s ok=%s', absPath, true);
+            return { success: true };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to delete file';
+            logger.info('[deleteFile] path=%s ok=%s reason=%s', absPath, false, message);
+            return { success: false, error: message };
+        }
+    });
+
+    // Delete directory handler - recursive; symlinks are removed as links, never followed
+    rpcHandlerManager.registerHandler<DeleteDirectoryRequest, DeleteDirectoryResponse>('deleteDirectory', async (data) => {
+        logger.debug('Delete directory request:', data.path);
+
+        const absPath = resolve(workingDirectory, data.path);
+
+        const validation = validatePath(data.path, workingDirectory);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
+        if (!isWritableForSession(absPath)) {
+            logger.info('[deleteDirectory] path=%s ok=%s reason=%s', absPath, false, 'system path is read-only');
+            return { success: false, error: `Path '${absPath}' is on the system write deny-list` };
+        }
+
+        try {
+            const top = await lstat(absPath);
+            if (!top.isDirectory()) {
+                logger.info('[deleteDirectory] path=%s ok=%s reason=%s', absPath, false, 'not a directory');
+                return { success: false, error: 'Not a directory' };
+            }
+
+            // Pre-walk to count entries; never traverse into symlinks so we can't escape absPath.
+            // fs.rm with recursive:true mirrors this — it removes symlinks as links rather than
+            // following them — so the count matches what will actually be removed.
+            async function countEntries(dir: string): Promise<number> {
+                const entries = await readdir(dir, { withFileTypes: true });
+                let n = 0;
+                for (const entry of entries) {
+                    n += 1;
+                    if (entry.isDirectory() && !entry.isSymbolicLink()) {
+                        n += await countEntries(join(dir, entry.name));
+                    }
+                }
+                return n;
+            }
+
+            const deletedCount = await countEntries(absPath);
+            await rm(absPath, { recursive: true, force: false });
+            logger.info('[deleteDirectory] path=%s deletedCount=%d ok=%s', absPath, deletedCount, true);
+            return { success: true, deletedCount };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to delete directory';
+            logger.info('[deleteDirectory] path=%s ok=%s reason=%s', absPath, false, message);
+            return { success: false, error: message };
+        }
+    });
+
+    // Create file handler - exclusive create; fails if the path already exists
+    rpcHandlerManager.registerHandler<CreateFileRequest, CreateFileResponse>('createFile', async (data) => {
+        logger.debug('Create file request:', data.path);
+
+        const absPath = resolve(workingDirectory, data.path);
+
+        const validation = validatePath(data.path, workingDirectory);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
+        if (!isWritableForSession(absPath)) {
+            logger.info('[createFile] path=%s ok=%s reason=%s', absPath, false, 'system path is read-only');
+            return { success: false, error: `Path '${absPath}' is on the system write deny-list` };
+        }
+
+        try {
+            const buf = data.content ? Buffer.from(data.content, 'base64') : Buffer.alloc(0);
+            await writeFile(absPath, buf, { flag: 'wx' });
+            logger.info('[createFile] path=%s bytes=%d ok=%s', absPath, buf.length, true);
+            return { success: true };
+        } catch (error) {
+            const errno = (error as NodeJS.ErrnoException).code;
+            if (errno === 'EEXIST') {
+                logger.info('[createFile] path=%s ok=%s reason=%s', absPath, false, 'file exists');
+                return { success: false, error: 'File exists' };
+            }
+            const message = error instanceof Error ? error.message : 'Failed to create file';
+            logger.info('[createFile] path=%s ok=%s reason=%s', absPath, false, message);
+            return { success: false, error: message };
+        }
+    });
+
+    // Create directory handler - non-recursive; fails if the directory already exists
+    rpcHandlerManager.registerHandler<CreateDirectoryRequest, CreateDirectoryResponse>('createDirectory', async (data) => {
+        logger.debug('Create directory request:', data.path);
+
+        const absPath = resolve(workingDirectory, data.path);
+
+        const validation = validatePath(data.path, workingDirectory);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
+        if (!isWritableForSession(absPath)) {
+            logger.info('[createDirectory] path=%s ok=%s reason=%s', absPath, false, 'system path is read-only');
+            return { success: false, error: `Path '${absPath}' is on the system write deny-list` };
+        }
+
+        try {
+            await mkdir(absPath);
+            logger.info('[createDirectory] path=%s ok=%s', absPath, true);
+            return { success: true };
+        } catch (error) {
+            const errno = (error as NodeJS.ErrnoException).code;
+            if (errno === 'EEXIST') {
+                logger.info('[createDirectory] path=%s ok=%s reason=%s', absPath, false, 'directory exists');
+                return { success: false, error: 'Directory exists' };
+            }
+            const message = error instanceof Error ? error.message : 'Failed to create directory';
+            logger.info('[createDirectory] path=%s ok=%s reason=%s', absPath, false, message);
             return { success: false, error: message };
         }
     });
