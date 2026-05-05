@@ -25,6 +25,7 @@ import {
     machineListDirectory,
 } from '@/sync/ops';
 import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
+import { ResizableHandle } from '@/components/ResizableHandle';
 import { getSession } from '@/sync/storage';
 import { t } from '@/text';
 
@@ -256,6 +257,18 @@ export function FileViewerModal({
     const cursor = { line: 0, column: 0 };
 
     // Latest tabs ref so async handlers (esc, close) see the current state.
+    // Tree pane width is user-resizable via the ResizableHandle on its right edge.
+    // Persist last value to localStorage so reopening the modal keeps the user's choice.
+    const [treeWidth, setTreeWidth] = React.useState<number>(() => {
+        if (typeof window === 'undefined') return 260;
+        const saved = parseInt(window.localStorage?.getItem('fileViewer.treeWidth') ?? '', 10);
+        return Number.isFinite(saved) && saved >= 150 && saved <= 600 ? saved : 260;
+    });
+    const persistTreeWidth = React.useCallback((w: number) => {
+        setTreeWidth(w);
+        try { window.localStorage?.setItem('fileViewer.treeWidth', String(w)); } catch {}
+    }, []);
+
     const tabsRef = React.useRef<Tab[]>(tabs);
     React.useEffect(() => { tabsRef.current = tabs; }, [tabs]);
 
@@ -779,12 +792,22 @@ export function FileViewerModal({
                 {/* Body: left tree + right editor. */}
                 <View style={{ flex: 1, flexDirection: 'row', minHeight: 0 }}>
                     <View style={{
-                        width: 260,
+                        width: treeWidth,
                         borderRightWidth: 1,
                         borderRightColor: theme.colors.divider,
                         backgroundColor: theme.colors.surfaceHigh,
                         flexDirection: 'column',
+                        // Needed for ResizableHandle's absolute positioning to anchor here.
+                        position: 'relative',
                     }}>
+                        <ResizableHandle
+                            side="right"
+                            width={treeWidth}
+                            minWidth={150}
+                            maxWidth={600}
+                            onResize={setTreeWidth}
+                            onCommit={persistTreeWidth}
+                        />
                         {/* Tree toolbar (A). */}
                         <View style={{
                             flexDirection: 'row',
