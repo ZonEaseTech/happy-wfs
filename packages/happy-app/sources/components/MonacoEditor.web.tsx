@@ -9,6 +9,13 @@ export interface MonacoEditorProps {
     readOnly?: boolean;
     theme?: 'vs-dark' | 'vs';
     height?: number | string;
+    /**
+     * Called once monaco's editor instance is mounted. Used by the IDE
+     * toolbar to drive built-in actions (find, replace, gotoLine).
+     * Typed as `unknown` to avoid pulling monaco's type defs into RN's
+     * type-check graph; callers cast to `monaco.editor.IStandaloneCodeEditor`.
+     */
+    onMount?: (editor: unknown) => void;
 }
 
 const EXT_LANG: Record<string, string> = {
@@ -85,6 +92,7 @@ export function MonacoEditor({
     readOnly,
     theme = 'vs-dark',
     height = '100%',
+    onMount,
 }: MonacoEditorProps) {
     const language = React.useMemo(() => inferLanguage(path), [path]);
     const effectiveReadOnly = readOnly ?? !onChange;
@@ -94,11 +102,18 @@ export function MonacoEditor({
         },
         [onChange],
     );
+    const handleMount = React.useCallback(
+        (editor: unknown) => {
+            if (onMount) onMount(editor);
+        },
+        [onMount],
+    );
     return (
         <React.Suspense fallback={<div style={{ padding: 12, fontFamily: 'monospace' }}>Loading editor…</div>}>
             <LazyMonaco
                 value={value}
                 onChange={handleChange}
+                onMount={handleMount}
                 path={path}
                 language={language}
                 theme={theme}

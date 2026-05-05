@@ -882,6 +882,116 @@ export async function sessionListDirectory(
     }
 }
 
+// File / directory mutation operation types (impl-cli-ops contract)
+interface SessionRenameRequest { from: string; to: string; }
+interface SessionRenameResponse { success: boolean; error?: string; }
+interface SessionDeleteFileRequest { path: string; }
+interface SessionDeleteFileResponse { success: boolean; error?: string; }
+interface SessionDeleteDirectoryRequest { path: string; }
+interface SessionDeleteDirectoryResponse { success: boolean; error?: string; }
+interface SessionCreateFileRequest { path: string; content?: string; }
+interface SessionCreateFileResponse { success: boolean; error?: string; }
+interface SessionCreateDirectoryRequest { path: string; }
+interface SessionCreateDirectoryResponse { success: boolean; error?: string; }
+
+/**
+ * Rename / move a path within the session.
+ * Both `from` and `to` are absolute paths under the session root.
+ */
+export async function sessionRename(
+    sessionId: string,
+    from: string,
+    to: string,
+): Promise<SessionRenameResponse> {
+    try {
+        const response = await apiSocket.sessionRPC<SessionRenameResponse, SessionRenameRequest>(
+            sessionId,
+            'rename',
+            { from, to },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+/**
+ * Delete a single file from the session.
+ */
+export async function sessionDeleteFile(
+    sessionId: string,
+    path: string,
+): Promise<SessionDeleteFileResponse> {
+    try {
+        const response = await apiSocket.sessionRPC<SessionDeleteFileResponse, SessionDeleteFileRequest>(
+            sessionId,
+            'deleteFile',
+            { path },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+/**
+ * Delete a directory (recursively) from the session.
+ */
+export async function sessionDeleteDirectory(
+    sessionId: string,
+    path: string,
+): Promise<SessionDeleteDirectoryResponse> {
+    try {
+        const response = await apiSocket.sessionRPC<SessionDeleteDirectoryResponse, SessionDeleteDirectoryRequest>(
+            sessionId,
+            'deleteDirectory',
+            { path },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+/**
+ * Create a new file in the session. Optional initial content (utf-8 plain text).
+ */
+export async function sessionCreateFile(
+    sessionId: string,
+    path: string,
+    content?: string,
+): Promise<SessionCreateFileResponse> {
+    try {
+        const response = await apiSocket.sessionRPC<SessionCreateFileResponse, SessionCreateFileRequest>(
+            sessionId,
+            'createFile',
+            content !== undefined ? { path, content } : { path },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+/**
+ * Create a new directory in the session.
+ */
+export async function sessionCreateDirectory(
+    sessionId: string,
+    path: string,
+): Promise<SessionCreateDirectoryResponse> {
+    try {
+        const response = await apiSocket.sessionRPC<SessionCreateDirectoryResponse, SessionCreateDirectoryRequest>(
+            sessionId,
+            'createDirectory',
+            { path },
+        );
+        return response;
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
 /**
  * Get directory tree from the session
  */

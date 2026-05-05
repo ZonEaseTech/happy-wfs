@@ -8,6 +8,8 @@ export interface MonacoEditorProps {
     readOnly?: boolean;
     theme?: 'vs-dark' | 'vs';
     height?: number | string;
+    /** Web-only escape hatch for the monaco editor instance — ignored on native. */
+    onMount?: (editor: unknown) => void;
 }
 
 export function MonacoEditor({ value, height }: MonacoEditorProps) {

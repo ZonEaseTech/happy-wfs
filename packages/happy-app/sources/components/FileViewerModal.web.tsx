@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Pressable, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { createPortal } from 'react-dom';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
@@ -7,7 +7,15 @@ import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { FileIcon } from '@/components/FileIcon';
 import { MonacoEditor, inferLanguage } from '@/components/MonacoEditor';
-import { sessionReadFile, sessionWriteFile } from '@/sync/ops';
+import {
+    sessionReadFile,
+    sessionWriteFile,
+    sessionRename,
+    sessionDeleteFile,
+    sessionDeleteDirectory,
+    sessionCreateFile,
+    sessionCreateDirectory,
+} from '@/sync/ops';
 import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
 import { getSession } from '@/sync/storage';
 import { Modal } from '@/modal';
@@ -43,6 +51,13 @@ function decodeBase64Utf8(b64: string): string {
     return new TextDecoder('utf-8').decode(bytes);
 }
 
+function decodeBase64Bytes(b64: string): Uint8Array {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
 function encodeUtf8Base64(s: string): string {
     const bytes = new TextEncoder().encode(s);
     let binary = '';
@@ -53,6 +68,17 @@ function encodeUtf8Base64(s: string): string {
 function basename(path: string): string {
     const idx = path.lastIndexOf('/');
     return idx >= 0 ? path.slice(idx + 1) : path;
+}
+
+function dirname(path: string): string {
+    const idx = path.lastIndexOf('/');
+    if (idx <= 0) return '/';
+    return path.slice(0, idx);
+}
+
+function joinPath(parent: string, name: string): string {
+    if (parent.endsWith('/')) return `${parent}${name}`;
+    return `${parent}/${name}`;
 }
 
 // Modal.alert is fire-and-forget; this wraps it in a Promise so a 3-button
@@ -69,6 +95,33 @@ function askSaveDiscardCancel(title: string, message: string): Promise<CloseDeci
     });
 }
 
+// Trigger a browser download of the given bytes (web only). Wrapped in a try
+// so a failure (e.g. unavailable createObjectURL in some embedded contexts)
+// surfaces as a Modal alert rather than a silent no-op.
+function downloadBlob(name: string, bytes: Uint8Array): void {
+    try {
+        // Cast bytes to ArrayBuffer-compatible source for Blob; SharedArrayBuffer not relevant here.
+        const blob = new Blob([bytes as BlobPart]);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Revoke after a tick so Safari has time to start the download.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+        Modal.alert(t('common.error'), e instanceof Error ? e.message : 'Download failed');
+    }
+}
+
+interface ContextMenuState {
+    x: number;
+    y: number;
+    entry: { path: string; name: string; type: 'file' | 'dir' };
+}
+
 export function FileViewerModal({
     visible,
     onClose,
@@ -78,7 +131,13 @@ export function FileViewerModal({
 }: FileViewerModalProps) {
     const { theme } = useUnistyles();
     const session = getSession(sessionId);
-    const rootPath = initialCwd ?? session?.metadata?.path ?? '';
+    const baseRoot = initialCwd ?? session?.metadata?.path ?? '';
+    const [rootPath, setRootPath] = React.useState<string>(baseRoot);
+
+    // When the session/initial cwd changes we want to reset the tree root.
+    React.useEffect(() => {
+        setRootPath(baseRoot);
+    }, [baseRoot]);
 
     const [tabs, setTabs] = React.useState<Tab[]>([]);
     const [activeTabId, setActiveTabId] = React.useState<string | null>(null);
@@ -97,6 +156,20 @@ export function FileViewerModal({
         () => tabs.find(t => t.id === activeTabId) ?? null,
         [tabs, activeTabId],
     );
+
+    // Monaco editor instance — captured via onMount, used by the toolbar to
+    // drive built-in find/replace/gotoLine actions.
+    const editorRef = React.useRef<any>(null);
+    const handleEditorMount = React.useCallback((editor: unknown) => {
+        editorRef.current = editor;
+    }, []);
+    const runEditorAction = React.useCallback((actionId: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus?.();
+        const action = editor.getAction?.(actionId);
+        if (action?.run) action.run();
+    }, []);
 
     const openFile = React.useCallback(async (path: string) => {
         // Already open? Just switch.
@@ -172,6 +245,14 @@ export function FileViewerModal({
         }
     }, [sessionId]);
 
+    const saveAllDirty = React.useCallback(async () => {
+        const dirtyTabs = tabsRef.current.filter(t => t.dirty);
+        for (const tab of dirtyTabs) {
+            const ok = await saveTab(tab.id);
+            if (!ok) return;
+        }
+    }, [saveTab]);
+
     const closeTab = React.useCallback(async (tabId: string) => {
         const tab = tabsRef.current.find(t => t.id === tabId);
         if (!tab) return;
@@ -218,6 +299,39 @@ export function FileViewerModal({
         onClose();
     }, [onClose, saveTab]);
 
+    // Refresh the active tab's content from disk; if dirty, ask the user first.
+    const refreshActiveTab = React.useCallback(async () => {
+        const tab = activeTab;
+        if (!tab) return;
+        if (tab.dirty) {
+            const decision = await askSaveDiscardCancel(
+                tx('fileViewer.unsavedChangesTitle'),
+                tx('fileViewer.unsavedChangesSingle', { name: basename(tab.path) }),
+            );
+            if (decision === 'cancel') return;
+            if (decision === 'save') {
+                const ok = await saveTab(tab.id);
+                if (!ok) return;
+            }
+        }
+        const resp = await sessionReadFile(sessionId, tab.path);
+        if (!resp.success || !resp.content) {
+            Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
+            return;
+        }
+        let text: string;
+        try {
+            text = decodeBase64Utf8(resp.content);
+        } catch {
+            Modal.alert(t('common.error'), tx('fileViewer.binaryNotSupported'));
+            return;
+        }
+        setTabs(prev => prev.map(p => p.id === tab.id
+            ? { ...p, content: text, original: text, dirty: false }
+            : p,
+        ));
+    }, [activeTab, saveTab, sessionId]);
+
     // Esc closes the modal — but we route through requestClose so dirty tabs
     // still get the save/discard prompt.
     React.useEffect(() => {
@@ -243,7 +357,137 @@ export function FileViewerModal({
 
     const tree = useDirectoryTree(sessionId, rootPath);
 
+    // --- Tree-toolbar handlers ---
+    const goUpOneLevel = React.useCallback(() => {
+        const parent = dirname(rootPath);
+        if (parent && parent !== rootPath) setRootPath(parent);
+    }, [rootPath]);
+
+    const refreshTreeRoot = React.useCallback(() => {
+        void tree.refresh(rootPath);
+    }, [tree, rootPath]);
+
+    const promptCreate = React.useCallback(async (kind: 'file' | 'dir') => {
+        const promptKey = kind === 'file' ? 'fileViewer.newFilePrompt' : 'fileViewer.newFolderPrompt';
+        const titleKey = kind === 'file' ? 'fileViewer.newFile' : 'fileViewer.newFolder';
+        const name = await Modal.prompt(
+            tx(titleKey),
+            tx(promptKey),
+            { defaultValue: '', confirmText: tx('common.ok'), cancelText: tx('common.cancel') },
+        );
+        const trimmed = name?.trim();
+        if (!trimmed) return;
+        const target = joinPath(rootPath, trimmed);
+        const resp = kind === 'file'
+            ? await sessionCreateFile(sessionId, target, '')
+            : await sessionCreateDirectory(sessionId, target);
+        if (!resp.success) {
+            Modal.alert(t('common.error'), resp.error || tx(kind === 'file' ? 'fileViewer.fileExists' : 'fileViewer.dirExists'));
+            return;
+        }
+        await tree.refresh(rootPath);
+    }, [rootPath, sessionId, tree]);
+
+    const handleNewClick = React.useCallback(() => {
+        Modal.alert(tx('fileViewer.newItem'), undefined, [
+            { text: tx('common.cancel'), style: 'cancel' },
+            { text: tx('fileViewer.newFolder'), onPress: () => { void promptCreate('dir'); } },
+            { text: tx('fileViewer.newFile'), onPress: () => { void promptCreate('file'); } },
+        ]);
+    }, [promptCreate]);
+
+    const [searchOpen, setSearchOpen] = React.useState(false);
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const toggleSearch = React.useCallback(() => {
+        setSearchOpen(prev => {
+            if (prev) setSearchQuery('');
+            return !prev;
+        });
+    }, []);
+
+    // --- Context-menu state for right-click on tree entries ---
+    const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null);
+
+    // Close context menu on any document click outside it.
+    React.useEffect(() => {
+        if (!contextMenu) return;
+        const handler = () => setContextMenu(null);
+        // Defer attaching to the next tick so the click that opened the menu
+        // (if it bubbled) doesn't immediately close it.
+        const id = setTimeout(() => {
+            window.addEventListener('click', handler);
+            window.addEventListener('contextmenu', handler);
+        }, 0);
+        return () => {
+            clearTimeout(id);
+            window.removeEventListener('click', handler);
+            window.removeEventListener('contextmenu', handler);
+        };
+    }, [contextMenu]);
+
+    const handleEntryContextMenu = React.useCallback(
+        (entry: { path: string; name: string; type: 'file' | 'dir' }, x: number, y: number) => {
+            setContextMenu({ x, y, entry });
+        },
+        [],
+    );
+
+    const handleRename = React.useCallback(async (entry: { path: string; name: string; type: 'file' | 'dir' }) => {
+        setContextMenu(null);
+        const newName = await Modal.prompt(
+            tx('fileViewer.rename'),
+            tx('fileViewer.renamePrompt'),
+            { defaultValue: entry.name, confirmText: tx('common.ok'), cancelText: tx('common.cancel') },
+        );
+        const trimmed = newName?.trim();
+        if (!trimmed || trimmed === entry.name) return;
+        const parent = dirname(entry.path);
+        const target = joinPath(parent, trimmed);
+        const resp = await sessionRename(sessionId, entry.path, target);
+        if (!resp.success) {
+            Modal.alert(t('common.error'), resp.error || tx('fileViewer.saveFailed'));
+            return;
+        }
+        await tree.refresh(parent);
+    }, [sessionId, tree]);
+
+    const handleDownload = React.useCallback(async (entry: { path: string; name: string; type: 'file' | 'dir' }) => {
+        setContextMenu(null);
+        const resp = await sessionReadFile(sessionId, entry.path);
+        if (!resp.success || !resp.content) {
+            Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
+            return;
+        }
+        const bytes = decodeBase64Bytes(resp.content);
+        downloadBlob(entry.name, bytes);
+    }, [sessionId]);
+
+    const handleDelete = React.useCallback(async (entry: { path: string; name: string; type: 'file' | 'dir' }) => {
+        setContextMenu(null);
+        const isDir = entry.type === 'dir';
+        const titleKey = isDir ? 'fileViewer.deleteDir' : 'fileViewer.deleteFile';
+        const confirmKey = isDir ? 'fileViewer.deleteDirConfirm' : 'fileViewer.deleteFileConfirm';
+        const confirmed = await Modal.confirm(
+            tx(titleKey),
+            tx(confirmKey, { name: entry.name }),
+            { confirmText: tx(titleKey), cancelText: tx('common.cancel'), destructive: true },
+        );
+        if (!confirmed) return;
+        const resp = isDir
+            ? await sessionDeleteDirectory(sessionId, entry.path)
+            : await sessionDeleteFile(sessionId, entry.path);
+        if (!resp.success) {
+            Modal.alert(t('common.error'), resp.error || tx('fileViewer.saveFailed'));
+            return;
+        }
+        // Close any open tabs for files under the deleted path.
+        setTabs(prev => prev.filter(t => !(t.path === entry.path || (isDir && t.path.startsWith(entry.path + '/')))));
+        await tree.refresh(dirname(entry.path));
+    }, [sessionId, tree]);
+
     if (!visible) return null;
+
+    const hasDirty = tabs.some(t => t.dirty);
 
     // Render through a React portal anchored on document.body. Without the
     // portal, even with position:fixed + zIndex:99999, the modal stays trapped
@@ -291,7 +535,70 @@ export function FileViewerModal({
                     flexDirection: 'column',
                 }}
             >
-                {/* Tabbar + close button (single row at top). */}
+                {/* Global IDE toolbar (B). Sits above the tabbar; close button moved here. */}
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    gap: 2,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.colors.divider,
+                    backgroundColor: theme.colors.surfaceHigh,
+                }}>
+                    <ToolbarIconButton
+                        icon="save-outline"
+                        label={tx('fileViewer.save')}
+                        disabled={!activeTab || !activeTab.dirty || saving}
+                        onPress={() => { if (activeTab) void saveTab(activeTab.id); }}
+                    />
+                    <ToolbarIconButton
+                        icon="sync-outline"
+                        label={tx('fileViewer.saveAll')}
+                        disabled={!hasDirty || saving}
+                        onPress={() => { void saveAllDirty(); }}
+                    />
+                    <ToolbarIconButton
+                        icon="reload"
+                        label={tx('fileViewer.refresh')}
+                        disabled={!activeTab}
+                        onPress={() => { void refreshActiveTab(); }}
+                    />
+                    <View style={{ width: 1, height: 18, backgroundColor: theme.colors.divider, marginHorizontal: 6 }} />
+                    <ToolbarIconButton
+                        icon="search"
+                        label={tx('fileViewer.find')}
+                        disabled={!activeTab}
+                        onPress={() => runEditorAction('actions.find')}
+                    />
+                    <ToolbarIconButton
+                        icon="swap-horizontal"
+                        label={tx('fileViewer.replace')}
+                        disabled={!activeTab}
+                        onPress={() => runEditorAction('editor.action.startFindReplaceAction')}
+                    />
+                    <ToolbarIconButton
+                        icon="navigate-outline"
+                        label={tx('fileViewer.gotoLine')}
+                        disabled={!activeTab}
+                        onPress={() => runEditorAction('editor.action.gotoLine')}
+                    />
+                    <View style={{ flex: 1 }} />
+                    <Pressable
+                        onPress={() => { void requestClose(); }}
+                        hitSlop={10}
+                        style={({ pressed }) => ({
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            opacity: pressed ? 0.5 : 1,
+                        })}
+                        accessibilityLabel={tx('fileViewer.close')}
+                    >
+                        <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
+                    </Pressable>
+                </View>
+
+                {/* Tabbar (close moved to global toolbar above). */}
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -360,18 +667,6 @@ export function FileViewerModal({
                             </View>
                         )}
                     </ScrollView>
-                    <Pressable
-                        onPress={() => { void requestClose(); }}
-                        hitSlop={10}
-                        style={({ pressed }) => ({
-                            paddingHorizontal: 12,
-                            paddingVertical: 8,
-                            opacity: pressed ? 0.5 : 1,
-                        })}
-                        accessibilityLabel={tx('fileViewer.close')}
-                    >
-                        <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
-                    </Pressable>
                 </View>
 
                 {/* Body: left tree + right editor. */}
@@ -381,10 +676,74 @@ export function FileViewerModal({
                         borderRightWidth: 1,
                         borderRightColor: theme.colors.divider,
                         backgroundColor: theme.colors.surfaceHigh,
+                        flexDirection: 'column',
                     }}>
+                        {/* Tree toolbar (A). */}
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingHorizontal: 6,
+                            paddingVertical: 4,
+                            gap: 2,
+                            borderBottomWidth: 1,
+                            borderBottomColor: theme.colors.divider,
+                        }}>
+                            <ToolbarIconButton
+                                icon="arrow-up"
+                                label={tx('fileViewer.upOneLevel')}
+                                onPress={goUpOneLevel}
+                                compact
+                            />
+                            <ToolbarIconButton
+                                icon="refresh"
+                                label={tx('fileViewer.refreshTree')}
+                                onPress={refreshTreeRoot}
+                                compact
+                            />
+                            <ToolbarIconButton
+                                icon="add"
+                                label={tx('fileViewer.newItem')}
+                                onPress={handleNewClick}
+                                compact
+                            />
+                            <ToolbarIconButton
+                                icon="search"
+                                label={tx('fileViewer.search')}
+                                onPress={toggleSearch}
+                                compact
+                                active={searchOpen}
+                            />
+                        </View>
+                        {searchOpen && (
+                            <View style={{
+                                paddingHorizontal: 6,
+                                paddingVertical: 4,
+                                borderBottomWidth: 1,
+                                borderBottomColor: theme.colors.divider,
+                            }}>
+                                <TextInput
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                    placeholder={tx('fileViewer.search')}
+                                    placeholderTextColor={theme.colors.textSecondary}
+                                    autoFocus
+                                    style={{
+                                        fontSize: 12,
+                                        color: theme.colors.text,
+                                        backgroundColor: theme.colors.surface,
+                                        borderRadius: 4,
+                                        paddingHorizontal: 8,
+                                        paddingVertical: 4,
+                                        ...Typography.default(),
+                                    }}
+                                />
+                            </View>
+                        )}
                         <DirectoryTreePanel
                             tree={tree}
                             onSelectFile={(p) => { void openFile(p); }}
+                            onContextMenuEntry={handleEntryContextMenu}
+                            searchQuery={searchQuery}
                         />
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -395,6 +754,7 @@ export function FileViewerModal({
                                 path={activeTab.path}
                                 theme="vs-dark"
                                 height="100%"
+                                onMount={handleEditorMount}
                             />
                         ) : (
                             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -429,53 +789,164 @@ export function FileViewerModal({
                         {tx('fileViewer.languageLabel', { language: activeTab?.language ?? '—' })}
                     </Text>
                     <View style={{ flex: 1 }} />
-                    <Pressable
-                        onPress={() => { if (activeTab) void saveTab(activeTab.id); }}
-                        disabled={!activeTab || !activeTab.dirty || saving}
-                        hitSlop={6}
-                        style={({ pressed }) => ({
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 6,
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            borderRadius: 6,
-                            backgroundColor: activeTab?.dirty
-                                ? theme.colors.button.primary.background
-                                : 'transparent',
-                            opacity: pressed ? 0.7 : 1,
-                        })}
-                    >
-                        {saving
-                            ? <ActivityIndicator size="small" />
-                            : <Ionicons
-                                name="save-outline"
-                                size={14}
-                                color={activeTab?.dirty ? theme.colors.button.primary.tint : theme.colors.textSecondary}
-                            />}
-                        <Text style={{
-                            fontSize: 12,
-                            color: activeTab?.dirty ? theme.colors.button.primary.tint : theme.colors.textSecondary,
-                            ...Typography.default('semiBold'),
-                        }}>
-                            {tx('fileViewer.save')}
-                        </Text>
-                    </Pressable>
+                    {saving && <ActivityIndicator size="small" />}
                 </View>
             </View>
+
+            {contextMenu && (
+                <ContextMenu
+                    state={contextMenu}
+                    onRename={handleRename}
+                    onDownload={handleDownload}
+                    onDelete={handleDelete}
+                />
+            )}
         </View>,
         document.body,
+    );
+}
+
+interface ToolbarIconButtonProps {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress: () => void;
+    disabled?: boolean;
+    compact?: boolean;
+    active?: boolean;
+}
+
+function ToolbarIconButton({ icon, label, onPress, disabled, compact, active }: ToolbarIconButtonProps) {
+    const { theme } = useUnistyles();
+    const padH = compact ? 6 : 8;
+    const padV = compact ? 4 : 6;
+    return (
+        <Pressable
+            onPress={onPress}
+            disabled={disabled}
+            accessibilityLabel={label}
+            // @ts-ignore — RN web accepts the DOM `title` attribute for hover tooltip.
+            title={label}
+            style={({ pressed, hovered }: any) => ({
+                paddingHorizontal: padH,
+                paddingVertical: padV,
+                borderRadius: 4,
+                opacity: disabled ? 0.4 : (pressed ? 0.6 : 1),
+                backgroundColor: active
+                    ? theme.colors.surfacePressed
+                    : (hovered && !disabled ? theme.colors.surfacePressed : 'transparent'),
+            })}
+        >
+            <Ionicons name={icon} size={compact ? 14 : 16} color={theme.colors.text} />
+        </Pressable>
+    );
+}
+
+interface ContextMenuProps {
+    state: ContextMenuState;
+    onRename: (entry: ContextMenuState['entry']) => void;
+    onDownload: (entry: ContextMenuState['entry']) => void;
+    onDelete: (entry: ContextMenuState['entry']) => void;
+}
+
+function ContextMenu({ state, onRename, onDownload, onDelete }: ContextMenuProps) {
+    const { theme } = useUnistyles();
+    const isDir = state.entry.type === 'dir';
+    return (
+        <View
+            // @ts-ignore — fixed positioning anchors the menu to viewport coordinates.
+            style={{
+                position: 'fixed' as any,
+                top: state.y,
+                left: state.x,
+                zIndex: 100000,
+                backgroundColor: theme.colors.surface,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: theme.colors.divider,
+                paddingVertical: 4,
+                minWidth: 160,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.25,
+                shadowRadius: 12,
+                elevation: 16,
+            }}
+            // @ts-ignore — DOM event to stop the document-level click closer.
+            onClick={(e: any) => e.stopPropagation?.()}
+        >
+            <ContextMenuItem
+                icon="pencil"
+                label={tx('fileViewer.rename')}
+                onPress={() => onRename(state.entry)}
+            />
+            {!isDir && (
+                <ContextMenuItem
+                    icon="download-outline"
+                    label={tx('fileViewer.download')}
+                    onPress={() => onDownload(state.entry)}
+                />
+            )}
+            <ContextMenuItem
+                icon="trash-outline"
+                label={isDir ? tx('fileViewer.deleteDir') : tx('fileViewer.deleteFile')}
+                onPress={() => onDelete(state.entry)}
+                destructive
+            />
+        </View>
+    );
+}
+
+function ContextMenuItem({
+    icon,
+    label,
+    onPress,
+    destructive,
+}: {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress: () => void;
+    destructive?: boolean;
+}) {
+    const { theme } = useUnistyles();
+    const color = destructive ? (theme.colors.textDestructive ?? '#dc2626') : theme.colors.text;
+    return (
+        <Pressable
+            onPress={onPress}
+            style={({ pressed, hovered }: any) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                gap: 8,
+                backgroundColor: hovered || pressed ? theme.colors.surfacePressed : 'transparent',
+            })}
+        >
+            <Ionicons name={icon} size={14} color={color} />
+            <Text style={{ fontSize: 13, color, ...Typography.default() }}>{label}</Text>
+        </Pressable>
     );
 }
 
 interface DirectoryTreePanelProps {
     tree: ReturnType<typeof useDirectoryTree>;
     onSelectFile: (path: string) => void;
+    onContextMenuEntry: (
+        entry: { path: string; name: string; type: 'file' | 'dir' },
+        x: number,
+        y: number,
+    ) => void;
+    searchQuery: string;
 }
 
-function DirectoryTreePanel({ tree, onSelectFile }: DirectoryTreePanelProps) {
+function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery }: DirectoryTreePanelProps) {
     const { theme } = useUnistyles();
     const { tree: nodes, expand, collapse, isLoading, errors } = tree;
+
+    const visibleNodes = React.useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return nodes;
+        return nodes.filter(n => n.entry.name.toLowerCase().includes(q));
+    }, [nodes, searchQuery]);
 
     const renderNode = (node: DirectoryTreeNode, depth: number): React.ReactNode => {
         const { entry, expanded, children } = node;
@@ -493,6 +964,16 @@ function DirectoryTreePanel({ tree, onSelectFile }: DirectoryTreePanelProps) {
                         } else {
                             onSelectFile(entry.path);
                         }
+                    }}
+                    // @ts-ignore — RN web supports onContextMenu DOM event.
+                    onContextMenu={(e: any) => {
+                        e.preventDefault?.();
+                        e.stopPropagation?.();
+                        onContextMenuEntry(
+                            { path: entry.path, name: entry.name, type: entry.type },
+                            e.clientX,
+                            e.clientY,
+                        );
                     }}
                     style={({ pressed }) => ({
                         flexDirection: 'row',
@@ -535,7 +1016,7 @@ function DirectoryTreePanel({ tree, onSelectFile }: DirectoryTreePanelProps) {
 
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 6 }}>
-            {nodes.map(n => renderNode(n, 0))}
+            {visibleNodes.map(n => renderNode(n, 0))}
         </ScrollView>
     );
 }
