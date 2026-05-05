@@ -270,6 +270,20 @@ export function FileViewerModal({
         try { window.localStorage?.setItem('fileViewer.treeWidth', String(w)); } catch {}
     }, []);
 
+    // Editor font size — toolbar A-/A+ buttons clamp to [10, 24] and persist.
+    const [fontSize, setFontSize] = React.useState<number>(() => {
+        if (typeof window === 'undefined') return 14;
+        const saved = parseInt(window.localStorage?.getItem('fileViewer.fontSize') ?? '', 10);
+        return Number.isFinite(saved) && saved >= 10 && saved <= 24 ? saved : 14;
+    });
+    const adjustFontSize = React.useCallback((delta: number) => {
+        setFontSize(prev => {
+            const next = Math.max(10, Math.min(24, prev + delta));
+            try { window.localStorage?.setItem('fileViewer.fontSize', String(next)); } catch {}
+            return next;
+        });
+    }, []);
+
     // Preview-mode for markdown files: the toolbar 'Preview' button toggles
     // the right pane between Monaco editor and a rendered MarkdownView. Keyed
     // by tab id so each open file remembers its own preview state.
@@ -727,6 +741,28 @@ export function FileViewerModal({
                             }}
                         />
                     )}
+                    {/* Font-size controls. Persisted to localStorage. */}
+                    <ToolbarIconButton
+                        icon="remove"
+                        label={`Smaller (${fontSize}px)`}
+                        disabled={fontSize <= 10}
+                        onPress={() => adjustFontSize(-1)}
+                    />
+                    <View style={{
+                        minWidth: 28,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
+                            {fontSize}
+                        </Text>
+                    </View>
+                    <ToolbarIconButton
+                        icon="add"
+                        label={`Larger (${fontSize}px)`}
+                        disabled={fontSize >= 24}
+                        onPress={() => adjustFontSize(1)}
+                    />
                     <View style={{ flex: 1 }} />
                     <Pressable
                         onPress={() => { void requestClose(); }}
@@ -917,6 +953,7 @@ export function FileViewerModal({
                                     theme="vs-dark"
                                     height="100%"
                                     onMount={handleEditorMount}
+                                    fontSize={fontSize}
                                 />
                             )
                         ) : (

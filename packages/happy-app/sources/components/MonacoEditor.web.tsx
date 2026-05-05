@@ -16,6 +16,8 @@ export interface MonacoEditorProps {
      * type-check graph; callers cast to `monaco.editor.IStandaloneCodeEditor`.
      */
     onMount?: (editor: unknown) => void;
+    /** Editor font size in px. Default 14. */
+    fontSize?: number;
 }
 
 const EXT_LANG: Record<string, string> = {
@@ -93,6 +95,7 @@ export function MonacoEditor({
     theme = 'vs-dark',
     height = '100%',
     onMount,
+    fontSize = 14,
 }: MonacoEditorProps) {
     const language = React.useMemo(() => inferLanguage(path), [path]);
     const effectiveReadOnly = readOnly ?? !onChange;
@@ -123,7 +126,7 @@ export function MonacoEditor({
                     minimap: { enabled: false },
                     automaticLayout: true,
                     scrollBeyondLastLine: false,
-                    fontSize: 14,
+                    fontSize,
                     wordWrap: 'on',
                 }}
             />
