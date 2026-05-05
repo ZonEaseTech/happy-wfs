@@ -58,9 +58,30 @@ export function useDirectoryTree(
         try {
             const response = await sessionListDirectory(sessionId, path);
             if (response.success && response.entries) {
+                // Normalize entries to be forward-compatible with older happy-cli versions
+                // (npm-installed CLIs in the wild) that return {name, type:'directory'|'file'|
+                // 'other', size, modified} WITHOUT a `path` field. Without this normalization
+                // entry.path is undefined and triggers a `paths[1] must be of type string` error
+                // on the next listDirectory / readFile RPC.
+                const normalized = response.entries.map((raw: any) => {
+                    const t = raw.type;
+                    const type: 'file' | 'dir' = (t === 'dir' || t === 'directory') ? 'dir' : 'file';
+                    const fallbackPath = path.endsWith('/') ? `${path}${raw.name}` : `${path}/${raw.name}`;
+                    return {
+                        name: raw.name,
+                        path: typeof raw.path === 'string' ? raw.path : fallbackPath,
+                        type,
+                        size: raw.size,
+                        mtime: typeof raw.mtime === 'number' ? raw.mtime : raw.modified,
+                    };
+                });
+                // Older CLIs ignore hideSystem; do a client-side scrub so we don't render
+                // .git / node_modules / .DS_Store / *.lock when the server didn't filter.
+                const NOISE = new Set(['.git', 'node_modules', 'dist', 'build', '.cache', '.DS_Store', '.next', '.expo']);
+                const visible = normalized.filter(e => !NOISE.has(e.name) && !e.name.endsWith('.lock'));
                 setEntries(prev => {
                     const next = new Map(prev);
-                    next.set(path, response.entries!);
+                    next.set(path, visible);
                     return next;
                 });
             } else {
