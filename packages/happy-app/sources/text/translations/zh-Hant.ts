@@ -1266,6 +1266,15 @@ export const zhHant: TranslationStructure = {
         create: '建立',
         newFileNameInvalid: '檔案名稱不能包含斜杠。請先切換到目標目錄。',
         newFileFailed: '建立檔案失敗',
+        select: '選擇',
+        selectAll: '全選',
+        invertSelection: '反選',
+        selectedCount: ({ count }: { count: number }) => `已選 ${count} 項`,
+        compressDownload: '壓縮並下載',
+        compressing: '壓縮中...',
+        compressLargeWarning: ({ sizeMb }: { sizeMb: string }) => `所選內容約 ${sizeMb} MB，確定繼續嗎？`,
+        compressFailed: '壓縮失敗',
+        downloadStarted: '下載已開始',
     },
 
     commits: {

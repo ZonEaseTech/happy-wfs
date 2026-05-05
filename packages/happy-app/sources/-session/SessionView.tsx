@@ -73,6 +73,9 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Threshold 1024px = roughly the smallest screen where 480px panel + chat still feels uncramped.
     const isDesktopPanelMode = Platform.OS === 'web' && windowWidth >= 1024;
     const [rightPanelType, setRightPanelType] = React.useState<RightPanelType | null>(null);
+    // PC code-slash button (rendered in this header) opens the bt-style FileViewerModal
+    // mounted inside SessionViewLoaded; state lives here so the button can read/toggle it.
+    const [showFileViewer, setShowFileViewer] = React.useState(false);
     // Reset panel if shrinking out of desktop mode (avoid stale panel state on resize).
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
@@ -400,6 +403,8 @@ export const SessionView = React.memo((props: { id: string }) => {
                         isDesktopPanelMode={isDesktopPanelMode}
                         rightPanelType={rightPanelType}
                         setRightPanelType={setRightPanelType}
+                        showFileViewer={showFileViewer}
+                        setShowFileViewer={setShowFileViewer}
                     />
                 ) : null}
             </View>
@@ -424,12 +429,14 @@ export const SessionView = React.memo((props: { id: string }) => {
 });
 
 
-function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelType, setRightPanelType }: {
+function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelType, setRightPanelType, showFileViewer, setShowFileViewer }: {
     sessionId: string;
     session: Session;
     isDesktopPanelMode: boolean;
     rightPanelType: RightPanelType | null;
     setRightPanelType: React.Dispatch<React.SetStateAction<RightPanelType | null>>;
+    showFileViewer: boolean;
+    setShowFileViewer: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     const { theme } = useUnistyles();
     const router = useRouter();
@@ -438,10 +445,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const isLandscape = useIsLandscape();
     const deviceType = useDeviceType();
     const [message, setMessage] = React.useState('');
-    // PC code-slash button now opens the bt-style FileViewerModal directly
-    // (over the whole viewport via portal), instead of the side RightPanel
-    // drawer. Old drawer flow still kicks in on narrow web (router.push).
-    const [showFileViewer, setShowFileViewer] = React.useState(false);
     const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
     const pendingMessages = useSessionPendingMessages(sessionId);

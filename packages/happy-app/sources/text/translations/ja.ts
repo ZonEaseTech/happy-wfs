@@ -1296,6 +1296,15 @@ export const ja: TranslationStructure = {
         create: '作成',
         newFileNameInvalid: 'ファイル名にスラッシュを含めることはできません。先に対象ディレクトリへ移動してください。',
         newFileFailed: 'ファイルの作成に失敗しました',
+        select: '選択',
+        selectAll: 'すべて選択',
+        invertSelection: '選択を反転',
+        selectedCount: ({ count }: { count: number }) => `${count} 件選択中`,
+        compressDownload: '圧縮してダウンロード',
+        compressing: '圧縮中...',
+        compressLargeWarning: ({ sizeMb }: { sizeMb: string }) => `選択範囲は約 ${sizeMb} MB です。続行しますか?`,
+        compressFailed: '圧縮に失敗しました',
+        downloadStarted: 'ダウンロードを開始しました',
     },
 
     commits: {

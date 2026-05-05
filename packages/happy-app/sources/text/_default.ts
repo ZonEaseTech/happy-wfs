@@ -1280,6 +1280,15 @@ export const en = {
         create: 'Create',
         newFileNameInvalid: 'File name cannot contain a slash. Switch to the target directory first.',
         newFileFailed: 'Failed to create file',
+        select: 'Select',
+        selectAll: 'Select All',
+        invertSelection: 'Invert Selection',
+        selectedCount: ({ count }: { count: number }) => `${count} selected`,
+        compressDownload: 'Compress & Download',
+        compressing: 'Compressing...',
+        compressLargeWarning: ({ sizeMb }: { sizeMb: string }) => `Selection is ~${sizeMb} MB. Continue?`,
+        compressFailed: 'Compression failed',
+        downloadStarted: 'Download started',
     },
 
     commits: {
