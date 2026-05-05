@@ -123,7 +123,7 @@ export function MonacoEditor({
                     minimap: { enabled: false },
                     automaticLayout: true,
                     scrollBeyondLastLine: false,
-                    fontSize: 13,
+                    fontSize: 14,
                     wordWrap: 'on',
                 }}
             />
