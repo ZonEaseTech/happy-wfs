@@ -26,6 +26,7 @@ import {
 } from '@/sync/ops';
 import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
 import { ResizableHandle } from '@/components/ResizableHandle';
+import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { getSession } from '@/sync/storage';
 import { t } from '@/text';
 
@@ -268,6 +269,11 @@ export function FileViewerModal({
         setTreeWidth(w);
         try { window.localStorage?.setItem('fileViewer.treeWidth', String(w)); } catch {}
     }, []);
+
+    // Preview-mode for markdown files: the toolbar 'Preview' button toggles
+    // the right pane between Monaco editor and a rendered MarkdownView. Keyed
+    // by tab id so each open file remembers its own preview state.
+    const [previewTabIds, setPreviewTabIds] = React.useState<Set<string>>(() => new Set());
 
     const tabsRef = React.useRef<Tab[]>(tabs);
     React.useEffect(() => { tabsRef.current = tabs; }, [tabs]);
@@ -706,6 +712,21 @@ export function FileViewerModal({
                         disabled={!activeTab}
                         onPress={() => runEditorAction('editor.action.gotoLine')}
                     />
+                    {/* Markdown preview toggle — visible only on .md tabs. */}
+                    {activeTab && activeTab.language === 'markdown' && (
+                        <ToolbarIconButton
+                            icon={previewTabIds.has(activeTab.id) ? 'create-outline' : 'eye-outline'}
+                            label={previewTabIds.has(activeTab.id) ? 'Edit' : 'Preview'}
+                            onPress={() => {
+                                setPreviewTabIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(activeTab.id)) next.delete(activeTab.id);
+                                    else next.add(activeTab.id);
+                                    return next;
+                                });
+                            }}
+                        />
+                    )}
                     <View style={{ flex: 1 }} />
                     <Pressable
                         onPress={() => { void requestClose(); }}
@@ -881,14 +902,23 @@ export function FileViewerModal({
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                         {activeTab ? (
-                            <MonacoEditor
-                                value={activeTab.content}
-                                onChange={handleEditorChange}
-                                path={activeTab.path}
-                                theme="vs-dark"
-                                height="100%"
-                                onMount={handleEditorMount}
-                            />
+                            previewTabIds.has(activeTab.id) && activeTab.language === 'markdown' ? (
+                                <ScrollView
+                                    style={{ flex: 1, backgroundColor: theme.colors.surface }}
+                                    contentContainerStyle={{ padding: 24 }}
+                                >
+                                    <MarkdownView markdown={activeTab.content} />
+                                </ScrollView>
+                            ) : (
+                                <MonacoEditor
+                                    value={activeTab.content}
+                                    onChange={handleEditorChange}
+                                    path={activeTab.path}
+                                    theme="vs-dark"
+                                    height="100%"
+                                    onMount={handleEditorMount}
+                                />
+                            )
                         ) : (
                             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                                 <Text style={{ fontSize: 14, color: theme.colors.textSecondary, ...Typography.default() }}>
