@@ -283,8 +283,10 @@ export class ApiMachineClient {
         // Register archive-workspace handler
         this.rpcHandlerManager.registerHandler('archive-workspace', async (params: any) => {
             const { workspacePath, repos } = params || {};
-            if (!workspacePath || !repos || !Array.isArray(repos)) {
-                return { success: false, error: 'Missing workspacePath or repos' };
+            // workspacePath is optional: existing-branch multi-repo sessions don't
+            // create a separate workspace directory.
+            if (!repos || !Array.isArray(repos)) {
+                return { success: false, error: 'Missing repos' };
             }
 
             const results: Array<{ repo: string; success: boolean; error?: string }> = [];
@@ -299,23 +301,28 @@ export class ApiMachineClient {
                         logger.info(`[DAEMON] Archive script completed for ${worktreePath}`);
                     }
 
-                    // Remove worktree (use execFileSync to avoid shell injection)
-                    try {
-                        execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
-                            cwd: basePath, stdio: 'pipe', timeout: 30000
-                        });
-                    } catch (err: any) {
-                        logger.warn(`[DAEMON] git worktree remove failed: ${err.message}`);
-                    }
-
-                    // Delete branch if requested (use execFileSync to avoid shell injection)
-                    if (deleteBranch && branchName) {
+                    // Skip worktree/branch cleanup when no worktree was created.
+                    // In existing-branch multi-repo mode, worktreePath === basePath
+                    // signals the session ran directly in the original repo.
+                    if (worktreePath !== basePath) {
+                        // Remove worktree (use execFileSync to avoid shell injection)
                         try {
-                            execFileSync('git', ['branch', '-D', branchName], {
-                                cwd: basePath, stdio: 'pipe', timeout: 10000
+                            execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+                                cwd: basePath, stdio: 'pipe', timeout: 30000
                             });
                         } catch (err: any) {
-                            logger.warn(`[DAEMON] git branch -D failed: ${err.message}`);
+                            logger.warn(`[DAEMON] git worktree remove failed: ${err.message}`);
+                        }
+
+                        // Delete branch if requested (use execFileSync to avoid shell injection)
+                        if (deleteBranch && branchName) {
+                            try {
+                                execFileSync('git', ['branch', '-D', branchName], {
+                                    cwd: basePath, stdio: 'pipe', timeout: 10000
+                                });
+                            } catch (err: any) {
+                                logger.warn(`[DAEMON] git branch -D failed: ${err.message}`);
+                            }
                         }
                     }
 
@@ -326,15 +333,17 @@ export class ApiMachineClient {
                 }
             }
 
-            // Clean up workspace directory if empty
-            try {
-                const entries = readdirSync(workspacePath);
-                if (entries.length === 0) {
-                    rmdirSync(workspacePath);
-                    logger.info(`[DAEMON] Removed empty workspace directory: ${workspacePath}`);
+            // Clean up workspace directory if empty (only when one was created)
+            if (workspacePath) {
+                try {
+                    const entries = readdirSync(workspacePath);
+                    if (entries.length === 0) {
+                        rmdirSync(workspacePath);
+                        logger.info(`[DAEMON] Removed empty workspace directory: ${workspacePath}`);
+                    }
+                } catch {
+                    // Ignore — workspace dir might not exist or not be empty
                 }
-            } catch {
-                // Ignore — workspace dir might not exist or not be empty
             }
 
             return { success: results.every(r => r.success), results };
