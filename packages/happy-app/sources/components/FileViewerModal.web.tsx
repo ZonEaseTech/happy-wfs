@@ -487,34 +487,37 @@ export function FileViewerModal({
         void tree.refresh(rootPath);
     }, [tree, rootPath]);
 
-    const promptCreate = React.useCallback(async (kind: 'file' | 'dir') => {
-        const promptKey = kind === 'file' ? 'fileViewer.newFilePrompt' : 'fileViewer.newFolderPrompt';
-        const titleKey = kind === 'file' ? 'fileViewer.newFile' : 'fileViewer.newFolder';
-        const name = await Modal.prompt(
-            tx(titleKey),
-            tx(promptKey),
-            { defaultValue: '', confirmText: tx('common.ok'), cancelText: tx('common.cancel') },
-        );
-        const trimmed = name?.trim();
+    // Inline 'new file/folder' dialog. Replaces the chain of native browser
+    // prompt + multi-button picker that looked terrible. Renders as an
+    // absolutely-positioned overlay inside the modal portal so it sits on
+    // top of everything without any stacking-context fighting.
+    type NewDialogState =
+        | null
+        | { stage: 'pick' }
+        | { stage: 'name'; type: 'file' | 'dir'; value: string; saving: boolean };
+    const [newDialog, setNewDialog] = React.useState<NewDialogState>(null);
+
+    const handleNewClick = React.useCallback(() => {
+        setNewDialog({ stage: 'pick' });
+    }, []);
+
+    const submitNewName = React.useCallback(async () => {
+        if (!newDialog || newDialog.stage !== 'name') return;
+        const trimmed = newDialog.value.trim();
         if (!trimmed) return;
+        setNewDialog({ ...newDialog, saving: true });
         const target = joinPath(rootPath, trimmed);
-        const resp = kind === 'file'
+        const resp = newDialog.type === 'file'
             ? await createFile(target, '')
             : await createDirectory(target);
         if (!resp.success) {
-            Modal.alert(t('common.error'), resp.error || tx(kind === 'file' ? 'fileViewer.fileExists' : 'fileViewer.dirExists'));
+            Modal.alert(t('common.error'), resp.error || tx(newDialog.type === 'file' ? 'fileViewer.fileExists' : 'fileViewer.dirExists'));
+            setNewDialog({ ...newDialog, saving: false });
             return;
         }
+        setNewDialog(null);
         await tree.refresh(rootPath);
-    }, [rootPath, createFile, createDirectory, tree]);
-
-    const handleNewClick = React.useCallback(() => {
-        Modal.alert(tx('fileViewer.newItem'), undefined, [
-            { text: tx('common.cancel'), style: 'cancel' },
-            { text: tx('fileViewer.newFolder'), onPress: () => { void promptCreate('dir'); } },
-            { text: tx('fileViewer.newFile'), onPress: () => { void promptCreate('file'); } },
-        ]);
-    }, [promptCreate]);
+    }, [newDialog, rootPath, createFile, createDirectory, tree]);
 
     const [searchOpen, setSearchOpen] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
@@ -931,8 +934,193 @@ export function FileViewerModal({
                     onDelete={handleDelete}
                 />
             )}
+
+            {newDialog && (
+                <NewDialog
+                    state={newDialog}
+                    onSetState={setNewDialog}
+                    onSubmit={submitNewName}
+                />
+            )}
         </View>,
         document.body,
+    );
+}
+
+interface NewDialogProps {
+    state: NonNullable<NewDialogStateExternal>;
+    onSetState: (s: NewDialogStateExternal) => void;
+    onSubmit: () => void;
+}
+type NewDialogStateExternal =
+    | null
+    | { stage: 'pick' }
+    | { stage: 'name'; type: 'file' | 'dir'; value: string; saving: boolean };
+
+function NewDialog({ state, onSetState, onSubmit }: NewDialogProps) {
+    const { theme } = useUnistyles();
+    const inputRef = React.useRef<TextInput>(null);
+
+    React.useEffect(() => {
+        // Focus the input as soon as we transition to the name stage.
+        if (state.stage === 'name') {
+            const id = setTimeout(() => inputRef.current?.focus(), 30);
+            return () => clearTimeout(id);
+        }
+    }, [state.stage]);
+
+    // Esc closes; Enter submits (handled on the input itself).
+    React.useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                onSetState(null);
+            }
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [onSetState]);
+
+    return (
+        <View
+            style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                zIndex: 100000,
+                justifyContent: 'center',
+                alignItems: 'center',
+            }}
+            // @ts-ignore — RN-web onClick
+            onClick={(e: any) => { if (e.target === e.currentTarget) onSetState(null); }}
+        >
+            <Pressable
+                onPress={() => onSetState(null)}
+                style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                }}
+            />
+            <View style={{
+                width: 360,
+                backgroundColor: theme.colors.surface,
+                borderRadius: 10,
+                padding: 16,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.25,
+                shadowRadius: 16,
+                elevation: 12,
+            }}>
+                {state.stage === 'pick' ? (
+                    <>
+                        <Text style={{ fontSize: 16, color: theme.colors.text, ...Typography.default('semiBold'), marginBottom: 12 }}>
+                            {t('fileViewer.newItem' as any)}
+                        </Text>
+                        <Pressable
+                            onPress={() => onSetState({ stage: 'name', type: 'file', value: '', saving: false })}
+                            style={({ pressed }) => ({
+                                paddingVertical: 10,
+                                paddingHorizontal: 8,
+                                borderRadius: 6,
+                                backgroundColor: pressed ? theme.colors.surfaceHigh : 'transparent',
+                            })}
+                        >
+                            <Text style={{ fontSize: 14, color: theme.colors.text, ...Typography.default() }}>
+                                {t('fileViewer.newFile' as any)}
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            onPress={() => onSetState({ stage: 'name', type: 'dir', value: '', saving: false })}
+                            style={({ pressed }) => ({
+                                paddingVertical: 10,
+                                paddingHorizontal: 8,
+                                borderRadius: 6,
+                                backgroundColor: pressed ? theme.colors.surfaceHigh : 'transparent',
+                            })}
+                        >
+                            <Text style={{ fontSize: 14, color: theme.colors.text, ...Typography.default() }}>
+                                {t('fileViewer.newFolder' as any)}
+                            </Text>
+                        </Pressable>
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                            <Pressable
+                                onPress={() => onSetState(null)}
+                                style={({ pressed }) => ({
+                                    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 6,
+                                    opacity: pressed ? 0.7 : 1,
+                                })}
+                            >
+                                <Text style={{ fontSize: 14, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                    {t('common.cancel')}
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </>
+                ) : (
+                    <>
+                        <Text style={{ fontSize: 16, color: theme.colors.text, ...Typography.default('semiBold'), marginBottom: 4 }}>
+                            {t((state.type === 'file' ? 'fileViewer.newFile' : 'fileViewer.newFolder') as any)}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default(), marginBottom: 10 }}>
+                            {t((state.type === 'file' ? 'fileViewer.newFilePrompt' : 'fileViewer.newFolderPrompt') as any)}
+                        </Text>
+                        <TextInput
+                            ref={inputRef}
+                            value={state.value}
+                            onChangeText={(v) => onSetState({ ...state, value: v })}
+                            onSubmitEditing={onSubmit}
+                            editable={!state.saving}
+                            placeholder={state.type === 'file' ? 'name.ext' : 'folder-name'}
+                            placeholderTextColor={theme.colors.textSecondary}
+                            style={{
+                                borderWidth: 1,
+                                borderColor: theme.colors.divider,
+                                borderRadius: 6,
+                                paddingHorizontal: 10,
+                                paddingVertical: 8,
+                                fontSize: 14,
+                                color: theme.colors.text,
+                                backgroundColor: theme.colors.surfaceHigh,
+                                marginBottom: 14,
+                                outlineStyle: 'none' as any,
+                            }}
+                        />
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+                            <Pressable
+                                onPress={() => onSetState(null)}
+                                disabled={state.saving}
+                                style={({ pressed }) => ({
+                                    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 6,
+                                    opacity: pressed ? 0.7 : 1,
+                                })}
+                            >
+                                <Text style={{ fontSize: 14, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                    {t('common.cancel')}
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={onSubmit}
+                                disabled={state.saving || !state.value.trim()}
+                                style={({ pressed }) => ({
+                                    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 6,
+                                    backgroundColor: theme.colors.button.primary.background,
+                                    opacity: state.saving || !state.value.trim() ? 0.5 : (pressed ? 0.85 : 1),
+                                })}
+                            >
+                                {state.saving
+                                    ? <ActivityIndicator size="small" color={theme.colors.button.primary.tint} />
+                                    : <Text style={{ fontSize: 14, color: theme.colors.button.primary.tint, ...Typography.default('semiBold') }}>
+                                        {t('common.ok')}
+                                      </Text>
+                                }
+                            </Pressable>
+                        </View>
+                    </>
+                )}
+            </View>
+        </View>
     );
 }
 
