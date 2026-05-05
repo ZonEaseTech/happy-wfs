@@ -133,11 +133,16 @@ export function FileViewerModal({
         }
     }, [sessionId]);
 
-    // Auto-open initialFilePath when modal becomes visible.
+    // Auto-open initialFilePath when modal becomes visible. When the modal is
+    // hidden we also reset the entire tab state so reopening doesn't surface stale
+    // tabs (or mismatched dirty flags) from a previous session — `requestClose`
+    // already prompted the user about unsaved work before getting here.
     const initialOpenedRef = React.useRef<string | null>(null);
     React.useEffect(() => {
         if (!visible) {
             initialOpenedRef.current = null;
+            setTabs([]);
+            setActiveTabId(null);
             return;
         }
         if (initialFilePath && initialOpenedRef.current !== initialFilePath) {

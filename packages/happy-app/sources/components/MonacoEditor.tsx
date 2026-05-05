@@ -20,6 +20,12 @@ export function MonacoEditor({ value, height }: MonacoEditorProps) {
     );
 }
 
+// Keep the API symmetric with MonacoEditor.web.tsx so consumers can `import { inferLanguage }`
+// without platform-specific guards. Native has no Monaco, so we don't need real inference.
+export function inferLanguage(_path: string): string {
+    return 'plaintext';
+}
+
 export default MonacoEditor;
 
 const styles = StyleSheet.create({

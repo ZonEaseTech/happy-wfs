@@ -337,9 +337,14 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
 
         try {
             const rawEntries = await readdir(absPath, { withFileTypes: true });
+            // Drop symlinks before listing — Dirent.isDirectory() follows the link
+            // and would let a symlink to /etc tunnel out of the validated workingDirectory
+            // boundary on the next listDirectory call (validatePath only checks the
+            // path string, not what it resolves to). Mirrors getDirectoryTree (~L409).
+            const noSymlinks = rawEntries.filter((e) => !e.isSymbolicLink());
             const visible = hideSystem
-                ? rawEntries.filter((e) => !isSystemNoise(e.name))
-                : rawEntries;
+                ? noSymlinks.filter((e) => !isSystemNoise(e.name))
+                : noSymlinks;
 
             const entries: DirEntry[] = await Promise.all(
                 visible.map(async (entry) => {
@@ -560,12 +565,12 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
     }
 }
 
-// A3 path policy: read anywhere, but block writes to OS-managed system paths.
-// macOS-specific roots like /System and /Library are intentionally NOT included
-// here — sessions on Mac dev boxes legitimately edit user files under those
-// trees via symlinks; the deny list targets only the Linux/POSIX system roots
-// that should never be written from a session.
+// A3 path policy: read anywhere, but block writes to OS-managed system paths
+// AND high-impact user-level paths whose write would yield persistent backdoors
+// (SSH keys, shell rc, launch agents, cloud creds). Reading these is still A3-allowed;
+// only writes are denied because writing them weaponizes the session.
 const SYSTEM_WRITE_DENY = [
+    // OS-managed Linux/POSIX system roots.
     /^\/etc\//,
     /^\/usr\//,
     /^\/sbin\//,
@@ -575,7 +580,38 @@ const SYSTEM_WRITE_DENY = [
     /^\/dev\//,
     /^\/boot\//,
     /^\/var\/log\//,
+
+    // User-level high-impact paths (anywhere under any home / under any cwd).
+    /\/\.ssh\//,                     // private keys, authorized_keys
+    /\/\.aws\//,                     // credentials, config
+    /\/\.gnupg\//,                   // GPG keyrings
     /\/\.docker\/config\.json$/,
+    /\/\.git-credentials$/,
+    /\/\.config\/git\/credentials$/,
+    /\/\.netrc$/,
+    /\/\.npmrc$/,                    // can carry registry tokens
+    /\/\.pypirc$/,                   // PyPI tokens
+
+    // Shell rc / login shell paths — append = persistent command injection.
+    /\/\.bashrc$/,
+    /\/\.bash_profile$/,
+    /\/\.bash_login$/,
+    /\/\.profile$/,
+    /\/\.zshrc$/,
+    /\/\.zshenv$/,
+    /\/\.zprofile$/,
+    /\/\.zlogin$/,
+    /\/\.config\/fish\/config\.fish$/,
+
+    // macOS launch agents / daemons — writing here = boot-time persistence.
+    /\/Library\/LaunchAgents\//,
+    /\/Library\/LaunchDaemons\//,
+
+    // Linux systemd user services.
+    /\/\.config\/systemd\/user\//,
+
+    // SSH server-side key drop-points (some homed setups put authorized_keys outside .ssh).
+    /\/authorized_keys$/,
 ];
 
 export function isWritableForSession(absPath: string): boolean {

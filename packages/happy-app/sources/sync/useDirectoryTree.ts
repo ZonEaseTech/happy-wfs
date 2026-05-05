@@ -98,6 +98,14 @@ export function useDirectoryTree(
             next.delete(path);
             return next;
         });
+        // Drop the cached entries too so revisiting a large repo doesn't grow
+        // the Map unboundedly. Re-expand will re-fetch (cheap, and keeps things fresh).
+        setEntries(prev => {
+            if (!prev.has(path)) return prev;
+            const next = new Map(prev);
+            next.delete(path);
+            return next;
+        });
     }, []);
 
     const refresh = React.useCallback(async (path: string) => {
