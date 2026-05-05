@@ -15,9 +15,10 @@ function getMaxWidth(): number {
     if (isRunningOnMac()) {
         return Number.POSITIVE_INFINITY;
     }
-    
-    // For tablets and web, use 700px
-    return 800;
+
+    // For tablets and web, use 1000px so the header tracks the content area
+    // (which was widened from 800 -> 1000 in the same commit family).
+    return 1000;
 }
 
 // Calculate max width based on device type
