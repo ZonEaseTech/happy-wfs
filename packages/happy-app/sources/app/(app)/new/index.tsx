@@ -1288,12 +1288,14 @@ function NewSessionWizard() {
             // Handle worktree creation
             if (sessionType === 'worktree') {
                 if (selectedRepos.length > 0 && branchMode === 'existing') {
-                    // Existing branch mode: checkout selected branches directly, no worktree.
-                    // We deliberately DO NOT emit worktreeBranchName / workspaceRepos / repoScripts
-                    // here, because those fields make the daemon spawn flow create a worktree.
-                    // The agent will still see all repos' git status by virtue of running with
-                    // the chosen repo as cwd; multi-repo metadata for archive cleanup is moot
-                    // because no worktree exists to clean up.
+                    // Existing branch mode: checkout selected branches in-place, no worktree.
+                    // We DO emit workspaceRepos so the agent + webapp see the multi-repo set
+                    // (Files panel, status, etc.). The daemon does NOT create worktrees from
+                    // workspaceRepos — it just forwards the array as a HAPPY_WORKSPACE_REPOS
+                    // env var to the spawned agent. The actual worktree creation only happens
+                    // when the front-end calls createWorkspace (we don't here). The convention
+                    // path === basePath signals "checked out in place, no worktree to clean up"
+                    // for the archive flow.
                     const allRegisteredRepos = storage.getState().registeredRepos[selectedMachineId] || [];
                     for (const sr of selectedRepos) {
                         if (sr.targetBranch) {
@@ -1306,10 +1308,29 @@ function NewSessionWizard() {
                         const registered = 'id' in repo ? allRegisteredRepos.find(rr => rr.id === repo.id) : undefined;
                         const subdir = registered?.defaultWorkingDir;
                         actualPath = subdir ? `${sr.repo.path}/${subdir}` : sr.repo.path;
-                        // worktreeBranchName intentionally left unset — see comment above.
+                        // worktreeBranchName intentionally left unset — no worktree was created.
                     } else {
                         actualPath = selectedRepos[0].repo.path;
-                        // workspaceRepos / repoScripts intentionally left unset — see comment above.
+                        workspaceRepos = selectedRepos.map(sr => ({
+                            repoId: 'id' in sr.repo ? sr.repo.id : undefined,
+                            path: sr.repo.path,
+                            basePath: sr.repo.path,
+                            branchName: sr.targetBranch || '',
+                            targetBranch: sr.targetBranch,
+                            displayName: sr.repo.displayName,
+                        }));
+                        repoScripts = workspaceRepos.map(r => {
+                            const reg = r.repoId ? allRegisteredRepos.find(rr => rr.id === r.repoId) : undefined;
+                            return {
+                                repoDisplayName: r.displayName || '',
+                                worktreePath: r.path,
+                                setupScript: reg?.setupScript,
+                                parallelSetup: reg?.parallelSetup,
+                                cleanupScript: reg?.cleanupScript,
+                                archiveScript: reg?.archiveScript,
+                                devServerScript: reg?.devServerScript,
+                            };
+                        });
                     }
                 } else if (selectedRepos.length > 0) {
                     // New branch mode: multi-repo workspace creation
