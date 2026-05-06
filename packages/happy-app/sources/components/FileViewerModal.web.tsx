@@ -1378,7 +1378,7 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                         : <FileIcon fileName={entry.name} size={14} />}
                     <Text
                         numberOfLines={1}
-                        style={{ marginLeft: 4, fontSize: 12, color: theme.colors.text, ...Typography.default(), flex: 1 }}
+                        style={{ marginLeft: 4, fontSize: 14, color: theme.colors.text, ...Typography.default(), flex: 1 }}
                     >
                         {entry.name}
                     </Text>
