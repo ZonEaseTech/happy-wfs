@@ -40,6 +40,8 @@ export function useDirectoryTree(
     entityId: string,
     initialPath: string,
     listDirectoryFn?: ListDirectoryFn,
+    /** When true, dotfiles + build dirs (.git/.cache/.DS_Store/etc) are shown. */
+    showHidden = false,
 ): UseDirectoryTreeResult {
     // The listFn closure changes on every parent render (callers don't generally
     // memoize), so we keep a ref to the latest version. `load` then stays stable
@@ -97,10 +99,10 @@ export function useDirectoryTree(
                         mtime: typeof raw.mtime === 'number' ? raw.mtime : raw.modified,
                     };
                 });
-                // Older CLIs ignore hideSystem; do a client-side scrub so we don't render
-                // .git / node_modules / .DS_Store / *.lock when the server didn't filter.
-                const NOISE = new Set(['.git', 'node_modules', 'dist', 'build', '.cache', '.DS_Store', '.next', '.expo']);
-                const visible = normalized.filter(e => !NOISE.has(e.name) && !e.name.endsWith('.lock'));
+                // Cache the full result; the noise scrub now happens at render time
+                // (in the `tree` useMemo below) so toggling 'show hidden' is instant
+                // and doesn't refetch.
+                const visible = normalized;
                 setEntries(prev => {
                     const next = new Map(prev);
                     next.set(path, visible);
@@ -156,10 +158,16 @@ export function useDirectoryTree(
     }, [load]);
 
     const tree = React.useMemo<DirectoryTreeNode[]>(() => {
+        // Render-time filter — toggling showHidden recomputes immediately
+        // without invalidating the entries cache.
+        const NOISE = new Set(['.git', 'node_modules', 'dist', 'build', '.cache', '.DS_Store', '.next', '.expo']);
+        const isHidden = (name: string) => NOISE.has(name) || name.endsWith('.lock');
+
         const build = (path: string): DirectoryTreeNode[] => {
             const list = entries.get(path);
             if (!list) return [];
-            return list.map(entry => {
+            const filtered = showHidden ? list : list.filter(e => !isHidden(e.name));
+            return filtered.map(entry => {
                 const isDir = entry.type === 'dir';
                 const isExpanded = isDir && expanded.has(entry.path);
                 const node: DirectoryTreeNode = {
@@ -173,7 +181,7 @@ export function useDirectoryTree(
             });
         };
         return build(initialPath);
-    }, [entries, expanded, initialPath]);
+    }, [entries, expanded, initialPath, showHidden]);
 
     return { tree, expand, collapse, refresh, isLoading, errors };
 }

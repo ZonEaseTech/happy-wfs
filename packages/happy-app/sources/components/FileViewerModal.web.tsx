@@ -270,6 +270,20 @@ export function FileViewerModal({
         try { window.localStorage?.setItem('fileViewer.treeWidth', String(w)); } catch {}
     }, []);
 
+    // Show hidden files toggle (.git / node_modules / .DS_Store etc).
+    // Persisted to localStorage so each user keeps their preference.
+    const [showHidden, setShowHidden] = React.useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return window.localStorage?.getItem('fileViewer.showHidden') === '1';
+    });
+    const toggleShowHidden = React.useCallback(() => {
+        setShowHidden(prev => {
+            const next = !prev;
+            try { window.localStorage?.setItem('fileViewer.showHidden', next ? '1' : '0'); } catch {}
+            return next;
+        });
+    }, []);
+
     // Editor font size — toolbar A-/A+ buttons clamp to [10, 24] and persist.
     const [fontSize, setFontSize] = React.useState<number>(() => {
         if (typeof window === 'undefined') return 14;
@@ -495,7 +509,7 @@ export function FileViewerModal({
         ));
     }, [activeTabId]);
 
-    const tree = useDirectoryTree(entityId, rootPath, listDirectoryFn);
+    const tree = useDirectoryTree(entityId, rootPath, listDirectoryFn, showHidden);
 
     // --- Tree-toolbar handlers ---
     const goUpOneLevel = React.useCallback(() => {
@@ -894,6 +908,12 @@ export function FileViewerModal({
                                 icon="add"
                                 label={tx('fileViewer.newItem')}
                                 onPress={handleNewClick}
+                                compact
+                            />
+                            <ToolbarIconButton
+                                icon={showHidden ? 'eye' : 'eye-off-outline'}
+                                label={showHidden ? 'Hide hidden' : 'Show hidden'}
+                                onPress={toggleShowHidden}
                                 compact
                             />
                             <ToolbarIconButton
