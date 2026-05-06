@@ -57,7 +57,12 @@ export async function compressAndDownload(opts: CompressAndDownloadOptions): Pro
     const pad = (n: number) => n.toString().padStart(2, '0');
     const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
 
-    let tmpArchive: string | null = null;
+    // Stage archive into a hidden subdir of `cwd` (NOT /tmp) so readFile passes
+    // validatePath — the cli-side readFile is still gated to the workingDirectory
+    // subtree even under A3 path policy. The .happy-tmp dir is rm -rf'd in the
+    // finally block.
+    const tmpDirRel = `.happy-tmp`;
+    let archiveRel: string | null = null;
     try {
         // 1. Estimate total size with du -sk (KiB) for warning gate.
         onProgress?.('estimating');
@@ -83,23 +88,33 @@ export async function compressAndDownload(opts: CompressAndDownloadOptions): Pro
         const useZip = (probe.stdout || '').trim() === 'zip';
         const ext = useZip ? 'zip' : 'tar.gz';
         const mime = useZip ? 'application/zip' : 'application/gzip';
-        tmpArchive = `/tmp/happy-download-${stamp}.${ext}`;
+        archiveRel = `${tmpDirRel}/download-${stamp}.${ext}`;
         const downloadName = `download-${stamp}.${ext}`;
 
-        // 3. Pack into /tmp.
+        // 3. Ensure the staging dir exists, then pack into it (relative to cwd
+        //    so validatePath sees the archive inside the working tree).
         onProgress?.('compressing');
+        const mkdirRes = await bash({
+            command: `mkdir -p ${shellQuote(tmpDirRel)}`,
+            cwd,
+            timeout: 5000,
+        });
+        if (!mkdirRes.success) {
+            return { success: false, error: mkdirRes.stderr || 'Failed to create staging dir' };
+        }
         const fileArgs = names.map(shellQuote).join(' ');
         const packCmd = useZip
-            ? `zip -rqX -- ${shellQuote(tmpArchive)} ${fileArgs}`
-            : `tar -czf ${shellQuote(tmpArchive)} -- ${fileArgs}`;
+            ? `zip -rqX -- ${shellQuote(archiveRel)} ${fileArgs}`
+            : `tar -czf ${shellQuote(archiveRel)} -- ${fileArgs}`;
         const packRes = await bash({ command: packCmd, cwd, timeout: 600000 });
         if (!packRes.success) {
             return { success: false, error: packRes.stderr || 'Compression failed' };
         }
 
-        // 4. Read archive back, decode base64, trigger download.
+        // 4. Read archive back via the relative path (validatePath sees it
+        //    inside cwd → allowed). Decode base64, trigger download.
         onProgress?.('reading');
-        const readRes = await readFile(tmpArchive);
+        const readRes = await readFile(archiveRel);
         if (!readRes.success || !readRes.content) {
             return { success: false, error: readRes.error || 'Failed to read archive' };
         }
@@ -121,13 +136,13 @@ export async function compressAndDownload(opts: CompressAndDownloadOptions): Pro
     } catch (e) {
         return { success: false, error: e instanceof Error ? e.message : 'Compression failed' };
     } finally {
-        // 5. Cleanup tmp archive (best effort).
-        if (tmpArchive) {
-            await bash({
-                command: `rm -f -- ${shellQuote(tmpArchive)}`,
-                cwd: '/tmp',
-                timeout: 5000,
-            }).catch(() => undefined);
-        }
+        // 5. Best-effort cleanup. Recursively remove the whole staging dir so
+        //    we don't leave clutter — this also handles the case where the
+        //    pack command died mid-write.
+        await bash({
+            command: `rm -rf -- ${shellQuote(tmpDirRel)}`,
+            cwd,
+            timeout: 5000,
+        }).catch(() => undefined);
     }
 }
