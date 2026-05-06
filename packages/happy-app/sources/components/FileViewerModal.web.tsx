@@ -934,6 +934,7 @@ export function FileViewerModal({
                             onSelectFile={(p) => { void openFile(p); }}
                             onContextMenuEntry={handleEntryContextMenu}
                             searchQuery={searchQuery}
+                            fontSize={fontSize}
                         />
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -1321,9 +1322,11 @@ interface DirectoryTreePanelProps {
         y: number,
     ) => void;
     searchQuery: string;
+    /** Tree entry font size — synced with the editor toolbar A-/A+. */
+    fontSize: number;
 }
 
-function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery }: DirectoryTreePanelProps) {
+function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery, fontSize }: DirectoryTreePanelProps) {
     const { theme } = useUnistyles();
     const { tree: nodes, expand, collapse, isLoading, errors } = tree;
 
@@ -1378,7 +1381,7 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                         : <FileIcon fileName={entry.name} size={14} />}
                     <Text
                         numberOfLines={1}
-                        style={{ marginLeft: 4, fontSize: 14, color: theme.colors.text, ...Typography.default(), flex: 1 }}
+                        style={{ marginLeft: 4, fontSize, color: theme.colors.text, ...Typography.default(), flex: 1 }}
                     >
                         {entry.name}
                     </Text>
