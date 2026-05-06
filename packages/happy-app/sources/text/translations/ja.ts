@@ -1196,6 +1196,9 @@ export const ja: TranslationStructure = {
         uploading: 'アップロード中...',
         uploadFailed: 'アップロードに失敗しました',
         uploadOverwriteConfirm: ({ name }: { name: string }) => `「${name}」は既に存在します。上書きしますか？`,
+        diff: '差分',
+        diffLoading: '差分を読み込み中…',
+        diffUnavailable: 'HEAD を取得できません',
     },
 
     claudeConfig: {

@@ -7,6 +7,7 @@ import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { FileIcon } from '@/components/FileIcon';
 import { MonacoEditor, inferLanguage } from '@/components/MonacoEditor';
+import { MonacoDiffEditor } from '@/components/MonacoDiffEditor';
 import {
     sessionReadFile,
     sessionWriteFile,
@@ -28,6 +29,7 @@ import {
 } from '@/sync/ops';
 import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
 import { compressAndDownload } from '@/components/fileViewer/archiveOps';
+import { shellEscape } from '@/utils/shellEscape';
 import { ResizableHandle } from '@/components/ResizableHandle';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { getSession } from '@/sync/storage';
@@ -107,6 +109,18 @@ export interface FileViewerModalProps {
     machineId?: string;
     initialFilePath?: string;
     initialCwd?: string;
+    /**
+     * Git-tracked-state hint from the caller (e.g. files.tsx git-status page).
+     * When set, the modal opens diff mode by default and exposes the diff toggle
+     * button on the toolbar. Browser/cwd entry points leave it undefined so the
+     * toolbar stays clean for files that have nothing to diff against.
+     *
+     * MVP: left side is always `git show HEAD:<relative>`, right side is the
+     * current on-disk content. This means staged + unstaged tabs render the
+     * same diff anchor (HEAD) — staged files show only the staged delta,
+     * unstaged files show the cumulative working-tree delta.
+     */
+    initialFromGit?: 'unstaged' | 'staged';
 }
 
 interface Tab {
@@ -218,6 +232,7 @@ export function FileViewerModal({
     machineId,
     initialFilePath,
     initialCwd,
+    initialFromGit,
 }: FileViewerModalProps) {
     const { theme } = useUnistyles();
     // sessionId wins if both are provided; machine mode is the fallback.
@@ -322,6 +337,20 @@ export function FileViewerModal({
     // by tab id so each open file remembers its own preview state.
     const [previewTabIds, setPreviewTabIds] = React.useState<Set<string>>(() => new Set());
 
+    // Diff-mode state. Default = on iff the caller flagged the file as a
+    // git-status entry (staged/unstaged). Browser/cwd entries open in editor
+    // mode like before. The toggle stays available for the whole modal session
+    // even after switching tabs.
+    const [diffMode, setDiffMode] = React.useState<boolean>(initialFromGit !== undefined);
+    React.useEffect(() => { setDiffMode(initialFromGit !== undefined); }, [initialFromGit]);
+    // tabId -> HEAD blob, null = fetching, undefined = not requested.
+    // Storing '' for "file did not exist at HEAD" (diff renders as all-added).
+    const [originalContent, setOriginalContent] = React.useState<Map<string, string | null>>(() => new Map());
+    // Tabs whose HEAD fetch genuinely failed (RPC error / git not installed).
+    // Separate from `originalContent` so we can render a "diff unavailable"
+    // hint instead of pretending it's a new file.
+    const [diffFetchFailed, setDiffFetchFailed] = React.useState<Set<string>>(() => new Set());
+
     const tabsRef = React.useRef<Tab[]>(tabs);
     React.useEffect(() => { tabsRef.current = tabs; }, [tabs]);
 
@@ -343,6 +372,70 @@ export function FileViewerModal({
         const action = editor.getAction?.(actionId);
         if (action?.run) action.run();
     }, []);
+
+    // Fetch HEAD version of a file via `git show HEAD:<relative>`. Returns the
+    // string blob, or '' for new/untracked files where git show errors out.
+    // baseRoot is captured here so it stays stable inside the callback that
+    // openFile fires once the tab is created — this works because git resolves
+    // the repo from cwd, and baseRoot is always within the repo for files
+    // listed by the git-status page.
+    const fetchHeadVersion = React.useCallback(async (absolutePath: string, tabId: string) => {
+        if (!baseRoot) return;
+        // Compute path relative to baseRoot so `git show HEAD:<rel>` works
+        // whether or not baseRoot is the repo root (git resolves rel from cwd).
+        const rel = absolutePath.startsWith(baseRoot + '/')
+            ? absolutePath.slice(baseRoot.length + 1)
+            : absolutePath;
+        // Mark as fetching.
+        setOriginalContent(prev => {
+            if (prev.has(tabId)) return prev;
+            const next = new Map(prev);
+            next.set(tabId, null);
+            return next;
+        });
+        try {
+            const resp = await bashFn({
+                command: `git show HEAD:${shellEscape(rel)}`,
+                cwd: baseRoot,
+                timeout: 10000,
+            });
+            // exitCode 0 → file exists at HEAD, use stdout as the original.
+            // exitCode !=0 with stderr containing "exists on disk, but not in"
+            // or "does not exist" → file is new at HEAD; left side is empty,
+            // diff renders as all-added.
+            // RPC failed altogether → genuine "diff unavailable".
+            if (!resp.success) {
+                setDiffFetchFailed(prev => {
+                    const next = new Set(prev);
+                    next.add(tabId);
+                    return next;
+                });
+                setOriginalContent(prev => {
+                    const next = new Map(prev);
+                    next.set(tabId, '');
+                    return next;
+                });
+                return;
+            }
+            const headBlob = resp.exitCode === 0 ? (resp.stdout ?? '') : '';
+            setOriginalContent(prev => {
+                const next = new Map(prev);
+                next.set(tabId, headBlob);
+                return next;
+            });
+        } catch {
+            setDiffFetchFailed(prev => {
+                const next = new Set(prev);
+                next.add(tabId);
+                return next;
+            });
+            setOriginalContent(prev => {
+                const next = new Map(prev);
+                next.set(tabId, '');
+                return next;
+            });
+        }
+    }, [bashFn, baseRoot]);
 
     const openFile = React.useCallback(async (path: string) => {
         // Already open? Just switch.
@@ -375,10 +468,17 @@ export function FileViewerModal({
             };
             setTabs(prev => [...prev, newTab]);
             setActiveTabId(newTab.id);
+            // Kick off background HEAD fetch when this file came from the
+            // git-status page (initialFromGit set). Doing it here rather than
+            // gating on `diffMode` means the user can toggle diff on later
+            // and have the HEAD already cached.
+            if (initialFromGit !== undefined) {
+                void fetchHeadVersion(path, newTab.id);
+            }
         } finally {
             setLoadingPath(null);
         }
-    }, [readFile]);
+    }, [readFile, initialFromGit, fetchHeadVersion]);
 
     // Auto-open initialFilePath when modal becomes visible. When the modal is
     // hidden we also reset the entire tab state so reopening doesn't surface stale
@@ -390,6 +490,8 @@ export function FileViewerModal({
             initialOpenedRef.current = null;
             setTabs([]);
             setActiveTabId(null);
+            setOriginalContent(new Map());
+            setDiffFetchFailed(new Set());
             return;
         }
         if (initialFilePath && initialOpenedRef.current !== initialFilePath) {
@@ -838,6 +940,17 @@ export function FileViewerModal({
                         disabled={!activeTab}
                         onPress={() => runEditorAction('editor.action.gotoLine')}
                     />
+                    {/* Diff toggle — visible only when caller flagged the file
+                        as a git entry (staged/unstaged). Browser/cwd entries
+                        keep the toolbar uncluttered. */}
+                    {activeTab && initialFromGit !== undefined && (
+                        <ToolbarIconButton
+                            icon="git-compare-outline"
+                            label={tx('fileViewer.diff')}
+                            active={diffMode}
+                            onPress={() => setDiffMode(prev => !prev)}
+                        />
+                    )}
                     {/* Markdown preview toggle — visible only on .md tabs. */}
                     {activeTab && activeTab.language === 'markdown' && (
                         <ToolbarIconButton
@@ -1064,6 +1177,15 @@ export function FileViewerModal({
                                 >
                                     <MarkdownView markdown={activeTab.content} />
                                 </ScrollView>
+                            ) : diffMode && originalContent.get(activeTab.id) != null ? (
+                                <MonacoDiffEditor
+                                    original={originalContent.get(activeTab.id) ?? ''}
+                                    modified={activeTab.content}
+                                    path={activeTab.path}
+                                    theme="vs-dark"
+                                    height="100%"
+                                    fontSize={fontSize}
+                                />
                             ) : (
                                 <MonacoEditor
                                     value={activeTab.content}
@@ -1107,6 +1229,26 @@ export function FileViewerModal({
                     <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
                         {tx('fileViewer.languageLabel', { language: activeTab?.language ?? '—' })}
                     </Text>
+                    {/* Diff state hint in the status bar — mirrors what the body
+                        is rendering when the user toggled diff mode on. */}
+                    {diffMode && activeTab && (() => {
+                        const v = originalContent.get(activeTab.id);
+                        if (v === undefined || v === null) {
+                            return (
+                                <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                    {tx('fileViewer.diffLoading')}
+                                </Text>
+                            );
+                        }
+                        if (diffFetchFailed.has(activeTab.id)) {
+                            return (
+                                <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                    {tx('fileViewer.diffUnavailable')}
+                                </Text>
+                            );
+                        }
+                        return null;
+                    })()}
                     <View style={{ flex: 1 }} />
                     {saving && <ActivityIndicator size="small" />}
                 </View>

@@ -8,6 +8,8 @@ export interface FileViewerModalProps {
     machineId?: string;
     initialFilePath?: string;
     initialCwd?: string;
+    /** Git-tracked-state hint from the caller. Web modal opens diff mode by default when set. */
+    initialFromGit?: 'unstaged' | 'staged';
 }
 
 export function FileViewerModal(_props: FileViewerModalProps): null {

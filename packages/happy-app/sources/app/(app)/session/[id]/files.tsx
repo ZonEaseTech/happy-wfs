@@ -101,6 +101,10 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     // embedded inside the right panel.
     const [showViewer, setShowViewer] = React.useState(false);
     const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
+    // Tracks whether the file the modal opened for came from staged/unstaged
+    // sections (= diff-able vs HEAD) or from search results / a clean-repo
+    // file listing (no diff anchor). Drives the modal's default diff mode.
+    const [viewerFromGit, setViewerFromGit] = React.useState<'unstaged' | 'staged' | undefined>(undefined);
 
     const session = useSession(sessionId);
     const isOnline = session?.presence === "online";
@@ -416,6 +420,10 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         // panel is not a constraint.
         if (isWeb && width >= 768) {
             setViewerPath(absolutePath);
+            // staged === true → file lives in the staged section; staged === false
+            // (passed by unstaged section) → 'unstaged'; staged === undefined
+            // (search results / clean repo file list) → no git anchor.
+            setViewerFromGit(staged === true ? 'staged' : staged === false ? 'unstaged' : undefined);
             setShowViewer(true);
             return;
         }
@@ -1094,6 +1102,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                     sessionId={sessionId}
                     initialFilePath={viewerPath}
                     initialCwd={repoBaseCwd}
+                    initialFromGit={viewerFromGit}
                 />
             )}
         </View>

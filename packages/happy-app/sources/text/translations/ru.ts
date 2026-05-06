@@ -1175,6 +1175,9 @@ export const ru: TranslationStructure = {
         uploading: 'Загрузка...',
         uploadFailed: 'Не удалось загрузить',
         uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" уже существует. Перезаписать?`,
+        diff: 'Diff',
+        diffLoading: 'Загрузка diff…',
+        diffUnavailable: 'Diff недоступен (нет HEAD)',
     },
 
     claudeConfig: {

@@ -1164,6 +1164,9 @@ export const es: TranslationStructure = {
         uploading: 'Subiendo...',
         uploadFailed: 'Error al subir',
         uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" ya existe. ¿Sobrescribir?`,
+        diff: 'Diff',
+        diffLoading: 'Cargando diff…',
+        diffUnavailable: 'Diff no disponible (HEAD inalcanzable)',
     },
 
     claudeConfig: {

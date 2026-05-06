@@ -1166,6 +1166,9 @@ export const zhHans: TranslationStructure = {
         uploading: '上传中...',
         uploadFailed: '上传失败',
         uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" 已存在，覆盖？`,
+        diff: '对比',
+        diffLoading: '加载对比中…',
+        diffUnavailable: '无法获取 HEAD 版本',
     },
 
     claudeConfig: {
