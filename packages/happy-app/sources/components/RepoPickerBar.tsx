@@ -112,8 +112,8 @@ export const RepoPickerBar: React.FC<RepoPickerBarProps> = React.memo(
                 try {
                     // Fetch local and remote branches in parallel
                     const [localResult, remoteResult] = await Promise.all([
-                        machineBash(machineId, "git branch --list --format='%(refname:short)'", basePath),
-                        machineBash(machineId, "git branch -r --format='%(refname:short)'", basePath),
+                        machineBash(machineId, { command: "git branch --list --format='%(refname:short)'", cwd: basePath }),
+                        machineBash(machineId, { command: "git branch -r --format='%(refname:short)'", cwd: basePath }),
                     ]);
 
                     const localBranches = localResult.success && localResult.stdout.trim()

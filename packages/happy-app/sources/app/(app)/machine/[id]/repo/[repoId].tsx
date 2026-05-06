@@ -214,8 +214,8 @@ export default React.memo(function RepoEditScreen() {
         setFetchingBranches(true);
         try {
             const [localResult, remoteResult] = await Promise.all([
-                machineBash(machineId, "git branch --list --format='%(refname:short)'", initialRepo.path),
-                machineBash(machineId, "git branch -r --format='%(refname:short)'", initialRepo.path),
+                machineBash(machineId, { command: "git branch --list --format='%(refname:short)'", cwd: initialRepo.path }),
+                machineBash(machineId, { command: "git branch -r --format='%(refname:short)'", cwd: initialRepo.path }),
             ]);
             const localBranches = localResult.success && localResult.stdout.trim()
                 ? localResult.stdout.trim().split('\n').filter(Boolean)

@@ -16,6 +16,7 @@ import {
     sessionCreateFile,
     sessionCreateDirectory,
     sessionListDirectory,
+    sessionBash,
     machineReadFile,
     machineWriteFile,
     machineRename,
@@ -23,8 +24,10 @@ import {
     machineDeleteDirectory,
     machineCreateDirectory,
     machineListDirectory,
+    machineBash,
 } from '@/sync/ops';
 import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
+import { compressAndDownload } from '@/components/fileViewer/archiveOps';
 import { ResizableHandle } from '@/components/ResizableHandle';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { getSession } from '@/sync/storage';
@@ -138,6 +141,19 @@ function encodeUtf8Base64(s: string): string {
     return btoa(binary);
 }
 
+// btoa() requires a binary string. For raw upload bytes (PNG/PDF/etc.) we
+// can't go through TextEncoder — we just walk the buffer in 8KB chunks so
+// String.fromCharCode doesn't blow the call-stack on big files.
+function bytesToBase64(bytes: Uint8Array): string {
+    const CHUNK = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+        binary += String.fromCharCode.apply(null, slice as unknown as number[]);
+    }
+    return btoa(binary);
+}
+
 function basename(path: string): string {
     const idx = path.lastIndexOf('/');
     return idx >= 0 ? path.slice(idx + 1) : path;
@@ -239,6 +255,9 @@ export function FileViewerModal({
     ), [isMachineMode, machineId, sessionId]);
     const listDirectoryFn = React.useCallback((p: string) => (
         isMachineMode ? machineListDirectory(machineId!, p) : sessionListDirectory(sessionId!, p)
+    ), [isMachineMode, machineId, sessionId]);
+    const bashFn = React.useCallback((req: Parameters<typeof sessionBash>[1]) => (
+        isMachineMode ? machineBash(machineId!, req) : sessionBash(sessionId!, req)
     ), [isMachineMode, machineId, sessionId]);
 
     const entityId = (sessionId ?? machineId ?? '');
@@ -618,6 +637,85 @@ export function FileViewerModal({
         const bytes = decodeBase64Bytes(resp.content);
         downloadBlob(entry.name, bytes);
     }, [readFile]);
+
+    const handleCompress = React.useCallback(async (entry: { path: string; name: string; type: 'file' | 'dir' }) => {
+        setContextMenu(null);
+        const parent = dirname(entry.path);
+        const result = await compressAndDownload({
+            bash: bashFn,
+            readFile,
+            cwd: parent,
+            names: [entry.name],
+            confirmLargeMb: async (sizeMb) => {
+                return window.confirm(
+                    tx('browser.compressLargeWarning', { sizeMb: sizeMb.toFixed(1) }),
+                );
+            },
+        });
+        if (!result.success && result.error) {
+            Modal.alert(t('common.error'), result.error);
+        } else if (result.success) {
+            // No toast helper available in this modal — a bare alert would be
+            // more disruptive than the browser's own download chrome, so we
+            // stay silent on success.
+        }
+    }, [bashFn, readFile]);
+
+    const handleUpload = React.useCallback((entry: { path: string; name: string; type: 'file' | 'dir' }) => {
+        setContextMenu(null);
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.style.display = 'none';
+        const finalize = () => {
+            try { document.body.removeChild(input); } catch {}
+        };
+        input.onchange = async () => {
+            const files = Array.from(input.files ?? []);
+            if (files.length === 0) { finalize(); return; }
+            const errors: string[] = [];
+            for (const file of files) {
+                // 50MB soft warning gate.
+                if (file.size > 50 * 1024 * 1024) {
+                    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                    const ok = window.confirm(
+                        `${file.name} is ~${sizeMb} MB. Upload may be slow. Continue?`,
+                    );
+                    if (!ok) continue;
+                }
+                const target = joinPath(entry.path, file.name);
+
+                // Probe for existing file: a successful read means the path
+                // already resolves to a readable file. Skip overwrite prompt
+                // on read errors (probe is best-effort, not authoritative).
+                const probe = await readFile(target);
+                if (probe.success) {
+                    const ok = window.confirm(tx('fileViewer.uploadOverwriteConfirm', { name: file.name }));
+                    if (!ok) continue;
+                }
+
+                let base64: string;
+                try {
+                    const buf = await file.arrayBuffer();
+                    base64 = bytesToBase64(new Uint8Array(buf));
+                } catch (e) {
+                    errors.push(`${file.name}: ${e instanceof Error ? e.message : 'read failed'}`);
+                    continue;
+                }
+                const writeRes = await writeFile(target, base64);
+                if (!writeRes.success) {
+                    errors.push(`${file.name}: ${writeRes.error || 'upload failed'}`);
+                }
+            }
+            if (errors.length > 0) {
+                Modal.alert(tx('fileViewer.uploadFailed'), errors.join('\n'));
+            }
+            await tree.refresh(entry.path);
+            finalize();
+        };
+        document.body.appendChild(input);
+        input.click();
+    }, [readFile, writeFile, tree]);
 
     const handleDelete = React.useCallback(async (entry: { path: string; name: string; type: 'file' | 'dir' }) => {
         setContextMenu(null);
@@ -1019,6 +1117,8 @@ export function FileViewerModal({
                     state={contextMenu}
                     onRename={handleRename}
                     onDownload={handleDownload}
+                    onCompress={handleCompress}
+                    onUpload={handleUpload}
                     onDelete={handleDelete}
                 />
             )}
@@ -1251,10 +1351,12 @@ interface ContextMenuProps {
     state: ContextMenuState;
     onRename: (entry: ContextMenuState['entry']) => void;
     onDownload: (entry: ContextMenuState['entry']) => void;
+    onCompress: (entry: ContextMenuState['entry']) => void;
+    onUpload: (entry: ContextMenuState['entry']) => void;
     onDelete: (entry: ContextMenuState['entry']) => void;
 }
 
-function ContextMenu({ state, onRename, onDownload, onDelete }: ContextMenuProps) {
+function ContextMenu({ state, onRename, onDownload, onCompress, onUpload, onDelete }: ContextMenuProps) {
     const { theme } = useUnistyles();
     const isDir = state.entry.type === 'dir';
     return (
@@ -1290,6 +1392,20 @@ function ContextMenu({ state, onRename, onDownload, onDelete }: ContextMenuProps
                     icon="download-outline"
                     label={tx('fileViewer.download')}
                     onPress={() => onDownload(state.entry)}
+                />
+            )}
+            {isDir && (
+                <ContextMenuItem
+                    icon="archive-outline"
+                    label={tx('browser.compressDownload')}
+                    onPress={() => onCompress(state.entry)}
+                />
+            )}
+            {isDir && (
+                <ContextMenuItem
+                    icon="cloud-upload-outline"
+                    label={tx('fileViewer.upload')}
+                    onPress={() => onUpload(state.entry)}
                 />
             )}
             <ContextMenuItem

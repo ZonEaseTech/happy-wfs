@@ -1192,6 +1192,10 @@ export const ja: TranslationStructure = {
         newFolderPrompt: 'フォルダ名',
         fileExists: '同名のファイルが既に存在します。',
         dirExists: '同名のフォルダが既に存在します。',
+        upload: 'アップロード',
+        uploading: 'アップロード中...',
+        uploadFailed: 'アップロードに失敗しました',
+        uploadOverwriteConfirm: ({ name }: { name: string }) => `「${name}」は既に存在します。上書きしますか？`,
     },
 
     claudeConfig: {

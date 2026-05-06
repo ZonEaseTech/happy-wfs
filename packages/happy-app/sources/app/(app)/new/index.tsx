@@ -772,7 +772,7 @@ function NewSessionWizard() {
     /** Handle folder selected from FolderPickerSheet (registers + selects + branch picker). */
     const handleFolderSelected = React.useCallback(async (selectedPath: string) => {
         if (!selectedMachineId) return;
-        const gitCheck = await machineBash(selectedMachineId, 'git rev-parse --git-dir', selectedPath);
+        const gitCheck = await machineBash(selectedMachineId, { command: 'git rev-parse --git-dir', cwd: selectedPath });
         if (!gitCheck.success) {
             Modal.alert(t('common.error'), t('newSession.worktree.notGitRepo'));
             return;
@@ -804,9 +804,9 @@ function NewSessionWizard() {
 
         // Fetch current branch, local branches, and remote branches in parallel
         const [currentBranchResult, localResult, remoteResult] = await Promise.all([
-            machineBash(selectedMachineId, 'git rev-parse --abbrev-ref HEAD', selectedPath),
-            machineBash(selectedMachineId, "git branch --list --format='%(refname:short)'", selectedPath),
-            machineBash(selectedMachineId, "git branch -r --format='%(refname:short)'", selectedPath),
+            machineBash(selectedMachineId, { command: 'git rev-parse --abbrev-ref HEAD', cwd: selectedPath }),
+            machineBash(selectedMachineId, { command: "git branch --list --format='%(refname:short)'", cwd: selectedPath }),
+            machineBash(selectedMachineId, { command: "git branch -r --format='%(refname:short)'", cwd: selectedPath }),
         ]);
         const currentBranch = currentBranchResult.success ? currentBranchResult.stdout.trim() : undefined;
         const localBranches = localResult.success && localResult.stdout.trim()
@@ -1297,7 +1297,7 @@ function NewSessionWizard() {
                     const allRegisteredRepos = storage.getState().registeredRepos[selectedMachineId] || [];
                     for (const sr of selectedRepos) {
                         if (sr.targetBranch) {
-                            await machineBash(selectedMachineId, `git checkout ${sr.targetBranch}`, sr.repo.path);
+                            await machineBash(selectedMachineId, { command: `git checkout ${sr.targetBranch}`, cwd: sr.repo.path });
                         }
                     }
                     if (selectedRepos.length === 1) {

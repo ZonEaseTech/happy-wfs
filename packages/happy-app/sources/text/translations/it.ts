@@ -1190,6 +1190,10 @@ export const it: TranslationStructure = {
         newFolderPrompt: 'Nome cartella',
         fileExists: 'Esiste già un file con questo nome.',
         dirExists: 'Esiste già una cartella con questo nome.',
+        upload: 'Carica',
+        uploading: 'Caricamento...',
+        uploadFailed: 'Caricamento non riuscito',
+        uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" esiste già. Sovrascrivere?`,
     },
 
     claudeConfig: {

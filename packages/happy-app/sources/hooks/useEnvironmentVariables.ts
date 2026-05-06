@@ -77,7 +77,7 @@ export function useEnvironmentVariables(
                 .join(' && ');
 
             try {
-                const result = await machineBash(machineId, command, '/');
+                const result = await machineBash(machineId, { command, cwd: '/' });
 
                 if (cancelled) return;
 

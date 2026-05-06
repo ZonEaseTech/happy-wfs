@@ -367,13 +367,13 @@ export default function MachineDetailScreen() {
     /** Handle folder selected from FolderPickerSheet for "Add Repository" (registers + navigates to repo detail). */
     const handleFolderSelectedForRepo = useCallback(async (selectedPath: string) => {
         if (!machineId) return;
-        const gitCheck = await machineBash(machineId, 'git rev-parse --git-dir', selectedPath);
+        const gitCheck = await machineBash(machineId, { command: 'git rev-parse --git-dir', cwd: selectedPath });
         if (!gitCheck.success) {
             Modal.alert(t('common.error'), t('newSession.worktree.notGitRepo'));
             return;
         }
         const displayName = selectedPath.split('/').filter(Boolean).pop() || 'repo';
-        const branchResult = await machineBash(machineId, 'git rev-parse --abbrev-ref HEAD', selectedPath);
+        const branchResult = await machineBash(machineId, { command: 'git rev-parse --abbrev-ref HEAD', cwd: selectedPath });
         const detectedBranch = branchResult.success ? branchResult.stdout.trim() : undefined;
         const newRepo: RegisteredRepo = {
             id: randomUUID(),
@@ -425,7 +425,7 @@ export default function MachineDetailScreen() {
     /** Handle folder selected from FolderPickerSheet for repo picker (registers + selects + branch picker). */
     const handleFolderSelectedForPicker = useCallback(async (selectedPath: string) => {
         if (!machineId) return;
-        const gitCheck = await machineBash(machineId, 'git rev-parse --git-dir', selectedPath);
+        const gitCheck = await machineBash(machineId, { command: 'git rev-parse --git-dir', cwd: selectedPath });
         if (!gitCheck.success) {
             Modal.alert(t('common.error'), t('newSession.worktree.notGitRepo'));
             return;
@@ -457,9 +457,9 @@ export default function MachineDetailScreen() {
 
         // Fetch current branch, local branches, and remote branches in parallel
         const [currentBranchResult, localResult, remoteResult] = await Promise.all([
-            machineBash(machineId, 'git rev-parse --abbrev-ref HEAD', selectedPath),
-            machineBash(machineId, "git branch --list --format='%(refname:short)'", selectedPath),
-            machineBash(machineId, "git branch -r --format='%(refname:short)'", selectedPath),
+            machineBash(machineId, { command: 'git rev-parse --abbrev-ref HEAD', cwd: selectedPath }),
+            machineBash(machineId, { command: "git branch --list --format='%(refname:short)'", cwd: selectedPath }),
+            machineBash(machineId, { command: "git branch -r --format='%(refname:short)'", cwd: selectedPath }),
         ]);
         const currentBranch = currentBranchResult.success ? currentBranchResult.stdout.trim() : undefined;
         const localBranches = localResult.success && localResult.stdout.trim()

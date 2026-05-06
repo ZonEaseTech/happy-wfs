@@ -59,15 +59,15 @@ export async function createWorkspace(
 
     // Create workspace directory
     // Use '/' as cwd to bypass daemon path validation (the command itself uses absolute/~ paths)
-    const mkdirResult = await machineBash(machineId, `mkdir -p ${workspacePath}`, '/');
+    const mkdirResult = await machineBash(machineId, { command: `mkdir -p ${workspacePath}`, cwd: '/' });
     if (!mkdirResult.success) {
         return { success: false, workspaceName, workspacePath, repos: [], error: 'Failed to create workspace directory' };
     }
 
     // Resolve ~ to absolute path via realpath
-    const resolveResult = await machineBash(machineId, `realpath ${workspacePath}`, '/');
+    const resolveResult = await machineBash(machineId, { command: `realpath ${workspacePath}`, cwd: '/' });
     if (!resolveResult.success || !resolveResult.stdout.trim()) {
-        await machineBash(machineId, `rm -rf ${workspacePath}`, '/');
+        await machineBash(machineId, { command: `rm -rf ${workspacePath}`, cwd: '/' });
         return { success: false, workspaceName, workspacePath: '', repos: [], error: 'Failed to resolve workspace path' };
     }
     const absoluteWorkspacePath = resolveResult.stdout.trim();
@@ -92,7 +92,7 @@ export async function createWorkspace(
         // applied if set; the directory keeps the unprefixed name).
         const targetArg = targetBranch ? ` ${shellEscape(targetBranch)}` : '';
         const cmd = `git worktree add -b ${shellEscape(branchName)} ${shellEscape(worktreePath)}${targetArg}`;
-        const result = await machineBash(machineId, cmd, repo.path);
+        const result = await machineBash(machineId, { command: cmd, cwd: repo.path });
 
         if (!result.success) {
             await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName);
@@ -108,11 +108,10 @@ export async function createWorkspace(
             for (const file of files) {
                 // Skip files with path traversal
                 if (file.includes('..')) continue;
-                await machineBash(
-                    machineId,
-                    `mkdir -p "$(dirname ${shellEscape(worktreePath + '/' + file)})" && cp ${shellEscape(repo.path + '/' + file)} ${shellEscape(worktreePath + '/' + file)} 2>/dev/null`,
-                    repo.path,
-                );
+                await machineBash(machineId, {
+                    command: `mkdir -p "$(dirname ${shellEscape(worktreePath + '/' + file)})" && cp ${shellEscape(repo.path + '/' + file)} ${shellEscape(worktreePath + '/' + file)} 2>/dev/null`,
+                    cwd: repo.path,
+                });
             }
         }
 
@@ -148,22 +147,20 @@ async function generateWorkspaceConfigFiles(
     for (const configFile of configFiles) {
         try {
             // Skip if workspace already has this file
-            const existsResult = await machineBash(
-                machineId,
-                `test -f ${shellEscape(workspacePath + '/' + configFile)}`,
-                '/',
-            );
+            const existsResult = await machineBash(machineId, {
+                command: `test -f ${shellEscape(workspacePath + '/' + configFile)}`,
+                cwd: '/',
+            });
             if (existsResult.success) continue;
 
             // Check which repos have this file
             const reposWithFile: string[] = [];
             for (const repo of repos) {
                 if (!repo.displayName) continue;
-                const checkResult = await machineBash(
-                    machineId,
-                    `test -f ${shellEscape(repo.path + '/' + configFile)}`,
-                    '/',
-                );
+                const checkResult = await machineBash(machineId, {
+                    command: `test -f ${shellEscape(repo.path + '/' + configFile)}`,
+                    cwd: '/',
+                });
                 if (checkResult.success) {
                     reposWithFile.push(repo.displayName);
                 }
@@ -173,11 +170,10 @@ async function generateWorkspaceConfigFiles(
             if (reposWithFile.length === 0) continue;
 
             const content = reposWithFile.map(name => `@${name}/${configFile}`).join('\n') + '\n';
-            await machineBash(
-                machineId,
-                `printf '%s' ${shellEscape(content)} > ${shellEscape(workspacePath + '/' + configFile)}`,
-                '/',
-            );
+            await machineBash(machineId, {
+                command: `printf '%s' ${shellEscape(content)} > ${shellEscape(workspacePath + '/' + configFile)}`,
+                cwd: '/',
+            });
         } catch {
             // Best-effort: don't fail workspace creation
         }
@@ -198,11 +194,10 @@ async function rollbackCreatedRepos(
     _workspaceDirName: string,
 ): Promise<void> {
     for (const created of createdRepos) {
-        await machineBash(
-            machineId,
-            `git worktree remove --force ${shellEscape(created.path)} 2>/dev/null; git branch -D ${shellEscape(branchName)} 2>/dev/null`,
-            created.basePath,
-        );
+        await machineBash(machineId, {
+            command: `git worktree remove --force ${shellEscape(created.path)} 2>/dev/null; git branch -D ${shellEscape(branchName)} 2>/dev/null`,
+            cwd: created.basePath,
+        });
     }
-    await machineBash(machineId, `rm -rf ${shellEscape(absoluteWorkspacePath)}`, '/');
+    await machineBash(machineId, { command: `rm -rf ${shellEscape(absoluteWorkspacePath)}`, cwd: '/' });
 }

@@ -1177,6 +1177,10 @@ export const en: TranslationStructure = {
         newFolderPrompt: 'Folder name',
         fileExists: 'A file with that name already exists.',
         dirExists: 'A folder with that name already exists.',
+        upload: 'Upload',
+        uploading: 'Uploading...',
+        uploadFailed: 'Upload failed',
+        uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" already exists. Overwrite?`,
     },
 
     claudeConfig: {

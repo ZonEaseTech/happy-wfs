@@ -477,31 +477,18 @@ export async function machineGetCodexSessionPreview(
 }
 
 /**
- * Execute a bash command on a specific machine
+ * Execute a bash command on a specific machine. Mirrors `sessionBash`'s
+ * shape so callers (e.g. archive helpers) can swap session/machine bash
+ * by binding only the id.
  */
-export async function machineBash(
-    machineId: string,
-    command: string,
-    cwd: string
-): Promise<{
-    success: boolean;
-    stdout: string;
-    stderr: string;
-    exitCode: number;
-}> {
+export async function machineBash(machineId: string, request: SessionBashRequest): Promise<SessionBashResponse> {
     try {
-        const result = await apiSocket.machineRPC<{
-            success: boolean;
-            stdout: string;
-            stderr: string;
-            exitCode: number;
-        }, {
-            command: string;
-            cwd: string;
-        }>(
+        const rpcTimeout = (request.timeout || 30000) + 5000;
+        const result = await apiSocket.machineRPC<SessionBashResponse, SessionBashRequest>(
             machineId,
             'bash',
-            { command, cwd }
+            request,
+            rpcTimeout,
         );
         return result;
     } catch (error) {
@@ -509,7 +496,8 @@ export async function machineBash(
             success: false,
             stdout: '',
             stderr: error instanceof Error ? error.message : 'Unknown error',
-            exitCode: -1
+            exitCode: -1,
+            error: error instanceof Error ? error.message : 'Unknown error',
         };
     }
 }

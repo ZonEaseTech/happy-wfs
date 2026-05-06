@@ -80,7 +80,7 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
             console.log('[useCLIDetection] Starting detection for machineId:', machineId);
 
             try {
-                const result = await machineBash(machineId, CLI_DETECTION_COMMAND, '/');
+                const result = await machineBash(machineId, { command: CLI_DETECTION_COMMAND, cwd: '/' });
 
                 if (cancelled) return;
                 console.log('[useCLIDetection] Result:', { success: result.success, exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
@@ -148,7 +148,7 @@ export function useCLIDetectionBatch(machineIds: string[]): Record<string, CLIAv
 
         // Detect each machine independently (not awaiting Promise.all)
         for (const machineId of ids) {
-            machineBash(machineId, CLI_DETECTION_COMMAND, '/').then(result => {
+            machineBash(machineId, { command: CLI_DETECTION_COMMAND, cwd: '/' }).then(result => {
                 if (cancelled) return;
                 if (result.success && result.exitCode === 0) {
                     setAvailabilityMap(prev => ({ ...prev, [machineId]: parseCLIOutput(result.stdout) }));

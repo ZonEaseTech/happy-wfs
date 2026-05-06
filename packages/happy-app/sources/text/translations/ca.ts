@@ -1160,6 +1160,10 @@ export const ca: TranslationStructure = {
         newFolderPrompt: 'Nom de la carpeta',
         fileExists: 'Ja existeix un fitxer amb aquest nom.',
         dirExists: 'Ja existeix una carpeta amb aquest nom.',
+        upload: 'Puja',
+        uploading: 'Pujant...',
+        uploadFailed: 'Error en pujar',
+        uploadOverwriteConfirm: ({ name }: { name: string }) => `«${name}» ja existeix. Voleu sobreescriure'l?`,
     },
 
     claudeConfig: {

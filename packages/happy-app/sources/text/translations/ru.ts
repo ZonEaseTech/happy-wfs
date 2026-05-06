@@ -1171,6 +1171,10 @@ export const ru: TranslationStructure = {
         newFolderPrompt: 'Имя папки',
         fileExists: 'Файл с таким именем уже существует.',
         dirExists: 'Папка с таким именем уже существует.',
+        upload: 'Загрузить',
+        uploading: 'Загрузка...',
+        uploadFailed: 'Не удалось загрузить',
+        uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" уже существует. Перезаписать?`,
     },
 
     claudeConfig: {

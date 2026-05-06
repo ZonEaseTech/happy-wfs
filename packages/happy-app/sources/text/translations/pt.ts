@@ -1160,6 +1160,10 @@ export const pt: TranslationStructure = {
         newFolderPrompt: 'Nome da pasta',
         fileExists: 'Já existe um arquivo com esse nome.',
         dirExists: 'Já existe uma pasta com esse nome.',
+        upload: 'Enviar',
+        uploading: 'Enviando...',
+        uploadFailed: 'Falha no envio',
+        uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" já existe. Substituir?`,
     },
 
     claudeConfig: {

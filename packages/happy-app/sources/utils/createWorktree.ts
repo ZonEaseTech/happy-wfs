@@ -35,11 +35,10 @@ export async function createWorktree(
     const dirName = `${dirPrefix}${name}`;
 
     // Check if it's a git repository
-    const gitCheck = await machineBash(
-        machineId,
-        'git rev-parse --git-dir',
-        basePath
-    );
+    const gitCheck = await machineBash(machineId, {
+        command: 'git rev-parse --git-dir',
+        cwd: basePath,
+    });
 
     if (!gitCheck.success) {
         return {
@@ -52,11 +51,10 @@ export async function createWorktree(
 
     // Create the worktree with new branch
     const worktreePath = `.dev/worktree/${dirName}`;
-    let result = await machineBash(
-        machineId,
-        `git worktree add -b ${shellEscape(branchName)} ${shellEscape(worktreePath)}`,
-        basePath
-    );
+    let result = await machineBash(machineId, {
+        command: `git worktree add -b ${shellEscape(branchName)} ${shellEscape(worktreePath)}`,
+        cwd: basePath,
+    });
 
     // If worktree exists, try with a different name
     if (!result.success && result.stderr.includes('already exists')) {
@@ -65,11 +63,10 @@ export async function createWorktree(
             const newName = `${name}-${i}`;
             const newBranchName = `${prefix}${newName}`;
             const newWorktreePath = `.dev/worktree/${dirPrefix}${newName}`;
-            result = await machineBash(
-                machineId,
-                `git worktree add -b ${shellEscape(newBranchName)} ${shellEscape(newWorktreePath)}`,
-                basePath
-            );
+            result = await machineBash(machineId, {
+                command: `git worktree add -b ${shellEscape(newBranchName)} ${shellEscape(newWorktreePath)}`,
+                cwd: basePath,
+            });
 
             if (result.success) {
                 return {

@@ -38,11 +38,10 @@ export async function pushWorktreeBranch(
     if (!isValidGitRef(branchName)) {
         return { success: false, error: 'Invalid branch name' };
     }
-    const result = await machineBash(
-        machineId,
-        `git push -u origin ${shellEscape(branchName)}`,
-        worktreePath
-    );
+    const result = await machineBash(machineId, {
+        command: `git push -u origin ${shellEscape(branchName)}`,
+        cwd: worktreePath,
+    });
     if (!result.success) {
         return { success: false, error: result.stderr || 'Failed to push branch' };
     }
@@ -54,11 +53,10 @@ export async function getLocalBranches(
     machineId: string,
     basePath: string
 ): Promise<string[]> {
-    const result = await machineBash(
-        machineId,
-        "git branch --list --format='%(refname:short)'",
-        basePath
-    );
+    const result = await machineBash(machineId, {
+        command: "git branch --list --format='%(refname:short)'",
+        cwd: basePath,
+    });
     if (!result.success || !result.stdout.trim()) return [];
     return result.stdout.trim().split('\n').filter(Boolean);
 }
@@ -68,7 +66,7 @@ export async function getCurrentBranch(
     machineId: string,
     basePath: string
 ): Promise<string | null> {
-    const result = await machineBash(machineId, 'git branch --show-current', basePath);
+    const result = await machineBash(machineId, { command: 'git branch --show-current', cwd: basePath });
     if (!result.success || !result.stdout.trim()) return null;
     return result.stdout.trim();
 }
@@ -85,27 +83,27 @@ export async function mergeWorktreeBranch(
     }
 
     // Remember current branch so we can restore after merge
-    const currentBranchResult = await machineBash(machineId, 'git branch --show-current', basePath);
+    const currentBranchResult = await machineBash(machineId, { command: 'git branch --show-current', cwd: basePath });
     const originalBranch = currentBranchResult.success ? currentBranchResult.stdout.trim() : null;
     const needsCheckout = originalBranch !== targetBranch;
 
     // Switch to target branch if needed
     if (needsCheckout) {
-        const checkout = await machineBash(machineId, `git checkout ${shellEscape(targetBranch)}`, basePath);
+        const checkout = await machineBash(machineId, { command: `git checkout ${shellEscape(targetBranch)}`, cwd: basePath });
         if (!checkout.success) {
             return { success: false, error: checkout.stderr || `Failed to checkout ${targetBranch}` };
         }
     }
 
-    const merge = await machineBash(machineId, `git merge ${shellEscape(branchName)} --no-edit`, basePath);
+    const merge = await machineBash(machineId, { command: `git merge ${shellEscape(branchName)} --no-edit`, cwd: basePath });
     if (!merge.success) {
         const hasConflicts = merge.stdout.includes('CONFLICT') || merge.stderr.includes('CONFLICT');
         if (hasConflicts) {
-            await machineBash(machineId, 'git merge --abort', basePath);
+            await machineBash(machineId, { command: 'git merge --abort', cwd: basePath });
         }
         // Restore original branch
         if (needsCheckout && originalBranch) {
-            await machineBash(machineId, `git checkout ${shellEscape(originalBranch)}`, basePath);
+            await machineBash(machineId, { command: `git checkout ${shellEscape(originalBranch)}`, cwd: basePath });
         }
         if (hasConflicts) {
             return { success: false, hasConflicts: true, error: 'Merge has conflicts' };
@@ -115,7 +113,7 @@ export async function mergeWorktreeBranch(
 
     // Restore original branch after successful merge
     if (needsCheckout && originalBranch) {
-        await machineBash(machineId, `git checkout ${shellEscape(originalBranch)}`, basePath);
+        await machineBash(machineId, { command: `git checkout ${shellEscape(originalBranch)}`, cwd: basePath });
     }
 
     return { success: true };
@@ -137,7 +135,7 @@ export async function createWorktreePR(
     }
 
     // Check if gh is installed
-    const ghCheck = await machineBash(machineId, 'gh --version', worktreePath);
+    const ghCheck = await machineBash(machineId, { command: 'gh --version', cwd: worktreePath });
     if (!ghCheck.success) {
         return { success: false, error: 'gh_not_installed' };
     }
@@ -151,11 +149,10 @@ export async function createWorktreePR(
     // Create PR with safe quoting
     const prTitle = title || branchName;
     const baseArg = baseBranch ? ` --base ${shellEscape(baseBranch)}` : '';
-    const result = await machineBash(
-        machineId,
-        `gh pr create --head ${shellEscape(branchName)}${baseArg} --title ${shellEscape(prTitle)} --body 'Created from Happy mobile app'`,
-        worktreePath
-    );
+    const result = await machineBash(machineId, {
+        command: `gh pr create --head ${shellEscape(branchName)}${baseArg} --title ${shellEscape(prTitle)} --body 'Created from Happy mobile app'`,
+        cwd: worktreePath,
+    });
     if (!result.success) {
         return { success: false, error: result.stderr || 'Failed to create PR' };
     }
@@ -178,11 +175,10 @@ export async function cleanupWorktree(
 
     const worktreeDir = `.dev/worktree/${branchName}`;
 
-    const result = await machineBash(
-        machineId,
-        `git worktree remove ${shellEscape(worktreeDir)} --force`,
-        basePath
-    );
+    const result = await machineBash(machineId, {
+        command: `git worktree remove ${shellEscape(worktreeDir)} --force`,
+        cwd: basePath,
+    });
 
     if (!result.success) {
         if (result.stderr.includes('is not a working tree') || result.stderr.includes('No such file')) {
@@ -193,11 +189,10 @@ export async function cleanupWorktree(
     }
 
     if (deleteBranch) {
-        const branchResult = await machineBash(
-            machineId,
-            `git branch -D ${shellEscape(branchName)}`,
-            basePath
-        );
+        const branchResult = await machineBash(machineId, {
+            command: `git branch -D ${shellEscape(branchName)}`,
+            cwd: basePath,
+        });
         if (!branchResult.success) {
             // Non-fatal: worktree was already cleaned up
             if (!branchResult.stderr.includes('not found')) {

@@ -77,7 +77,7 @@ export const FolderPickerSheet = React.memo(React.forwardRef<BottomSheetModal, F
         try {
             if (isFileMode) {
                 // File mode: list files and directories
-                const lsResult = await machineBash(machineId, "ls -1ap", dirPath);
+                const lsResult = await machineBash(machineId, { command: "ls -1ap", cwd: dirPath });
                 if (id !== fetchIdRef.current) return;
                 if (!lsResult.success) {
                     setError(t('newSession.repos.folderPicker.loadError'));
@@ -99,11 +99,10 @@ export const FolderPickerSheet = React.memo(React.forwardRef<BottomSheetModal, F
                 setEntries([...dirs, ...files]);
             } else {
                 // Directory mode: list only directories
-                const lsResult = await machineBash(
-                    machineId,
-                    "ls -1ap | grep '/$' | sed 's/\\/$//'",
-                    dirPath,
-                );
+                const lsResult = await machineBash(machineId, {
+                    command: "ls -1ap | grep '/$' | sed 's/\\/$//'",
+                    cwd: dirPath,
+                });
                 if (id !== fetchIdRef.current) return;
                 if (!lsResult.success) {
                     setError(t('newSession.repos.folderPicker.loadError'));
@@ -117,11 +116,10 @@ export const FolderPickerSheet = React.memo(React.forwardRef<BottomSheetModal, F
                     .filter(s => s.length > 0 && !s.startsWith('.'));
 
                 // Batch git-repo detection
-                const gitResult = await machineBash(
-                    machineId,
-                    "find . -maxdepth 2 -name '.git' -type d 2>/dev/null | sed 's|^\\./||' | sed 's|/\\.git$||'",
-                    dirPath,
-                );
+                const gitResult = await machineBash(machineId, {
+                    command: "find . -maxdepth 2 -name '.git' -type d 2>/dev/null | sed 's|^\\./||' | sed 's|/\\.git$||'",
+                    cwd: dirPath,
+                });
                 if (id !== fetchIdRef.current) return;
                 const gitSet = new Set<string>();
                 if (gitResult.success && gitResult.stdout.trim().length > 0) {

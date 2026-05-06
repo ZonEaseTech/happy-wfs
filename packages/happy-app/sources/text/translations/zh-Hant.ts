@@ -1162,6 +1162,10 @@ export const zhHant: TranslationStructure = {
         newFolderPrompt: '資料夾名稱',
         fileExists: '同名檔案已存在。',
         dirExists: '同名資料夾已存在。',
+        upload: '上傳',
+        uploading: '上傳中...',
+        uploadFailed: '上傳失敗',
+        uploadOverwriteConfirm: ({ name }: { name: string }) => `"${name}" 已存在，覆蓋？`,
     },
 
     claudeConfig: {
