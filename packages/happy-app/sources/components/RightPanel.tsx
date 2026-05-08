@@ -68,8 +68,10 @@ export const RightPanel = React.memo(function RightPanel(props: {
             width,
             height: '100%',
             backgroundColor: theme.colors.surface,
-            borderLeftWidth: 1,
-            borderLeftColor: theme.colors.divider,
+            // Wide light-gray border = 16px visual gap between RightPanel and
+            // the main column, mirroring the sidebar's right gap.
+            borderLeftWidth: 16,
+            borderLeftColor: '#F2F2F7',
         }}>
             <ResizableHandle
                 side="left"

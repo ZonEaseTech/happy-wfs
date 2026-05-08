@@ -43,10 +43,12 @@ export const SidebarNavigator = React.memo(() => {
             drawerType: 'permanent' as const,
             drawerStyle: {
                 backgroundColor: 'white',
-                // 1px hairline divider so the sidebar feels distinct from the
-                // main column instead of bleeding straight into it.
-                borderRightWidth: 1,
-                borderRightColor: '#E5E7EB',
+                // Wide light-gray border acts as a 16px visual gap between the
+                // sidebar and the main column, matching iOS-style grouped
+                // backgrounds. The drawer keeps its full sidebarWidth; the gap
+                // sits OUTSIDE that width on the right edge.
+                borderRightWidth: 16,
+                borderRightColor: '#F2F2F7',
                 width: sidebarWidth,
             },
             swipeEnabled: false,
