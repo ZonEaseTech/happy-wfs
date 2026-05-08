@@ -1081,7 +1081,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                             subtitle={renderFileSubtitle(file)}
                                             icon={renderFileIcon(file)}
                                             rightElement={renderRightElement(file, false)}
-                                            onPress={() => handleFilePress(file)}
+                                            onPress={() => handleFilePress(file, false)}
                                             onLongPress={() => handleLongPress(file, false)}
                                             showChevron={true}
                                             showDivider={index < gitStatusFiles.unstagedFiles.length - 1}
