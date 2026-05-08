@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Platform, ActivityIndicator } from 'react-native';
+import { View, Pressable, Platform, ActivityIndicator, Animated } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { router, useRouter } from 'expo-router';
@@ -493,6 +493,9 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                     </Text>
                 </View>
             </View>
+            {sessionStatus.state === 'thinking' && (
+                <SessionThinkingBar color={theme.colors.button.primary.background} />
+            )}
         </Pressable>
     );
 
@@ -543,3 +546,52 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         </>
     );
 });
+
+/**
+ * Indeterminate progress bar pinned to the bottom of a session row to signal
+ * "agent is thinking". Absolute-positioned (height-neutral, doesn't push the
+ * row from 45px). The 40%-wide sub-bar slides left→right on a 1.5s loop using
+ * GPU-only translateX (useNativeDriver=true on native; CSS transform on web).
+ */
+function SessionThinkingBar({ color }: { color: string }) {
+    const x = React.useRef(new Animated.Value(0)).current;
+    React.useEffect(() => {
+        const loop = Animated.loop(
+            Animated.timing(x, {
+                toValue: 1,
+                duration: 1500,
+                useNativeDriver: true,
+            }),
+        );
+        loop.start();
+        return () => { loop.stop(); };
+    }, [x]);
+    return (
+        <View
+            pointerEvents="none"
+            style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 2,
+                overflow: 'hidden',
+            }}
+        >
+            <Animated.View
+                style={{
+                    width: '40%',
+                    height: 2,
+                    backgroundColor: color,
+                    transform: [{
+                        // 0 → bar fully off-screen left, 1 → fully off-screen right.
+                        translateX: x.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['-100%', '250%'],
+                        }) as any,
+                    }],
+                }}
+            />
+        </View>
+    );
+}
