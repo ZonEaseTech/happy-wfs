@@ -97,6 +97,13 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         borderLeftColor: '#F59E0B',
         backgroundColor: 'rgba(245, 158, 11, 0.10)',
     },
+    /** When the agent finished and there's an unread completion the user
+     *  hasn't acknowledged. Less urgent than permission_required (no
+     *  blocking tool prompt) but still wants attention. */
+    sessionRowUnread: {
+        borderLeftColor: '#007AFF',
+        backgroundColor: 'rgba(0, 122, 255, 0.08)',
+    },
     sessionDivider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: theme.colors.divider,
@@ -418,6 +425,9 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             style={[
                 styles.sessionRow,
                 selected && styles.sessionRowSelected,
+                // Order matters: permission_required is the strongest signal,
+                // so it goes LAST and overrides the unread style if both apply.
+                sessionStatus.hasUnreadCompletion && styles.sessionRowUnread,
                 sessionStatus.state === 'permission_required' && styles.sessionRowAttention,
             ]}
             onPressIn={() => {
