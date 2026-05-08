@@ -567,20 +567,31 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
  */
 function SessionThinkingBar({ color }: { color: string }) {
     const x = React.useRef(new Animated.Value(0)).current;
+    const [width, setWidth] = React.useState(0);
+
     React.useEffect(() => {
+        if (width <= 0) return;
         const loop = Animated.loop(
             Animated.timing(x, {
                 toValue: 1,
                 duration: 1500,
-                useNativeDriver: true,
+                // Native driver doesn't exist on web; using JS driver there
+                // makes the percentage→px translateX actually animate.
+                useNativeDriver: Platform.OS !== 'web',
             }),
         );
         loop.start();
         return () => { loop.stop(); };
-    }, [x]);
+    }, [x, width]);
+
+    // 40% of row width; clamp to a minimum so very narrow sidebars still show
+    // a visible bar instead of collapsing.
+    const subBarWidth = Math.max(40, width * 0.4);
+
     return (
         <View
             pointerEvents="none"
+            onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
             style={{
                 position: 'absolute',
                 left: 0,
@@ -590,20 +601,22 @@ function SessionThinkingBar({ color }: { color: string }) {
                 overflow: 'hidden',
             }}
         >
-            <Animated.View
-                style={{
-                    width: '40%',
-                    height: 2,
-                    backgroundColor: color,
-                    transform: [{
-                        // 0 → bar fully off-screen left, 1 → fully off-screen right.
-                        translateX: x.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['-100%', '250%'],
-                        }) as any,
-                    }],
-                }}
-            />
+            {width > 0 && (
+                <Animated.View
+                    style={{
+                        width: subBarWidth,
+                        height: 2,
+                        backgroundColor: color,
+                        transform: [{
+                            // From off-screen left (-subBarWidth) to off-screen right (width).
+                            translateX: x.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [-subBarWidth, width],
+                            }),
+                        }],
+                    }}
+                />
+            )}
         </View>
     );
 }
