@@ -12,8 +12,11 @@ import {
     TouchableWithoutFeedback,
     Animated,
     Platform,
+    TextInput,
 } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { Typography } from '@/constants/Typography';
+import { Ionicons } from '@expo/vector-icons';
 import { ActionMenu, ActionMenuItem } from './ActionMenu';
 
 // On web, stop events from propagating to expo-router's modal overlay
@@ -30,6 +33,10 @@ interface ActionMenuModalProps {
     deferItemPress?: boolean;
     /** Optional title displayed at the top of the menu */
     title?: string;
+    /** When true, render a search input below the title; items are filtered by label (case-insensitive). */
+    searchable?: boolean;
+    /** Placeholder shown in the search input when searchable=true. */
+    searchPlaceholder?: string;
 }
 
 const ANIMATION_DURATION = 250;
@@ -51,7 +58,13 @@ const styles = StyleSheet.create({
     },
 });
 
-export function ActionMenuModal({ visible, items, onClose, deferItemPress, title }: ActionMenuModalProps) {
+export function ActionMenuModal({ visible, items, onClose, deferItemPress, title, searchable, searchPlaceholder }: ActionMenuModalProps) {
+    const { theme } = useUnistyles();
+    const [searchQuery, setSearchQuery] = useState('');
+    // Reset query each time the menu re-opens.
+    useEffect(() => {
+        if (!visible) setSearchQuery('');
+    }, [visible]);
     // Track actual modal visibility (delayed hide for animation)
     const [modalVisible, setModalVisible] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -123,6 +136,44 @@ export function ActionMenuModal({ visible, items, onClose, deferItemPress, title
         }));
     }, [items, deferItemPress]);
 
+    // Apply the search filter (case-insensitive, label substring).
+    const visibleItems = React.useMemo(() => {
+        if (!searchable) return wrappedItems;
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return wrappedItems;
+        return wrappedItems.filter(it => it.label.toLowerCase().includes(q));
+    }, [wrappedItems, searchable, searchQuery]);
+
+    const searchHeader = searchable ? (
+        <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: theme.colors.divider,
+        }}>
+            <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
+            <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={searchPlaceholder ?? '搜索 / Search'}
+                placeholderTextColor={theme.colors.textSecondary}
+                autoFocus={Platform.OS === 'web'}
+                autoCorrect={false}
+                autoCapitalize="none"
+                style={{
+                    flex: 1,
+                    fontSize: 14,
+                    color: theme.colors.text,
+                    ...Typography.default(),
+                    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
+                }}
+            />
+        </View>
+    ) : undefined;
+
     if (!modalVisible) {
         return null;
     }
@@ -158,7 +209,7 @@ export function ActionMenuModal({ visible, items, onClose, deferItemPress, title
                         },
                     ]}
                 >
-                    <ActionMenu items={wrappedItems} onClose={handleClose} title={title} />
+                    <ActionMenu items={visibleItems} onClose={handleClose} title={title} header={searchHeader} />
                 </Animated.View>
             </View>
         </Modal>

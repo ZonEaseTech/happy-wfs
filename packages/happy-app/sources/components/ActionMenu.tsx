@@ -29,6 +29,9 @@ interface ActionMenuProps {
     items: ActionMenuItem[];
     onClose: () => void;
     title?: string;
+    /** Optional node rendered below the title and above the item list.
+     *  Used for the search input in searchable menus, but anything fits. */
+    header?: React.ReactNode;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -98,7 +101,7 @@ const styles = StyleSheet.create((theme) => ({
     },
 }));
 
-export function ActionMenu({ items, onClose, title }: ActionMenuProps) {
+export function ActionMenu({ items, onClose, title, header }: ActionMenuProps) {
     const { theme } = useUnistyles();
     const safeArea = useSafeAreaInsets();
 
@@ -117,6 +120,7 @@ export function ActionMenu({ items, onClose, title }: ActionMenuProps) {
                         <Text style={styles.titleText} numberOfLines={2}>{title}</Text>
                     </View>
                 ) : null}
+                {header}
                 <ScrollView bounces={false}>
                     {items.map((item, index) => (
                         <Pressable

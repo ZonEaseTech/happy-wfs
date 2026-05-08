@@ -282,6 +282,7 @@ export const RepoPickerBar: React.FC<RepoPickerBarProps> = React.memo(
                 <ActionMenuModal
                     visible={branchMenuVisible}
                     title={t('newSession.repos.targetBranch')}
+                    searchable
                     items={branchMenuItems}
                     onClose={() => setBranchMenuVisible(false)}
                 />

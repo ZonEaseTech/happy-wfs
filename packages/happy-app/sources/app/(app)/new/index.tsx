@@ -1683,6 +1683,7 @@ function NewSessionWizard() {
                 <ActionMenuModal
                     visible={addDirBranchMenu.visible}
                     title={t('newSession.repos.targetBranch')}
+                    searchable
                     items={addDirBranchMenu.items}
                     onClose={() => {
                         setAddDirBranchMenu({ visible: false, items: [] });
@@ -2423,6 +2424,7 @@ function NewSessionWizard() {
                 <ActionMenuModal
                     visible={addDirBranchMenu.visible}
                     title={t('newSession.repos.targetBranch')}
+                    searchable
                     items={addDirBranchMenu.items}
                     onClose={() => {
                         setAddDirBranchMenu({ visible: false, items: [] });
