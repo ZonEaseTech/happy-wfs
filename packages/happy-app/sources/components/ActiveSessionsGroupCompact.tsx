@@ -506,7 +506,10 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 </View>
             </View>
             {sessionStatus.state === 'thinking' && (
-                <SessionThinkingBar color={theme.colors.button.primary.background} />
+                /* Amber matches permission_required attention strip; the two
+                 * states are mutually exclusive in the state machine, so the
+                 * shared color reads as "this row wants attention". */
+                <SessionThinkingBar color="#F59E0B" />
             )}
         </Pressable>
     );
