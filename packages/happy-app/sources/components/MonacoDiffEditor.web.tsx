@@ -24,6 +24,27 @@ export function MonacoDiffEditor({
     fontSize = 14,
 }: MonacoDiffEditorProps) {
     const language = React.useMemo(() => inferLanguage(path), [path]);
+    // When the file (path) changes, request a fresh "scroll to first diff"
+    // on the next onDidUpdateDiff. Keeps mid-edit scroll from getting yanked
+    // back: only the first diff computation per file performs the reveal.
+    const needsRevealRef = React.useRef(true);
+    React.useEffect(() => { needsRevealRef.current = true; }, [path]);
+
+    const handleMount = React.useCallback((editor: any) => {
+        if (!editor || typeof editor.onDidUpdateDiff !== 'function') return;
+        editor.onDidUpdateDiff(() => {
+            if (!needsRevealRef.current) return;
+            const changes = editor.getLineChanges?.();
+            if (!changes || changes.length === 0) return;
+            const first = changes[0];
+            const line = first?.modifiedStartLineNumber || first?.originalStartLineNumber || 1;
+            const modifiedEditor = editor.getModifiedEditor?.();
+            // reveal "near top" leaves a few lines of context above the hunk.
+            modifiedEditor?.revealLineNearTop?.(line, 0);
+            needsRevealRef.current = false;
+        });
+    }, []);
+
     return (
         <React.Suspense fallback={<div style={{ padding: 12, fontFamily: 'monospace' }}>Loading diff…</div>}>
             <LazyDiff
@@ -32,6 +53,7 @@ export function MonacoDiffEditor({
                 language={language}
                 theme={theme}
                 height={height}
+                onMount={handleMount}
                 options={{
                     readOnly: true,
                     minimap: { enabled: false },

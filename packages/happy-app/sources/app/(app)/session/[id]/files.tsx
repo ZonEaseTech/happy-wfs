@@ -110,6 +110,9 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     // it browse the whole project. Search results / clean-repo file listings
     // leave this undefined so the modal falls back to listDirectory.
     const [viewerRestrictPaths, setViewerRestrictPaths] = React.useState<string[] | undefined>(undefined);
+    // Per-file +/− line counts surfaced as chips in the modal's left tree.
+    // Same key shape as restrictPaths (absolute path).
+    const [viewerRestrictPathStats, setViewerRestrictPathStats] = React.useState<Record<string, { added: number; removed: number }> | undefined>(undefined);
 
     const session = useSession(sessionId);
     const isOnline = session?.presence === "online";
@@ -436,15 +439,25 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             if ((staged === true || staged === false) && gitStatusFiles) {
                 const all = [...gitStatusFiles.stagedFiles, ...gitStatusFiles.unstagedFiles];
                 const seen = new Set<string>();
+                // Same path may appear in both staged + unstaged (partially staged
+                // edits); sum line counts so the chip matches modal's HEAD-vs-cwd
+                // diff anchor.
+                const stats: Record<string, { added: number; removed: number }> = {};
                 for (const f of all) {
                     const abs = repoBaseCwd && !f.fullPath.startsWith('/')
                         ? `${repoBaseCwd}/${f.fullPath}`
                         : f.fullPath;
                     seen.add(abs);
+                    const existing = stats[abs] ?? { added: 0, removed: 0 };
+                    existing.added += f.linesAdded;
+                    existing.removed += f.linesRemoved;
+                    stats[abs] = existing;
                 }
                 setViewerRestrictPaths(Array.from(seen));
+                setViewerRestrictPathStats(stats);
             } else {
                 setViewerRestrictPaths(undefined);
+                setViewerRestrictPathStats(undefined);
             }
             setShowViewer(true);
             return;
@@ -565,7 +578,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                             alignItems: 'center',
                             paddingLeft: 16 + depth * 16,
                             paddingRight: 16,
-                            paddingVertical: 8,
+                            paddingVertical: compact ? 4 : 8,
                             backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
                             borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
                             borderBottomColor: theme.colors.divider,
@@ -597,9 +610,10 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                         onLongPress={() => handleLongPress(node.file, isStaged)}
                         showChevron={true}
                         showDivider
-                        titleStyle={compact ? { fontSize: 13 } : undefined}
-                        subtitleStyle={compact ? { fontSize: 11 } : undefined}
-                        pressableStyle={{ paddingLeft: 16 + depth * 16, ...(compact ? { paddingVertical: 6 } : {}) }}
+                        {...compactItemProps}
+                        style={compact
+                            ? { minHeight: 0, paddingVertical: 4, paddingLeft: 16 + depth * 16 }
+                            : { paddingLeft: 16 + depth * 16 }}
                     />,
                 );
             }
@@ -1129,6 +1143,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                     initialCwd={repoBaseCwd}
                     initialFromGit={viewerFromGit}
                     restrictPaths={viewerRestrictPaths}
+                    restrictPathStats={viewerRestrictPathStats}
                 />
             )}
         </View>

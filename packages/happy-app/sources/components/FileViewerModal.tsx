@@ -17,6 +17,8 @@ export interface FileViewerModalProps {
      * Native ignores it (the modal is web-only).
      */
     restrictPaths?: string[];
+    /** Optional per-file +/− chips (web only). */
+    restrictPathStats?: Record<string, { added: number; removed: number }>;
 }
 
 export function FileViewerModal(_props: FileViewerModalProps): null {

@@ -129,6 +129,12 @@ export interface FileViewerModalProps {
      * Pass `undefined` to keep the original on-demand listDirectory behavior.
      */
     restrictPaths?: string[];
+    /**
+     * Optional per-file added/removed line counts (keyed by absolute path).
+     * Surfaces as `+x −y` chips next to each file name in the left tree.
+     * Used by the git-status entry; other entries leave it undefined.
+     */
+    restrictPathStats?: Record<string, { added: number; removed: number }>;
 }
 
 interface Tab {
@@ -385,6 +391,7 @@ export function FileViewerModal({
     initialCwd,
     initialFromGit,
     restrictPaths,
+    restrictPathStats,
 }: FileViewerModalProps) {
     const { theme } = useUnistyles();
     // sessionId wins if both are provided; machine mode is the fallback.
@@ -466,6 +473,21 @@ export function FileViewerModal({
         setShowHidden(prev => {
             const next = !prev;
             try { window.localStorage?.setItem('fileViewer.showHidden', next ? '1' : '0'); } catch {}
+            return next;
+        });
+    }, []);
+
+    // Fullscreen toggle — when true the modal fills the viewport instead of
+    // the default 95% / 1600x1100 cap. Persisted so the user's preference
+    // sticks across reopens.
+    const [isFullscreen, setIsFullscreen] = React.useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return window.localStorage?.getItem('fileViewer.fullscreen') === '1';
+    });
+    const toggleFullscreen = React.useCallback(() => {
+        setIsFullscreen(prev => {
+            const next = !prev;
+            try { window.localStorage?.setItem('fileViewer.fullscreen', next ? '1' : '0'); } catch {}
             return next;
         });
     }, []);
@@ -1042,18 +1064,18 @@ export function FileViewerModal({
             />
             <View
                 style={{
-                    width: '95%',
-                    height: '95%',
-                    maxWidth: 1600,
-                    maxHeight: 1100,
+                    width: isFullscreen ? '100%' : '95%',
+                    height: isFullscreen ? '100%' : '95%',
+                    maxWidth: isFullscreen ? undefined : 1600,
+                    maxHeight: isFullscreen ? undefined : 1100,
                     backgroundColor: theme.colors.surface,
-                    borderRadius: 12,
+                    borderRadius: isFullscreen ? 0 : 12,
                     overflow: 'hidden',
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 12 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 30,
-                    elevation: 24,
+                    shadowOpacity: isFullscreen ? 0 : 0.3,
+                    shadowRadius: isFullscreen ? 0 : 30,
+                    elevation: isFullscreen ? 0 : 24,
                     flexDirection: 'column',
                 }}
             >
@@ -1154,6 +1176,11 @@ export function FileViewerModal({
                         onPress={() => adjustFontSize(1)}
                     />
                     <View style={{ flex: 1 }} />
+                    <ToolbarIconButton
+                        icon={isFullscreen ? 'contract-outline' : 'expand-outline'}
+                        label={isFullscreen ? tx('fileViewer.exitFullscreen') : tx('fileViewer.fullscreen')}
+                        onPress={toggleFullscreen}
+                    />
                     <Pressable
                         onPress={() => { void requestClose(); }}
                         hitSlop={10}
@@ -1331,6 +1358,7 @@ export function FileViewerModal({
                             onContextMenuEntry={handleEntryContextMenu}
                             searchQuery={searchQuery}
                             fontSize={fontSize}
+                            pathStats={restrictPathStats}
                         />
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -1767,9 +1795,11 @@ interface DirectoryTreePanelProps {
     searchQuery: string;
     /** Tree entry font size — synced with the editor toolbar A-/A+. */
     fontSize: number;
+    /** Optional per-file +/− line counts keyed by absolute path. */
+    pathStats?: Record<string, { added: number; removed: number }>;
 }
 
-function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery, fontSize }: DirectoryTreePanelProps) {
+function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery, fontSize, pathStats }: DirectoryTreePanelProps) {
     const { theme } = useUnistyles();
     const { tree: nodes, expand, collapse, isLoading, errors } = tree;
 
@@ -1828,6 +1858,20 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                     >
                         {entry.name}
                     </Text>
+                    {!isDir && pathStats?.[entry.path] && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+                            {pathStats[entry.path].added > 0 && (
+                                <Text style={{ fontSize: Math.max(10, fontSize - 2), color: '#16A34A', ...Typography.mono() }}>
+                                    +{pathStats[entry.path].added}
+                                </Text>
+                            )}
+                            {pathStats[entry.path].removed > 0 && (
+                                <Text style={{ fontSize: Math.max(10, fontSize - 2), color: '#DC2626', ...Typography.mono() }}>
+                                    −{pathStats[entry.path].removed}
+                                </Text>
+                            )}
+                        </View>
+                    )}
                     {loading && <ActivityIndicator size="small" />}
                 </Pressable>
                 {error && (
