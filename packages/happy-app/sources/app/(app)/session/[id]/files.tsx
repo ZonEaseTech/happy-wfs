@@ -105,6 +105,11 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     // sections (= diff-able vs HEAD) or from search results / a clean-repo
     // file listing (no diff anchor). Drives the modal's default diff mode.
     const [viewerFromGit, setViewerFromGit] = React.useState<'unstaged' | 'staged' | undefined>(undefined);
+    // When the modal opens for a staged/unstaged entry we restrict its left
+    // tree to just the changed files (staged + unstaged) instead of letting
+    // it browse the whole project. Search results / clean-repo file listings
+    // leave this undefined so the modal falls back to listDirectory.
+    const [viewerRestrictPaths, setViewerRestrictPaths] = React.useState<string[] | undefined>(undefined);
 
     const session = useSession(sessionId);
     const isOnline = session?.presence === "online";
@@ -424,6 +429,23 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             // (passed by unstaged section) → 'unstaged'; staged === undefined
             // (search results / clean repo file list) → no git anchor.
             setViewerFromGit(staged === true ? 'staged' : staged === false ? 'unstaged' : undefined);
+            // Restrict the modal's tree to the staged + unstaged change set
+            // when the click came from a git section. Search results / clean
+            // repo entries (staged === undefined) keep the full listDirectory
+            // tree so the user can still navigate to nearby files.
+            if ((staged === true || staged === false) && gitStatusFiles) {
+                const all = [...gitStatusFiles.stagedFiles, ...gitStatusFiles.unstagedFiles];
+                const seen = new Set<string>();
+                for (const f of all) {
+                    const abs = repoBaseCwd && !f.fullPath.startsWith('/')
+                        ? `${repoBaseCwd}/${f.fullPath}`
+                        : f.fullPath;
+                    seen.add(abs);
+                }
+                setViewerRestrictPaths(Array.from(seen));
+            } else {
+                setViewerRestrictPaths(undefined);
+            }
             setShowViewer(true);
             return;
         }
@@ -434,7 +456,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         } else {
             router.push(`/session/${sessionId}/edit?path=${encodeURIComponent(encodedPath)}`);
         }
-    }, [router, sessionId, repoBaseCwd, isWeb, width, embedded]);
+    }, [router, sessionId, repoBaseCwd, isWeb, width, embedded, gitStatusFiles]);
 
     // Compact density when rendered inside the right panel — list rows, fonts
     // and icons all shrink so a long change list fits without big gaps.
@@ -1106,6 +1128,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                     initialFilePath={viewerPath}
                     initialCwd={repoBaseCwd}
                     initialFromGit={viewerFromGit}
+                    restrictPaths={viewerRestrictPaths}
                 />
             )}
         </View>

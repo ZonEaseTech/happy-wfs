@@ -27,7 +27,7 @@ import {
     machineListDirectory,
     machineBash,
 } from '@/sync/ops';
-import { useDirectoryTree, type DirectoryTreeNode } from '@/sync/useDirectoryTree';
+import { useDirectoryTree, type DirectoryTreeNode, type UseDirectoryTreeResult } from '@/sync/useDirectoryTree';
 import { compressAndDownload } from '@/components/fileViewer/archiveOps';
 import { shellEscape } from '@/utils/shellEscape';
 import { ResizableHandle } from '@/components/ResizableHandle';
@@ -121,6 +121,14 @@ export interface FileViewerModalProps {
      * unstaged files show the cumulative working-tree delta.
      */
     initialFromGit?: 'unstaged' | 'staged';
+    /**
+     * When provided, the left-side file tree renders ONLY these absolute
+     * paths as a static tree (default fully expanded, manually collapsible)
+     * instead of calling listDirectory level-by-level. Used by the git-status
+     * page so the tree shows just changed files — not the entire project.
+     * Pass `undefined` to keep the original on-demand listDirectory behavior.
+     */
+    restrictPaths?: string[];
 }
 
 interface Tab {
@@ -225,6 +233,149 @@ interface ContextMenuState {
     entry: { path: string; name: string; type: 'file' | 'dir' };
 }
 
+// Build a tree of `DirectoryTreeNode`s from a flat list of absolute paths,
+// anchored at `rootPath` (used to derive relative segments). All directory
+// nodes come back with `expanded: true` and `children` already attached so
+// the static-tree hook below can render them in one shot. Single-child dir
+// chains are collapsed into a single row (e.g. `src/components/foo` shows
+// as one entry above `Bar.tsx` rather than three nested rows) so a long
+// path to a single changed file doesn't produce a useless deep stair.
+//
+// Output shape matches what useDirectoryTree returns so the existing
+// DirectoryTreePanel renderer works unchanged.
+function buildPathTree(absolutePaths: string[], rootPath: string): DirectoryTreeNode[] {
+    type Build = {
+        name: string;
+        path: string;
+        type: 'file' | 'dir';
+        children: Map<string, Build>;
+    };
+    const norm = rootPath.replace(/\/+$/, '');
+    const rootChildren = new Map<string, Build>();
+
+    for (const abs of absolutePaths) {
+        if (!abs) continue;
+        const rel = norm && abs.startsWith(norm + '/')
+            ? abs.slice(norm.length + 1)
+            : abs.replace(/^\/+/, '');
+        const parts = rel.split('/').filter(Boolean);
+        if (parts.length === 0) continue;
+
+        let cursor = rootChildren;
+        let absSoFar = norm;
+        for (let i = 0; i < parts.length - 1; i++) {
+            const seg = parts[i];
+            absSoFar = absSoFar ? `${absSoFar}/${seg}` : `/${seg}`;
+            let next = cursor.get(seg);
+            if (!next) {
+                next = { name: seg, path: absSoFar, type: 'dir', children: new Map() };
+                cursor.set(seg, next);
+            }
+            cursor = next.children;
+        }
+        const fileSeg = parts[parts.length - 1];
+        const fileAbs = absSoFar ? `${absSoFar}/${fileSeg}` : `/${fileSeg}`;
+        if (!cursor.has(fileSeg)) {
+            cursor.set(fileSeg, { name: fileSeg, path: fileAbs, type: 'file', children: new Map() });
+        }
+    }
+
+    const sortChildren = (nodes: DirectoryTreeNode[]) => {
+        nodes.sort((a, b) => {
+            if (a.entry.type !== b.entry.type) return a.entry.type === 'dir' ? -1 : 1;
+            return a.entry.name.localeCompare(b.entry.name);
+        });
+    };
+
+    const convert = (node: Build): DirectoryTreeNode => {
+        if (node.type === 'file') {
+            return {
+                entry: { name: node.name, path: node.path, type: 'file' },
+                expanded: false,
+            };
+        }
+        // Collapse: walk down while this dir has exactly one dir child.
+        let cur = node;
+        let displayName = node.name;
+        while (cur.children.size === 1) {
+            const only = Array.from(cur.children.values())[0];
+            if (only.type !== 'dir') break;
+            displayName = displayName ? `${displayName}/${only.name}` : only.name;
+            cur = only;
+        }
+        const children = Array.from(cur.children.values()).map(convert);
+        sortChildren(children);
+        return {
+            entry: { name: displayName, path: cur.path, type: 'dir' },
+            expanded: true,
+            children,
+        };
+    };
+
+    const top = Array.from(rootChildren.values()).map(convert);
+    sortChildren(top);
+    return top;
+}
+
+// Static-tree hook: same shape as useDirectoryTree so the panel renderer is
+// reused, but driven by an in-memory path list and a collapsed-set toggled
+// via the same expand/collapse callbacks. Refresh is a no-op (the source
+// list is the prop, not a server query) — see "known limitations" in the
+// task output.
+function useRestrictedPathTree(
+    paths: string[] | undefined,
+    rootPath: string,
+): UseDirectoryTreeResult {
+    const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
+
+    const baseTree = React.useMemo(
+        () => (paths ? buildPathTree(paths, rootPath) : []),
+        [paths, rootPath],
+    );
+
+    const tree = React.useMemo(() => {
+        const apply = (nodes: DirectoryTreeNode[]): DirectoryTreeNode[] => {
+            return nodes.map(n => {
+                const isDir = n.entry.type === 'dir';
+                const isExpanded = isDir && !collapsed.has(n.entry.path);
+                return {
+                    entry: n.entry,
+                    expanded: isExpanded,
+                    children: isExpanded && n.children ? apply(n.children) : undefined,
+                };
+            });
+        };
+        return apply(baseTree);
+    }, [baseTree, collapsed]);
+
+    const expand = React.useCallback(async (path: string) => {
+        setCollapsed(prev => {
+            if (!prev.has(path)) return prev;
+            const next = new Set(prev);
+            next.delete(path);
+            return next;
+        });
+    }, []);
+
+    const collapse = React.useCallback((path: string) => {
+        setCollapsed(prev => {
+            if (prev.has(path)) return prev;
+            const next = new Set(prev);
+            next.add(path);
+            return next;
+        });
+    }, []);
+
+    const refresh = React.useCallback(async (_path: string) => { /* static tree */ }, []);
+
+    const empty = React.useMemo(() => ({ isLoading: new Map<string, boolean>(), errors: new Map<string, string>() }), []);
+
+    return React.useMemo(
+        () => ({ tree, expand, collapse, refresh, isLoading: empty.isLoading, errors: empty.errors }),
+        [tree, expand, collapse, refresh, empty],
+    );
+}
+
 export function FileViewerModal({
     visible,
     onClose,
@@ -233,6 +384,7 @@ export function FileViewerModal({
     initialFilePath,
     initialCwd,
     initialFromGit,
+    restrictPaths,
 }: FileViewerModalProps) {
     const { theme } = useUnistyles();
     // sessionId wins if both are provided; machine mode is the fallback.
@@ -630,7 +782,20 @@ export function FileViewerModal({
         ));
     }, [activeTabId]);
 
-    const tree = useDirectoryTree(entityId, rootPath, listDirectoryFn, showHidden);
+    // Restricted mode: caller hands us an explicit path list (e.g. git-status
+    // entry). We render that list as a static tree and skip the live
+    // listDirectory loop entirely. Pass empty entityId to suppress the live
+    // hook's mount-time directory load — both hooks have to run unconditionally
+    // (rules of hooks), but only one is wired into the panel.
+    const isRestrictedTree = restrictPaths !== undefined;
+    const liveTree = useDirectoryTree(
+        isRestrictedTree ? '' : entityId,
+        isRestrictedTree ? '' : rootPath,
+        listDirectoryFn,
+        showHidden,
+    );
+    const restrictedTree = useRestrictedPathTree(restrictPaths, rootPath);
+    const tree = isRestrictedTree ? restrictedTree : liveTree;
 
     // --- Tree-toolbar handlers ---
     const goUpOneLevel = React.useCallback(() => {
