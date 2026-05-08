@@ -173,9 +173,9 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         ...Typography.default('semiBold'),
     },
     unreadDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
         backgroundColor: '#007AFF',
         marginLeft: 4,
         marginRight: 8,
@@ -452,28 +452,30 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                         if (sessionStatus.state === 'permission_required' || sessionStatus.state === 'thinking') {
                             return (
                                 <View style={[styles.statusDotContainer, { marginRight: 8 }]}>
-                                    <StatusDot 
-                                        color={sessionStatus.statusDotColor} 
-                                        isPulsing={sessionStatus.isPulsing} 
+                                    <StatusDot
+                                        color={sessionStatus.statusDotColor}
+                                        isPulsing={sessionStatus.isPulsing}
+                                        size={12}
                                     />
                                 </View>
                             );
                         }
-                        
+
                         // Show blue unread dot for completed tasks
                         if (sessionStatus.hasUnreadCompletion) {
                             return (
                                 <View style={[styles.unreadDot, { marginRight: 8 }]} />
                             );
                         }
-                        
+
                         // Show grey dot for online without draft
                         if (sessionStatus.state === 'waiting') {
                             return (
                                 <View style={[styles.statusDotContainer, { marginRight: 8 }]}>
-                                    <StatusDot 
-                                        color={theme.colors.textSecondary} 
-                                        isPulsing={false} 
+                                    <StatusDot
+                                        color={theme.colors.textSecondary}
+                                        isPulsing={false}
+                                        size={12}
                                     />
                                 </View>
                             );
