@@ -438,9 +438,12 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
 
     // Compact density when rendered inside the right panel — list rows, fonts
     // and icons all shrink so a long change list fits without big gaps.
+    // Override the container's minHeight (default 56px on web) and its
+    // paddingVertical via the `style` prop, since pressableStyle only reaches
+    // the outer Pressable and can't shrink the inner content row.
     const compact = !!embedded;
     const compactItemProps = compact ? {
-        pressableStyle: { paddingVertical: 6 } as const,
+        style: { minHeight: 0, paddingVertical: 4 } as const,
         titleStyle: { fontSize: 13 } as const,
         subtitleStyle: { fontSize: 11 } as const,
     } : {};
