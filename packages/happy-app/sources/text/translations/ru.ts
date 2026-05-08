@@ -1017,6 +1017,10 @@ export const ru: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        review: {
+            mark: 'Отметить на проверку',
+            unmark: 'Снять отметку',
+        },
     },
 
     toolView: {

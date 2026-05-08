@@ -1006,6 +1006,10 @@ export const ca: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        review: {
+            mark: 'Marcar pendent de revisió',
+            unmark: 'Esborrar pendent de revisió',
+        },
     },
 
     toolView: {

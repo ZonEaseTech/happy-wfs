@@ -25,6 +25,7 @@ import { HappyError } from '@/utils/errors';
 import { getWorktreeInfo, cleanupWorktree } from '@/utils/worktreeOps';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
+import { useReviewPending, useIsReviewPending } from '@/sync/reviewPending';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -104,6 +105,14 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         borderLeftColor: '#007AFF',
         backgroundColor: 'rgba(0, 122, 255, 0.08)',
     },
+    /** User-marked "pending review": agent reported done, user wants to come
+     *  back and verify the result. Distinct from hasUnreadCompletion (auto)
+     *  in that only the user clears it. Sits between unread (low) and
+     *  permission_required (urgent) in the priority stack. */
+    sessionRowReview: {
+        borderLeftColor: '#10B981',
+        backgroundColor: 'rgba(16, 185, 129, 0.10)',
+    },
     sessionDivider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: theme.colors.divider,
@@ -171,6 +180,13 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: theme.colors.status.error,
+    },
+    swipeActionReview: {
+        width: 112,
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#10B981',
     },
     swipeActionText: {
         marginTop: 4,
@@ -374,6 +390,32 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const [archiveMenuVisible, setArchiveMenuVisible] = React.useState(false);
     const [archiveMenuItems, setArchiveMenuItems] = React.useState<ActionMenuItem[]>([]);
 
+    // User-marked "pending review" state. Manual toggle via right-click on web
+    // and the new green swipe action on native. Visible state: green left bar +
+    // faint green bg + ✓ marker on the title row.
+    const isPendingReview = useIsReviewPending(session.id);
+    const toggleReviewPending = useReviewPending(s => s.toggle);
+    const [rowMenuVisible, setRowMenuVisible] = React.useState(false);
+    const handleToggleReview = React.useCallback(() => {
+        swipeableRef.current?.close();
+        setRowMenuVisible(false);
+        toggleReviewPending(session.id);
+    }, [session.id, toggleReviewPending]);
+    const handleRowContextMenu = React.useCallback((e: any) => {
+        // Web only — onContextMenu fires from RN-Web's div forwarding.
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        setRowMenuVisible(true);
+    }, []);
+    const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => [
+        {
+            label: isPendingReview
+                ? t('sidebar.review.unmark')
+                : t('sidebar.review.mark'),
+            onPress: handleToggleReview,
+        },
+    ], [isPendingReview, handleToggleReview]);
+
     const handleArchive = React.useCallback(() => {
         swipeableRef.current?.close();
         const worktreeInfo = getWorktreeInfo(session.metadata);
@@ -422,12 +464,18 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
 
     const itemContent = (
         <Pressable
+            // @ts-ignore — RN-Web's Pressable forwards onContextMenu to the host div.
+            onContextMenu={Platform.OS === 'web' ? handleRowContextMenu : undefined}
             style={[
                 styles.sessionRow,
                 selected && styles.sessionRowSelected,
-                // Order matters: permission_required is the strongest signal,
-                // so it goes LAST and overrides the unread style if both apply.
+                // Style priority (last wins): permission_required (urgent) >
+                // user-marked review (green) > hasUnreadCompletion (auto, blue).
+                // Green sits above blue because once the user has explicitly
+                // marked "pending review" they've already acknowledged the
+                // unread completion — green is the single signal they care about.
                 sessionStatus.hasUnreadCompletion && styles.sessionRowUnread,
+                isPendingReview && styles.sessionRowReview,
                 sessionStatus.state === 'permission_required' && styles.sessionRowAttention,
             ]}
             onPressIn={() => {
@@ -503,6 +551,14 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                     >
                         {sessionName}
                     </Text>
+                    {isPendingReview && (
+                        <Ionicons
+                            name="checkmark-circle"
+                            size={16}
+                            color="#10B981"
+                            style={{ marginLeft: 6 }}
+                        />
+                    )}
                 </View>
             </View>
             {sessionStatus.state === 'thinking' && (
@@ -523,27 +579,54 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         />
     );
 
+    // Right-click menu (web only) — replaces swipe on PC where pointer drag
+    // is unintuitive. Currently only the review-toggle item; future row-level
+    // actions can be added here.
+    const rowMenu = (
+        <ActionMenuModal
+            visible={rowMenuVisible}
+            items={rowMenuItems}
+            onClose={() => setRowMenuVisible(false)}
+        />
+    );
+
     if (!swipeEnabled) {
         return (
             <>
                 {itemContent}
                 {showBorder && <View style={styles.sessionDivider} />}
                 {archiveModal}
+                {rowMenu}
             </>
         );
     }
 
     const renderRightActions = () => (
-        <Pressable
-            style={styles.swipeAction}
-            onPress={handleArchive}
-            disabled={archivingSession}
-        >
-            <Ionicons name="archive-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.swipeActionText} numberOfLines={2}>
-                {t('sessionInfo.archiveSession')}
-            </Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row' }}>
+            <Pressable
+                style={styles.swipeActionReview}
+                onPress={handleToggleReview}
+            >
+                <Ionicons
+                    name={isPendingReview ? 'close-circle-outline' : 'checkmark-circle-outline'}
+                    size={20}
+                    color="#FFFFFF"
+                />
+                <Text style={styles.swipeActionText} numberOfLines={2}>
+                    {isPendingReview ? t('sidebar.review.unmark') : t('sidebar.review.mark')}
+                </Text>
+            </Pressable>
+            <Pressable
+                style={styles.swipeAction}
+                onPress={handleArchive}
+                disabled={archivingSession}
+            >
+                <Ionicons name="archive-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.swipeActionText} numberOfLines={2}>
+                    {t('sessionInfo.archiveSession')}
+                </Text>
+            </Pressable>
+        </View>
     );
 
     return (
@@ -558,6 +641,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             </Swipeable>
             {showBorder && <View style={styles.sessionDivider} />}
             {archiveModal}
+            {rowMenu}
         </>
     );
 });

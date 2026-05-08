@@ -1008,6 +1008,10 @@ export const zhHant: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        review: {
+            mark: '標記為待驗收',
+            unmark: '取消待驗收',
+        },
     },
 
     toolView: {
