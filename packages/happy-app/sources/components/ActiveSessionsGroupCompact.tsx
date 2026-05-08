@@ -191,6 +191,7 @@ interface ActiveSessionsGroupProps {
 export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: ActiveSessionsGroupProps) {
     const styles = stylesheet;
     const machines = useAllMachines();
+    const showSidebarGroupAvatar = useSetting('showSidebarGroupAvatar');
 
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
@@ -281,7 +282,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
                         {/* Section header on grouped background */}
                         <View style={styles.sectionHeader}>
                             <View style={styles.sectionHeaderLeft}>
-                                {avatarId && (
+                                {avatarId && showSidebarGroupAvatar && (
                                     <View style={styles.sectionHeaderAvatar}>
                                         <Avatar id={avatarId} size={24} flavor={firstSession?.metadata?.flavor} sessionIcon={firstSession?.metadata?.sessionIcon} />
                                     </View>

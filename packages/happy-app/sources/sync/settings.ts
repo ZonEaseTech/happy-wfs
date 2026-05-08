@@ -268,6 +268,7 @@ export const SettingsSchema = z.object({
     agentInputEnterToSend: z.boolean().describe('Whether pressing Enter submits/sends in the agent input (web)'),
     avatarStyle: z.string().describe('Avatar display style'),
     showFlavorIcons: z.boolean().describe('Whether to show AI provider icons in avatars'),
+    showSidebarGroupAvatar: z.boolean().describe('Whether to render the workspace/machine avatar in the sidebar group header'),
     showThinkingMessages: z.boolean().describe('Whether to show AI thinking/reasoning messages'),
     compactSessionView: z.boolean().describe('Whether to use compact view for active sessions'),
 
@@ -336,6 +337,7 @@ export const settingsDefaults: Settings = {
     agentInputEnterToSend: true,
     avatarStyle: 'brutalist',
     showFlavorIcons: false,
+    showSidebarGroupAvatar: true,
     showThinkingMessages: true,
     compactSessionView: false,
     reviewPromptAnswered: false,

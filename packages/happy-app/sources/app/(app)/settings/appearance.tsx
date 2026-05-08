@@ -32,6 +32,7 @@ export default function AppearanceSettingsScreen() {
     const [alwaysShowContextSize, setAlwaysShowContextSize] = useSettingMutable('alwaysShowContextSize');
     const [avatarStyle, setAvatarStyle] = useSettingMutable('avatarStyle');
     const [showFlavorIcons, setShowFlavorIcons] = useSettingMutable('showFlavorIcons');
+    const [showSidebarGroupAvatar, setShowSidebarGroupAvatar] = useSettingMutable('showSidebarGroupAvatar');
     const [showThinkingMessages, setShowThinkingMessages] = useSettingMutable('showThinkingMessages');
     const [compactSessionView, setCompactSessionView] = useSettingMutable('compactSessionView');
     const [themePreference, setThemePreference] = useLocalSettingMutable('themePreference');
@@ -232,6 +233,17 @@ export default function AppearanceSettingsScreen() {
                         <Switch
                             value={showFlavorIcons}
                             onValueChange={setShowFlavorIcons}
+                        />
+                    }
+                />
+                <Item
+                    title="侧边栏分组头像 / Sidebar group avatar"
+                    subtitle="在会话分组标题旁显示工作区/机器头像"
+                    icon={<Ionicons name="person-circle-outline" size={29} color="#5856D6" />}
+                    rightElement={
+                        <Switch
+                            value={showSidebarGroupAvatar}
+                            onValueChange={setShowSidebarGroupAvatar}
                         />
                     }
                 />
