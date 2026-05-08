@@ -80,7 +80,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         textAlign: 'right',
     },
     sessionRow: {
-        height: 56,
+        height: 45,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
