@@ -1359,6 +1359,7 @@ export function FileViewerModal({
                             searchQuery={searchQuery}
                             fontSize={fontSize}
                             pathStats={restrictPathStats}
+                            activeFilePath={activeTab?.path ?? null}
                         />
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -1797,9 +1798,11 @@ interface DirectoryTreePanelProps {
     fontSize: number;
     /** Optional per-file +/− line counts keyed by absolute path. */
     pathStats?: Record<string, { added: number; removed: number }>;
+    /** Currently active tab's absolute path — highlighted and auto-scrolled into view. */
+    activeFilePath?: string | null;
 }
 
-function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery, fontSize, pathStats }: DirectoryTreePanelProps) {
+function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery, fontSize, pathStats, activeFilePath }: DirectoryTreePanelProps) {
     const { theme } = useUnistyles();
     const { tree: nodes, expand, collapse, isLoading, errors } = tree;
 
@@ -1809,15 +1812,42 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
         return nodes.filter(n => n.entry.name.toLowerCase().includes(q));
     }, [nodes, searchQuery]);
 
+    // DOM ref for the row matching activeFilePath. RN-Web renders Pressable as
+    // a div, so we can use scrollIntoView() — simpler & more reliable than
+    // measuring layouts for a recursive tree. Re-fired whenever the active
+    // path changes; { block: 'nearest' } means we won't scroll if it's
+    // already on screen.
+    const activeRowRef = React.useRef<any>(null);
+    React.useEffect(() => {
+        if (!activeFilePath) return;
+        // First: expand every ancestor dir so the active row is mounted.
+        // Walk path chunks from root down to (but not including) the file
+        // itself; expand() is a no-op for already-expanded entries.
+        const segments = activeFilePath.split('/').filter(Boolean);
+        for (let i = 1; i < segments.length; i++) {
+            const ancestor = (activeFilePath.startsWith('/') ? '/' : '') + segments.slice(0, i).join('/');
+            void expand(ancestor);
+        }
+        // Then defer a tick so freshly expanded subtrees have time to mount
+        // their rows before we ask the DOM to scroll.
+        const id = window.requestAnimationFrame(() => {
+            const node: any = activeRowRef.current;
+            node?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        });
+        return () => window.cancelAnimationFrame(id);
+    }, [activeFilePath, expand]);
+
     const renderNode = (node: DirectoryTreeNode, depth: number): React.ReactNode => {
         const { entry, expanded, children } = node;
         const isDir = entry.type === 'dir';
         const loading = isLoading.get(entry.path) ?? false;
         const error = errors.get(entry.path);
+        const isActive = !isDir && activeFilePath === entry.path;
 
         return (
             <React.Fragment key={entry.path}>
                 <Pressable
+                    ref={isActive ? activeRowRef : undefined}
                     onPress={() => {
                         if (isDir) {
                             if (expanded) collapse(entry.path);
@@ -1842,7 +1872,11 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                         paddingVertical: 4,
                         paddingLeft: 8 + depth * 14,
                         paddingRight: 8,
-                        backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                        backgroundColor: isActive
+                            ? 'rgba(0,122,255,0.18)'
+                            : pressed
+                                ? theme.colors.surfacePressed
+                                : 'transparent',
                         gap: 4,
                     })}
                 >
@@ -1854,7 +1888,13 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                         : <FileIcon fileName={entry.name} size={14} />}
                     <Text
                         numberOfLines={1}
-                        style={{ marginLeft: 4, fontSize, color: theme.colors.text, ...Typography.default(), flex: 1 }}
+                        style={{
+                            marginLeft: 4,
+                            fontSize,
+                            color: isActive ? theme.colors.textLink ?? '#007AFF' : theme.colors.text,
+                            ...Typography.default(isActive ? 'semiBold' : 'regular'),
+                            flex: 1,
+                        }}
                     >
                         {entry.name}
                     </Text>
