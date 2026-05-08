@@ -73,14 +73,14 @@ const stylesheet = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     sessionItem: {
-        height: 88,
+        height: 45,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
         backgroundColor: theme.colors.surface,
     },
     sessionItemCompact: {
-        height: 56,
+        height: 45,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
