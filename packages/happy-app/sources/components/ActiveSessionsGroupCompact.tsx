@@ -85,6 +85,17 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         alignItems: 'center',
         paddingHorizontal: 16,
         backgroundColor: theme.colors.surface,
+        // Reserve a 4px-wide attention strip on the left edge so rows that
+        // gain it (sessionRowAttention) don't shift their text horizontally.
+        borderLeftWidth: 4,
+        borderLeftColor: 'transparent',
+    },
+    /** When the session is blocked on a user decision (permission prompt),
+     *  highlight the whole row: amber left bar + faint amber background.
+     *  Strong enough to spot at a glance, mild enough to not scream. */
+    sessionRowAttention: {
+        borderLeftColor: '#F59E0B',
+        backgroundColor: 'rgba(245, 158, 11, 0.10)',
     },
     sessionDivider: {
         height: StyleSheet.hairlineWidth,
@@ -405,7 +416,8 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         <Pressable
             style={[
                 styles.sessionRow,
-                selected && styles.sessionRowSelected
+                selected && styles.sessionRowSelected,
+                sessionStatus.state === 'permission_required' && styles.sessionRowAttention,
             ]}
             onPressIn={() => {
                 if (isTablet) {
