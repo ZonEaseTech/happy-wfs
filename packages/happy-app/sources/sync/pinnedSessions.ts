@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 
 /** Per-device "Pinned" flag a user can manually toggle on a session row.
  *  Pinned sessions appear at the top of the sidebar and render their full
@@ -10,34 +9,47 @@ interface PinnedSessionsState {
     toggle: (sessionId: string) => void;
 }
 
-export const usePinnedSessions = create<PinnedSessionsState>()(
-    persist(
-        (set, get) => ({
-            ids: [],
-            toggle: (sessionId: string) => {
-                const ids = get().ids;
-                const next = ids.includes(sessionId)
-                    ? ids.filter(x => x !== sessionId)
-                    : [sessionId, ...ids];
-                set({ ids: next });
-            },
-        }),
-        {
-            name: 'happy.pinnedSessions',
-            storage: createJSONStorage(() => localStorage),
-        },
-    ),
-);
+const STORAGE_KEY = 'happy.pinnedSessions';
 
-/** Selector hook: subscribe to whether one session id is pinned.
- *  Boolean return → strict-equal means pinning another session won't
- *  re-render unrelated rows. */
+function readIds(): string[] {
+    try {
+        if (typeof localStorage === 'undefined') return [];
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeIds(ids: string[]) {
+    try {
+        if (typeof localStorage === 'undefined') return;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    } catch { /* quota / private mode — best effort */ }
+}
+
+// NOTE: avoiding zustand/middleware (persist + devtools) on purpose — it
+// references `import.meta.env` which Metro emits unchanged into a non-module
+// script bundle, throwing SyntaxError on web and breaking the whole app.
+// Manual localStorage sync gives us the same UX with zero polyfill risk.
+export const usePinnedSessions = create<PinnedSessionsState>((set, get) => ({
+    ids: readIds(),
+    toggle: (sessionId: string) => {
+        const ids = get().ids;
+        const next = ids.includes(sessionId)
+            ? ids.filter(x => x !== sessionId)
+            : [sessionId, ...ids];
+        writeIds(next);
+        set({ ids: next });
+    },
+}));
+
 export function useIsPinned(sessionId: string): boolean {
     return usePinnedSessions(s => s.ids.includes(sessionId));
 }
 
-/** Returns the array of pinned ids. Caller can wrap in useMemo + Set for
- *  membership checks. Reference is stable until toggle() runs. */
 export function usePinnedIds(): string[] {
     return usePinnedSessions(s => s.ids);
 }

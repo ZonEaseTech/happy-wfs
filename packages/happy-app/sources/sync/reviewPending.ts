@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 
 /** Per-device "Pending review" flag a user can manually toggle on a session row.
  *  Used to mark a session whose agent reported "done" but the user still wants
@@ -11,28 +10,43 @@ interface ReviewPendingState {
     toggle: (sessionId: string) => void;
 }
 
-export const useReviewPending = create<ReviewPendingState>()(
-    persist(
-        (set, get) => ({
-            ids: [],
-            toggle: (sessionId: string) => {
-                const ids = get().ids;
-                const next = ids.includes(sessionId)
-                    ? ids.filter(x => x !== sessionId)
-                    : [...ids, sessionId];
-                set({ ids: next });
-            },
-        }),
-        {
-            name: 'happy.reviewPending',
-            storage: createJSONStorage(() => localStorage),
-        },
-    ),
-);
+const STORAGE_KEY = 'happy.reviewPending';
 
-/** Selector hook: subscribe to whether a single session id is pending review.
- *  Returns a boolean — strict-equality means toggling another session won't
- *  cause this row to re-render. */
+function readIds(): string[] {
+    try {
+        if (typeof localStorage === 'undefined') return [];
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeIds(ids: string[]) {
+    try {
+        if (typeof localStorage === 'undefined') return;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    } catch { /* quota / private mode — best effort */ }
+}
+
+// NOTE: avoiding zustand/middleware (persist + devtools) on purpose — it
+// references `import.meta.env` which Metro emits unchanged into a non-module
+// script bundle, throwing SyntaxError on web and breaking the whole app.
+// Manual localStorage sync gives us the same UX with zero polyfill risk.
+export const useReviewPending = create<ReviewPendingState>((set, get) => ({
+    ids: readIds(),
+    toggle: (sessionId: string) => {
+        const ids = get().ids;
+        const next = ids.includes(sessionId)
+            ? ids.filter(x => x !== sessionId)
+            : [...ids, sessionId];
+        writeIds(next);
+        set({ ids: next });
+    },
+}));
+
 export function useIsReviewPending(sessionId: string): boolean {
     return useReviewPending(s => s.ids.includes(sessionId));
 }
