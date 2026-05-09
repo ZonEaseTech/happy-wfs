@@ -249,7 +249,12 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 const dims = (() => {
                     try { return { cols: term.cols, rows: term.rows }; } catch { return { cols: 80, rows: 24 }; }
                 })();
-                const result = await apiSocket.sessionRPC<{ ptyId: string }, { cols: number; rows: number; cwd?: string }>(
+                // CLI handler returns { ok: true, ptyId } on success and
+                // { ok: false, error: 'pty_unavailable' | <message> } when
+                // node-pty failed to native-build at install time. We have to
+                // check the discriminator BEFORE assuming ptyId exists.
+                type PtyStartResult = { ok: true; ptyId: string } | { ok: false; error: string };
+                const result = await apiSocket.sessionRPC<PtyStartResult, { cols: number; rows: number; cwd?: string }>(
                     sessionId,
                     'pty-start',
                     { cols: dims.cols, rows: dims.rows, cwd },
@@ -257,11 +262,25 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 if (cancelled) {
                     // User closed before spawn returned — clean up immediately.
                     try {
-                        await apiSocket.sessionRPC(sessionId, 'pty-close', { ptyId: result.ptyId });
+                        if (result?.ok && result.ptyId) {
+                            await apiSocket.sessionRPC(sessionId, 'pty-close', { ptyId: result.ptyId });
+                        }
                     } catch { /* best-effort */ }
                     return;
                 }
-                if (!result?.ptyId) {
+                if (!result?.ok) {
+                    const err = result?.error;
+                    if (err === 'pty_unavailable') {
+                        // node-pty failed to native-compile on the user's CLI
+                        // install. Reinstall with build tools available
+                        // (python3 + a C++ toolchain) and the message goes away.
+                        onError('终端不可用：CLI 端 node-pty 未成功编译。请在装好 python3 + 编译器的环境下重装：npm install -g happy-ai-cli@latest');
+                    } else {
+                        onError(`Terminal failed to start: ${err || 'unknown error'}`);
+                    }
+                    return;
+                }
+                if (!result.ptyId) {
                     onError('Terminal failed to start: invalid response from CLI.');
                     return;
                 }
