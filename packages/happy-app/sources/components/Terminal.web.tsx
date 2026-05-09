@@ -335,6 +335,57 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         onClose();
     }, [errorClosed, onClose]);
 
+    // Fullscreen toggle (persisted). Default on first open: not full —
+    // fullscreen feels too domineering for a side-tool.
+    const [isFullscreen, setIsFullscreen] = React.useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return window.localStorage?.getItem('terminal.fullscreen') === '1';
+    });
+    const toggleFullscreen = React.useCallback(() => {
+        setIsFullscreen(prev => {
+            const next = !prev;
+            try { window.localStorage?.setItem('terminal.fullscreen', next ? '1' : '0'); } catch {}
+            return next;
+        });
+    }, []);
+
+    // Persisted window size for the non-fullscreen mode. Default 900x560
+    // (~80x24 chars at 14px). Stored as { w, h } in localStorage and
+    // re-read on each open. We let CSS `resize: both` drive interactive
+    // resizing — a ResizeObserver writes the user's chosen size back so
+    // it sticks across reopens.
+    const [winSize, setWinSize] = React.useState<{ w: number; h: number }>(() => {
+        if (typeof window === 'undefined') return { w: 900, h: 560 };
+        try {
+            const raw = window.localStorage?.getItem('terminal.winSize');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (typeof parsed?.w === 'number' && typeof parsed?.h === 'number') {
+                    return { w: Math.max(360, parsed.w), h: Math.max(240, parsed.h) };
+                }
+            }
+        } catch {}
+        return { w: 900, h: 560 };
+    });
+    const winRef = React.useRef<HTMLDivElement | null>(null);
+    React.useEffect(() => {
+        if (isFullscreen) return;
+        const el = winRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return;
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const w = Math.round(entry.contentRect.width);
+                const h = Math.round(entry.contentRect.height);
+                if (w > 0 && h > 0) {
+                    setWinSize(prev => (prev.w === w && prev.h === h) ? prev : { w, h });
+                    try { window.localStorage?.setItem('terminal.winSize', JSON.stringify({ w, h })); } catch {}
+                }
+            }
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [isFullscreen, visible]);
+
     if (!visible) return null;
     if (typeof document === 'undefined') return null;
 
@@ -358,13 +409,34 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                     backgroundColor: 'rgba(0,0,0,0.55)',
                 }}
             />
-            <View
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: '#000',
-                    flexDirection: 'column',
-                }}
+            <div
+                ref={winRef}
+                style={isFullscreen
+                    ? {
+                        width: '100%',
+                        height: '100%',
+                        background: '#000',
+                        display: 'flex',
+                        flexDirection: 'column',
+                    }
+                    : {
+                        // Non-fullscreen: centered floating window with native
+                        // CSS resize handle (bottom-right corner). Min sizes
+                        // keep xterm's columns/rows above 1.
+                        width: winSize.w,
+                        height: winSize.h,
+                        minWidth: 360,
+                        minHeight: 240,
+                        maxWidth: '95vw',
+                        maxHeight: '95vh',
+                        background: '#000',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
+                        resize: 'both',
+                    }}
             >
                 {/* Top chrome */}
                 <View
@@ -383,6 +455,15 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                         终端
                     </Text>
                     <View style={{ flex: 1 }} />
+                    <Pressable
+                        onPress={toggleFullscreen}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                        style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: 4 }}
+                    >
+                        <Ionicons name={isFullscreen ? 'contract-outline' : 'expand-outline'} size={18} color="#e5e5e5" />
+                    </Pressable>
                     <Pressable
                         onPress={onClose}
                         hitSlop={10}
@@ -418,7 +499,7 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                         />
                     )}
                 </View>
-            </View>
+            </div>
         </View>,
         document.body,
     );
