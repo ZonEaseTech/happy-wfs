@@ -1814,28 +1814,41 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
 
     // DOM ref for the row matching activeFilePath. RN-Web renders Pressable as
     // a div, so we can use scrollIntoView() — simpler & more reliable than
-    // measuring layouts for a recursive tree. Re-fired whenever the active
-    // path changes; { block: 'nearest' } means we won't scroll if it's
-    // already on screen.
+    // measuring layouts for a recursive tree.
     const activeRowRef = React.useRef<any>(null);
+    // Stash expand() in a ref so the auto-expand effect ONLY fires when the
+    // active file actually changes — useDirectoryTree.expand is recreated
+    // every time `entries` changes (it's in its useCallback deps), so
+    // depending on `expand` directly here would cause this effect to re-run
+    // every time the user collapses a directory — re-expanding the very
+    // ancestor they just collapsed. The fix: read expand off a ref instead.
+    const expandRef = React.useRef(expand);
+    React.useEffect(() => { expandRef.current = expand; }, [expand]);
+    const lastActivePathRef = React.useRef<string | null | undefined>(null);
     React.useEffect(() => {
         if (!activeFilePath) return;
-        // First: expand every ancestor dir so the active row is mounted.
-        // Walk path chunks from root down to (but not including) the file
-        // itself; expand() is a no-op for already-expanded entries.
+        // Idempotency: skip if the active file is already what we last
+        // reacted to. Without this, an unrelated parent re-render that
+        // happens to keep activeFilePath identical could still re-fire the
+        // expand cascade if React decides to re-run the effect.
+        if (lastActivePathRef.current === activeFilePath) return;
+        lastActivePathRef.current = activeFilePath;
+        // Expand every ancestor dir so the active row is mounted, but ONLY
+        // along the active file's path — never touch sibling subtrees the
+        // user may have collapsed.
         const segments = activeFilePath.split('/').filter(Boolean);
         for (let i = 1; i < segments.length; i++) {
             const ancestor = (activeFilePath.startsWith('/') ? '/' : '') + segments.slice(0, i).join('/');
-            void expand(ancestor);
+            void expandRef.current(ancestor);
         }
-        // Then defer a tick so freshly expanded subtrees have time to mount
-        // their rows before we ask the DOM to scroll.
+        // Defer a tick so freshly expanded subtrees mount their rows before
+        // we ask the DOM to scroll the active row into view.
         const id = window.requestAnimationFrame(() => {
             const node: any = activeRowRef.current;
             node?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
         });
         return () => window.cancelAnimationFrame(id);
-    }, [activeFilePath, expand]);
+    }, [activeFilePath]);
 
     const renderNode = (node: DirectoryTreeNode, depth: number): React.ReactNode => {
         const { entry, expanded, children } = node;
