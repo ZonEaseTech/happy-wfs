@@ -885,6 +885,34 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             socket.volatile.emit(event, envelope);
         };
 
+        // If `merged` ends in the middle of a UTF-8 multi-byte sequence
+        // (continuation expected), strip those trailing bytes off and
+        // return them — they get re-prepended to the next batch so the
+        // wire never carries half a code point. Without this, CJK / emoji
+        // shows up as garbled glyphs because xterm decodes per-write and
+        // any half-byte breaks the next sequence too.
+        const splitOnUtf8Boundary = (merged: Buffer): { complete: Buffer; tail: Buffer } => {
+            if (merged.length === 0) return { complete: merged, tail: merged };
+            // Walk back from the end to find the last char-start byte.
+            // A start byte is either ASCII (0xxxxxxx) or a leading byte
+            // (11xxxxxx). Continuation bytes are 10xxxxxx.
+            let i = merged.length - 1;
+            while (i >= 0 && (merged[i] & 0xc0) === 0x80) i--;
+            if (i < 0) return { complete: Buffer.alloc(0), tail: merged };
+            const lead = merged[i];
+            // Count expected length of the sequence starting at `lead`.
+            // 0xxxxxxx = 1, 110xxxxx = 2, 1110xxxx = 3, 11110xxx = 4.
+            let expected = 1;
+            if ((lead & 0x80) === 0) expected = 1;
+            else if ((lead & 0xe0) === 0xc0) expected = 2;
+            else if ((lead & 0xf0) === 0xe0) expected = 3;
+            else if ((lead & 0xf8) === 0xf0) expected = 4;
+            const have = merged.length - i;
+            if (have >= expected) return { complete: merged, tail: Buffer.alloc(0) };
+            // Sequence incomplete — peel the trailing partial off.
+            return { complete: merged.subarray(0, i), tail: merged.subarray(i) };
+        };
+
         const flushPtyOutput = (ptyId: string): void => {
             const state = outboundStates.get(ptyId);
             if (!state) return;
@@ -894,9 +922,21 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             }
             if (state.buffer.length === 0) return;
             const merged = Buffer.concat(state.buffer, state.byteCount);
-            state.buffer = [];
-            state.byteCount = 0;
-            const data = merged.toString('base64');
+            const { complete, tail } = splitOnUtf8Boundary(merged);
+            // Carry incomplete trailing bytes to the next batch — they'll
+            // join their continuation bytes there and emit as a whole.
+            if (tail.length > 0) {
+                state.buffer = [tail];
+                state.byteCount = tail.length;
+                if (!state.timer) {
+                    state.timer = setTimeout(() => flushPtyOutput(ptyId), PTY_OUTPUT_FLUSH_MS);
+                }
+            } else {
+                state.buffer = [];
+                state.byteCount = 0;
+            }
+            if (complete.length === 0) return;
+            const data = complete.toString('base64');
             emitEncrypted('pty-output', { sessionId, ptyId, data });
         };
 
