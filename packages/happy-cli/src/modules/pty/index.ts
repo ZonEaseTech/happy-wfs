@@ -147,13 +147,25 @@ export function resizePty(ptyId: string, cols: number, rows: number): boolean {
 
 /**
  * Forward stdin keystrokes to an active PTY.
+ *
+ * `data` arrives as a JS string from xterm.onData (UTF-16 code units), but
+ * node-pty's IPty.write encodes its string argument as latin1 — each char's
+ * low 8 bits go straight to the PTY master. ASCII keystrokes ride that
+ * fine, but multibyte chars (CJK, emoji) get truncated to one byte and the
+ * shell sees garbage.
+ *
+ * Fix: encode to UTF-8 bytes ourselves, then re-pack each byte as a single
+ * latin1 char so node-pty's existing low-8-bits write produces the correct
+ * raw bytes.
+ *
  * Returns false if the PTY does not exist (already closed).
  */
 export function writeToPty(ptyId: string, data: string): boolean {
     const term = ptys.get(ptyId);
     if (!term) return false;
     try {
-        term.write(data);
+        const utf8 = Buffer.from(data, 'utf8');
+        term.write(utf8.toString('binary'));
         return true;
     } catch (err) {
         logger.debug(`[pty] write ${ptyId} failed:`, err);
