@@ -239,13 +239,27 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
 
         sessions.forEach(session => {
             // Group key: by default use the session's own path (one group per
-            // worktree). When the user enables mergeWorktreeGroups, fall back
-            // to worktreeBasePath (the original repo path that all worktrees
-            // for this repo share) so e.g. ~/.happy-ai/workspaces/vk-ha-* all
-            // collapse into a single /workspace/ttpos-flutter group.
+            // worktree). When the user enables mergeWorktreeGroups, prefer
+            // metadata.worktreeBasePath (the original repo path the CLI fills
+            // when it spawns inside a worktree) and fall back to the parent
+            // directory of the worktree path. The fallback handles the common
+            // case where the CLI is too old to fill worktreeBasePath but the
+            // worktree paths all share a parent (e.g. all ~/.happy-ai/
+            // workspaces/vk-* collapse into ~/.happy-ai/workspaces).
             const ownPath = session.metadata?.path || '';
-            const baseRepoPath = session.metadata?.worktreeBasePath;
-            const projectPath = mergeWorktreeGroups && baseRepoPath ? baseRepoPath : ownPath;
+            let projectPath = ownPath;
+            if (mergeWorktreeGroups) {
+                const baseRepoPath = session.metadata?.worktreeBasePath;
+                if (baseRepoPath) {
+                    projectPath = baseRepoPath;
+                } else {
+                    // Take parent dir as the merge key. Strip trailing slashes
+                    // first so a path that itself ends in '/' doesn't yield ''.
+                    const trimmed = ownPath.replace(/\/+$/, '');
+                    const parent = trimmed.replace(/\/[^/]+$/, '');
+                    projectPath = parent || ownPath;
+                }
+            }
             const unknownText = t('status.unknown');
             const machineId = session.metadata?.machineId || unknownText;
 
