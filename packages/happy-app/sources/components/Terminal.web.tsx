@@ -292,14 +292,28 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 }
                 ptyIdRef.current = result.ptyId;
 
+                // Visual diagnostic — written directly into xterm so the user
+                // sees which stage of the wire we reach. If they see this line,
+                // xterm.write works. Subsequent missing prompt = pty-output not
+                // arriving. Yellow ANSI for visibility.
+                try { term.write(`\r\n\x1b[33m[client] PTY started, ptyId=${result.ptyId}, awaiting shell output...\x1b[0m\r\n`); } catch { /* ignore */ }
+
                 // Focus xterm so its hidden textarea actually receives
                 // keystrokes — without this the modal opens but typing does
                 // nothing (the textarea exists off-screen but has no focus).
                 try { term.focus(); } catch { /* ignore */ }
 
                 // ---- forward keystrokes ----
+                let inputCount = 0;
                 const onDataDisposable = term.onData(async (data: string) => {
                     if (!ptyIdRef.current || closedRef.current) return;
+                    inputCount += 1;
+                    // Visible echo so the user knows their key reached our handler,
+                    // independent of whether the CLI later echoes it. Print only
+                    // for the first 3 keystrokes so we don't spam the screen.
+                    if (inputCount <= 3) {
+                        try { term.write(`\x1b[36m[client→cli ${inputCount}]\x1b[0m`); } catch { /* ignore */ }
+                    }
                     try {
                         const encryptedData = await encryptData(sessionId, data);
                         if (encryptedData == null) return;
@@ -317,21 +331,31 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
         })();
 
         // ---- subscribe to streaming output ------------------------------
+        let outputFrameCount = 0;
+        let outputBadFrame = 0;
         const offOutput = apiSocket.onSocketEvent('pty-output', async (frame: any) => {
             // frame = { sessionId, ptyId, data: <ciphertext> }
+            outputFrameCount += 1;
             try {
-                // eslint-disable-next-line no-console
-                console.log('[Terminal] pty-output frame received', { sid: frame?.sessionId, ptyId: frame?.ptyId, dataLen: typeof frame?.data === 'string' ? frame.data.length : -1 });
-                if (!frame || typeof frame !== 'object') return;
-                if (frame.sessionId !== sessionId) return;
-                if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) return;
+                if (!frame || typeof frame !== 'object') { outputBadFrame++; return; }
+                if (frame.sessionId !== sessionId) {
+                    if (outputFrameCount <= 5) try { term.write(`\x1b[31m[skip wrong sid: got ${frame.sessionId} want ${sessionId}]\x1b[0m`); } catch {}
+                    return;
+                }
+                if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) {
+                    if (outputFrameCount <= 5) try { term.write(`\x1b[31m[skip wrong ptyId: got ${frame.ptyId} want ${ptyIdRef.current}]\x1b[0m`); } catch {}
+                    return;
+                }
                 const decryptedB64 = typeof frame.data === 'string'
                     ? await decryptData(sessionId, frame.data)
                     : null;
                 if (typeof decryptedB64 !== 'string') {
-                    // eslint-disable-next-line no-console
-                    console.log('[Terminal] decrypt failed or non-string', typeof decryptedB64);
+                    if (outputFrameCount <= 5) try { term.write(`\x1b[31m[decrypt fail frame ${outputFrameCount}]\x1b[0m`); } catch {}
                     return;
+                }
+                // First arrival visible marker.
+                if (outputFrameCount === 1) {
+                    try { term.write(`\x1b[32m[first pty-output ${decryptedB64.length}b64 bytes]\x1b[0m\r\n`); } catch { /* ignore */ }
                 }
                 // base64 → Uint8Array. Use atob (web-only file).
                 const bin = atob(decryptedB64);
@@ -339,8 +363,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
                 term.write(bytes);
             } catch (e) {
-                // eslint-disable-next-line no-console
-                console.log('[Terminal] pty-output handler error', e);
+                try { term.write(`\x1b[31m[output handler error ${String(e).slice(0,60)}]\x1b[0m\r\n`); } catch {}
             }
         });
 
