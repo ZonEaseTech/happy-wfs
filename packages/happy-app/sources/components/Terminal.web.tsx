@@ -292,6 +292,11 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 }
                 ptyIdRef.current = result.ptyId;
 
+                // Focus xterm so its hidden textarea actually receives
+                // keystrokes — without this the modal opens but typing does
+                // nothing (the textarea exists off-screen but has no focus).
+                try { term.focus(); } catch { /* ignore */ }
+
                 // ---- forward keystrokes ----
                 const onDataDisposable = term.onData(async (data: string) => {
                     if (!ptyIdRef.current || closedRef.current) return;
@@ -315,19 +320,28 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
         const offOutput = apiSocket.onSocketEvent('pty-output', async (frame: any) => {
             // frame = { sessionId, ptyId, data: <ciphertext> }
             try {
+                // eslint-disable-next-line no-console
+                console.log('[Terminal] pty-output frame received', { sid: frame?.sessionId, ptyId: frame?.ptyId, dataLen: typeof frame?.data === 'string' ? frame.data.length : -1 });
                 if (!frame || typeof frame !== 'object') return;
                 if (frame.sessionId !== sessionId) return;
                 if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) return;
                 const decryptedB64 = typeof frame.data === 'string'
                     ? await decryptData(sessionId, frame.data)
                     : null;
-                if (typeof decryptedB64 !== 'string') return;
+                if (typeof decryptedB64 !== 'string') {
+                    // eslint-disable-next-line no-console
+                    console.log('[Terminal] decrypt failed or non-string', typeof decryptedB64);
+                    return;
+                }
                 // base64 → Uint8Array. Use atob (web-only file).
                 const bin = atob(decryptedB64);
                 const bytes = new Uint8Array(bin.length);
                 for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
                 term.write(bytes);
-            } catch { /* drop malformed frame */ }
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.log('[Terminal] pty-output handler error', e);
+            }
         });
 
         const offExit = apiSocket.onSocketEvent('pty-exit', (frame: any) => {
