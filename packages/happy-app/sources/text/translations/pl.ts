@@ -1017,6 +1017,7 @@ export const pl: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        pinnedSection: '📌 Przypięte',
         review: {
             mark: 'Oznacz jako do sprawdzenia',
             unmark: 'Usuń oznaczenie',

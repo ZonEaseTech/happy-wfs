@@ -236,6 +236,27 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     const pinnedIds = usePinnedIds();
     const pinnedSet = React.useMemo(() => new Set(pinnedIds), [pinnedIds]);
 
+    // Sessions that should jump to the GLOBAL top of the sidebar (above all
+    // project groups): user-marked pinned + currently thinking. The thinking
+    // ones are auto-promoted so the user comes back tomorrow and immediately
+    // sees what's running, without having to scan every project group.
+    // Manual pin trumps thinking when ordering inside the section.
+    const { pinnedSessions, restSessions } = React.useMemo(() => {
+        const pinned: Session[] = [];
+        const rest: Session[] = [];
+        for (const s of sessions) {
+            if (pinnedSet.has(s.id) || s.thinking === true) pinned.push(s);
+            else rest.push(s);
+        }
+        pinned.sort((a, b) => {
+            const ma = pinnedSet.has(a.id);
+            const mb = pinnedSet.has(b.id);
+            if (ma !== mb) return ma ? -1 : 1;
+            return b.createdAt - a.createdAt;
+        });
+        return { pinnedSessions: pinned, restSessions: rest };
+    }, [sessions, pinnedSet]);
+
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
         machines.forEach(machine => {
@@ -256,7 +277,10 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
             }>;
         }>();
 
-        sessions.forEach(session => {
+        // restSessions = everything NOT in the global pinned section, so we
+        // never render the same session twice (once in pinned, once in its
+        // project group).
+        restSessions.forEach(session => {
             const projectPath = session.metadata?.path || '';
             const unknownText = t('status.unknown');
             const machineId = session.metadata?.machineId || unknownText;
@@ -294,28 +318,16 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
             machineGroup.sessions.push(session);
         });
 
-        // Sort sessions within each machine group:
-        // 1. Pinned sessions first (user-marked) — keeps "what was I doing
-        //    yesterday" entries glued to the top regardless of activity.
-        // 2. Then thinking sessions (auto) — the agent is actively running,
-        //    user wants to see it so they don't forget on next-day return.
-        // 3. Finally newest createdAt first (existing behavior preserved).
+        // Pinned + thinking already moved to the global section above; here
+        // we just sort the rest by newest first.
         groups.forEach(projectGroup => {
             projectGroup.machines.forEach(machineGroup => {
-                machineGroup.sessions.sort((a, b) => {
-                    const pinA = pinnedSet.has(a.id);
-                    const pinB = pinnedSet.has(b.id);
-                    if (pinA !== pinB) return pinA ? -1 : 1;
-                    const thA = a.thinking === true;
-                    const thB = b.thinking === true;
-                    if (thA !== thB) return thA ? -1 : 1;
-                    return b.createdAt - a.createdAt;
-                });
+                machineGroup.sessions.sort((a, b) => b.createdAt - a.createdAt);
             });
         });
 
         return groups;
-    }, [sessions, machinesMap, pinnedSet]);
+    }, [restSessions, machinesMap]);
 
     // Sort project groups by display path
     const sortedProjectGroups = React.useMemo(() => {
@@ -326,6 +338,29 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
 
     return (
         <View style={styles.container}>
+            {/* Global "Pinned" section — pinned + thinking sessions float
+              * above all project groups so the user sees them first. Each
+              * row stays a normal CompactSessionRow so swipe / context menu
+              * / amber/green/blue tier styles all work the same. */}
+            {pinnedSessions.length > 0 && (
+                <View>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionHeaderPath} numberOfLines={1}>
+                            {t('sidebar.pinnedSection')}
+                        </Text>
+                    </View>
+                    <View style={styles.projectCard}>
+                        {pinnedSessions.map((session, index) => (
+                            <CompactSessionRow
+                                key={session.id}
+                                session={session}
+                                selected={selectedSessionId === session.id}
+                                showBorder={index < pinnedSessions.length - 1}
+                            />
+                        ))}
+                    </View>
+                </View>
+            )}
             {sortedProjectGroups.map(([projectPath, projectGroup]) => {
                 const machineEntries = Array.from(projectGroup.machines.entries());
                 const firstSession = machineEntries[0]?.[1]?.sessions[0];

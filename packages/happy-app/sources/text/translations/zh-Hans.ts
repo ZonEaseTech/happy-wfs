@@ -1008,6 +1008,7 @@ export const zhHans: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        pinnedSection: '📌 置顶',
         review: {
             mark: '标记为待验收',
             unmark: '取消待验收',

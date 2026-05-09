@@ -1038,6 +1038,7 @@ export const ja: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        pinnedSection: '📌 ピン留め',
         review: {
             mark: '確認待ちにマーク',
             unmark: '確認待ちを解除',

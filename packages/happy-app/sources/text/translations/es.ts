@@ -1006,6 +1006,7 @@ export const es: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        pinnedSection: '📌 Fijados',
         review: {
             mark: 'Marcar pendiente de revisión',
             unmark: 'Quitar pendiente de revisión',

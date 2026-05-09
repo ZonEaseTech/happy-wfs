@@ -1023,6 +1023,7 @@ export const en: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
+        pinnedSection: '📌 Pinned',
         review: {
             mark: 'Mark as pending review',
             unmark: 'Clear review pending',
