@@ -802,17 +802,42 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                     <View style={{
                         flexDirection: 'row',
                         alignItems: 'center',
-                        marginBottom: 8
+                        marginBottom: 8,
                     }}>
                         <Octicons name="git-branch" size={16} color={theme.colors.textSecondary} style={{ marginRight: 6 }} />
                         <Text style={{
                             fontSize: 16,
                             fontWeight: '600',
                             color: theme.colors.text,
+                            flex: 1,
                             ...Typography.default()
-                        }}>
+                        }} numberOfLines={1}>
                             {gitStatusFiles.branch || t('files.detachedHead')}
                         </Text>
+                        {/* List/tree toggle moved here so it shares the branch
+                          * header row instead of taking its own ~30px row. */}
+                        <Pressable
+                            onPress={() => setTreeView(v => !v)}
+                            hitSlop={8}
+                            style={({ pressed }) => ({
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                opacity: pressed ? 0.6 : 1,
+                            })}
+                        >
+                            <Ionicons
+                                name={treeView ? 'list-outline' : 'git-network-outline'}
+                                size={16}
+                                color={theme.colors.textLink}
+                            />
+                            <Text style={{ fontSize: 12, color: theme.colors.textLink, ...Typography.default() }}>
+                                {treeView ? t('files.viewList') : t('files.viewTree')}
+                            </Text>
+                        </Pressable>
                     </View>
                     <Text style={{
                         fontSize: 12,
@@ -992,43 +1017,6 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                     )
                 ) : (
                     <>
-                        {/* View-mode toggle bar (list / tree). Single global toggle
-                            that flips both staged + unstaged sections at once. */}
-                        {(gitStatusFiles.stagedFiles.length > 0 || gitStatusFiles.unstagedFiles.length > 0) && (
-                            <View style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end',
-                                paddingHorizontal: 12,
-                                paddingVertical: 6,
-                                borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
-                                borderBottomColor: theme.colors.divider,
-                                backgroundColor: theme.colors.surface,
-                            }}>
-                                <Pressable
-                                    onPress={() => setTreeView(v => !v)}
-                                    hitSlop={8}
-                                    style={({ pressed }) => ({
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        paddingHorizontal: 8,
-                                        paddingVertical: 4,
-                                        borderRadius: 6,
-                                        opacity: pressed ? 0.6 : 1,
-                                    })}
-                                >
-                                    <Ionicons
-                                        name={treeView ? 'list-outline' : 'git-network-outline'}
-                                        size={16}
-                                        color={theme.colors.textLink}
-                                    />
-                                    <Text style={{ fontSize: 12, color: theme.colors.textLink, ...Typography.default() }}>
-                                        {treeView ? t('files.viewList') : t('files.viewTree')}
-                                    </Text>
-                                </Pressable>
-                            </View>
-                        )}
                         {/* Staged Changes Section */}
                         {gitStatusFiles.stagedFiles.length > 0 && (
                             <>
