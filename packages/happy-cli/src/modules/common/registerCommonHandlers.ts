@@ -861,20 +861,28 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         };
         const outboundStates = new Map<string, PtyOutboundState>();
 
-        const emitEncrypted = (event: string, payload: unknown): void => {
+        // Server's pty-output / pty-exit listeners expect a PLAINTEXT envelope
+        // ({ sessionId, ptyId, data?, exitCode? }) so they can route by
+        // sessionId without decrypting. Only the `data` field is encrypted —
+        // sessionId/ptyId/exitCode stay readable. The previous version
+        // encrypted the whole envelope as a single string and the server
+        // silently dropped it (`typeof data !== 'object'`).
+        const emitEncrypted = (event: 'pty-output' | 'pty-exit', payload: { sessionId: string; ptyId: string; data?: string; exitCode?: number }): void => {
             const socket = rpcHandlerManager.getSocket();
             if (!socket || !socket.connected) {
-                // Drop frames silently — PTY output is ephemeral; if the app
-                // can't see it now, replaying later is meaningless and would
-                // grow unbounded buffers.
                 return;
             }
-            const key = rpcHandlerManager.getEncryptionKey();
-            const variant = rpcHandlerManager.getEncryptionVariant();
-            const encrypted = encodeBase64(encrypt(key, variant, payload));
+            const envelope: Record<string, unknown> = { sessionId: payload.sessionId, ptyId: payload.ptyId };
+            if (event === 'pty-output' && typeof payload.data === 'string') {
+                const key = rpcHandlerManager.getEncryptionKey();
+                const variant = rpcHandlerManager.getEncryptionVariant();
+                envelope.data = encodeBase64(encrypt(key, variant, payload.data));
+            } else if (event === 'pty-exit' && typeof payload.exitCode === 'number') {
+                envelope.exitCode = payload.exitCode;
+            }
             // volatile.emit: drop on socket buffer pressure rather than queue.
             // For PTY output that's the right tradeoff — stale bytes are noise.
-            socket.volatile.emit(event, encrypted);
+            socket.volatile.emit(event, envelope);
         };
 
         const flushPtyOutput = (ptyId: string): void => {
@@ -979,19 +987,27 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         // Per protocol, the server relay forwards opaque ciphertext as a base64
         // string — the CLI decrypts here with the session encryption key.
         // (The matching encrypt step on the app side mirrors emitEncrypted above.)
-        rpcHandlerManager.registerSocketEvent('pty-input', (encryptedPayload: string) => {
-            if (typeof encryptedPayload !== 'string') {
-                logger.debug('[pty-input] unexpected payload shape, dropping');
+        // The server fan-outs pty-input as a plaintext envelope:
+        //   { sessionId, ptyId, data: <encrypted base64 of the keystrokes> }
+        // sessionId/ptyId stay readable so the server can route by session
+        // without decrypting; only `data` carries ciphertext.
+        rpcHandlerManager.registerSocketEvent('pty-input', (envelope: any) => {
+            if (!envelope || typeof envelope !== 'object') {
+                logger.debug('[pty-input] unexpected envelope shape, dropping');
                 return;
             }
+            if (envelope.sessionId !== sessionId) return;
+            if (typeof envelope.ptyId !== 'string') return;
+            if (typeof envelope.data !== 'string') return;
             try {
                 const key = rpcHandlerManager.getEncryptionKey();
                 const variant = rpcHandlerManager.getEncryptionVariant();
-                const decoded = decrypt(key, variant, decodeBase64(encryptedPayload)) as PtyInputEvent | null;
-                if (!decoded || decoded.sessionId !== sessionId) {
+                const decoded = decrypt(key, variant, decodeBase64(envelope.data));
+                if (typeof decoded !== 'string') {
+                    logger.debug('[pty-input] decrypted payload not a string, dropping');
                     return;
                 }
-                writeToPty(decoded.ptyId, decoded.data);
+                writeToPty(envelope.ptyId, decoded);
             } catch (err) {
                 logger.debug('[pty-input] decrypt/dispatch failed:', err);
             }
