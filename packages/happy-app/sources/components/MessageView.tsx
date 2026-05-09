@@ -175,7 +175,7 @@ function UserTextBlock(props: {
     return props.message.sentByName || t('message.unknownSender');
   }, [props.isSharedSession, props.showSenderName, props.message.sentBy, props.currentUserId, props.message.sentByName]);
 
-  const { showActions, actionsOverlay } = useMessageActions(props.message.text, props.sessionId, props.message.id);
+  const { showActions, onContextMenu, actionsOverlay } = useMessageActions(props.message.text, props.sessionId, props.message.id);
 
   return (
     <View style={styles.userMessageContainer}>
@@ -183,7 +183,20 @@ function UserTextBlock(props: {
         <Text style={styles.senderLabel}>{senderLabel}</Text>
       )}
       {actionsOverlay}
-      <Pressable style={styles.userMessageBubble} onLongPress={showActions} delayLongPress={400}>
+      <Pressable
+        style={styles.userMessageBubble}
+        // @ts-ignore — RN-Web supports onContextMenu via host div forwarding.
+        onContextMenu={onContextMenu}
+        // PC long-press: try to capture pointer coords from the press event so
+        // the popover anchors at the cursor. Falls back to bottom-sheet if
+        // coords aren't available (e.g. native).
+        onLongPress={(e: any) => {
+          const x = e?.nativeEvent?.pageX;
+          const y = e?.nativeEvent?.pageY;
+          showActions(typeof x === 'number' ? x : undefined, typeof y === 'number' ? y : undefined);
+        }}
+        delayLongPress={400}
+      >
         {images.length > 0 && (
           <>
             <View style={styles.messageImages}>
