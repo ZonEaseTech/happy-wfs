@@ -1038,17 +1038,9 @@ export const ja: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
-        pinnedSection: '📌 ピン留め',
         review: {
             mark: '確認待ちにマーク',
             unmark: '確認待ちを解除',
-        },
-        pin: {
-            pin: 'ピン留め',
-            unpin: 'ピン留め解除',
-            renameTitle: 'タイトルを変更',
-            renamePrompt: 'サイドバーに表示するセッションのタイトル',
-            clearTitle: 'ピン留めタイトルを解除',
         },
     },
 
@@ -1272,8 +1264,6 @@ export const ja: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
-        pinSidebarAction: 'サイドバーにピン留め',
-        pinnedToSidebar: 'サイドバーにピン留めしました',
         searchPlaceholder: 'メモリを検索...',
         noResults: '一致するメモリがありません',
         insertIntoInput: '入力に挿入',

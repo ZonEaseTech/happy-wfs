@@ -1008,17 +1008,9 @@ export const zhHant: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
-        pinnedSection: '📌 置頂',
         review: {
             mark: '標記為待驗收',
             unmark: '取消待驗收',
-        },
-        pin: {
-            pin: '置頂',
-            unpin: '取消置頂',
-            renameTitle: '重新命名標題',
-            renamePrompt: '為該會話設定側邊欄顯示標題',
-            clearTitle: '取消置頂標題',
         },
     },
 
@@ -1242,8 +1234,6 @@ export const zhHant: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `共 ${count} 条`,
         pinTitle: '存為記憶？',
         pinAction: '存為記憶',
-        pinSidebarAction: '置頂到側邊欄',
-        pinnedToSidebar: '已置頂到側邊欄',
         searchPlaceholder: '搜尋記憶...',
         noResults: '沒有符合的記憶',
         insertIntoInput: '插入到輸入框',

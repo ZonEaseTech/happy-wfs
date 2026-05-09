@@ -1020,17 +1020,9 @@ export const en = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
-        pinnedSection: '📌 Pinned',
         review: {
             mark: 'Mark as pending review',
             unmark: 'Clear review pending',
-        },
-        pin: {
-            pin: 'Pin',
-            unpin: 'Unpin',
-            renameTitle: 'Rename title',
-            renamePrompt: 'New title for this session in the sidebar',
-            clearTitle: 'Clear pinned title',
         },
     },
 
@@ -1259,8 +1251,6 @@ export const en = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
-        pinSidebarAction: 'Pin to sidebar',
-        pinnedToSidebar: 'Pinned to sidebar',
         searchEmpty: 'No matching memories',
         searchEmptyHint: 'Try a different keyword or clear the search.',
         searchResultFooter: ({ count }: { count: number }) => `${count} match${count === 1 ? '' : 'es'}`,

@@ -1036,17 +1036,9 @@ export const it: TranslationStructure = {
 
     sidebar: {
         sessionsTitle: 'Happy AI',
-        pinnedSection: '📌 Fissati',
         review: {
             mark: 'Segna in attesa di revisione',
             unmark: 'Rimuovi attesa revisione',
-        },
-        pin: {
-            pin: 'Fissa',
-            unpin: 'Rimuovi fissaggio',
-            renameTitle: 'Rinomina titolo',
-            renamePrompt: 'Nuovo titolo per questa sessione nella barra laterale',
-            clearTitle: 'Rimuovi titolo fissato',
         },
     },
 
@@ -1270,8 +1262,6 @@ export const it: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
-        pinSidebarAction: 'Fissa nella barra laterale',
-        pinnedToSidebar: 'Fissato nella barra laterale',
         searchPlaceholder: 'Search memories...',
         noResults: 'No matching memories',
         insertIntoInput: 'Insert into input',
