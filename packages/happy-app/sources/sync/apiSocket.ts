@@ -110,6 +110,36 @@ class ApiSocket {
         this.messageHandlers.delete(event);
     }
 
+    /**
+     * Subscribe to a raw socket event by attaching a listener directly to the
+     * underlying socket.io socket. Unlike `onMessage` (which is keyed by event
+     * name in a Map and therefore single-listener), this allows multiple
+     * concurrent subscribers — needed for streaming events like `pty-output`
+     * where the same event can target different ptyIds simultaneously.
+     *
+     * Returns an unsubscribe function. Safe to call before the socket has
+     * connected; the listener is attached when the socket is available.
+     */
+    onSocketEvent(event: string, handler: (data: any) => void): () => void {
+        // socket.io tolerates `socket.on` even before connect (handlers persist
+        // across reconnects), so just forward to the underlying socket. If
+        // there's no socket yet (very early init) we silently no-op the
+        // attach — happens only in tests that don't initialize().
+        this.socket?.on(event, handler);
+        return () => {
+            this.socket?.off(event, handler);
+        };
+    }
+
+    /**
+     * Look up the per-session encryption helper. Public so streaming-event
+     * call sites (e.g. PTY input/output, which bypass the RPC dispatcher) can
+     * encrypt/decrypt their own payloads using the same key as RPC traffic.
+     */
+    getSessionEncryption(sessionId: string) {
+        return this.encryption?.getSessionEncryption(sessionId) ?? null;
+    }
+
     //
     // RPC Handler Registration
     //

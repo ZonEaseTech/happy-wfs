@@ -9,6 +9,8 @@ import { RpcHandlerManager } from '../../api/rpc/RpcHandlerManager';
 import { validatePath } from './pathSecurity';
 import { getDiffDetail } from './diffStore';
 import { getToolOutputRecord } from './toolOutputStore';
+import { spawnShell, resizePty, closePty, writeToPty, PTY_UNAVAILABLE } from '@/modules/pty';
+import { encrypt, decrypt, encodeBase64, decodeBase64 } from '@/api/encryption';
 
 const execAsync = promisify(exec);
 
@@ -159,6 +161,53 @@ interface CreateDirectoryResponse {
     success: boolean;
     error?: string;
 }
+
+/*
+ * PTY (pseudo-terminal) RPC types — see protocol doc in
+ * .task-orchestrator/.../protocol.md. The lifecycle goes through RPC
+ * (encrypted by RpcHandlerManager). Streaming frames (pty-input,
+ * pty-output, pty-exit) are non-RPC socket events that we encrypt manually
+ * with the same session encryption key.
+ */
+interface PtyStartRequest {
+    cols: number;
+    rows: number;
+    cwd?: string;
+}
+
+interface PtyStartResponse {
+    ok: boolean;
+    ptyId?: string;
+    error?: string;
+}
+
+interface PtyResizeRequest {
+    ptyId: string;
+    cols: number;
+    rows: number;
+}
+
+interface PtyResizeResponse {
+    ok: boolean;
+}
+
+interface PtyCloseRequest {
+    ptyId: string;
+}
+
+interface PtyCloseResponse {
+    ok: boolean;
+}
+
+interface PtyInputEvent {
+    sessionId: string;
+    ptyId: string;
+    data: string; // utf-8 keystrokes from xterm.onData
+}
+
+/** Output frames are batched and encrypted; see batching constants below. */
+const PTY_OUTPUT_FLUSH_MS = 16;
+const PTY_OUTPUT_FLUSH_BYTES = 32 * 1024;
 
 /*
  * Spawn Session Options and Result
@@ -792,6 +841,160 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
                 agent: record.agent,
                 result: record.result,
             };
+        });
+
+        // ============================================================
+        // PTY (xterm-style interactive shell) RPC + streaming handlers
+        // ============================================================
+        // The protocol splits PTY control across:
+        //   - RPC (encrypted by RpcHandlerManager): pty-start, pty-resize, pty-close
+        //   - Non-RPC socket events (encrypted manually): pty-input (in), pty-output / pty-exit (out)
+        //
+        // We keep one Map<ptyId, { batch state, dispose handles }> per spawn so that
+        // onData batching state stays per-PTY and gets cleaned up on close/exit.
+        type PtyOutboundState = {
+            buffer: Buffer[];
+            byteCount: number;
+            timer: NodeJS.Timeout | null;
+            dataDispose: { dispose(): void };
+            exitDispose: { dispose(): void };
+        };
+        const outboundStates = new Map<string, PtyOutboundState>();
+
+        const emitEncrypted = (event: string, payload: unknown): void => {
+            const socket = rpcHandlerManager.getSocket();
+            if (!socket || !socket.connected) {
+                // Drop frames silently — PTY output is ephemeral; if the app
+                // can't see it now, replaying later is meaningless and would
+                // grow unbounded buffers.
+                return;
+            }
+            const key = rpcHandlerManager.getEncryptionKey();
+            const variant = rpcHandlerManager.getEncryptionVariant();
+            const encrypted = encodeBase64(encrypt(key, variant, payload));
+            // volatile.emit: drop on socket buffer pressure rather than queue.
+            // For PTY output that's the right tradeoff — stale bytes are noise.
+            socket.volatile.emit(event, encrypted);
+        };
+
+        const flushPtyOutput = (ptyId: string): void => {
+            const state = outboundStates.get(ptyId);
+            if (!state) return;
+            if (state.timer) {
+                clearTimeout(state.timer);
+                state.timer = null;
+            }
+            if (state.buffer.length === 0) return;
+            const merged = Buffer.concat(state.buffer, state.byteCount);
+            state.buffer = [];
+            state.byteCount = 0;
+            const data = merged.toString('base64');
+            emitEncrypted('pty-output', { sessionId, ptyId, data });
+        };
+
+        const cleanupPtyState = (ptyId: string): void => {
+            const state = outboundStates.get(ptyId);
+            if (!state) return;
+            // Drain any remaining buffered output before tearing down handlers.
+            flushPtyOutput(ptyId);
+            try { state.dataDispose.dispose(); } catch { /* already disposed */ }
+            try { state.exitDispose.dispose(); } catch { /* already disposed */ }
+            outboundStates.delete(ptyId);
+        };
+
+        rpcHandlerManager.registerHandler<PtyStartRequest, PtyStartResponse>('pty-start', async (data) => {
+            logger.debug('[pty-start] request', { cols: data.cols, rows: data.rows, cwd: data.cwd });
+            try {
+                const { ptyId, term } = spawnShell({
+                    cols: data.cols,
+                    rows: data.rows,
+                    cwd: data.cwd,
+                });
+
+                // Wire onData → batched pty-output emit.
+                // node-pty's onData yields strings (binary-safe via latin1 encoding by
+                // default), but we need the raw bytes to base64-encode for the wire.
+                // Buffer.from(str, 'binary') round-trips the per-byte payload that
+                // node-pty hands us regardless of locale.
+                const dataDispose = term.onData((chunk: string) => {
+                    const state = outboundStates.get(ptyId);
+                    if (!state) return; // already cleaned up
+                    const buf = Buffer.from(chunk, 'binary');
+                    state.buffer.push(buf);
+                    state.byteCount += buf.length;
+                    if (state.byteCount >= PTY_OUTPUT_FLUSH_BYTES) {
+                        flushPtyOutput(ptyId);
+                        return;
+                    }
+                    if (!state.timer) {
+                        state.timer = setTimeout(() => flushPtyOutput(ptyId), PTY_OUTPUT_FLUSH_MS);
+                    }
+                });
+
+                const exitDispose = term.onExit(({ exitCode }) => {
+                    logger.debug(`[pty-exit] ${ptyId} exitCode=${exitCode}`);
+                    // Flush any pending output before notifying exit.
+                    flushPtyOutput(ptyId);
+                    emitEncrypted('pty-exit', { sessionId, ptyId, exitCode });
+                    cleanupPtyState(ptyId);
+                    closePty(ptyId);
+                });
+
+                outboundStates.set(ptyId, {
+                    buffer: [],
+                    byteCount: 0,
+                    timer: null,
+                    dataDispose,
+                    exitDispose,
+                });
+
+                return { ok: true, ptyId };
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                if (message === PTY_UNAVAILABLE) {
+                    logger.debug('[pty-start] node-pty unavailable on this host');
+                    return { ok: false, error: PTY_UNAVAILABLE };
+                }
+                logger.debug('[pty-start] spawn failed:', message);
+                return { ok: false, error: message };
+            }
+        });
+
+        rpcHandlerManager.registerHandler<PtyResizeRequest, PtyResizeResponse>('pty-resize', async (data) => {
+            logger.debug(`[pty-resize] ${data.ptyId} ${data.cols}x${data.rows}`);
+            const ok = resizePty(data.ptyId, data.cols, data.rows);
+            return { ok };
+        });
+
+        rpcHandlerManager.registerHandler<PtyCloseRequest, PtyCloseResponse>('pty-close', async (data) => {
+            logger.debug(`[pty-close] ${data.ptyId}`);
+            // Tear down our batching/onData state first so the imminent exit
+            // event from kill() doesn't try to emit on a half-disposed term.
+            cleanupPtyState(data.ptyId);
+            const ok = closePty(data.ptyId);
+            return { ok };
+        });
+
+        // Non-RPC streaming inbound: keystrokes from the app.
+        // Per protocol, the server relay forwards opaque ciphertext as a base64
+        // string — the CLI decrypts here with the session encryption key.
+        // (The matching encrypt step on the app side mirrors emitEncrypted above.)
+        rpcHandlerManager.registerSocketEvent('pty-input', (encryptedPayload: string) => {
+            if (typeof encryptedPayload !== 'string') {
+                logger.debug('[pty-input] unexpected payload shape, dropping');
+                return;
+            }
+            try {
+                const key = rpcHandlerManager.getEncryptionKey();
+                const variant = rpcHandlerManager.getEncryptionVariant();
+                const decoded = decrypt(key, variant, decodeBase64(encryptedPayload)) as PtyInputEvent | null;
+                if (!decoded || decoded.sessionId !== sessionId) {
+                    return;
+                }
+                writeToPty(decoded.ptyId, decoded.data);
+            } catch (err) {
+                logger.debug('[pty-input] decrypt/dispatch failed:', err);
+            }
         });
     }
 }

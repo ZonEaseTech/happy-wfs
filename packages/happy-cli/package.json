@@ -120,6 +120,9 @@
     "ws": "^8.19.0",
     "zod": "3.25.76"
   },
+  "optionalDependencies": {
+    "node-pty": "^1.0.0"
+  },
   "devDependencies": {
     "@eslint/compat": "^1",
     "@types/node": ">=20",

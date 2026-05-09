@@ -13,6 +13,9 @@ import {
 } from './types';
 import { Socket } from 'socket.io-client';
 
+/** Listener for arbitrary (non-RPC) socket events. The manager re-attaches these on every reconnect. */
+export type SocketEventListener = (...args: any[]) => void;
+
 export class RpcHandlerManager {
     private handlers: RpcHandlerMap = new Map();
     private readonly scopePrefix: string;
@@ -20,12 +23,46 @@ export class RpcHandlerManager {
     private readonly encryptionVariant: 'legacy' | 'dataKey';
     private readonly logger: (message: string, data?: any) => void;
     private socket: Socket | null = null;
+    /** Non-RPC socket event listeners registered by feature modules (e.g. pty-input). */
+    private socketListeners: Map<string, Set<SocketEventListener>> = new Map();
 
     constructor(config: RpcHandlerConfig) {
         this.scopePrefix = config.scopePrefix;
         this.encryptionKey = config.encryptionKey;
         this.encryptionVariant = config.encryptionVariant;
         this.logger = config.logger || ((msg, data) => defaultLogger.debug(msg, data));
+    }
+
+    /** Encryption key — exposed so feature modules can encrypt outbound non-RPC frames. */
+    getEncryptionKey(): Uint8Array {
+        return this.encryptionKey;
+    }
+
+    /** Encryption variant — companion to getEncryptionKey() for outbound frame encryption. */
+    getEncryptionVariant(): 'legacy' | 'dataKey' {
+        return this.encryptionVariant;
+    }
+
+    /** Current socket reference (or null if disconnected). */
+    getSocket(): Socket | null {
+        return this.socket;
+    }
+
+    /**
+     * Register a non-RPC socket event listener (e.g. `pty-input`). Stored so the
+     * manager can re-attach it on every reconnect — RPC handlers already use the
+     * same pattern via `rpc-register` emit.
+     */
+    registerSocketEvent(eventName: string, listener: SocketEventListener): void {
+        let set = this.socketListeners.get(eventName);
+        if (!set) {
+            set = new Set();
+            this.socketListeners.set(eventName, set);
+        }
+        set.add(listener);
+        if (this.socket) {
+            this.socket.on(eventName, listener);
+        }
     }
 
     /**
@@ -111,9 +148,18 @@ export class RpcHandlerManager {
         for (const [prefixedMethod] of this.handlers) {
             socket.emit('rpc-register', { method: prefixedMethod });
         }
+        // Re-attach non-RPC event listeners across reconnects.
+        for (const [eventName, set] of this.socketListeners) {
+            for (const listener of set) {
+                socket.on(eventName, listener);
+            }
+        }
     }
 
     onSocketDisconnect(): void {
+        // socket.off bookkeeping isn't strictly necessary because socket.io
+        // discards listeners on disconnect, but we null out so getSocket()
+        // accurately reports availability.
         this.socket = null;
     }
 

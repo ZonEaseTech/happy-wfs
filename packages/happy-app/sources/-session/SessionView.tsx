@@ -44,6 +44,7 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { RightPanel, RightPanelType } from '@/components/RightPanel';
 import { FileViewerModal } from '@/components/FileViewerModal';
+import { Terminal } from '@/components/Terminal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -76,6 +77,11 @@ export const SessionView = React.memo((props: { id: string }) => {
     // PC code-slash button (rendered in this header) opens the bt-style FileViewerModal
     // mounted inside SessionViewLoaded; state lives here so the button can read/toggle it.
     const [showFileViewer, setShowFileViewer] = React.useState(false);
+    // Terminal modal: web + tablet only (no room for an xterm UI on phones).
+    // Mounted inside SessionViewLoaded so it has session context, but state
+    // lives here so the header button can flip it.
+    const [showTerminal, setShowTerminal] = React.useState(false);
+    const showTerminalButton = Platform.OS === 'web' && isTablet;
     // Reset panel if shrinking out of desktop mode (avoid stale panel state on resize).
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
@@ -343,6 +349,31 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         color={isDesktopPanelMode && showFileViewer ? theme.colors.button.primary.background : theme.colors.header.tint}
                                     />
                                 </Pressable>
+                                {/* Terminal: web + tablet only. Phones don't
+                                    have room for an xterm surface, and the
+                                    underlying xterm.js bundle is web-only. */}
+                                {showTerminalButton && (
+                                    <Pressable
+                                        {...webTooltip('Terminal')}
+                                        onPress={() => setShowTerminal(true)}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Terminal"
+                                        style={{
+                                            width: 38,
+                                            height: 38,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name="terminal-outline"
+                                            size={22}
+                                            color={showTerminal ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                        />
+                                    </Pressable>
+                                )}
                                 {headerProps.avatarId && headerProps.onAvatarPress && (
                                     <Pressable
                                         onPress={headerProps.onAvatarPress}
@@ -405,6 +436,8 @@ export const SessionView = React.memo((props: { id: string }) => {
                         setRightPanelType={setRightPanelType}
                         showFileViewer={showFileViewer}
                         setShowFileViewer={setShowFileViewer}
+                        showTerminal={showTerminal}
+                        setShowTerminal={setShowTerminal}
                     />
                 ) : null}
             </View>
@@ -429,7 +462,7 @@ export const SessionView = React.memo((props: { id: string }) => {
 });
 
 
-function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelType, setRightPanelType, showFileViewer, setShowFileViewer }: {
+function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelType, setRightPanelType, showFileViewer, setShowFileViewer, showTerminal, setShowTerminal }: {
     sessionId: string;
     session: Session;
     isDesktopPanelMode: boolean;
@@ -437,6 +470,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     setRightPanelType: React.Dispatch<React.SetStateAction<RightPanelType | null>>;
     showFileViewer: boolean;
     setShowFileViewer: React.Dispatch<React.SetStateAction<boolean>>;
+    showTerminal: boolean;
+    setShowTerminal: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     const { theme } = useUnistyles();
     const router = useRouter();
@@ -1242,6 +1277,12 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
             {/* PC: bt-style file viewer fired by header code-slash button. Uses
                 a portal so it covers the whole viewport including the Sidebar. */}
+            <Terminal
+                visible={showTerminal}
+                onClose={() => setShowTerminal(false)}
+                sessionId={sessionId}
+                cwd={session.metadata?.path}
+            />
             <FileViewerModal
                 visible={showFileViewer}
                 onClose={() => setShowFileViewer(false)}
