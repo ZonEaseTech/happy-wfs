@@ -1010,6 +1010,10 @@ export const ca: TranslationStructure = {
             mark: 'Marcar pendent de revisió',
             unmark: 'Esborrar pendent de revisió',
         },
+        pin: {
+            pin: 'Fixa',
+            unpin: 'Desfixa',
+        },
     },
 
     toolView: {

@@ -37,7 +37,7 @@ export const localSettingsDefaults: LocalSettings = {
     devModeEnabled: false,
     commandPaletteEnabled: false,
     themePreference: 'adaptive',
-    markdownCopyV2: false,
+    markdownCopyV2: true,
     hideNotificationsWhenActive: false,
     hideSessionNotificationsWhenActive: false,
     worktreeBranchPrefix: '',

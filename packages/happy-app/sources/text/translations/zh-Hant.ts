@@ -1012,6 +1012,10 @@ export const zhHant: TranslationStructure = {
             mark: '標記為待驗收',
             unmark: '取消待驗收',
         },
+        pin: {
+            pin: '置頂',
+            unpin: '取消置頂',
+        },
     },
 
     toolView: {

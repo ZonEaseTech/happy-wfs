@@ -26,6 +26,7 @@ import { getWorktreeInfo, cleanupWorktree } from '@/utils/worktreeOps';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { useReviewPending, useIsReviewPending } from '@/sync/reviewPending';
+import { usePinnedSessions, useIsPinned, usePinnedIds } from '@/sync/pinnedSessions';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -113,6 +114,15 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         borderLeftColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.10)',
     },
+    /** Pinned rows expand vertically: full title (no ellipsis) so the user
+     *  can read what they were doing yesterday. height: 'auto' overrides the
+     *  fixed 45 from the base style. */
+    sessionRowPinned: {
+        height: 'auto',
+        minHeight: 45,
+        paddingTop: 8,
+        paddingBottom: 8,
+    },
     sessionDivider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: theme.colors.divider,
@@ -188,6 +198,13 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         justifyContent: 'center',
         backgroundColor: '#10B981',
     },
+    swipeActionPin: {
+        width: 96,
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F59E0B',
+    },
     swipeActionText: {
         marginTop: 4,
         fontSize: 12,
@@ -215,6 +232,8 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     const styles = stylesheet;
     const machines = useAllMachines();
     const showSidebarGroupAvatar = useSetting('showSidebarGroupAvatar');
+    const pinnedIds = usePinnedIds();
+    const pinnedSet = React.useMemo(() => new Set(pinnedIds), [pinnedIds]);
 
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
@@ -274,15 +293,28 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
             machineGroup.sessions.push(session);
         });
 
-        // Sort sessions within each machine group by creation time (newest first)
+        // Sort sessions within each machine group:
+        // 1. Pinned sessions first (user-marked) — keeps "what was I doing
+        //    yesterday" entries glued to the top regardless of activity.
+        // 2. Then thinking sessions (auto) — the agent is actively running,
+        //    user wants to see it so they don't forget on next-day return.
+        // 3. Finally newest createdAt first (existing behavior preserved).
         groups.forEach(projectGroup => {
             projectGroup.machines.forEach(machineGroup => {
-                machineGroup.sessions.sort((a, b) => b.createdAt - a.createdAt);
+                machineGroup.sessions.sort((a, b) => {
+                    const pinA = pinnedSet.has(a.id);
+                    const pinB = pinnedSet.has(b.id);
+                    if (pinA !== pinB) return pinA ? -1 : 1;
+                    const thA = a.thinking === true;
+                    const thB = b.thinking === true;
+                    if (thA !== thB) return thA ? -1 : 1;
+                    return b.createdAt - a.createdAt;
+                });
             });
         });
 
         return groups;
-    }, [sessions, machinesMap]);
+    }, [sessions, machinesMap, pinnedSet]);
 
     // Sort project groups by display path
     const sortedProjectGroups = React.useMemo(() => {
@@ -395,12 +427,22 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     // faint green bg + ✓ marker on the title row.
     const isPendingReview = useIsReviewPending(session.id);
     const toggleReviewPending = useReviewPending(s => s.toggle);
+    // User-marked "pinned" state. Pinned rows are pulled to the top of the
+    // sidebar group and render their full title without ellipsis so the user
+    // can see what they were working on.
+    const isPinned = useIsPinned(session.id);
+    const togglePin = usePinnedSessions(s => s.toggle);
     const [rowMenuVisible, setRowMenuVisible] = React.useState(false);
     const handleToggleReview = React.useCallback(() => {
         swipeableRef.current?.close();
         setRowMenuVisible(false);
         toggleReviewPending(session.id);
     }, [session.id, toggleReviewPending]);
+    const handleTogglePin = React.useCallback(() => {
+        swipeableRef.current?.close();
+        setRowMenuVisible(false);
+        togglePin(session.id);
+    }, [session.id, togglePin]);
     const handleRowContextMenu = React.useCallback((e: any) => {
         // Web only — onContextMenu fires from RN-Web's div forwarding.
         e?.preventDefault?.();
@@ -409,12 +451,16 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     }, []);
     const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => [
         {
+            label: isPinned ? t('sidebar.pin.unpin') : t('sidebar.pin.pin'),
+            onPress: handleTogglePin,
+        },
+        {
             label: isPendingReview
                 ? t('sidebar.review.unmark')
                 : t('sidebar.review.mark'),
             onPress: handleToggleReview,
         },
-    ], [isPendingReview, handleToggleReview]);
+    ], [isPinned, isPendingReview, handleTogglePin, handleToggleReview]);
 
     const handleArchive = React.useCallback(() => {
         swipeableRef.current?.close();
@@ -468,6 +514,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             onContextMenu={Platform.OS === 'web' ? handleRowContextMenu : undefined}
             style={[
                 styles.sessionRow,
+                isPinned && styles.sessionRowPinned,
                 selected && styles.sessionRowSelected,
                 // Style priority (last wins): permission_required (urgent) >
                 // user-marked review (green) > hasUnreadCompletion (auto, blue).
@@ -542,12 +589,20 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                         return null;
                     })()}
                     
+                    {isPinned && (
+                        <Ionicons
+                            name="pin"
+                            size={13}
+                            color="#F59E0B"
+                            style={{ marginRight: 6, transform: [{ rotate: '45deg' }] }}
+                        />
+                    )}
                     <Text
                         style={[
                             styles.sessionTitle,
                             sessionStatus.isConnected ? styles.sessionTitleConnected : styles.sessionTitleDisconnected
                         ]}
-                        numberOfLines={2}
+                        numberOfLines={isPinned ? 0 : 2}
                     >
                         {sessionName}
                     </Text>
@@ -603,6 +658,19 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
 
     const renderRightActions = () => (
         <View style={{ flexDirection: 'row' }}>
+            <Pressable
+                style={styles.swipeActionPin}
+                onPress={handleTogglePin}
+            >
+                <Ionicons
+                    name={isPinned ? 'pin' : 'pin-outline'}
+                    size={20}
+                    color="#FFFFFF"
+                />
+                <Text style={styles.swipeActionText} numberOfLines={2}>
+                    {isPinned ? t('sidebar.pin.unpin') : t('sidebar.pin.pin')}
+                </Text>
+            </Pressable>
             <Pressable
                 style={styles.swipeActionReview}
                 onPress={handleToggleReview}

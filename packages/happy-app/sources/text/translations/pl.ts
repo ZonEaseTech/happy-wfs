@@ -1021,6 +1021,10 @@ export const pl: TranslationStructure = {
             mark: 'Oznacz jako do sprawdzenia',
             unmark: 'Usuń oznaczenie',
         },
+        pin: {
+            pin: 'Przypnij',
+            unpin: 'Odepnij',
+        },
     },
 
     toolView: {

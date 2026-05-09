@@ -1010,6 +1010,10 @@ export const es: TranslationStructure = {
             mark: 'Marcar pendiente de revisión',
             unmark: 'Quitar pendiente de revisión',
         },
+        pin: {
+            pin: 'Fijar',
+            unpin: 'Desfijar',
+        },
     },
 
     toolView: {

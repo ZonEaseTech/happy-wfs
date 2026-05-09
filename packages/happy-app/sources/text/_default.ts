@@ -1024,6 +1024,10 @@ export const en = {
             mark: 'Mark as pending review',
             unmark: 'Clear review pending',
         },
+        pin: {
+            pin: 'Pin',
+            unpin: 'Unpin',
+        },
     },
 
     toolView: {
