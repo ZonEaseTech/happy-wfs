@@ -135,13 +135,15 @@ function loadRipgrepNative() {
     // Bun or Node.js fallback: Try system ripgrep
     const systemRipgrep = findSystemRipgrep();
     if (systemRipgrep) {
-        console.info(`Using system ripgrep: ${systemRipgrep}`);
+        // stderr (not console.info) — anything on stdout gets mixed into
+        // `rg --files` output and rendered as a ghost file by callers.
+        console.warn(`Using system ripgrep: ${systemRipgrep}`);
         return createRipgrepWrapper(systemRipgrep);
     }
 
     // Local binary fallback
     if (fs.existsSync(binaryPath)) {
-        console.info('Using packaged ripgrep binary');
+        console.warn('Using packaged ripgrep binary');
         return createRipgrepWrapper(binaryPath);
     }
 

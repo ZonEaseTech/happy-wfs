@@ -100,10 +100,18 @@ class FileSearchCache {
                 return;
             }
 
-            // Parse the output into file items
+            // Parse the output into file items.
+            // Defensive: ripgrep_launcher.cjs in older CLI versions writes
+            // info/warn messages ("Using packaged ripgrep binary",
+            // "Falling back to ripgrep binary...", "⚠️  ripgrep not
+            // available...") to stdout, so they get mixed into rg --files
+            // output and end up rendered as ghost files. Drop any line that
+            // matches a known launcher-noise prefix.
             const filePaths = response.stdout
                 .split('\n')
-                .filter(path => path.trim().length > 0);
+                .map(p => p.trim())
+                .filter(p => p.length > 0)
+                .filter(p => !/^(Using |Falling |Install |⚠️|\s+•)/.test(p));
 
             // Clear existing files
             cache.files = [];
