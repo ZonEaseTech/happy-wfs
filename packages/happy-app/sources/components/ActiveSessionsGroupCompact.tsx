@@ -391,6 +391,11 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
+    // Read here too (not just at the parent) so each row can decide whether to
+    // render its own per-session +/- chips. Cheap: useSetting returns from a
+    // store with a stable selector — extra subscriptions don't re-render rows
+    // unless the value flips.
+    const mergeWorktreeGroups = useSetting('mergeWorktreeGroups');
 
     const [archivingSession, performArchive] = useHappyAction(async () => {
         const previousActive = storage.getState().sessions[session.id]?.active ?? session.active;
@@ -630,6 +635,16 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                             color="#10B981"
                             style={{ marginLeft: 6 }}
                         />
+                    )}
+                    {/* In merge mode the group header shows the *aggregate*
+                      * +/- across all worktrees; pin per-row stats here so the
+                      * user can still tell which worktree did how much. Skip
+                      * in non-merge mode — the group header already shows the
+                      * row-equivalent number, repeating it is noise. */}
+                    {mergeWorktreeGroups && (
+                        <View style={{ marginLeft: 8, flexShrink: 0 }}>
+                            <ProjectGitStatus sessionId={session.id} />
+                        </View>
                     )}
                 </View>
             </View>
