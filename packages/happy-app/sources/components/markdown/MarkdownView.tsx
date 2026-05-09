@@ -11,6 +11,7 @@ import { Typography } from '@/constants/Typography';
 import { SimpleSyntaxHighlighter } from '../SimpleSyntaxHighlighter';
 import { Modal } from '@/modal';
 import { useLocalSetting } from '@/sync/storage';
+import { useIsTablet } from '@/utils/responsive';
 import { storeTempText } from '@/sync/persistence';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -48,8 +49,15 @@ export const MarkdownView = React.memo((props: {
     // we disable the selectable property on individual text segments on mobile only. Instead, the long press
     // will be handled by a wrapper Pressable. If we don't disable the selectable property, then you will see
     // the native copy modal come up at the same time as the long press handler is fired.
+    //
+    // CRITICAL: `Platform.OS === 'web'` is true on MOBILE web too — Safari on
+    // iPhone reports as 'web', so the old check left mobile-web users with
+    // selectable=true and the iOS native selection menu fired alongside our
+    // ActionMenuModal. Gate selectable on a real desktop signal (isTablet,
+    // which is wider-than-tablet i.e. desktop), not just Platform.OS.
     const markdownCopyV2 = useLocalSetting('markdownCopyV2');
-    const selectable = Platform.OS === 'web' || !markdownCopyV2;
+    const isTablet = useIsTablet();
+    const selectable = isTablet || !markdownCopyV2;
     const router = useRouter();
     const linkContext = React.useMemo(() => ({
         sessionId: props.sessionId,
