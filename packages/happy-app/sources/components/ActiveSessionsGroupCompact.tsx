@@ -12,7 +12,7 @@ import { StatusDot } from './StatusDot';
 import { useAllMachines, useSetting } from '@/sync/storage';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { isMachineOnline } from '@/utils/machineUtils';
-import { machineSpawnNewSession, sessionKill } from '@/sync/ops';
+import { machineSpawnNewSession, sessionKill, sessionUpdateSummary } from '@/sync/ops';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { storage } from '@/sync/storage';
 import { Modal } from '@/modal';
@@ -414,14 +414,57 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         const y = typeof e?.clientY === 'number' ? e.clientY : 0;
         setRowMenuPos({ x, y });
     }, []);
+    // Reuse the existing happy "rename session" feature (server-side
+    // sessionUpdateSummary + promptWithCheckbox UI with the "fixed title"
+    // toggle) — same modal that lives on the session info page.
+    const handleRenameSession = React.useCallback(async () => {
+        setRowMenuVisible(false);
+        setRowMenuPos(null);
+        if (!session.metadata) return;
+        const result = await Modal.promptWithCheckbox(
+            t('sessionInfo.renameSession'),
+            t('sessionInfo.renameSessionHint'),
+            {
+                defaultValue: session.metadata.summary?.text || '',
+                placeholder: getSessionName(session),
+                cancelText: t('common.cancel'),
+                confirmText: t('common.rename'),
+                checkbox: {
+                    label: t('sessionInfo.pinSessionTitle'),
+                    defaultValue: session.metadata.summaryPinned ?? false,
+                },
+            },
+        );
+        if (result === null) return;
+        const trimmed = result.value.trim();
+        if (!trimmed) return;
+        try {
+            await sessionUpdateSummary(
+                session.id,
+                session.metadata,
+                trimmed,
+                session.metadataVersion,
+                result.checked,
+            );
+        } catch (e) {
+            Modal.alert(
+                t('common.error'),
+                e instanceof Error ? e.message : t('sessionInfo.failedToRenameSession'),
+            );
+        }
+    }, [session.id, session.metadata, session.metadataVersion]);
     const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => [
+        {
+            label: t('sessionInfo.renameSession'),
+            onPress: () => { void handleRenameSession(); },
+        },
         {
             label: isPendingReview
                 ? t('sidebar.review.unmark')
                 : t('sidebar.review.mark'),
             onPress: handleToggleReview,
         },
-    ], [isPendingReview, handleToggleReview]);
+    ], [isPendingReview, handleToggleReview, handleRenameSession]);
 
     const handleArchive = React.useCallback(() => {
         swipeableRef.current?.close();
