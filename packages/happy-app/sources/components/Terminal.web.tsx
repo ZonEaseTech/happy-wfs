@@ -67,18 +67,74 @@ interface XtermBundle {
 // the factory body's TDZ doesn't trip when the import resolves.
 let loadedBundle: XtermBundle | null = null;
 
+// xterm.js's stylesheet, inlined verbatim from @xterm/xterm@5.5.0/css/xterm.css
+// (~5KB). Has to be inlined because Expo/Metro doesn't process .css imports
+// through the JS bundle. Without it the helper textarea sits at (0,0) instead
+// of off-screen at left:-9999em (you literally see a blue-bordered box at the
+// top of the terminal), the viewport never gets `position: absolute` so it
+// can't size against its parent, and ANSI underlines/strikethrough are
+// rendered as plain text.
+const XTERM_CSS = `
+.xterm{cursor:text;position:relative;user-select:none;-ms-user-select:none;-webkit-user-select:none}
+.xterm.focus,.xterm:focus{outline:none}
+.xterm .xterm-helpers{position:absolute;top:0;z-index:5}
+.xterm .xterm-helper-textarea{padding:0;border:0;margin:0;position:absolute;opacity:0;left:-9999em;top:0;width:0;height:0;z-index:-5;white-space:nowrap;overflow:hidden;resize:none}
+.xterm .composition-view{background:#000;color:#FFF;display:none;position:absolute;white-space:nowrap;z-index:1}
+.xterm .composition-view.active{display:block}
+.xterm .xterm-viewport{background-color:#000;overflow-y:scroll;cursor:default;position:absolute;right:0;left:0;top:0;bottom:0}
+.xterm .xterm-screen{position:relative}
+.xterm .xterm-screen canvas{position:absolute;left:0;top:0}
+.xterm .xterm-scroll-area{visibility:hidden}
+.xterm-char-measure-element{display:inline-block;visibility:hidden;position:absolute;top:0;left:-9999em;line-height:normal}
+.xterm.enable-mouse-events{cursor:default}
+.xterm.xterm-cursor-pointer,.xterm .xterm-cursor-pointer{cursor:pointer}
+.xterm.column-select.focus{cursor:crosshair}
+.xterm .xterm-accessibility:not(.debug),.xterm .xterm-message{position:absolute;left:0;top:0;bottom:0;right:0;z-index:10;color:transparent;pointer-events:none}
+.xterm .xterm-accessibility-tree:not(.debug) *::selection{color:transparent}
+.xterm .xterm-accessibility-tree{user-select:text;white-space:pre}
+.xterm .live-region{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.xterm-dim{opacity:1 !important}
+.xterm-underline-1{text-decoration:underline}
+.xterm-underline-2{text-decoration:double underline}
+.xterm-underline-3{text-decoration:wavy underline}
+.xterm-underline-4{text-decoration:dotted underline}
+.xterm-underline-5{text-decoration:dashed underline}
+.xterm-overline{text-decoration:overline}
+.xterm-overline.xterm-underline-1{text-decoration:overline underline}
+.xterm-overline.xterm-underline-2{text-decoration:overline double underline}
+.xterm-overline.xterm-underline-3{text-decoration:overline wavy underline}
+.xterm-overline.xterm-underline-4{text-decoration:overline dotted underline}
+.xterm-overline.xterm-underline-5{text-decoration:overline dashed underline}
+.xterm-strikethrough{text-decoration:line-through}
+.xterm-screen .xterm-decoration-container .xterm-decoration{z-index:6;position:absolute}
+.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer{z-index:7}
+.xterm-decoration-overview-ruler{z-index:8;position:absolute;top:0;right:0;pointer-events:none}
+.xterm-decoration-top{z-index:2;position:relative}
+`;
+let xtermCssInjected = false;
+function injectXtermCssOnce(): void {
+    if (xtermCssInjected || typeof document === 'undefined') return;
+    if (document.querySelector('style[data-xterm-css]')) {
+        xtermCssInjected = true;
+        return;
+    }
+    const style = document.createElement('style');
+    style.setAttribute('data-xterm-css', '1');
+    style.textContent = XTERM_CSS;
+    document.head.appendChild(style);
+    xtermCssInjected = true;
+}
+
 const LazyXtermBoot = React.lazy(async () => {
     const [xtermMod, fitMod] = await Promise.all([
         import('@xterm/xterm'),
         import('@xterm/addon-fit'),
     ]);
-    // NOTE: xterm.js ships its own stylesheet at @xterm/xterm/css/xterm.css.
-    // We don't import it here because Expo/Metro doesn't process CSS imports
-    // in the JS bundle. The bundle still functions without it (DOM renderer
-    // falls back to inline styles), but scrollbar + selection visuals look a
-    // bit off. The integrator should add a `<link rel="stylesheet" href="..."/>`
-    // to the index.html web template, or load the css via the web bundler's
-    // `<link>` injection. Tracked as a TODO in the orchestrator output.
+    // Inject xterm.js's required stylesheet (inlined above as XTERM_CSS).
+    // Without it the helper textarea sits visible at the top of the terminal
+    // and the viewport doesn't get sized — exactly the broken state users
+    // were seeing.
+    injectXtermCssOnce();
     const bundle: XtermBundle = {
         XTerm: xtermMod.Terminal,
         FitAddon: fitMod.FitAddon,
