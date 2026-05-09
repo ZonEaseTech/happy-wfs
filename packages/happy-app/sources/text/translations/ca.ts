@@ -1013,6 +1013,7 @@ export const ca: TranslationStructure = {
         pin: {
             pin: 'Fixa',
             unpin: 'Desfixa',
+            clearTitle: 'Esborra títol fixat',
         },
     },
 
@@ -1236,6 +1237,8 @@ export const ca: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
+        pinSidebarAction: 'Fixa a la barra lateral',
+        pinnedToSidebar: 'Fixat a la barra lateral',
         searchPlaceholder: 'Search memories...',
         noResults: 'No matching memories',
         insertIntoInput: 'Insert into input',

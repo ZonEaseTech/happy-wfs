@@ -7,6 +7,8 @@ import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast, showToast } from '@/components/Toast';
 import { getCurrentAuth } from '@/auth/AuthContext';
 import { createMemory } from '@/sync/apiMemory';
+import { usePinnedMessages } from '@/sync/pinnedMessages';
+import { usePinnedSessions } from '@/sync/pinnedSessions';
 import { t } from '@/text';
 
 interface UseMessageActionsResult {
@@ -45,6 +47,24 @@ export function useMessageActions(rawText: string, sessionId: string, messageId:
         }
     }, [rawText]);
 
+    const setPinnedTitle = usePinnedMessages(s => s.set);
+    const pinnedSessionIds = usePinnedSessions(s => s.ids);
+    const togglePinSession = usePinnedSessions(s => s.toggle);
+    const handlePinToSidebar = React.useCallback(() => {
+        const trimmed = rawText.trim();
+        if (!trimmed) return;
+        // Truncate to a reasonable sidebar header length — multi-line layout
+        // already handles wrapping, but >300 chars on one row is a wall.
+        const title = trimmed.length > 300 ? trimmed.slice(0, 300) + '…' : trimmed;
+        setPinnedTitle(sessionId, title);
+        // Auto-pin the session so the row also pulls to the top + expands.
+        if (!pinnedSessionIds.includes(sessionId)) {
+            togglePinSession(sessionId);
+        }
+        hapticsLight();
+        showToast(t('memory.pinnedToSidebar'));
+    }, [rawText, sessionId, setPinnedTitle, pinnedSessionIds, togglePinSession]);
+
     const handleSaveToMemory = React.useCallback(async () => {
         const trimmed = rawText.trim();
         const auth = getCurrentAuth();
@@ -68,8 +88,9 @@ export function useMessageActions(rawText: string, sessionId: string, messageId:
 
     const items = React.useMemo<ActionMenuItem[]>(() => [
         { label: t('common.copy'), onPress: () => { void handleCopy(); } },
+        { label: t('memory.pinSidebarAction'), onPress: () => { handlePinToSidebar(); } },
         { label: t('memory.pinAction'), onPress: () => { void handleSaveToMemory(); } },
-    ], [handleCopy, handleSaveToMemory]);
+    ], [handleCopy, handlePinToSidebar, handleSaveToMemory]);
 
     const actionsOverlay = (
         <ActionMenuModal

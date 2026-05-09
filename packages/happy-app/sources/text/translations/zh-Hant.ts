@@ -1015,6 +1015,7 @@ export const zhHant: TranslationStructure = {
         pin: {
             pin: '置頂',
             unpin: '取消置頂',
+            clearTitle: '取消置頂標題',
         },
     },
 
@@ -1238,6 +1239,8 @@ export const zhHant: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `共 ${count} 条`,
         pinTitle: '存為記憶？',
         pinAction: '存為記憶',
+        pinSidebarAction: '置頂到側邊欄',
+        pinnedToSidebar: '已置頂到側邊欄',
         searchPlaceholder: '搜尋記憶...',
         noResults: '沒有符合的記憶',
         insertIntoInput: '插入到輸入框',

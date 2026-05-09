@@ -27,6 +27,7 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { useReviewPending, useIsReviewPending } from '@/sync/reviewPending';
 import { usePinnedSessions, useIsPinned, usePinnedIds } from '@/sync/pinnedSessions';
+import { usePinnedMessages, usePinnedTitle } from '@/sync/pinnedMessages';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -396,7 +397,11 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const sessionStatus = useSessionStatus(session);
-    const sessionName = getSessionName(session);
+    const pinnedTitle = usePinnedTitle(session.id);
+    const clearPinnedTitle = usePinnedMessages(s => s.clear);
+    // Pinned title (set by long-pressing a chat message) takes precedence —
+    // the user explicitly told us "this is what this session is about".
+    const sessionName = pinnedTitle ?? getSessionName(session);
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
@@ -462,18 +467,34 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         const y = typeof e?.clientY === 'number' ? e.clientY : 0;
         setRowMenuPos({ x, y });
     }, []);
-    const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => [
-        {
-            label: isPinned ? t('sidebar.pin.unpin') : t('sidebar.pin.pin'),
-            onPress: handleTogglePin,
-        },
-        {
-            label: isPendingReview
-                ? t('sidebar.review.unmark')
-                : t('sidebar.review.mark'),
-            onPress: handleToggleReview,
-        },
-    ], [isPinned, isPendingReview, handleTogglePin, handleToggleReview]);
+    const handleClearPinnedTitle = React.useCallback(() => {
+        setRowMenuVisible(false);
+        setRowMenuPos(null);
+        clearPinnedTitle(session.id);
+    }, [session.id, clearPinnedTitle]);
+    const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        const items: ActionMenuItem[] = [
+            {
+                label: isPinned ? t('sidebar.pin.unpin') : t('sidebar.pin.pin'),
+                onPress: handleTogglePin,
+            },
+            {
+                label: isPendingReview
+                    ? t('sidebar.review.unmark')
+                    : t('sidebar.review.mark'),
+                onPress: handleToggleReview,
+            },
+        ];
+        // Only offer "clear pinned title" when one was actually set — keeps
+        // the menu short for the common case.
+        if (pinnedTitle) {
+            items.push({
+                label: t('sidebar.pin.clearTitle'),
+                onPress: handleClearPinnedTitle,
+            });
+        }
+        return items;
+    }, [isPinned, isPendingReview, pinnedTitle, handleTogglePin, handleToggleReview, handleClearPinnedTitle]);
 
     const handleArchive = React.useCallback(() => {
         swipeableRef.current?.close();

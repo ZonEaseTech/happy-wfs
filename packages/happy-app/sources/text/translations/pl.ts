@@ -1024,6 +1024,7 @@ export const pl: TranslationStructure = {
         pin: {
             pin: 'Przypnij',
             unpin: 'Odepnij',
+            clearTitle: 'Usuń przypięty tytuł',
         },
     },
 
@@ -1247,6 +1248,8 @@ export const pl: TranslationStructure = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
+        pinSidebarAction: 'Przypnij do paska bocznego',
+        pinnedToSidebar: 'Przypięto do paska bocznego',
         searchPlaceholder: 'Search memories...',
         noResults: 'No matching memories',
         insertIntoInput: 'Insert into input',

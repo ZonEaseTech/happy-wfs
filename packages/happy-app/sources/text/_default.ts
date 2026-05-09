@@ -1027,6 +1027,7 @@ export const en = {
         pin: {
             pin: 'Pin',
             unpin: 'Unpin',
+            clearTitle: 'Clear pinned title',
         },
     },
 
@@ -1255,6 +1256,8 @@ export const en = {
         listFooter: ({ count }: { count: number }) => `${count} memor${count === 1 ? 'y' : 'ies'}`,
         pinTitle: 'Save to memory?',
         pinAction: 'Save to memory',
+        pinSidebarAction: 'Pin to sidebar',
+        pinnedToSidebar: 'Pinned to sidebar',
         searchEmpty: 'No matching memories',
         searchEmptyHint: 'Try a different keyword or clear the search.',
         searchResultFooter: ({ count }: { count: number }) => `${count} match${count === 1 ? '' : 'es'}`,
