@@ -237,17 +237,29 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
 
         if (containerRef.current) {
             term.open(containerRef.current);
-            // First fit happens after the DOM has painted at least once.
-            requestAnimationFrame(() => {
-                try { fit.fit(); } catch { /* container 0x0, retry on resize */ }
-            });
         }
 
         // ---- spawn the PTY ----------------------------------------------
         (async () => {
             try {
+                // Wait for the container to paint + fit() to compute real
+                // cols/rows BEFORE spawning. If we spawn first, term.cols/rows
+                // are still the xterm default 80x24, but xterm itself sizes
+                // up to fill its container (could be 120x40+) — TUIs like
+                // claude/vim then render against the wrong geometry and you
+                // get the screen-tearing seen in user reports.
+                await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+                if (containerRef.current) {
+                    try { fit.fit(); } catch { /* container 0x0, retry on resize */ }
+                }
                 const dims = (() => {
-                    try { return { cols: term.cols, rows: term.rows }; } catch { return { cols: 80, rows: 24 }; }
+                    try {
+                        const c = term.cols, r = term.rows;
+                        // Guard against degenerate sizes from a hidden / 0x0
+                        // container — fall back to a safe default.
+                        if (c < 20 || r < 5) return { cols: 80, rows: 24 };
+                        return { cols: c, rows: r };
+                    } catch { return { cols: 80, rows: 24 }; }
                 })();
                 // CLI handler returns { ok: true, ptyId } on success and
                 // { ok: false, error: 'pty_unavailable' | <message> } when
@@ -259,12 +271,6 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                     'pty-start',
                     { cols: dims.cols, rows: dims.rows, cwd },
                 );
-                // Diagnostic: log shape of what RPC returned. Helps when the
-                // CLI-side spawn looked successful but the app sees null
-                // (most likely cause: decryptRaw silently returned null).
-                // Open browser DevTools → Console to see this.
-                // eslint-disable-next-line no-console
-                console.log('[Terminal] pty-start RPC response:', JSON.stringify(result));
                 if (cancelled) {
                     // User closed before spawn returned — clean up immediately.
                     try {
@@ -292,28 +298,14 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 }
                 ptyIdRef.current = result.ptyId;
 
-                // Visual diagnostic — written directly into xterm so the user
-                // sees which stage of the wire we reach. If they see this line,
-                // xterm.write works. Subsequent missing prompt = pty-output not
-                // arriving. Yellow ANSI for visibility.
-                try { term.write(`\r\n\x1b[33m[client] PTY started, ptyId=${result.ptyId}, awaiting shell output...\x1b[0m\r\n`); } catch { /* ignore */ }
-
                 // Focus xterm so its hidden textarea actually receives
                 // keystrokes — without this the modal opens but typing does
                 // nothing (the textarea exists off-screen but has no focus).
                 try { term.focus(); } catch { /* ignore */ }
 
                 // ---- forward keystrokes ----
-                let inputCount = 0;
                 const onDataDisposable = term.onData(async (data: string) => {
                     if (!ptyIdRef.current || closedRef.current) return;
-                    inputCount += 1;
-                    // Visible echo so the user knows their key reached our handler,
-                    // independent of whether the CLI later echoes it. Print only
-                    // for the first 3 keystrokes so we don't spam the screen.
-                    if (inputCount <= 3) {
-                        try { term.write(`\x1b[36m[client→cli ${inputCount}]\x1b[0m`); } catch { /* ignore */ }
-                    }
                     try {
                         const encryptedData = await encryptData(sessionId, data);
                         if (encryptedData == null) return;
@@ -331,40 +323,22 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
         })();
 
         // ---- subscribe to streaming output ------------------------------
-        let outputFrameCount = 0;
-        let outputBadFrame = 0;
         const offOutput = apiSocket.onSocketEvent('pty-output', async (frame: any) => {
             // frame = { sessionId, ptyId, data: <ciphertext> }
-            outputFrameCount += 1;
             try {
-                if (!frame || typeof frame !== 'object') { outputBadFrame++; return; }
-                if (frame.sessionId !== sessionId) {
-                    if (outputFrameCount <= 5) try { term.write(`\x1b[31m[skip wrong sid: got ${frame.sessionId} want ${sessionId}]\x1b[0m`); } catch {}
-                    return;
-                }
-                if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) {
-                    if (outputFrameCount <= 5) try { term.write(`\x1b[31m[skip wrong ptyId: got ${frame.ptyId} want ${ptyIdRef.current}]\x1b[0m`); } catch {}
-                    return;
-                }
+                if (!frame || typeof frame !== 'object') return;
+                if (frame.sessionId !== sessionId) return;
+                if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) return;
                 const decryptedB64 = typeof frame.data === 'string'
                     ? await decryptData(sessionId, frame.data)
                     : null;
-                if (typeof decryptedB64 !== 'string') {
-                    if (outputFrameCount <= 5) try { term.write(`\x1b[31m[decrypt fail frame ${outputFrameCount}]\x1b[0m`); } catch {}
-                    return;
-                }
-                // First arrival visible marker.
-                if (outputFrameCount === 1) {
-                    try { term.write(`\x1b[32m[first pty-output ${decryptedB64.length}b64 bytes]\x1b[0m\r\n`); } catch { /* ignore */ }
-                }
+                if (typeof decryptedB64 !== 'string') return;
                 // base64 → Uint8Array. Use atob (web-only file).
                 const bin = atob(decryptedB64);
                 const bytes = new Uint8Array(bin.length);
                 for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
                 term.write(bytes);
-            } catch (e) {
-                try { term.write(`\x1b[31m[output handler error ${String(e).slice(0,60)}]\x1b[0m\r\n`); } catch {}
-            }
+            } catch { /* drop malformed frame */ }
         });
 
         const offExit = apiSocket.onSocketEvent('pty-exit', (frame: any) => {
