@@ -277,15 +277,15 @@ function AgentTextBlock(props: {
 
   const hasOptions = props.message.text.includes('<options>');
 
-  const { showActions, actionsOverlay } = useMessageActions(props.message.text, props.sessionId, props.message.id);
-
+  // Long-press / copy / save-to-memory actions are intentionally only on
+  // user-sent messages (UserTextBlock above). Agent replies, tool blocks
+  // and event lines have no long-press menu — keeps the interaction
+  // surface focused and avoids the bottom-sheet covering "limit reached"
+  // banners and inline action options on long agent replies.
   return (
     <Pressable
       style={[styles.agentMessageContainer, props.message.isThinking && { opacity: 0.3 }, hasOptions && styles.agentMessageContainerStretch]}
-      onLongPress={showActions}
-      delayLongPress={400}
     >
-      {actionsOverlay}
       <MarkdownView
         markdown={props.message.text}
         sessionId={props.sessionId}
