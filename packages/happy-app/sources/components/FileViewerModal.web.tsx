@@ -1266,13 +1266,16 @@ export function FileViewerModal({
                     </ScrollView>
                 </View>
 
-                {/* Body: left tree + right editor. */}
+                {/* Body: left tree + right editor. Tree pane uses VSCode dark
+                  * palette (#252526) so it visually pairs with the vs-dark
+                  * Monaco editor on the right — the previous light-on-dark
+                  * split looked tacked-on. */}
                 <View style={{ flex: 1, flexDirection: 'row', minHeight: 0 }}>
                     <View style={{
                         width: treeWidth,
                         borderRightWidth: 1,
-                        borderRightColor: theme.colors.divider,
-                        backgroundColor: theme.colors.surfaceHigh,
+                        borderRightColor: '#1e1e1e',
+                        backgroundColor: '#252526',
                         flexDirection: 'column',
                         // Needed for ResizableHandle's absolute positioning to anchor here.
                         position: 'relative',
@@ -1293,31 +1296,36 @@ export function FileViewerModal({
                             paddingVertical: 4,
                             gap: 2,
                             borderBottomWidth: 1,
-                            borderBottomColor: theme.colors.divider,
+                            borderBottomColor: '#1e1e1e',
+                            backgroundColor: '#252526',
                         }}>
                             <ToolbarIconButton
                                 icon="arrow-up"
                                 label={tx('fileViewer.upOneLevel')}
                                 onPress={goUpOneLevel}
                                 compact
+                                darkOnDark
                             />
                             <ToolbarIconButton
                                 icon="refresh"
                                 label={tx('fileViewer.refreshTree')}
                                 onPress={refreshTreeRoot}
                                 compact
+                                darkOnDark
                             />
                             <ToolbarIconButton
                                 icon="add"
                                 label={tx('fileViewer.newItem')}
                                 onPress={handleNewClick}
                                 compact
+                                darkOnDark
                             />
                             <ToolbarIconButton
                                 icon={showHidden ? 'eye' : 'eye-off-outline'}
                                 label={showHidden ? 'Hide hidden' : 'Show hidden'}
                                 onPress={toggleShowHidden}
                                 compact
+                                darkOnDark
                             />
                             <ToolbarIconButton
                                 icon="search"
@@ -1325,6 +1333,7 @@ export function FileViewerModal({
                                 onPress={toggleSearch}
                                 compact
                                 active={searchOpen}
+                                darkOnDark
                             />
                         </View>
                         {searchOpen && (
@@ -1332,18 +1341,19 @@ export function FileViewerModal({
                                 paddingHorizontal: 6,
                                 paddingVertical: 4,
                                 borderBottomWidth: 1,
-                                borderBottomColor: theme.colors.divider,
+                                borderBottomColor: '#1e1e1e',
+                                backgroundColor: '#252526',
                             }}>
                                 <TextInput
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
                                     placeholder={tx('fileViewer.search')}
-                                    placeholderTextColor={theme.colors.textSecondary}
+                                    placeholderTextColor="#858585"
                                     autoFocus
                                     style={{
                                         fontSize: 12,
-                                        color: theme.colors.text,
-                                        backgroundColor: theme.colors.surface,
+                                        color: '#cccccc',
+                                        backgroundColor: '#3c3c3c',
                                         borderRadius: 4,
                                         paddingHorizontal: 8,
                                         paddingVertical: 4,
@@ -1655,12 +1665,17 @@ interface ToolbarIconButtonProps {
     disabled?: boolean;
     compact?: boolean;
     active?: boolean;
+    /** Use VSCode-dark palette (white icons + #2a2d2e hover) instead of the
+     *  theme's foreground colors. Set when sitting on the dark file tree pane. */
+    darkOnDark?: boolean;
 }
 
-function ToolbarIconButton({ icon, label, onPress, disabled, compact, active }: ToolbarIconButtonProps) {
+function ToolbarIconButton({ icon, label, onPress, disabled, compact, active, darkOnDark }: ToolbarIconButtonProps) {
     const { theme } = useUnistyles();
     const padH = compact ? 6 : 8;
     const padV = compact ? 4 : 6;
+    const iconColor = darkOnDark ? '#cccccc' : theme.colors.text;
+    const hoverBg = darkOnDark ? '#2a2d2e' : theme.colors.surfacePressed;
     return (
         <Pressable
             onPress={onPress}
@@ -1674,11 +1689,11 @@ function ToolbarIconButton({ icon, label, onPress, disabled, compact, active }: 
                 borderRadius: 4,
                 opacity: disabled ? 0.4 : (pressed ? 0.6 : 1),
                 backgroundColor: active
-                    ? theme.colors.surfacePressed
-                    : (hovered && !disabled ? theme.colors.surfacePressed : 'transparent'),
+                    ? hoverBg
+                    : (hovered && !disabled ? hoverBg : 'transparent'),
             })}
         >
-            <Ionicons name={icon} size={compact ? 14 : 16} color={theme.colors.text} />
+            <Ionicons name={icon} size={compact ? 14 : 16} color={iconColor} />
         </Pressable>
     );
 }
@@ -1802,8 +1817,20 @@ interface DirectoryTreePanelProps {
     activeFilePath?: string | null;
 }
 
+// VSCode dark palette — the right-side Monaco editor is hard-coded to
+// vs-dark, so the file tree on the left has to match or it looks like a
+// bolt-on. Hex values lifted from VSCode's default dark+ theme.
+const TREE_DARK = {
+    bg: '#252526',          // sidebar background
+    bgHover: '#2a2d2e',
+    bgActive: 'rgba(14,99,156,0.45)',  // selected row tint (VSCode #094771 with alpha)
+    text: '#cccccc',
+    textSecondary: '#858585',
+    textLink: '#3794ff',
+    divider: '#1e1e1e',
+};
+
 function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuery, fontSize, pathStats, activeFilePath }: DirectoryTreePanelProps) {
-    const { theme } = useUnistyles();
     const { tree: nodes, expand, collapse, isLoading, errors } = tree;
 
     const visibleNodes = React.useMemo(() => {
@@ -1879,32 +1906,33 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                             e.clientY,
                         );
                     }}
-                    style={({ pressed }) => ({
+                    // @ts-ignore — RN-Web forwards onMouseEnter/Leave to the host div.
+                    style={({ pressed, hovered }: any) => ({
                         flexDirection: 'row',
                         alignItems: 'center',
                         paddingVertical: 4,
                         paddingLeft: 8 + depth * 14,
                         paddingRight: 8,
                         backgroundColor: isActive
-                            ? 'rgba(0,122,255,0.18)'
-                            : pressed
-                                ? theme.colors.surfacePressed
+                            ? TREE_DARK.bgActive
+                            : (pressed || hovered)
+                                ? TREE_DARK.bgHover
                                 : 'transparent',
                         gap: 4,
                     })}
                 >
                     {isDir
-                        ? <Ionicons name={expanded ? 'caret-down' : 'caret-forward'} size={11} color={theme.colors.textSecondary} />
+                        ? <Ionicons name={expanded ? 'caret-down' : 'caret-forward'} size={11} color={TREE_DARK.textSecondary} />
                         : <View style={{ width: 11 }} />}
                     {isDir
-                        ? <Ionicons name={expanded ? 'folder-open' : 'folder'} size={14} color="#FFC233" />
+                        ? <Ionicons name={expanded ? 'folder-open' : 'folder'} size={14} color="#DCB67A" />
                         : <FileIcon fileName={entry.name} size={14} />}
                     <Text
                         numberOfLines={1}
                         style={{
                             marginLeft: 4,
                             fontSize,
-                            color: isActive ? theme.colors.textLink ?? '#007AFF' : theme.colors.text,
+                            color: isActive ? '#ffffff' : TREE_DARK.text,
                             ...Typography.default(isActive ? 'semiBold' : 'regular'),
                             flex: 1,
                         }}
@@ -1930,7 +1958,7 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
                 {error && (
                     <Text style={{
                         fontSize: 11,
-                        color: theme.colors.textDestructive ?? '#dc2626',
+                        color: '#f48771',
                         paddingLeft: 8 + (depth + 1) * 14,
                         ...Typography.default(),
                     }}>
@@ -1943,7 +1971,7 @@ function DirectoryTreePanel({ tree, onSelectFile, onContextMenuEntry, searchQuer
     };
 
     return (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 6 }}>
+        <ScrollView style={{ flex: 1, backgroundColor: TREE_DARK.bg }} contentContainerStyle={{ paddingVertical: 6 }}>
             {visibleNodes.map(n => renderNode(n, 0))}
         </ScrollView>
     );
