@@ -477,10 +477,14 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     // paddingVertical via the `style` prop, since pressableStyle only reaches
     // the outer Pressable and can't shrink the inner content row.
     const compact = !!embedded;
+    // Item's default title lineHeight is 24 (sized for 16px font); at our
+    // 13/11px compact font sizes that leaves big vertical air per row. Pin
+    // lineHeight tight against fontSize and drop paddingVertical to 2 so
+    // each row hugs its content. Total row ≈ 34px (vs ~52px before).
     const compactItemProps = compact ? {
-        style: { minHeight: 0, paddingVertical: 4 } as const,
-        titleStyle: { fontSize: 13 } as const,
-        subtitleStyle: { fontSize: 11 } as const,
+        style: { minHeight: 0, paddingVertical: 2 } as const,
+        titleStyle: { fontSize: 13, lineHeight: 16 } as const,
+        subtitleStyle: { fontSize: 11, lineHeight: 14 } as const,
     } : {};
 
     const renderFileIcon = (file: GitFileStatus) => {
