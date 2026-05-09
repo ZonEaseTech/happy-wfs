@@ -1046,6 +1046,8 @@ export const ja: TranslationStructure = {
         pin: {
             pin: 'ピン留め',
             unpin: 'ピン留め解除',
+            renameTitle: 'タイトルを変更',
+            renamePrompt: 'サイドバーに表示するセッションのタイトル',
             clearTitle: 'ピン留めタイトルを解除',
         },
     },

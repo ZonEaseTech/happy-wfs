@@ -1016,6 +1016,8 @@ export const zhHant: TranslationStructure = {
         pin: {
             pin: '置頂',
             unpin: '取消置頂',
+            renameTitle: '重新命名標題',
+            renamePrompt: '為該會話設定側邊欄顯示標題',
             clearTitle: '取消置頂標題',
         },
     },

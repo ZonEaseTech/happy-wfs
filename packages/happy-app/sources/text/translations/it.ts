@@ -1044,6 +1044,8 @@ export const it: TranslationStructure = {
         pin: {
             pin: 'Fissa',
             unpin: 'Rimuovi fissaggio',
+            renameTitle: 'Rinomina titolo',
+            renamePrompt: 'Nuovo titolo per questa sessione nella barra laterale',
             clearTitle: 'Rimuovi titolo fissato',
         },
     },

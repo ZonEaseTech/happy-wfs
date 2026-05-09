@@ -1014,6 +1014,8 @@ export const ca: TranslationStructure = {
         pin: {
             pin: 'Fixa',
             unpin: 'Desfixa',
+            renameTitle: 'Reanomena títol',
+            renamePrompt: 'Nou títol per a aquesta sessió a la barra lateral',
             clearTitle: 'Esborra títol fixat',
         },
     },

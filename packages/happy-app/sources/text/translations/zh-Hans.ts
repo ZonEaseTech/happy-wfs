@@ -1016,6 +1016,8 @@ export const zhHans: TranslationStructure = {
         pin: {
             pin: '置顶',
             unpin: '取消置顶',
+            renameTitle: '重命名标题',
+            renamePrompt: '为该会话设置侧边栏显示标题',
             clearTitle: '取消置顶标题',
         },
     },

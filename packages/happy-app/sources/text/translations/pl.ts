@@ -1025,6 +1025,8 @@ export const pl: TranslationStructure = {
         pin: {
             pin: 'Przypnij',
             unpin: 'Odepnij',
+            renameTitle: 'Zmień tytuł',
+            renamePrompt: 'Nowy tytuł sesji na pasku bocznym',
             clearTitle: 'Usuń przypięty tytuł',
         },
     },

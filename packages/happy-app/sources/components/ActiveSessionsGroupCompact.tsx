@@ -507,11 +507,36 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         setRowMenuPos(null);
         clearPinnedTitle(session.id);
     }, [session.id, clearPinnedTitle]);
+    const setPinnedTitle = usePinnedMessages(s => s.set);
+    const handleRenameTitle = React.useCallback(async () => {
+        setRowMenuVisible(false);
+        setRowMenuPos(null);
+        // Default to whatever's currently shown — the auto sessionName when
+        // no pin exists, or the pinned title if one was set.
+        const current = pinnedTitle ?? sessionName;
+        const next = await Modal.prompt(
+            t('sidebar.pin.renameTitle'),
+            t('sidebar.pin.renamePrompt'),
+            { defaultValue: current, confirmText: t('common.ok') },
+        );
+        if (next == null) return; // user cancelled
+        const trimmed = next.trim();
+        if (!trimmed) return;
+        setPinnedTitle(session.id, trimmed);
+        // Auto-pin the session so the rename is visible at the global top.
+        if (!isPinned) {
+            togglePin(session.id);
+        }
+    }, [pinnedTitle, sessionName, session.id, setPinnedTitle, togglePin, isPinned]);
     const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => {
         const items: ActionMenuItem[] = [
             {
                 label: isPinned ? t('sidebar.pin.unpin') : t('sidebar.pin.pin'),
                 onPress: handleTogglePin,
+            },
+            {
+                label: t('sidebar.pin.renameTitle'),
+                onPress: () => { void handleRenameTitle(); },
             },
             {
                 label: isPendingReview
@@ -529,7 +554,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             });
         }
         return items;
-    }, [isPinned, isPendingReview, pinnedTitle, handleTogglePin, handleToggleReview, handleClearPinnedTitle]);
+    }, [isPinned, isPendingReview, pinnedTitle, handleTogglePin, handleRenameTitle, handleToggleReview, handleClearPinnedTitle]);
 
     const handleArchive = React.useCallback(() => {
         swipeableRef.current?.close();

@@ -1025,6 +1025,8 @@ export const ru: TranslationStructure = {
         pin: {
             pin: 'Закрепить',
             unpin: 'Открепить',
+            renameTitle: 'Переименовать',
+            renamePrompt: 'Новое название сессии в боковой панели',
             clearTitle: 'Снять название',
         },
     },

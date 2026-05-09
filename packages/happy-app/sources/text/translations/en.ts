@@ -1031,6 +1031,8 @@ export const en: TranslationStructure = {
         pin: {
             pin: 'Pin',
             unpin: 'Unpin',
+            renameTitle: 'Rename title',
+            renamePrompt: 'New title for this session in the sidebar',
             clearTitle: 'Clear pinned title',
         },
     },
