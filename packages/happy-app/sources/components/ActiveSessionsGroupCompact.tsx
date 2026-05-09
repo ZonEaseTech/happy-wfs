@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Platform, ActivityIndicator, Animated } from 'react-native';
+import { View, Pressable, Platform, ActivityIndicator, Animated, Modal as RNModal } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { router, useRouter } from 'expo-router';
@@ -433,21 +433,34 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const isPinned = useIsPinned(session.id);
     const togglePin = usePinnedSessions(s => s.toggle);
     const [rowMenuVisible, setRowMenuVisible] = React.useState(false);
+    // PC right-click: anchor a small popover at the mouse position instead
+    // of opening a full-width iOS-style bottom sheet (which on desktop
+    // covered half the screen and felt out of place). Mobile keeps the
+    // bottom-sheet — actually unreachable here since native uses swipe,
+    // but the rowMenu fallback is preserved for safety.
+    const [rowMenuPos, setRowMenuPos] = React.useState<{ x: number; y: number } | null>(null);
     const handleToggleReview = React.useCallback(() => {
         swipeableRef.current?.close();
         setRowMenuVisible(false);
+        setRowMenuPos(null);
         toggleReviewPending(session.id);
     }, [session.id, toggleReviewPending]);
     const handleTogglePin = React.useCallback(() => {
         swipeableRef.current?.close();
         setRowMenuVisible(false);
+        setRowMenuPos(null);
         togglePin(session.id);
     }, [session.id, togglePin]);
     const handleRowContextMenu = React.useCallback((e: any) => {
         // Web only — onContextMenu fires from RN-Web's div forwarding.
         e?.preventDefault?.();
         e?.stopPropagation?.();
-        setRowMenuVisible(true);
+        // Capture click coordinates so the popover anchors at the cursor.
+        // Fall back to (0,0) only if the event doesn't carry them (shouldn't
+        // happen for a real right-click, but keeps the contract safe).
+        const x = typeof e?.clientX === 'number' ? e.clientX : 0;
+        const y = typeof e?.clientY === 'number' ? e.clientY : 0;
+        setRowMenuPos({ x, y });
     }, []);
     const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => [
         {
@@ -634,9 +647,70 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         />
     );
 
-    // Right-click menu (web only) — replaces swipe on PC where pointer drag
-    // is unintuitive. Currently only the review-toggle item; future row-level
-    // actions can be added here.
+    // PC right-click popover — anchored at the mouse position. Lives inside
+    // a transparent Modal so it floats above the drawer and intercepts the
+    // outside click for dismissal. Native uses the bottom-sheet `rowMenu`
+    // below as a fallback (unreachable in practice since we don't bind
+    // onContextMenu on native, but kept for safety and parity).
+    const closeRowMenuPopover = () => setRowMenuPos(null);
+    const rowMenuPopover = rowMenuPos && Platform.OS === 'web' ? (
+        <RNModal transparent visible animationType="none" onRequestClose={closeRowMenuPopover}>
+            <Pressable
+                onPress={closeRowMenuPopover}
+                // @ts-ignore — RN-Web supports onContextMenu via host div forwarding.
+                onContextMenu={(e: any) => { e?.preventDefault?.(); closeRowMenuPopover(); }}
+                style={{ flex: 1 }}
+            >
+                {/* Clamp to viewport: 200px-wide menu can't overflow right
+                    edge or bottom; offset 2px so the cursor isn't on the
+                    menu itself when it opens. */}
+                <View
+                    onStartShouldSetResponder={() => true}
+                    style={{
+                        position: 'absolute',
+                        left: Math.min(rowMenuPos.x + 2, (typeof window !== 'undefined' ? window.innerWidth : 0) - 220),
+                        top: Math.min(rowMenuPos.y + 2, (typeof window !== 'undefined' ? window.innerHeight : 0) - 120),
+                        minWidth: 200,
+                        backgroundColor: theme.colors.surface,
+                        borderRadius: 8,
+                        paddingVertical: 4,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.18,
+                        shadowRadius: 12,
+                        elevation: 12,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: theme.colors.divider,
+                    }}
+                >
+                    {rowMenuItems.map((item, idx) => (
+                        <Pressable
+                            key={idx}
+                            onPress={() => { item.onPress?.(); }}
+                            style={({ pressed, hovered }: any) => ({
+                                paddingHorizontal: 14,
+                                paddingVertical: 9,
+                                backgroundColor: hovered || pressed ? theme.colors.surfacePressed : 'transparent',
+                            })}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: 13,
+                                    color: item.destructive ? theme.colors.textDestructive : theme.colors.text,
+                                    ...Typography.default(),
+                                }}
+                            >
+                                {item.label}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </View>
+            </Pressable>
+        </RNModal>
+    ) : null;
+
+    // Native fallback bottom-sheet (unused on web; mobile would only use
+    // this if we ever bind onLongPress on the row).
     const rowMenu = (
         <ActionMenuModal
             visible={rowMenuVisible}
@@ -652,6 +726,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 {showBorder && <View style={styles.sessionDivider} />}
                 {archiveModal}
                 {rowMenu}
+                {rowMenuPopover}
             </>
         );
     }
@@ -710,6 +785,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             {showBorder && <View style={styles.sessionDivider} />}
             {archiveModal}
             {rowMenu}
+            {rowMenuPopover}
         </>
     );
 });
