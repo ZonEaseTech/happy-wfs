@@ -259,6 +259,12 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                     'pty-start',
                     { cols: dims.cols, rows: dims.rows, cwd },
                 );
+                // Diagnostic: log shape of what RPC returned. Helps when the
+                // CLI-side spawn looked successful but the app sees null
+                // (most likely cause: decryptRaw silently returned null).
+                // Open browser DevTools → Console to see this.
+                // eslint-disable-next-line no-console
+                console.log('[Terminal] pty-start RPC response:', JSON.stringify(result));
                 if (cancelled) {
                     // User closed before spawn returned — clean up immediately.
                     try {
