@@ -269,6 +269,7 @@ export const SettingsSchema = z.object({
     avatarStyle: z.string().describe('Avatar display style'),
     showFlavorIcons: z.boolean().describe('Whether to show AI provider icons in avatars'),
     showSidebarGroupAvatar: z.boolean().describe('Whether to render the workspace/machine avatar in the sidebar group header'),
+    mergeWorktreeGroups: z.boolean().describe('Merge worktree-based sessions into the original repo group instead of one group per worktree path'),
     showThinkingMessages: z.boolean().describe('Whether to show AI thinking/reasoning messages'),
     compactSessionView: z.boolean().describe('Whether to use compact view for active sessions'),
 
@@ -338,6 +339,7 @@ export const settingsDefaults: Settings = {
     avatarStyle: 'brutalist',
     showFlavorIcons: false,
     showSidebarGroupAvatar: true,
+    mergeWorktreeGroups: false,
     showThinkingMessages: true,
     compactSessionView: false,
     reviewPromptAnswered: false,

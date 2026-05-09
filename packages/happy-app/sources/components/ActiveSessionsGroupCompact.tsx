@@ -215,6 +215,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     const styles = stylesheet;
     const machines = useAllMachines();
     const showSidebarGroupAvatar = useSetting('showSidebarGroupAvatar');
+    const mergeWorktreeGroups = useSetting('mergeWorktreeGroups');
 
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
@@ -237,7 +238,14 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
         }>();
 
         sessions.forEach(session => {
-            const projectPath = session.metadata?.path || '';
+            // Group key: by default use the session's own path (one group per
+            // worktree). When the user enables mergeWorktreeGroups, fall back
+            // to worktreeBasePath (the original repo path that all worktrees
+            // for this repo share) so e.g. ~/.happy-ai/workspaces/vk-ha-* all
+            // collapse into a single /workspace/ttpos-flutter group.
+            const ownPath = session.metadata?.path || '';
+            const baseRepoPath = session.metadata?.worktreeBasePath;
+            const projectPath = mergeWorktreeGroups && baseRepoPath ? baseRepoPath : ownPath;
             const unknownText = t('status.unknown');
             const machineId = session.metadata?.machineId || unknownText;
 
@@ -282,7 +290,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
         });
 
         return groups;
-    }, [sessions, machinesMap]);
+    }, [sessions, machinesMap, mergeWorktreeGroups]);
 
     // Sort project groups by display path
     const sortedProjectGroups = React.useMemo(() => {

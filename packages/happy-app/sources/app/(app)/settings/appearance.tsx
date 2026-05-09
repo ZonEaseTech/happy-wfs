@@ -33,6 +33,7 @@ export default function AppearanceSettingsScreen() {
     const [avatarStyle, setAvatarStyle] = useSettingMutable('avatarStyle');
     const [showFlavorIcons, setShowFlavorIcons] = useSettingMutable('showFlavorIcons');
     const [showSidebarGroupAvatar, setShowSidebarGroupAvatar] = useSettingMutable('showSidebarGroupAvatar');
+    const [mergeWorktreeGroups, setMergeWorktreeGroups] = useSettingMutable('mergeWorktreeGroups');
     const [showThinkingMessages, setShowThinkingMessages] = useSettingMutable('showThinkingMessages');
     const [compactSessionView, setCompactSessionView] = useSettingMutable('compactSessionView');
     const [themePreference, setThemePreference] = useLocalSettingMutable('themePreference');
@@ -244,6 +245,17 @@ export default function AppearanceSettingsScreen() {
                         <Switch
                             value={showSidebarGroupAvatar}
                             onValueChange={setShowSidebarGroupAvatar}
+                        />
+                    }
+                />
+                <Item
+                    title="合并 worktree 分组 / Merge worktree groups"
+                    subtitle="把同一仓库的多个 worktree 会话合并到一个分组（默认每个 worktree 路径独占一组）"
+                    icon={<Ionicons name="git-merge-outline" size={29} color="#5856D6" />}
+                    rightElement={
+                        <Switch
+                            value={mergeWorktreeGroups}
+                            onValueChange={setMergeWorktreeGroups}
                         />
                     }
                 />
