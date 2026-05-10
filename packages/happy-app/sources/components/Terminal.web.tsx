@@ -441,6 +441,23 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         });
     }, []);
 
+    // Minimize toggle (persisted). When minimized, the modal collapses to a
+    // small bar in the bottom-right corner. Critical detail: the body is
+    // hidden via display:none rather than unmounting TerminalRuntime, so the
+    // PTY connection + scrollback survive the minimize/restore cycle and the
+    // user can pick up where they left off.
+    const [isMinimized, setIsMinimized] = React.useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return window.localStorage?.getItem('terminal.minimized') === '1';
+    });
+    const toggleMinimize = React.useCallback(() => {
+        setIsMinimized(prev => {
+            const next = !prev;
+            try { window.localStorage?.setItem('terminal.minimized', next ? '1' : '0'); } catch {}
+            return next;
+        });
+    }, []);
+
     // Persisted window size for the non-fullscreen mode. Default 900x560
     // (~80x24 chars at 14px). Stored as { w, h } in localStorage and
     // re-read on each open. We let CSS `resize: both` drive interactive
@@ -485,25 +502,49 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         <View
             // @ts-ignore — RN web accepts CSS `position: fixed`. With the
             // portal anchored on document.body, fixed = viewport-anchored.
+            // When minimized, anchor to the bottom-right and let pointer events
+            // pass through the empty area so the user can keep clicking the
+            // rest of the app while the terminal sits in the corner.
             style={{
                 position: 'fixed' as any,
                 top: 0, left: 0, right: 0, bottom: 0,
                 zIndex: 99999,
-                justifyContent: 'center',
-                alignItems: 'center',
+                justifyContent: isMinimized ? 'flex-end' : 'center',
+                alignItems: isMinimized ? 'flex-end' : 'center',
+                padding: isMinimized ? 16 : 0,
+                pointerEvents: (isMinimized ? 'box-none' : 'auto') as any,
             }}
         >
-            <Pressable
-                onPress={onClose}
-                style={{
-                    position: 'absolute',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.55)',
-                }}
-            />
+            {!isMinimized && (
+                <Pressable
+                    onPress={onClose}
+                    style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.55)',
+                    }}
+                />
+            )}
             <div
                 ref={winRef}
-                style={isFullscreen
+                onClick={isMinimized ? toggleMinimize : undefined}
+                style={isMinimized
+                    ? {
+                        // Bottom-right pill. Body is hidden so this collapses
+                        // to chrome-height; the whole bar is clickable to
+                        // restore.
+                        width: 220,
+                        height: 40,
+                        background: '#1a1a1a',
+                        border: '1px solid #2a2a2a',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: 'pointer',
+                    }
+                    : isFullscreen
                     ? {
                         width: '100%',
                         height: '100%',
@@ -538,25 +579,45 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                         alignItems: 'center',
                         paddingHorizontal: 12,
                         backgroundColor: '#1a1a1a',
-                        borderBottomWidth: 1,
+                        borderBottomWidth: isMinimized ? 0 : 1,
                         borderBottomColor: '#2a2a2a',
                     }}
                 >
                     <Ionicons name="terminal-outline" size={16} color="#e5e5e5" style={{ marginRight: 8 }} />
                     <Text style={{ color: '#e5e5e5', fontSize: 13, fontWeight: '600' }}>
-                        终端
+                        {isMinimized ? '终端 (后台)' : '终端'}
                     </Text>
                     <View style={{ flex: 1 }} />
+                    {!isMinimized && (
+                        <>
+                            <Pressable
+                                onPress={toggleMinimize}
+                                hitSlop={10}
+                                accessibilityRole="button"
+                                accessibilityLabel="Minimize terminal"
+                                style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: 4 }}
+                            >
+                                <Ionicons name="remove-outline" size={20} color="#e5e5e5" />
+                            </Pressable>
+                            <Pressable
+                                onPress={toggleFullscreen}
+                                hitSlop={10}
+                                accessibilityRole="button"
+                                accessibilityLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: 4 }}
+                            >
+                                <Ionicons name={isFullscreen ? 'contract-outline' : 'expand-outline'} size={18} color="#e5e5e5" />
+                            </Pressable>
+                        </>
+                    )}
+                    {isMinimized && (
+                        <Ionicons name="open-outline" size={16} color="#9ca3af" style={{ marginRight: 6 }} />
+                    )}
                     <Pressable
-                        onPress={toggleFullscreen}
-                        hitSlop={10}
-                        accessibilityRole="button"
-                        accessibilityLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                        style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: 4 }}
-                    >
-                        <Ionicons name={isFullscreen ? 'contract-outline' : 'expand-outline'} size={18} color="#e5e5e5" />
-                    </Pressable>
-                    <Pressable
+                        // Stop propagation so clicking close while minimized
+                        // doesn't also fire the bar-restore handler.
+                        // @ts-ignore — RN-web Pressable accepts onClick
+                        onClick={(e: any) => e.stopPropagation?.()}
                         onPress={onClose}
                         hitSlop={10}
                         accessibilityRole="button"
@@ -567,8 +628,9 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                     </Pressable>
                 </View>
 
-                {/* xterm body */}
-                <View style={{ flex: 1, backgroundColor: '#000' }}>
+                {/* xterm body — display:none keeps TerminalRuntime mounted so the
+                    PTY connection + scrollback survive a minimize/restore. */}
+                <View style={{ flex: 1, backgroundColor: '#000', display: isMinimized ? 'none' : 'flex' }}>
                     <React.Suspense
                         fallback={
                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
