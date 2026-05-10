@@ -295,10 +295,25 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
     );
 });
 
+function formatElapsed(seconds: number): string {
+    // Sub-minute: keep one decimal so short tool calls stay precise (e.g. 0.7s).
+    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    const total = Math.floor(seconds);
+    if (total < 3600) {
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        return `${m}m ${s}s`;
+    }
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    // Drop seconds at hour scale — at that range they're noise.
+    return `${h}h ${m}m`;
+}
+
 function ElapsedView(props: { from: number }) {
     const { from } = props;
     const elapsed = useElapsedTime(from);
-    return <Text style={styles.elapsedText}>{elapsed.toFixed(1)}s</Text>;
+    return <Text style={styles.elapsedText}>{formatElapsed(elapsed)}</Text>;
 }
 
 const styles = StyleSheet.create((theme) => ({
