@@ -162,15 +162,16 @@ export function resizePty(ptyId: string, cols: number, rows: number): boolean {
 /**
  * Forward stdin keystrokes to an active PTY.
  *
- * `data` arrives as a JS string from xterm.onData (UTF-16 code units), but
- * node-pty's IPty.write encodes its string argument as latin1 — each char's
- * low 8 bits go straight to the PTY master. ASCII keystrokes ride that
- * fine, but multibyte chars (CJK, emoji) get truncated to one byte and the
- * shell sees garbage.
+ * `data` arrives as a JS string from xterm.onData (UTF-16 code units). With
+ * spawn(encoding: null), node-pty utf8-encodes the string we pass to write()
+ * before forwarding to the master fd, so we hand it the raw utf8 JS string
+ * directly — no manual encoding round-trip.
  *
- * Fix: encode to UTF-8 bytes ourselves, then re-pack each byte as a single
- * latin1 char so node-pty's existing low-8-bits write produces the correct
- * raw bytes.
+ * (The previous version did Buffer.from(data,'utf8') → toString('binary')
+ * to compensate for node-pty's *default* utf8-mode behavior, where write()
+ * treats its argument as latin1. With encoding: null that behavior flipped
+ * to utf8, and the round-trip then double-encoded the bytes — "你" went out
+ * as 12 bytes (`c3a4 c2bd c2a0 ...`) and bash echoed back `ä½ ` mojibake.)
  *
  * Returns false if the PTY does not exist (already closed).
  */
@@ -178,8 +179,7 @@ export function writeToPty(ptyId: string, data: string): boolean {
     const term = ptys.get(ptyId);
     if (!term) return false;
     try {
-        const utf8 = Buffer.from(data, 'utf8');
-        term.write(utf8.toString('binary'));
+        term.write(data);
         return true;
     } catch (err) {
         logger.debug(`[pty] write ${ptyId} failed:`, err);
