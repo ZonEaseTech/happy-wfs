@@ -478,14 +478,21 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
     });
     const winRef = React.useRef<HTMLDivElement | null>(null);
     React.useEffect(() => {
-        if (isFullscreen) return;
+        // Only track size in the normal floating-window state. In fullscreen
+        // and minimized the element's size doesn't represent the user's
+        // chosen window size — observing it would clobber winSize with the
+        // pill's 220x40 (so the next restore would open a tiny window).
+        if (isFullscreen || isMinimized) return;
         const el = winRef.current;
         if (!el || typeof ResizeObserver === 'undefined') return;
         const ro = new ResizeObserver(entries => {
             for (const entry of entries) {
                 const w = Math.round(entry.contentRect.width);
                 const h = Math.round(entry.contentRect.height);
-                if (w > 0 && h > 0) {
+                // Guard against transient 0x0 (during state flips) and the
+                // small-pill range — only persist values that look like a
+                // user-resized full window.
+                if (w >= 360 && h >= 240) {
                     setWinSize(prev => (prev.w === w && prev.h === h) ? prev : { w, h });
                     try { window.localStorage?.setItem('terminal.winSize', JSON.stringify({ w, h })); } catch {}
                 }
@@ -493,34 +500,27 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         });
         ro.observe(el);
         return () => ro.disconnect();
-    }, [isFullscreen, visible]);
+    }, [isFullscreen, isMinimized, visible]);
 
     if (!visible) return null;
     if (typeof document === 'undefined') return null;
 
     return createPortal(
-        <View
-            // @ts-ignore — RN web accepts CSS `position: fixed`. With the
-            // portal anchored on document.body, fixed = viewport-anchored.
-            // When minimized, anchor to the bottom-right and let pointer events
-            // pass through the empty area so the user can keep clicking the
-            // rest of the app while the terminal sits in the corner.
-            style={{
-                position: 'fixed' as any,
-                top: 0, left: 0, right: 0, bottom: 0,
-                zIndex: 99999,
-                justifyContent: isMinimized ? 'flex-end' : 'center',
-                alignItems: isMinimized ? 'flex-end' : 'center',
-                padding: isMinimized ? 16 : 0,
-                pointerEvents: (isMinimized ? 'box-none' : 'auto') as any,
-            }}
-        >
+        // Two siblings, NOT a full-viewport wrapper: the wrapper would block
+        // pointer events even when minimized (RN-web's pointerEvents prop is
+        // unreliable when set via style), preventing clicks on the sidebar /
+        // input field while the pill sits in the corner.
+        //   1. Backdrop (only when fully open) — full-viewport dim + click-to-close
+        //   2. Modal frame — fixed-positioned div that switches between
+        //      bottom-right pill, fullscreen, or centered floating window
+        <>
             {!isMinimized && (
                 <Pressable
                     onPress={onClose}
                     style={{
-                        position: 'absolute',
+                        position: 'fixed' as any,
                         top: 0, left: 0, right: 0, bottom: 0,
+                        zIndex: 99998,
                         backgroundColor: 'rgba(0,0,0,0.55)',
                     }}
                 />
@@ -528,48 +528,55 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
             <div
                 ref={winRef}
                 onClick={isMinimized ? toggleMinimize : undefined}
-                style={isMinimized
-                    ? {
-                        // Bottom-right pill. Body is hidden so this collapses
-                        // to chrome-height; the whole bar is clickable to
-                        // restore.
-                        width: 220,
-                        height: 40,
-                        background: '#1a1a1a',
-                        border: '1px solid #2a2a2a',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        cursor: 'pointer',
-                    }
-                    : isFullscreen
-                    ? {
-                        width: '100%',
-                        height: '100%',
-                        background: '#000',
-                        display: 'flex',
-                        flexDirection: 'column',
-                    }
-                    : {
-                        // Non-fullscreen: centered floating window with native
-                        // CSS resize handle (bottom-right corner). Min sizes
-                        // keep xterm's columns/rows above 1.
-                        width: winSize.w,
-                        height: winSize.h,
-                        minWidth: 360,
-                        minHeight: 240,
-                        maxWidth: '95vw',
-                        maxHeight: '95vh',
-                        background: '#000',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderRadius: 8,
-                        overflow: 'hidden',
-                        boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
-                        resize: 'both',
-                    }}
+                style={{
+                    position: 'fixed' as any,
+                    zIndex: 99999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    ...(isMinimized
+                        ? {
+                            // Bottom-right pill. Body is display:none so the
+                            // whole frame collapses to chrome-height; the
+                            // whole bar is clickable to restore.
+                            bottom: 16,
+                            right: 16,
+                            width: 220,
+                            height: 40,
+                            background: '#1a1a1a',
+                            border: '1px solid #2a2a2a',
+                            borderRadius: 8,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                        }
+                        : isFullscreen
+                        ? {
+                            top: 0, left: 0,
+                            width: '100vw',
+                            height: '100vh',
+                            background: '#000',
+                        }
+                        : {
+                            // Centered floating window with native CSS
+                            // resize handle (bottom-right corner). Persisted
+                            // size in winSize so a minimize/restore cycle
+                            // returns to the user's last chosen geometry.
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: winSize.w,
+                            height: winSize.h,
+                            minWidth: 360,
+                            minHeight: 240,
+                            maxWidth: '95vw',
+                            maxHeight: '95vh',
+                            background: '#000',
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
+                            resize: 'both',
+                        }),
+                }}
             >
                 {/* Top chrome */}
                 <View
@@ -654,7 +661,7 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                     )}
                 </View>
             </div>
-        </View>,
+        </>,
         document.body,
     );
 };
