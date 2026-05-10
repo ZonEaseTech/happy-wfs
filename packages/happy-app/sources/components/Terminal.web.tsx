@@ -469,8 +469,13 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
             const raw = window.localStorage?.getItem('terminal.winSize');
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (typeof parsed?.w === 'number' && typeof parsed?.h === 'number') {
-                    return { w: Math.max(360, parsed.w), h: Math.max(240, parsed.h) };
+                // Only honor values that look like a real chosen window size.
+                // Anything below the modal's min was either set by the prior
+                // minimize bug (which observed the 220x40 pill) or otherwise
+                // unusable — fall back to default rather than opening tiny.
+                if (typeof parsed?.w === 'number' && typeof parsed?.h === 'number'
+                    && parsed.w >= 360 && parsed.h >= 240) {
+                    return { w: parsed.w, h: parsed.h };
                 }
             }
         } catch {}
@@ -515,13 +520,19 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         //      bottom-right pill, fullscreen, or centered floating window
         <>
             {!isMinimized && (
-                <Pressable
-                    onPress={onClose}
+                // Native div + onClick instead of RN-web Pressable: under a
+                // portal with fixed positioning, Pressable's event routing
+                // is unreliable on web (clicks were silently swallowed —
+                // user could only close via the X button). Plain DOM events
+                // always work.
+                <div
+                    onClick={onClose}
                     style={{
                         position: 'fixed' as any,
                         top: 0, left: 0, right: 0, bottom: 0,
                         zIndex: 99998,
                         backgroundColor: 'rgba(0,0,0,0.55)',
+                        cursor: 'pointer',
                     }}
                 />
             )}
