@@ -485,14 +485,45 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
     const winSizeRef = React.useRef(winSize);
     React.useEffect(() => { winSizeRef.current = winSize; }, [winSize]);
 
-    // Drag-to-resize from any edge or corner. Returns an onMouseDown handler
-    // that walks mousemove until mouseup, updating winSize in place.
+    // Persisted top-left position. Null until first compute (so the modal
+    // initially centers via translate(-50%,-50%) before we lock to fixed
+    // pixels). Switching from center-anchor (transform translate) to fixed
+    // top/left is what makes resize feel right: when the user drags an edge,
+    // ONLY that edge moves — the opposite edge stays put. Center anchor
+    // doubled the delta (move width by 2*dx because both edges moved away
+    // from center), which felt like "the window is over-expanding".
+    const [winPos, setWinPos] = React.useState<{ top: number; left: number } | null>(() => {
+        if (typeof window === 'undefined') return null;
+        try {
+            const raw = window.localStorage?.getItem('terminal.winPos');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (typeof parsed?.top === 'number' && typeof parsed?.left === 'number') {
+                    return { top: parsed.top, left: parsed.left };
+                }
+            }
+        } catch {}
+        return null;
+    });
+    const winPosRef = React.useRef(winPos);
+    React.useEffect(() => { winPosRef.current = winPos; }, [winPos]);
+
+    // First-open: compute centered position once we know viewport size.
+    React.useEffect(() => {
+        if (winPos != null || typeof window === 'undefined') return;
+        if (isFullscreen || isMinimized) return;
+        const top = Math.max(0, Math.round((window.innerHeight - winSize.h - 12) / 2));
+        const left = Math.max(0, Math.round((window.innerWidth - winSize.w - 12) / 2));
+        setWinPos({ top, left });
+    }, [winPos, winSize, isFullscreen, isMinimized]);
+
+    // Drag-to-resize from any edge or corner. OS-standard semantics:
+    // dragging the right edge moves only the right edge; left edge moves
+    // only the left edge (so width = startW - dx and left = startLeft + dx
+    // to keep the right edge stable). Same for top/bottom.
     //
-    // The modal is center-anchored (top:50% left:50% translate(-50%,-50%)),
-    // so growing one side automatically expands the opposite side too —
-    // delta gets multiplied by 2 along the active axis. signX/signY ∈
-    // {-1, 0, 1} pick which axis the handle controls and the cursor's
-    // expand direction.
+    // signX: -1 = left edge, +1 = right edge, 0 = no horizontal change
+    // signY: -1 = top edge,  +1 = bottom edge, 0 = no vertical change
     const handleResizeStart = (signX: -1 | 0 | 1, signY: -1 | 0 | 1) => (e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
@@ -500,48 +531,59 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         const startY = e.clientY;
         const startW = winSizeRef.current.w;
         const startH = winSizeRef.current.h;
-        let last = { w: startW, h: startH };
+        const startTop = winPosRef.current?.top ?? 0;
+        const startLeft = winPosRef.current?.left ?? 0;
+        let lastSize = { w: startW, h: startH };
+        let lastPos = { top: startTop, left: startLeft };
         const onMove = (ev: MouseEvent) => {
             const dx = ev.clientX - startX;
             const dy = ev.clientY - startY;
-            const w = Math.max(360, Math.min(window.innerWidth - 32, startW + 2 * signX * dx));
-            const h = Math.max(240, Math.min(window.innerHeight - 32, startH + 2 * signY * dy));
-            last = { w, h };
-            setWinSize(last);
+            let newW = startW;
+            let newLeft = startLeft;
+            if (signX === 1) newW = startW + dx;
+            else if (signX === -1) { newW = startW - dx; newLeft = startLeft + dx; }
+            let newH = startH;
+            let newTop = startTop;
+            if (signY === 1) newH = startH + dy;
+            else if (signY === -1) { newH = startH - dy; newTop = startTop + dy; }
+            // Clamp width — when shrinking from the left edge, we have to
+            // un-shift left so the right edge stays stable instead of
+            // creeping off-screen.
+            if (newW < 360) {
+                if (signX === -1) newLeft -= (360 - newW);
+                newW = 360;
+            }
+            if (newH < 240) {
+                if (signY === -1) newTop -= (240 - newH);
+                newH = 240;
+            }
+            const maxW = window.innerWidth - 12;
+            const maxH = window.innerHeight - 12;
+            if (newW > maxW) {
+                if (signX === -1) newLeft += (newW - maxW);
+                newW = maxW;
+            }
+            if (newH > maxH) {
+                if (signY === -1) newTop += (newH - maxH);
+                newH = maxH;
+            }
+            // Keep the modal box (size + 12 padding ring) inside the viewport.
+            newLeft = Math.max(0, Math.min(window.innerWidth - newW - 12, newLeft));
+            newTop = Math.max(0, Math.min(window.innerHeight - newH - 12, newTop));
+            lastSize = { w: newW, h: newH };
+            lastPos = { top: newTop, left: newLeft };
+            setWinSize(lastSize);
+            setWinPos(lastPos);
         };
         const onUp = () => {
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onUp);
-            try { window.localStorage?.setItem('terminal.winSize', JSON.stringify(last)); } catch {}
+            try { window.localStorage?.setItem('terminal.winSize', JSON.stringify(lastSize)); } catch {}
+            try { window.localStorage?.setItem('terminal.winPos', JSON.stringify(lastPos)); } catch {}
         };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
     };
-
-    React.useEffect(() => {
-        // Only track size in the normal floating-window state. In fullscreen
-        // and minimized the element's size doesn't represent the user's
-        // chosen window size — observing it would clobber winSize with the
-        // pill's 220x40 (so the next restore would open a tiny window).
-        if (isFullscreen || isMinimized) return;
-        const el = winRef.current;
-        if (!el || typeof ResizeObserver === 'undefined') return;
-        const ro = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                const w = Math.round(entry.contentRect.width);
-                const h = Math.round(entry.contentRect.height);
-                // Guard against transient 0x0 (during state flips) and the
-                // small-pill range — only persist values that look like a
-                // user-resized full window.
-                if (w >= 360 && h >= 240) {
-                    setWinSize(prev => (prev.w === w && prev.h === h) ? prev : { w, h });
-                    try { window.localStorage?.setItem('terminal.winSize', JSON.stringify({ w, h })); } catch {}
-                }
-            }
-        });
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, [isFullscreen, isMinimized, visible]);
 
     if (!visible) return null;
     if (typeof document === 'undefined') return null;
@@ -604,22 +646,16 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                             background: '#000',
                         }
                         : {
-                            // Centered floating window with custom 8-handle
-                            // resize ring (4 edges + 4 corners). The 6px
-                            // padding carves out the ring; chrome + body live
-                            // in the inner content area so they never collide
-                            // with handle hit zones. Persisted size in
-                            // winSize so a minimize/restore cycle returns to
-                            // the user's last chosen geometry.
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
+                            // Floating window with fixed top/left so each
+                            // resize handle moves only its own edge (OS-
+                            // standard). winPos is null on first open;
+                            // fallback to center anchor for that one frame
+                            // until the position-init effect runs.
+                            ...(winPos
+                                ? { top: winPos.top, left: winPos.left }
+                                : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
                             width: winSize.w + 12,
                             height: winSize.h + 12,
-                            minWidth: 372,
-                            minHeight: 252,
-                            maxWidth: '95vw',
-                            maxHeight: '95vh',
                             background: '#000',
                             borderRadius: 8,
                             overflow: 'hidden',
