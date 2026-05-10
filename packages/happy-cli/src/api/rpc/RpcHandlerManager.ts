@@ -59,8 +59,10 @@ export class RpcHandlerManager {
             set = new Set();
             this.socketListeners.set(eventName, set);
         }
+        if (set.has(listener)) return;
         set.add(listener);
         if (this.socket) {
+            this.socket.off(eventName, listener);
             this.socket.on(eventName, listener);
         }
     }
@@ -149,8 +151,15 @@ export class RpcHandlerManager {
             socket.emit('rpc-register', { method: prefixedMethod });
         }
         // Re-attach non-RPC event listeners across reconnects.
+        // socket.io reuses the same Socket instance across reconnects, so the
+        // previously-attached listener is still on the EventEmitter — adding
+        // a new one without removing the old causes accumulation. For
+        // streaming events like pty-input that fires per keystroke, every
+        // reconnect doubled the listener count, so 1 keystroke became N
+        // writes to the PTY (visible as duplicate echo: type "l" → "ll").
         for (const [eventName, set] of this.socketListeners) {
             for (const listener of set) {
+                socket.off(eventName, listener);
                 socket.on(eventName, listener);
             }
         }

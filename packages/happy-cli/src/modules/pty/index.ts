@@ -26,7 +26,9 @@ export interface IPty {
     cols: number;
     rows: number;
     process: string;
-    onData(callback: (data: string) => void): { dispose(): void };
+    // With encoding: null at spawn, node-pty hands raw Buffers to onData so the
+    // byte stream stays intact across UTF-8 / ANSI / partial-multibyte boundaries.
+    onData(callback: (data: Buffer) => void): { dispose(): void };
     onExit(callback: (event: { exitCode: number; signal?: number }) => void): { dispose(): void };
     resize(columns: number, rows: number): void;
     write(data: string): void;
@@ -118,6 +120,18 @@ export function spawnShell(opts: SpawnShellOptions): SpawnShellResult {
         rows: opts.rows,
         cwd,
         env: process.env,
+        // encoding: null tells node-pty to skip its built-in utf8 decode and
+        // hand us raw Buffers from the master fd. The PTY byte stream isn't
+        // necessarily valid UTF-8 at any given chunk boundary (claude/vim/etc
+        // emit ANSI escape sequences interleaved with user-visible text), and
+        // utf8-decoding chunk-by-chunk corrupts multibyte chars: a 3-byte UTF-8
+        // sequence for "你" (E4 BD A0) gets decoded to JS char 0x4F60, then
+        // Buffer.from(chunk, 'binary') in the consumer truncates that to a
+        // single byte 0x60 (backtick). User-visible: every Chinese char from
+        // claude rendered as a single ASCII garbage byte. Raw Buffers preserve
+        // the byte stream verbatim so the consumer can base64-encode for the
+        // wire and xterm.js streaming-decodes correctly on the other end.
+        encoding: null as unknown as undefined,
     });
 
     const ptyId = randomUUID();

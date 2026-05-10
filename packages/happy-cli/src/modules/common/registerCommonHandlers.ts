@@ -960,14 +960,16 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
                 });
 
                 // Wire onData → batched pty-output emit.
-                // node-pty's onData yields strings (binary-safe via latin1 encoding by
-                // default), but we need the raw bytes to base64-encode for the wire.
-                // Buffer.from(str, 'binary') round-trips the per-byte payload that
-                // node-pty hands us regardless of locale.
-                const dataDispose = term.onData((chunk: string) => {
+                // spawnShell uses encoding: null so node-pty hands us raw Buffers
+                // here. This is critical for non-ASCII PTY output: utf8-decoding
+                // chunk-by-chunk corrupts multibyte sequences (a 3-byte UTF-8 "你"
+                // becomes JS char 0x4F60, then any latin1 round-trip truncates to
+                // 0x60). With raw Buffers we preserve the byte stream verbatim and
+                // let xterm.js do the streaming UTF-8 decode on the receive side.
+                const dataDispose = term.onData((chunk: Buffer) => {
                     const state = outboundStates.get(ptyId);
                     if (!state) return; // already cleaned up
-                    const buf = Buffer.from(chunk, 'binary');
+                    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as unknown as string, 'binary');
                     state.buffer.push(buf);
                     state.byteCount += buf.length;
                     if (state.byteCount >= PTY_OUTPUT_FLUSH_BYTES) {
