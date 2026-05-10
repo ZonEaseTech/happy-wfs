@@ -482,6 +482,42 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         return { w: 900, h: 560 };
     });
     const winRef = React.useRef<HTMLDivElement | null>(null);
+    const winSizeRef = React.useRef(winSize);
+    React.useEffect(() => { winSizeRef.current = winSize; }, [winSize]);
+
+    // Drag-to-resize from any edge or corner. Returns an onMouseDown handler
+    // that walks mousemove until mouseup, updating winSize in place.
+    //
+    // The modal is center-anchored (top:50% left:50% translate(-50%,-50%)),
+    // so growing one side automatically expands the opposite side too —
+    // delta gets multiplied by 2 along the active axis. signX/signY ∈
+    // {-1, 0, 1} pick which axis the handle controls and the cursor's
+    // expand direction.
+    const handleResizeStart = (signX: -1 | 0 | 1, signY: -1 | 0 | 1) => (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startW = winSizeRef.current.w;
+        const startH = winSizeRef.current.h;
+        let last = { w: startW, h: startH };
+        const onMove = (ev: MouseEvent) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            const w = Math.max(360, Math.min(window.innerWidth - 32, startW + 2 * signX * dx));
+            const h = Math.max(240, Math.min(window.innerHeight - 32, startH + 2 * signY * dy));
+            last = { w, h };
+            setWinSize(last);
+        };
+        const onUp = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            try { window.localStorage?.setItem('terminal.winSize', JSON.stringify(last)); } catch {}
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    };
+
     React.useEffect(() => {
         // Only track size in the normal floating-window state. In fullscreen
         // and minimized the element's size doesn't represent the user's
@@ -568,27 +604,48 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                             background: '#000',
                         }
                         : {
-                            // Centered floating window with native CSS
-                            // resize handle (bottom-right corner). Persisted
-                            // size in winSize so a minimize/restore cycle
-                            // returns to the user's last chosen geometry.
+                            // Centered floating window with custom 8-handle
+                            // resize ring (4 edges + 4 corners). The 6px
+                            // padding carves out the ring; chrome + body live
+                            // in the inner content area so they never collide
+                            // with handle hit zones. Persisted size in
+                            // winSize so a minimize/restore cycle returns to
+                            // the user's last chosen geometry.
                             top: '50%',
                             left: '50%',
                             transform: 'translate(-50%, -50%)',
-                            width: winSize.w,
-                            height: winSize.h,
-                            minWidth: 360,
-                            minHeight: 240,
+                            width: winSize.w + 12,
+                            height: winSize.h + 12,
+                            minWidth: 372,
+                            minHeight: 252,
                             maxWidth: '95vw',
                             maxHeight: '95vh',
                             background: '#000',
                             borderRadius: 8,
                             overflow: 'hidden',
                             boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
-                            resize: 'both',
+                            padding: 6,
                         }),
                 }}
             >
+                {/* 8-handle resize ring — only in the floating-window state.
+                    Sits in the modal's 6px padding so it never overlaps the
+                    chrome buttons (which live in the content area inset by
+                    padding). signX/signY pick which axis grows. */}
+                {!isFullscreen && !isMinimized && (
+                    <>
+                        {/* Edges */}
+                        <div onMouseDown={handleResizeStart(0, -1)} style={{ position: 'absolute', top: 0, left: 12, right: 12, height: 6, cursor: 'ns-resize', zIndex: 10 }} />
+                        <div onMouseDown={handleResizeStart(0, 1)}  style={{ position: 'absolute', bottom: 0, left: 12, right: 12, height: 6, cursor: 'ns-resize', zIndex: 10 }} />
+                        <div onMouseDown={handleResizeStart(-1, 0)} style={{ position: 'absolute', top: 12, bottom: 12, left: 0, width: 6, cursor: 'ew-resize', zIndex: 10 }} />
+                        <div onMouseDown={handleResizeStart(1, 0)}  style={{ position: 'absolute', top: 12, bottom: 12, right: 0, width: 6, cursor: 'ew-resize', zIndex: 10 }} />
+                        {/* Corners (zIndex above edges so the cursor reads as diagonal in the overlap) */}
+                        <div onMouseDown={handleResizeStart(-1, -1)} style={{ position: 'absolute', top: 0, left: 0, width: 12, height: 12, cursor: 'nwse-resize', zIndex: 11 }} />
+                        <div onMouseDown={handleResizeStart(1, -1)}  style={{ position: 'absolute', top: 0, right: 0, width: 12, height: 12, cursor: 'nesw-resize', zIndex: 11 }} />
+                        <div onMouseDown={handleResizeStart(-1, 1)}  style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 12, cursor: 'nesw-resize', zIndex: 11 }} />
+                        <div onMouseDown={handleResizeStart(1, 1)}   style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, cursor: 'nwse-resize', zIndex: 11 }} />
+                    </>
+                )}
                 {/* Top chrome */}
                 <View
                     style={{
