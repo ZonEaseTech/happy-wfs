@@ -598,13 +598,13 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         //      bottom-right pill, fullscreen, or centered floating window
         <>
             {!isMinimized && (
-                // Native div + onClick instead of RN-web Pressable: under a
-                // portal with fixed positioning, Pressable's event routing
-                // is unreliable on web (clicks were silently swallowed —
-                // user could only close via the X button). Plain DOM events
-                // always work.
+                // Click-outside MINIMIZES rather than closes — terminal is a
+                // dock-style long-running tool, not a transient modal. The
+                // X button is still the explicit "really close" path. Native
+                // div + onClick because RN-web's Pressable in a portal with
+                // fixed positioning sometimes silently swallows clicks.
                 <div
-                    onClick={onClose}
+                    onClick={toggleMinimize}
                     style={{
                         position: 'fixed' as any,
                         top: 0, left: 0, right: 0, bottom: 0,
