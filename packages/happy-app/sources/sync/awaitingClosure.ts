@@ -1,71 +1,70 @@
-import { create } from 'zustand';
+import * as React from 'react';
+import { storage, getSession, useSession } from '@/sync/storage';
+import { sessionUpdateMetadataFields } from '@/sync/ops';
 
-/** Per-device "Awaiting closure" flag — the user has verified the agent's
- *  output and is keeping the session pinned to the top until they explicitly
- *  close it out. Sister flag to reviewPending; the two are intentionally
- *  independent booleans (you can be both, or just one). The sidebar sorter
- *  reads this to lift awaiting-closure rows above plain rows.
+/**
+ * "Awaiting closure" mark.
  *
- *  Each entry also stores the marked-at timestamp so multiple awaiting-
- *  closure rows sort against each other by recency of marking, not by their
- *  original createdAt.
+ * Persisted server-side on session.metadata.awaitingClosure (a stamped
+ * { markedAt: number } record). Multi-device sync comes for free via the
+ * existing encrypted-metadata pipeline used by summaryPinned / session
+ * summary. localStorage is no longer the source of truth — the previous
+ * client-only marks store was scrapped in favor of the metadata field.
+ *
+ * Public surface:
+ *   useIsAwaitingClosure(id)        — boolean for one session
+ *   useAwaitingClosureMarks()       — { sessionId: markedAt } map across all
+ *                                      visible sessions, used by sorters
+ *   toggleAwaitingClosure(id)       — async toggle that writes to server
  */
-interface AwaitingClosureState {
-    /** sessionId → ms timestamp when it was marked. */
-    marks: Record<string, number>;
-    toggle: (sessionId: string) => void;
-}
-
-const STORAGE_KEY = 'happy.awaitingClosure';
-
-function readMarks(): Record<string, number> {
-    try {
-        if (typeof localStorage === 'undefined') return {};
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return {};
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            const out: Record<string, number> = {};
-            for (const [k, v] of Object.entries(parsed)) {
-                if (typeof v === 'number') out[k] = v;
-            }
-            return out;
-        }
-        return {};
-    } catch {
-        return {};
-    }
-}
-
-function writeMarks(marks: Record<string, number>) {
-    try {
-        if (typeof localStorage === 'undefined') return;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(marks));
-    } catch { /* quota / private mode — best effort */ }
-}
-
-// Same rationale as reviewPending: avoid zustand/middleware persist (pulls in
-// import.meta.env which Metro emits unchanged into a non-module bundle).
-export const useAwaitingClosure = create<AwaitingClosureState>((set, get) => ({
-    marks: readMarks(),
-    toggle: (sessionId: string) => {
-        const marks = get().marks;
-        const next = { ...marks };
-        if (sessionId in next) {
-            delete next[sessionId];
-        } else {
-            next[sessionId] = Date.now();
-        }
-        writeMarks(next);
-        set({ marks: next });
-    },
-}));
 
 export function useIsAwaitingClosure(sessionId: string): boolean {
-    return useAwaitingClosure(s => sessionId in s.marks);
+    const session = useSession(sessionId);
+    return !!session?.metadata?.awaitingClosure;
 }
 
-/** Marked-at timestamp for sort ordering. 0 if not marked. */
-export function getAwaitingClosureMarkedAt(sessionId: string, marks: Record<string, number>): number {
-    return marks[sessionId] ?? 0;
+/**
+ * Map of sessionId → markedAt for every session in storage that has the
+ * awaitingClosure mark. Used by sorters to compare two marked rows by
+ * recency of marking. Returns a stable empty object reference when nothing
+ * is marked so consumers can use it as a useMemo dep without flapping.
+ */
+const EMPTY_MARKS: Record<string, number> = Object.freeze({});
+
+export function useAwaitingClosureMarks(): Record<string, number> {
+    const sessions = storage(state => state.sessions);
+    const sharedSessions = storage(state => state.sharedSessions);
+    return React.useMemo(() => {
+        const out: Record<string, number> = {};
+        for (const s of Object.values(sessions)) {
+            const m = s?.metadata?.awaitingClosure;
+            if (m) out[s.id] = m.markedAt;
+        }
+        for (const s of Object.values(sharedSessions)) {
+            const m = s?.metadata?.awaitingClosure;
+            if (m) out[s.id] = m.markedAt;
+        }
+        return Object.keys(out).length === 0 ? EMPTY_MARKS : out;
+    }, [sessions, sharedSessions]);
+}
+
+export async function toggleAwaitingClosure(sessionId: string): Promise<void> {
+    const session = getSession(sessionId);
+    if (!session?.metadata) return;
+    const current = session.metadata.awaitingClosure;
+    const next = current ? undefined : { markedAt: Date.now() };
+    try {
+        await sessionUpdateMetadataFields(
+            sessionId,
+            session.metadata,
+            { awaitingClosure: next },
+            session.metadataVersion,
+        );
+    } catch (err) {
+        // Best-effort — leave the previous mark intact so the sidebar
+        // sort doesn't lie. Real failure handling here would be a toast,
+        // but we don't want to make this hook depend on UI plumbing.
+        // eslint-disable-next-line no-console
+        console.warn('[awaitingClosure] toggle failed:', err);
+    }
 }

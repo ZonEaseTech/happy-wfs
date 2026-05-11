@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { SessionListViewItem, useSessionListViewData, useSharedSessions, useOwnSessionsSharedByMe } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
-import { useAwaitingClosure } from '@/sync/awaitingClosure';
+import { useAwaitingClosureMarks } from '@/sync/awaitingClosure';
 
 // Returns only active sessions for the main "Active" tab. Sessions the user
 // has marked "awaiting closure" are filtered out — they live exclusively in
@@ -9,7 +9,7 @@ import { useAwaitingClosure } from '@/sync/awaitingClosure';
 // active work.
 export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
     const data = useSessionListViewData();
-    const closureMarks = useAwaitingClosure(s => s.marks);
+    const closureMarks = useAwaitingClosureMarks();
 
     return React.useMemo(() => {
         if (!data) {
@@ -82,7 +82,7 @@ export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
 // session, leaving this tab perpetually empty even when marks existed.
 export function useClosureSessionListViewData(): SessionListViewItem[] | null {
     const data = useSessionListViewData();
-    const marks = useAwaitingClosure(s => s.marks);
+    const marks = useAwaitingClosureMarks();
 
     return React.useMemo(() => {
         if (!data) return null;

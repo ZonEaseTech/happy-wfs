@@ -26,7 +26,7 @@ import { getWorktreeInfo, cleanupWorktree } from '@/utils/worktreeOps';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { useReviewPending, useIsReviewPending } from '@/sync/reviewPending';
-import { useAwaitingClosure, useIsAwaitingClosure } from '@/sync/awaitingClosure';
+import { useAwaitingClosureMarks, useIsAwaitingClosure, toggleAwaitingClosure } from '@/sync/awaitingClosure';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -227,7 +227,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     // "Awaiting closure" lifts marked sessions to the top of their machine
     // group. Read the whole marks map so the sort can reorder live whenever
     // the user toggles a session.
-    const awaitingClosureMarks = useAwaitingClosure(s => s.marks);
+    const awaitingClosureMarks = useAwaitingClosureMarks();
 
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
@@ -443,7 +443,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const isPendingReview = useIsReviewPending(session.id);
     const toggleReviewPending = useReviewPending(s => s.toggle);
     const isAwaitingClosure = useIsAwaitingClosure(session.id);
-    const toggleAwaitingClosure = useAwaitingClosure(s => s.toggle);
     const [rowMenuVisible, setRowMenuVisible] = React.useState(false);
     // PC right-click: anchor a small popover at the mouse position instead
     // of opening a full-width iOS-style bottom sheet (which on desktop
@@ -459,8 +458,8 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         swipeableRef.current?.close();
         setRowMenuVisible(false);
         setRowMenuPos(null);
-        toggleAwaitingClosure(session.id);
-    }, [session.id, toggleAwaitingClosure]);
+        void toggleAwaitingClosure(session.id);
+    }, [session.id]);
     const handleRowContextMenu = React.useCallback((e: any) => {
         // Web only — onContextMenu fires from RN-Web's div forwarding.
         e?.preventDefault?.();

@@ -36,6 +36,16 @@ export const MetadataSchema = z.object({
         updatedAt: z.number()
     }).optional(),
     summaryPinned: z.boolean().optional(),
+    // User-driven "awaiting closure" mark — the agent's work is verified
+    // and the user wants the session pinned to the top of the "待完结" tab
+    // until they explicitly close it out. Stored as a stamped record so
+    // multiple closures sort against each other by recency of marking,
+    // not by createdAt. Persisted on the encrypted session metadata so it
+    // syncs across devices via the standard sessionUpdateMetadataFields
+    // path. Undefined / missing = not marked.
+    awaitingClosure: z.object({
+        markedAt: z.number(),
+    }).optional(),
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
     codexSessionId: z.string().optional(), // Codex CLI conversation ID
