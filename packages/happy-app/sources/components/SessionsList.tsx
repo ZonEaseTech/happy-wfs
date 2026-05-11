@@ -298,12 +298,12 @@ export function SessionsList() {
             setRefreshing(false);
         }
     }, []);
-    // Reset to 'active' tab if current tab's data becomes empty
+    // Reset to 'active' tab if current tab's data becomes empty.
+    // Closure tab is exempt — it's an affordance (the user needs to see
+    // *where* to mark sessions for closure), so it stays visible and
+    // selectable even when empty.
     React.useEffect(() => {
         if (activeTab === 'inactive' && inactiveData && inactiveData.length === 0) {
-            setActiveTab('active');
-        }
-        if (activeTab === 'closure' && closureData && closureData.length === 0) {
             setActiveTab('active');
         }
         if (activeTab === 'shared' && sharedData && sharedData.length === 0) {
@@ -312,7 +312,7 @@ export function SessionsList() {
         if (activeTab === 'sharedByMe' && sharedByMeData && sharedByMeData.length === 0) {
             setActiveTab('active');
         }
-    }, [activeTab, inactiveData, closureData, sharedData, sharedByMeData]);
+    }, [activeTab, inactiveData, sharedData, sharedByMeData]);
 
     const tabData = activeTab === 'inactive' ? inactiveData
         : activeTab === 'closure' ? closureData
@@ -431,7 +431,10 @@ export function SessionsList() {
     const HeaderComponent = React.useCallback(() => {
         const visibleTabs = tabs.filter(tab => {
             if (tab.key === 'active') return true;
-            if (tab.key === 'closure') return hasClosureSessions;
+            // Closure tab is always visible — it's an affordance, not a
+            // notification. Users need to see the bucket exists in order
+            // to discover the "mark for closure" right-click action.
+            if (tab.key === 'closure') return true;
             if (tab.key === 'inactive') return hasInactiveSessions;
             if (tab.key === 'shared') return hasSharedSessions;
             if (tab.key === 'sharedByMe') return hasSharedByMeSessions;
