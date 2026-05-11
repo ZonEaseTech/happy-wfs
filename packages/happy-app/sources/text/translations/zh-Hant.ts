@@ -702,6 +702,7 @@ export const zhHant: TranslationStructure = {
     session: {
         tabs: {
             active: '活躍',
+            closure: '待完結',
             inactive: '非活躍',
         },
         inputPlaceholder: '輸入訊息...',

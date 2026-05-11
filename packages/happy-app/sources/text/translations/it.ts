@@ -730,6 +730,7 @@ export const it: TranslationStructure = {
     session: {
         tabs: {
             active: 'Attive',
+            closure: 'Da chiudere',
             inactive: 'Inattive',
         },
         inputPlaceholder: 'Scrivi un messaggio ...',

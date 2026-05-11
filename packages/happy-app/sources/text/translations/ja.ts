@@ -732,6 +732,7 @@ export const ja: TranslationStructure = {
     session: {
         tabs: {
             active: 'アクティブ',
+            closure: '完結待ち',
             inactive: '非アクティブ',
         },
         inputPlaceholder: 'メッセージを入力...',

@@ -866,6 +866,7 @@ export const ru: TranslationStructure = {
     session: {
         tabs: {
             active: 'Активные',
+            closure: 'К закрытию',
             inactive: 'Неактивные',
         },
         inputPlaceholder: 'Введите сообщение...',

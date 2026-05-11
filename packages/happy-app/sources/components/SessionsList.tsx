@@ -10,7 +10,7 @@ import { Avatar } from './Avatar';
 import { ActiveSessionsGroup } from './ActiveSessionsGroup';
 import { ActiveSessionsGroupCompact } from './ActiveSessionsGroupCompact';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useVisibleSessionListViewData, useInactiveSessionListViewData, useSharedSessionListViewData, useSharedByMeSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
+import { useVisibleSessionListViewData, useInactiveSessionListViewData, useSharedSessionListViewData, useSharedByMeSessionListViewData, useClosureSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
 import { Typography } from '@/constants/Typography';
 import { Session } from '@/sync/storageTypes';
 import { StatusDot } from './StatusDot';
@@ -265,7 +265,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
 }));
 
-type SessionTab = 'active' | 'inactive' | 'shared' | 'sharedByMe';
+type SessionTab = 'active' | 'closure' | 'inactive' | 'shared' | 'sharedByMe';
 
 // Persists selected tab across navigation (survives component unmount/remount)
 let lastActiveTab: SessionTab = 'active';
@@ -275,6 +275,7 @@ export function SessionsList() {
     const safeArea = useSafeAreaInsets();
     const data = useVisibleSessionListViewData();
     const inactiveData = useInactiveSessionListViewData();
+    const closureData = useClosureSessionListViewData();
     const sharedData = useSharedSessionListViewData();
     const sharedByMeData = useSharedByMeSessionListViewData();
     const [activeTab, _setActiveTab] = React.useState<SessionTab>(lastActiveTab);
@@ -302,15 +303,22 @@ export function SessionsList() {
         if (activeTab === 'inactive' && inactiveData && inactiveData.length === 0) {
             setActiveTab('active');
         }
+        if (activeTab === 'closure' && closureData && closureData.length === 0) {
+            setActiveTab('active');
+        }
         if (activeTab === 'shared' && sharedData && sharedData.length === 0) {
             setActiveTab('active');
         }
         if (activeTab === 'sharedByMe' && sharedByMeData && sharedByMeData.length === 0) {
             setActiveTab('active');
         }
-    }, [activeTab, inactiveData, sharedData, sharedByMeData]);
+    }, [activeTab, inactiveData, closureData, sharedData, sharedByMeData]);
 
-    const tabData = activeTab === 'inactive' ? inactiveData : activeTab === 'shared' ? sharedData : activeTab === 'sharedByMe' ? sharedByMeData : data;
+    const tabData = activeTab === 'inactive' ? inactiveData
+        : activeTab === 'closure' ? closureData
+        : activeTab === 'shared' ? sharedData
+        : activeTab === 'sharedByMe' ? sharedByMeData
+        : data;
 
     const selectable = isTablet;
     const dataWithSelected = selectable ? React.useMemo(() => {
@@ -409,18 +417,21 @@ export function SessionsList() {
 
     const tabs: { key: SessionTab; label: string }[] = React.useMemo(() => [
         { key: 'active', label: t('session.tabs.active') },
+        { key: 'closure', label: t('session.tabs.closure') },
         { key: 'inactive', label: t('session.tabs.inactive') },
         { key: 'shared', label: t('session.sharing.sharedWithMeSessions') },
         { key: 'sharedByMe', label: t('session.sharing.sharedByMeSessions') },
     ], []);
 
     const hasInactiveSessions = inactiveData && inactiveData.length > 0;
+    const hasClosureSessions = closureData && closureData.length > 0;
     const hasSharedSessions = sharedData && sharedData.length > 0;
     const hasSharedByMeSessions = sharedByMeData && sharedByMeData.length > 0;
 
     const HeaderComponent = React.useCallback(() => {
         const visibleTabs = tabs.filter(tab => {
             if (tab.key === 'active') return true;
+            if (tab.key === 'closure') return hasClosureSessions;
             if (tab.key === 'inactive') return hasInactiveSessions;
             if (tab.key === 'shared') return hasSharedSessions;
             if (tab.key === 'sharedByMe') return hasSharedByMeSessions;
@@ -453,7 +464,7 @@ export function SessionsList() {
                 )}
             </>
         );
-    }, [activeTab, theme, hasInactiveSessions, hasSharedSessions, hasSharedByMeSessions]);
+    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions]);
 
     const EmptyComponent = React.useCallback(() => (
         <View style={styles.emptyContainer}>

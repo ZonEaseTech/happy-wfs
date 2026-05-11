@@ -700,6 +700,7 @@ export const ca: TranslationStructure = {
     session: {
         tabs: {
             active: 'Actives',
+            closure: 'Pendents de tancar',
             inactive: 'Inactives',
         },
         inputPlaceholder: 'Escriu un missatge...',

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { SessionListViewItem, useSessionListViewData, useSharedSessions, useOwnSessionsSharedByMe } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
+import { useAwaitingClosure } from '@/sync/awaitingClosure';
 
 // Returns only active sessions for the main "Active" tab
 export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
@@ -59,6 +60,35 @@ export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
 
         return filtered;
     }, [data]);
+}
+
+// Returns only sessions marked as "awaiting closure", sorted by the time the
+// user marked them (most recent first). This is the "待完结" tab — sessions
+// the user has verified and is keeping pinned until they explicitly close
+// out the work. Pulled from the master list regardless of active/inactive
+// state so a closure mark survives the agent going idle.
+export function useClosureSessionListViewData(): SessionListViewItem[] | null {
+    const data = useSessionListViewData();
+    const marks = useAwaitingClosure(s => s.marks);
+
+    return React.useMemo(() => {
+        if (!data) return null;
+        const sessions: Session[] = [];
+        let inSharedSection = false;
+        for (const item of data) {
+            if (item.type === 'header' && item.title === 'Shared with me') {
+                inSharedSection = true;
+                continue;
+            }
+            if (inSharedSection) continue;
+            if (item.type === 'session' && item.session.id in marks) {
+                sessions.push(item.session);
+            }
+        }
+        if (sessions.length === 0) return [];
+        sessions.sort((a, b) => (marks[b.id] ?? 0) - (marks[a.id] ?? 0));
+        return groupSessionsByDate(sessions);
+    }, [data, marks]);
 }
 
 // Returns only inactive sessions for the "Inactive" tab, grouped by date
