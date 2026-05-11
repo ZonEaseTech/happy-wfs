@@ -1042,6 +1042,10 @@ export const ja: TranslationStructure = {
             mark: '確認待ちにマーク',
             unmark: '確認待ちを解除',
         },
+        closure: {
+            mark: '完結待ちにマーク',
+            unmark: '完結待ちを解除',
+        },
     },
 
     toolView: {

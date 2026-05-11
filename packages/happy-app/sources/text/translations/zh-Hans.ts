@@ -1012,6 +1012,10 @@ export const zhHans: TranslationStructure = {
             mark: '标记为待验收',
             unmark: '取消待验收',
         },
+        closure: {
+            mark: '标记待完结',
+            unmark: '取消待完结',
+        },
     },
 
     toolView: {

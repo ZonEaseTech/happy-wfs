@@ -1010,6 +1010,10 @@ export const pt: TranslationStructure = {
             mark: 'Marcar para revisão',
             unmark: 'Limpar pendente de revisão',
         },
+        closure: {
+            mark: 'Marcar para fechar',
+            unmark: 'Limpar marca de fechamento',
+        },
     },
 
     toolView: {

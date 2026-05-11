@@ -1027,6 +1027,10 @@ export const en: TranslationStructure = {
             mark: 'Mark as pending review',
             unmark: 'Clear review pending',
         },
+        closure: {
+            mark: 'Mark for closure',
+            unmark: 'Clear closure',
+        },
     },
 
     toolView: {

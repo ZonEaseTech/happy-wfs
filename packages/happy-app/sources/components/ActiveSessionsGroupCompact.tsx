@@ -26,6 +26,7 @@ import { getWorktreeInfo, cleanupWorktree } from '@/utils/worktreeOps';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { useReviewPending, useIsReviewPending } from '@/sync/reviewPending';
+import { useAwaitingClosure, useIsAwaitingClosure } from '@/sync/awaitingClosure';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -112,6 +113,13 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     sessionRowReview: {
         borderLeftColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.10)',
+    },
+    /** Awaiting closure: the user has verified the agent's output and is
+     *  keeping the session pinned to the top until they explicitly close it.
+     *  Purple to distinguish from review (green) and unread (blue). */
+    sessionRowClosure: {
+        borderLeftColor: '#8B5CF6',
+        backgroundColor: 'rgba(139, 92, 246, 0.10)',
     },
     sessionDivider: {
         height: StyleSheet.hairlineWidth,
@@ -216,6 +224,10 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     const machines = useAllMachines();
     const showSidebarGroupAvatar = useSetting('showSidebarGroupAvatar');
     const mergeWorktreeGroups = useSetting('mergeWorktreeGroups');
+    // "Awaiting closure" lifts marked sessions to the top of their machine
+    // group. Read the whole marks map so the sort can reorder live whenever
+    // the user toggles a session.
+    const awaitingClosureMarks = useAwaitingClosure(s => s.marks);
 
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
@@ -296,15 +308,23 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
             machineGroup.sessions.push(session);
         });
 
-        // Sort sessions within each machine group by creation time (newest first)
+        // Sort sessions within each machine group:
+        //   1. Awaiting-closure marks float to the top (most-recently-marked
+        //      first — recency of *marking*, not of createdAt).
+        //   2. Plain rows fall back to createdAt descending (newest first).
         groups.forEach(projectGroup => {
             projectGroup.machines.forEach(machineGroup => {
-                machineGroup.sessions.sort((a, b) => b.createdAt - a.createdAt);
+                machineGroup.sessions.sort((a, b) => {
+                    const aMark = awaitingClosureMarks[a.id] ?? 0;
+                    const bMark = awaitingClosureMarks[b.id] ?? 0;
+                    if (aMark !== bMark) return bMark - aMark;
+                    return b.createdAt - a.createdAt;
+                });
             });
         });
 
         return groups;
-    }, [sessions, machinesMap, mergeWorktreeGroups]);
+    }, [sessions, machinesMap, mergeWorktreeGroups, awaitingClosureMarks]);
 
     // Sort project groups by display path
     const sortedProjectGroups = React.useMemo(() => {
@@ -422,6 +442,8 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     // faint green bg + ✓ marker on the title row.
     const isPendingReview = useIsReviewPending(session.id);
     const toggleReviewPending = useReviewPending(s => s.toggle);
+    const isAwaitingClosure = useIsAwaitingClosure(session.id);
+    const toggleAwaitingClosure = useAwaitingClosure(s => s.toggle);
     const [rowMenuVisible, setRowMenuVisible] = React.useState(false);
     // PC right-click: anchor a small popover at the mouse position instead
     // of opening a full-width iOS-style bottom sheet (which on desktop
@@ -433,6 +455,12 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         setRowMenuPos(null);
         toggleReviewPending(session.id);
     }, [session.id, toggleReviewPending]);
+    const handleToggleAwaitingClosure = React.useCallback(() => {
+        swipeableRef.current?.close();
+        setRowMenuVisible(false);
+        setRowMenuPos(null);
+        toggleAwaitingClosure(session.id);
+    }, [session.id, toggleAwaitingClosure]);
     const handleRowContextMenu = React.useCallback((e: any) => {
         // Web only — onContextMenu fires from RN-Web's div forwarding.
         e?.preventDefault?.();
@@ -491,7 +519,13 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 : t('sidebar.review.mark'),
             onPress: handleToggleReview,
         },
-    ], [isPendingReview, handleToggleReview, handleRenameSession]);
+        {
+            label: isAwaitingClosure
+                ? t('sidebar.closure.unmark')
+                : t('sidebar.closure.mark'),
+            onPress: handleToggleAwaitingClosure,
+        },
+    ], [isPendingReview, isAwaitingClosure, handleToggleReview, handleToggleAwaitingClosure, handleRenameSession]);
 
     const handleArchive = React.useCallback(() => {
         swipeableRef.current?.close();
@@ -547,12 +581,12 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 styles.sessionRow,
                 selected && styles.sessionRowSelected,
                 // Style priority (last wins): permission_required (urgent) >
-                // user-marked review (green) > hasUnreadCompletion (auto, blue).
-                // Green sits above blue because once the user has explicitly
-                // marked "pending review" they've already acknowledged the
-                // unread completion — green is the single signal they care about.
+                // awaiting closure (purple) > review (green) > unread (blue).
+                // Awaiting-closure outranks review because it's the later
+                // lifecycle stage (verified → pending close-out).
                 sessionStatus.hasUnreadCompletion && styles.sessionRowUnread,
                 isPendingReview && styles.sessionRowReview,
+                isAwaitingClosure && styles.sessionRowClosure,
                 sessionStatus.state === 'permission_required' && styles.sessionRowAttention,
             ]}
             onPressIn={() => {

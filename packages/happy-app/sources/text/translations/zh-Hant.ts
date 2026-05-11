@@ -1012,6 +1012,10 @@ export const zhHant: TranslationStructure = {
             mark: '標記為待驗收',
             unmark: '取消待驗收',
         },
+        closure: {
+            mark: '標記待完結',
+            unmark: '取消待完結',
+        },
     },
 
     toolView: {

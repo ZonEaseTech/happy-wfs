@@ -1040,6 +1040,10 @@ export const it: TranslationStructure = {
             mark: 'Segna in attesa di revisione',
             unmark: 'Rimuovi attesa revisione',
         },
+        closure: {
+            mark: 'Segna per chiusura',
+            unmark: 'Rimuovi attesa chiusura',
+        },
     },
 
     toolView: {

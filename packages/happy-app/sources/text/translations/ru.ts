@@ -1021,6 +1021,10 @@ export const ru: TranslationStructure = {
             mark: 'Отметить на проверку',
             unmark: 'Снять отметку',
         },
+        closure: {
+            mark: 'Отметить к закрытию',
+            unmark: 'Снять отметку закрытия',
+        },
     },
 
     toolView: {
