@@ -134,9 +134,15 @@ export function rpcHandler(userId: string, socket: Socket, rpcListeners: Map<str
             const startTime = Date.now();
             // log({ module: 'websocket-rpc' }, `RPC call initiated: ${socket.id} -> ${method} (target: ${targetSocket.id})`);
 
-            // Forward the RPC request to the target socket using emitWithAck
+            // Forward the RPC request to the target socket using emitWithAck.
+            // 90s timeout (matches the app-side sessionReadFile bump): big
+            // source files on slow remote disks routinely chew through 30s
+            // during the read + base64 + encrypt + serialize step. The
+            // server-side timeout was the ceiling — even if the app waited
+            // longer, the server gave up at 30s and reported "operation has
+            // timed out" back to the caller.
             try {
-                const response = await targetSocket.timeout(30000).emitWithAck('rpc-request', {
+                const response = await targetSocket.timeout(90000).emitWithAck('rpc-request', {
                     method,
                     params
                 });

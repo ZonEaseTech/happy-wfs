@@ -620,9 +620,21 @@ export function FileViewerModal({
         }
         setLoadingPath(path);
         try {
-            const resp = await readFile(path);
-            if (!resp.success || !resp.content) {
-                Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
+            let resp;
+            try {
+                resp = await readFile(path);
+            } catch (rpcErr) {
+                // sessionRPC throws on undecryptable payloads / timeouts now.
+                // Surface the actual error so the user can tell "file too big"
+                // apart from "CLI offline" instead of seeing an empty modal.
+                Modal.alert(
+                    t('common.error'),
+                    `${path}\n\n${rpcErr instanceof Error ? rpcErr.message : tx('fileViewer.openFailed')}`,
+                );
+                return;
+            }
+            if (!resp || !resp.success || !resp.content) {
+                Modal.alert(t('common.error'), resp?.error || tx('fileViewer.openFailed'));
                 return;
             }
             let text: string;

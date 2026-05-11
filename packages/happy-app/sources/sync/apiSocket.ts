@@ -193,7 +193,17 @@ class ApiSocket {
         });
 
         if (result.ok) {
-            return await sessionEncryption.decryptRaw(result.result) as R;
+            const decrypted = await sessionEncryption.decryptRaw(result.result);
+            if (decrypted == null) {
+                // decryptRaw swallows every error path into null. For a caller
+                // that returns an object shape (readFile -> { success }), a
+                // null leak crashes downstream `resp.success` access. Throw
+                // explicitly so the caller's try/catch can surface a real
+                // error message instead of an unhandled "Cannot read 'success'
+                // of null" rejection.
+                throw new Error(`RPC ${method} returned undecryptable payload (likely truncated or key mismatch)`);
+            }
+            return decrypted as R;
         }
         throw new Error(result.error || 'RPC call failed');
     }
