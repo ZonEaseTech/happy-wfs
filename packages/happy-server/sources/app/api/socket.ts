@@ -26,7 +26,14 @@ export function startSocket(app: Fastify) {
         transports: ['websocket', 'polling'],
         pingTimeout: 45000,
         pingInterval: 15000,
-        maxHttpBufferSize: 5e6,
+        // Bumped from 5MB to 20MB: the file viewer's readFile RPC inlines the
+        // whole file (base64 + encrypt envelope ≈ 1.4× the raw bytes) into a
+        // single ack payload. Anything over ~3.5MB raw was being silently
+        // dropped by socket.io, leaving the modal stuck on "loading" until
+        // the client-side 30s RPC timeout finally fired. 20MB covers all
+        // reasonable source files; large blobs should still go through the
+        // dedicated artifact storage path, not this RPC.
+        maxHttpBufferSize: 20e6,
         path: '/v1/updates',
         allowUpgrades: true,
         upgradeTimeout: 10000,

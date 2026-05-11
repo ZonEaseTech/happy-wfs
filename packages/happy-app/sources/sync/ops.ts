@@ -874,6 +874,11 @@ export async function sessionBash(sessionId: string, request: SessionBashRequest
 
 /**
  * Read a file from the session
+ *
+ * 90s timeout (vs the default 30s) gives the CLI side enough headroom on
+ * larger source files — disk read + base64 + encrypt + socket framing.
+ * Anything that legitimately needs longer than 90s isn't a file the viewer
+ * should be opening anyway.
  */
 export async function sessionReadFile(sessionId: string, path: string): Promise<SessionReadFileResponse> {
     try {
@@ -881,7 +886,8 @@ export async function sessionReadFile(sessionId: string, path: string): Promise<
         const response = await apiSocket.sessionRPC<SessionReadFileResponse, SessionReadFileRequest>(
             sessionId,
             'readFile',
-            request
+            request,
+            90000,
         );
         return response;
     } catch (error) {
