@@ -3,9 +3,13 @@ import { SessionListViewItem, useSessionListViewData, useSharedSessions, useOwnS
 import { Session } from '@/sync/storageTypes';
 import { useAwaitingClosure } from '@/sync/awaitingClosure';
 
-// Returns only active sessions for the main "Active" tab
+// Returns only active sessions for the main "Active" tab. Sessions the user
+// has marked "awaiting closure" are filtered out — they live exclusively in
+// the dedicated "待完结" tab so the active list stays focused on actually-
+// active work.
 export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
     const data = useSessionListViewData();
+    const closureMarks = useAwaitingClosure(s => s.marks);
 
     return React.useMemo(() => {
         if (!data) {
@@ -25,7 +29,7 @@ export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
                 continue;
             }
             if (inSharedSection) {
-                if (item.type === 'session' && item.session.active) {
+                if (item.type === 'session' && item.session.active && !(item.session.id in closureMarks)) {
                     if (pendingSharedHeader) {
                         filtered.push(pendingSharedHeader);
                         pendingSharedHeader = null;
@@ -41,7 +45,7 @@ export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
             }
 
             if (item.type === 'session') {
-                if (item.session.active) {
+                if (item.session.active && !(item.session.id in closureMarks)) {
                     if (pendingProjectGroup) {
                         filtered.push(pendingProjectGroup);
                         pendingProjectGroup = null;
@@ -54,12 +58,15 @@ export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
             pendingProjectGroup = null;
 
             if (item.type === 'active-sessions') {
-                filtered.push(item);
+                const remaining = item.sessions.filter(s => !(s.id in closureMarks));
+                if (remaining.length > 0) {
+                    filtered.push({ ...item, sessions: remaining });
+                }
             }
         }
 
         return filtered;
-    }, [data]);
+    }, [data, closureMarks]);
 }
 
 // Returns only sessions marked as "awaiting closure", sorted by the time the
@@ -98,8 +105,15 @@ export function useClosureSessionListViewData(): SessionListViewItem[] | null {
             }
         }
         if (sessions.length === 0) return [];
+        // Sort by marked-at descending so the most recently marked floats
+        // to the top of the list. Wrap into a single active-sessions
+        // container so SessionsList renderItem dispatches to
+        // ActiveSessionsGroupCompact — that gives us the same compact rows
+        // + right-click menu (including the "取消待完结" item) as the
+        // Active tab. The group's internal sort already keys on
+        // awaitingClosureMarks, so order is preserved.
         sessions.sort((a, b) => (marks[b.id] ?? 0) - (marks[a.id] ?? 0));
-        return groupSessionsByDate(sessions);
+        return [{ type: 'active-sessions', sessions }];
     }, [data, marks]);
 }
 
