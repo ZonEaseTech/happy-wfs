@@ -67,6 +67,12 @@ export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
 // the user has verified and is keeping pinned until they explicitly close
 // out the work. Pulled from the master list regardless of active/inactive
 // state so a closure mark survives the agent going idle.
+//
+// Note: active sessions are bundled inside a single `type: 'active-sessions'`
+// container item (sessions: Session[]), while inactive sessions appear as
+// flat `type: 'session'` items. We must walk both shapes — an earlier version
+// only looked at `type: 'session'` and silently dropped every marked active
+// session, leaving this tab perpetually empty even when marks existed.
 export function useClosureSessionListViewData(): SessionListViewItem[] | null {
     const data = useSessionListViewData();
     const marks = useAwaitingClosure(s => s.marks);
@@ -81,6 +87,12 @@ export function useClosureSessionListViewData(): SessionListViewItem[] | null {
                 continue;
             }
             if (inSharedSection) continue;
+            if (item.type === 'active-sessions') {
+                for (const s of item.sessions) {
+                    if (s.id in marks) sessions.push(s);
+                }
+                continue;
+            }
             if (item.type === 'session' && item.session.id in marks) {
                 sessions.push(item.session);
             }
