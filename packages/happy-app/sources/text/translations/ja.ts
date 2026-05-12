@@ -731,9 +731,9 @@ export const ja: TranslationStructure = {
 
     session: {
         tabs: {
-            active: 'アクティブ',
-            closure: '完結待ち',
-            inactive: '非アクティブ',
+            active: '進行中',
+            closure: 'アーカイブ予定',
+            inactive: 'アーカイブ済み',
         },
         inputPlaceholder: 'メッセージを入力...',
         abortConfirmTitle: 'セッションを中止？',
@@ -1044,8 +1044,8 @@ export const ja: TranslationStructure = {
             unmark: '確認待ちを解除',
         },
         closure: {
-            mark: '完結待ちにマーク',
-            unmark: '完結待ちを解除',
+            mark: 'アーカイブ予定にマーク',
+            unmark: 'アーカイブ予定を解除',
         },
     },
 

@@ -699,9 +699,9 @@ export const pt: TranslationStructure = {
 
     session: {
         tabs: {
-            active: 'Ativas',
-            closure: 'A fechar',
-            inactive: 'Inativas',
+            active: 'Em curso',
+            closure: 'A arquivar',
+            inactive: 'Arquivadas',
         },
         inputPlaceholder: 'Digite uma mensagem ...',
         abortConfirmTitle: 'Abortar sessão?',
@@ -1012,8 +1012,8 @@ export const pt: TranslationStructure = {
             unmark: 'Limpar pendente de revisão',
         },
         closure: {
-            mark: 'Marcar para fechar',
-            unmark: 'Limpar marca de fechamento',
+            mark: 'Marcar para arquivar',
+            unmark: 'Limpar marca de arquivamento',
         },
     },
 

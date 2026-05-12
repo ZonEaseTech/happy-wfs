@@ -711,9 +711,9 @@ export const pl: TranslationStructure = {
 
     session: {
         tabs: {
-            active: 'Aktywne',
-            closure: 'Do zamknięcia',
-            inactive: 'Nieaktywne',
+            active: 'W toku',
+            closure: 'Do archiwizacji',
+            inactive: 'Zarchiwizowane',
         },
         inputPlaceholder: 'Wpisz wiadomość...',
         abortConfirmTitle: 'Przerwać sesję?',
@@ -1023,8 +1023,8 @@ export const pl: TranslationStructure = {
             unmark: 'Usuń oznaczenie',
         },
         closure: {
-            mark: 'Oznacz do zamknięcia',
-            unmark: 'Usuń oznaczenie zamknięcia',
+            mark: 'Oznacz do archiwizacji',
+            unmark: 'Usuń oznaczenie archiwizacji',
         },
     },
 

@@ -699,9 +699,9 @@ export const ca: TranslationStructure = {
 
     session: {
         tabs: {
-            active: 'Actives',
-            closure: 'Pendents de tancar',
-            inactive: 'Inactives',
+            active: 'En curs',
+            closure: 'Per arxivar',
+            inactive: 'Arxivades',
         },
         inputPlaceholder: 'Escriu un missatge...',
         abortConfirmTitle: 'Avortar la sessió?',
@@ -1012,8 +1012,8 @@ export const ca: TranslationStructure = {
             unmark: 'Esborrar pendent de revisió',
         },
         closure: {
-            mark: 'Marcar per tancar',
-            unmark: 'Esborrar marca de tancament',
+            mark: 'Marcar per arxivar',
+            unmark: 'Esborrar marca d\'arxivat',
         },
     },
 

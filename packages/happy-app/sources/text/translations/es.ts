@@ -699,9 +699,9 @@ export const es: TranslationStructure = {
 
     session: {
         tabs: {
-            active: 'Activas',
-            closure: 'Pendiente de cierre',
-            inactive: 'Inactivas',
+            active: 'En curso',
+            closure: 'Para archivar',
+            inactive: 'Archivadas',
         },
         inputPlaceholder: 'Escriba un mensaje ...',
         abortConfirmTitle: '¿Abortar sesión?',
@@ -1012,8 +1012,8 @@ export const es: TranslationStructure = {
             unmark: 'Quitar pendiente de revisión',
         },
         closure: {
-            mark: 'Marcar para cierre',
-            unmark: 'Quitar marca de cierre',
+            mark: 'Marcar para archivar',
+            unmark: 'Quitar marca de archivado',
         },
     },
 

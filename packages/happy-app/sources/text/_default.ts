@@ -710,9 +710,9 @@ export const en = {
 
     session: {
         tabs: {
-            active: 'Active',
-            closure: 'Pending closure',
-            inactive: 'Inactive',
+            active: 'In progress',
+            closure: 'To archive',
+            inactive: 'Archived',
         },
         inputPlaceholder: 'Type a message ...',
         abortConfirmTitle: 'Abort session?',
@@ -1026,8 +1026,8 @@ export const en = {
             unmark: 'Clear review pending',
         },
         closure: {
-            mark: 'Mark for closure',
-            unmark: 'Clear closure',
+            mark: 'Mark to archive',
+            unmark: 'Clear archive mark',
         },
     },
 

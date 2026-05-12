@@ -865,9 +865,9 @@ export const ru: TranslationStructure = {
 
     session: {
         tabs: {
-            active: 'Активные',
-            closure: 'К закрытию',
-            inactive: 'Неактивные',
+            active: 'В работе',
+            closure: 'К архивации',
+            inactive: 'В архиве',
         },
         inputPlaceholder: 'Введите сообщение...',
         abortConfirmTitle: 'Прервать сессию?',
@@ -1023,8 +1023,8 @@ export const ru: TranslationStructure = {
             unmark: 'Снять отметку',
         },
         closure: {
-            mark: 'Отметить к закрытию',
-            unmark: 'Снять отметку закрытия',
+            mark: 'Отметить к архивации',
+            unmark: 'Снять отметку архивации',
         },
     },
 

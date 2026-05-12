@@ -701,9 +701,9 @@ export const zhHant: TranslationStructure = {
 
     session: {
         tabs: {
-            active: '活躍',
-            closure: '待完結',
-            inactive: '非活躍',
+            active: '進行中',
+            closure: '待歸檔',
+            inactive: '已歸檔',
         },
         inputPlaceholder: '輸入訊息...',
         abortConfirmTitle: '終止會話？',
@@ -1014,8 +1014,8 @@ export const zhHant: TranslationStructure = {
             unmark: '取消待驗收',
         },
         closure: {
-            mark: '標記待完結',
-            unmark: '取消待完結',
+            mark: '標記待歸檔',
+            unmark: '取消待歸檔',
         },
     },
 
