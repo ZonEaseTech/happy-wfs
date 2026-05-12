@@ -101,23 +101,38 @@ export class AES256Encryption implements Encryptor, Decryptor {
         return results;
     }
 
+    /** Last per-item failure message captured by decrypt(). null after a
+     *  successful run. Stashed here so SessionEncryption.decryptRawDetailed
+     *  can pull it back out — the public Decryptor interface intentionally
+     *  swallows per-item errors into null to keep batch decoding tolerant,
+     *  but for single-item RPC paths we want the underlying reason. */
+    public _lastDecryptError: string | null = null;
+
     async decrypt(data: Uint8Array[]): Promise<(any | null)[]> {
         // Process as batch, not Promise.all - more efficient
         const results: (any | null)[] = [];
         for (const item of data) {
             try {
                 if (item[0] !== 0) {
+                    this._lastDecryptError = `bad version byte: ${item[0]}`;
                     results.push(null);
                     continue;
                 }
                 const decryptedString = await decryptAESGCMString(encodeBase64(item.slice(1)), this.secretKeyB64);
                 if (!decryptedString) {
+                    this._lastDecryptError = 'decryptAESGCMString returned empty';
                     results.push(null);
                 } else {
-                    // Parse JSON string back to object
-                    results.push(JSON.parse(decryptedString));
+                    try {
+                        results.push(JSON.parse(decryptedString));
+                        this._lastDecryptError = null;
+                    } catch (parseErr) {
+                        this._lastDecryptError = `JSON.parse failed: ${parseErr instanceof Error ? parseErr.message : String(parseErr)} (plaintext len ${decryptedString.length})`;
+                        results.push(null);
+                    }
                 }
             } catch (error) {
+                this._lastDecryptError = `AES decrypt threw: ${error instanceof Error ? error.message : String(error)}`;
                 results.push(null);
             }
         }

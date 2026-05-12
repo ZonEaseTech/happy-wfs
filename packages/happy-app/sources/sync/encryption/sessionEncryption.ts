@@ -157,7 +157,13 @@ export class SessionEncryption {
             stage = 'encryptor.decrypt';
             const decrypted = await this.encryptor.decrypt([encryptedData]);
             if (decrypted[0] == null) {
-                return { ok: false, stage: 'null-result', error: 'decryptor returned null/empty', encryptedLen: encrypted.length };
+                // Pull the underlying reason out of the encryptor (it swallows
+                // per-item errors into null on purpose for batch tolerance,
+                // but stashes the message on _lastDecryptError so single-item
+                // callers can surface it).
+                const enc = this.encryptor as unknown as { _lastDecryptError?: string };
+                const underlying = enc._lastDecryptError ?? 'no underlying error captured';
+                return { ok: false, stage: 'null-result', error: underlying, encryptedLen: encrypted.length };
             }
             return { ok: true, value: decrypted[0] };
         } catch (error) {
