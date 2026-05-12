@@ -127,14 +127,38 @@ export class SessionEncryption {
     }
 
     /**
-     * Decrypt raw data using session-specific encryption
+     * Decrypt raw data using session-specific encryption.
+     *
+     * Logs failure details to console.warn so users can capture the failure
+     * mode from DevTools (which stage threw, payload size, whether the
+     * decryptor returned undefined vs null). Without this hint the caller
+     * just sees "undecryptable payload" and there's no signal whether it's
+     * a base64 decode error, an AES-GCM auth fail, or a key-cache miss.
      */
     async decryptRaw(encrypted: string): Promise<any | null> {
+        let stage = 'decodeBase64';
         try {
             const encryptedData = decodeBase64(encrypted, 'base64');
+            stage = 'encryptor.decrypt';
             const decrypted = await this.encryptor.decrypt([encryptedData]);
-            return decrypted[0] || null;
+            stage = 'result';
+            if (decrypted[0] == null) {
+                // eslint-disable-next-line no-console
+                console.warn('[decryptRaw] decryptor returned null', {
+                    sessionId: this.sessionId,
+                    encryptedLen: encrypted.length,
+                    cipherBytes: encryptedData.length,
+                });
+                return null;
+            }
+            return decrypted[0];
         } catch (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[decryptRaw] failed at stage', stage, {
+                sessionId: this.sessionId,
+                encryptedLen: encrypted.length,
+                error: error instanceof Error ? error.message : String(error),
+            });
             return null;
         }
     }
