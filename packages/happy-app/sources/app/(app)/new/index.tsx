@@ -388,9 +388,21 @@ function NewSessionWizard() {
     const [addDirBranchMenu, setAddDirBranchMenu] = React.useState<{ visible: boolean; items: ActionMenuItem[] }>({ visible: false, items: [] });
     const addDirBranchResolveRef = React.useRef<((value: string | undefined) => void) | null>(null);
     const folderPickerRef = React.useRef<BottomSheetModal>(null);
-    // Permission mode is hardcoded to 'yolo' since the UI selector was removed.
-    // 'yolo' is valid for both claude/gemini and codex agent types.
-    const [permissionMode, setPermissionMode] = React.useState<PermissionMode>('yolo');
+    // Restore the section-5 selector. Default to whatever the user picked
+    // last (so a "yolo by default" workflow keeps working), validated against
+    // the agent type. If the persisted mode isn't valid for this agent, fall
+    // back to 'yolo' rather than 'default' — losing yolo silently after the
+    // selector returns would surprise users who had been relying on it.
+    const [permissionMode, setPermissionMode] = React.useState<PermissionMode>(() => {
+        const mode = lastUsedSessionMode?.permissionMode;
+        const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
+        const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
+        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
+        if (mode && validModes.includes(mode as PermissionMode)) {
+            return mode as PermissionMode;
+        }
+        return 'yolo';
+    });
 
     // NOTE: Permission mode reset on agentType change is handled by the validation useEffect below (lines ~670-681)
     // which intelligently resets only when the current mode is invalid for the new agent type.
@@ -2350,7 +2362,53 @@ function NewSessionWizard() {
                             </View>
                             )}
 
-                            {/* Section 5 (Permission Mode) intentionally removed — permissionMode is hardcoded to 'yolo' */}
+                            {/* Section 5: Permission Mode (restored — yolo skips
+                                AskUserQuestion approval, which surprised users
+                                who actually wanted to be asked). */}
+                            <View ref={permissionSectionRef}>
+                                <Text style={styles.sectionHeader}>5. {t('wizard.step5Title')}</Text>
+                            </View>
+                            <ItemGroup title="">
+                                {(agentType === 'codex'
+                                    ? [
+                                        { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
+                                        { value: 'read-only' as PermissionMode, label: t('wizard.permReadOnly'), description: t('wizard.permReadOnlyDesc'), icon: 'eye-outline' },
+                                        { value: 'safe-yolo' as PermissionMode, label: t('wizard.permSafeYolo'), description: t('wizard.permSafeYoloDesc'), icon: 'shield-checkmark-outline' },
+                                        { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'flash-outline' },
+                                    ]
+                                    : [
+                                        { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
+                                        { value: 'acceptEdits' as PermissionMode, label: t('wizard.permAcceptEdits'), description: t('wizard.permAcceptEditsDesc'), icon: 'checkmark-outline' },
+                                        { value: 'plan' as PermissionMode, label: t('wizard.permPlan'), description: t('wizard.permPlanDesc'), icon: 'list-outline' },
+                                        { value: 'bypassPermissions' as PermissionMode, label: t('wizard.permBypass'), description: t('wizard.permBypassDesc'), icon: 'shield-checkmark-outline' },
+                                        { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'flash-outline' },
+                                    ]
+                                ).map((option, index, array) => (
+                                    <Item
+                                        key={option.value}
+                                        title={option.label}
+                                        subtitle={option.description}
+                                        leftElement={
+                                            <Ionicons
+                                                name={option.icon as any}
+                                                size={24}
+                                                color={permissionMode === option.value ? theme.colors.button.primary.background : theme.colors.textSecondary}
+                                            />
+                                        }
+                                        rightElement={null}
+                                        onPress={() => handlePermissionModeChange(option.value)}
+                                        showChevron={false}
+                                        selected={permissionMode === option.value}
+                                        hideSelectedCheckmark={true}
+                                        showDivider={index < array.length - 1}
+                                        style={permissionMode === option.value ? {
+                                            borderWidth: 2,
+                                            borderColor: theme.colors.button.primary.background,
+                                            borderRadius: Platform.select({ ios: 10, default: 16 }),
+                                        } : undefined}
+                                    />
+                                ))}
+                            </ItemGroup>
 
                         </View>
                     </View>
