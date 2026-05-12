@@ -65,8 +65,14 @@ export function createCodexBackend(options: CodexBackendOptions): CodexBackendRe
 
   const backendOptions: CodexAppServerBackendOptions = {
     cwd: options.cwd,
-    command: 'npx',
-    args: ['-y', '@openai/codex@0.121.0', 'app-server'],
+    // Use the system-installed codex on PATH (matches the docblock above).
+    // Pinning to npx -y @openai/codex@0.121.0 made every session pay an npm
+    // resolve and stuck users on an old codex even after they upgraded the
+    // binary themselves (gpt-5.5 needs ≥0.131; 0.121 just got a 400 with
+    // "newer version required"). Users now control the version through
+    // whatever they have on PATH.
+    command: 'codex',
+    args: ['app-server'],
     env: {
       ...options.env,
     },

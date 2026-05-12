@@ -109,7 +109,9 @@ export function buildSpawnPlan(
       };
     }
     case 'codex': {
-      const codexArgs = ['-y', '@openai/codex@0.121.0', 'exec', '--dangerously-bypass-approvals-and-sandbox'];
+      // Use system-installed codex on PATH instead of pinned npx fetch.
+      // See createCodexBackend for the same change + rationale.
+      const codexArgs = ['exec', '--dangerously-bypass-approvals-and-sandbox'];
       if (executionType === 'resume') {
         codexArgs.push('resume', childSessionId!, prompt);
       } else {
@@ -129,7 +131,7 @@ export function buildSpawnPlan(
         }
       }
       return {
-        command: 'npx',
+        command: 'codex',
         args: codexArgs,
         cwd: workingDirectory,
         env: { ...process.env },

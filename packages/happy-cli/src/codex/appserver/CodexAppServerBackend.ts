@@ -388,12 +388,18 @@ export class CodexAppServerBackend implements AgentBackend {
     // Build config overrides (MCP servers + reasoning effort)
     const config: Record<string, unknown> = {};
     if (this.options.mcpServers && Object.keys(this.options.mcpServers).length > 0) {
-      // `default_tools_approval_mode: "Approve"` lets Codex's guardian skip MCP
-      // approval for trusted servers; handleMcpElicitation stays as fallback.
+      // `default_tools_approval_mode: "approve"` lets Codex's guardian skip
+      // MCP approval for trusted servers; handleMcpElicitation stays as
+      // fallback. Value is lowercase per the codex 0.131 schema —
+      // expected one of `auto` / `prompt` / `approve`. Older codex
+      // (≤0.130) accepted the capitalized 'Approve'; sending lowercase
+      // to those is incompatible, but we no longer pin a vendored npx
+      // codex so the only path is whatever the user has on PATH (which
+      // must be ≥0.131 for gpt-5.5 anyway).
       const mcpServers: Record<string, unknown> = {};
       for (const [name, cfg] of Object.entries(this.options.mcpServers)) {
         mcpServers[name] = TRUSTED_MCP_SERVER_NAMES.has(name)
-          ? { ...cfg, default_tools_approval_mode: 'Approve' }
+          ? { ...cfg, default_tools_approval_mode: 'approve' }
           : cfg;
       }
       config.mcp_servers = mcpServers;
