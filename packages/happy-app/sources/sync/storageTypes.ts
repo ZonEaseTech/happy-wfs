@@ -46,6 +46,14 @@ export const MetadataSchema = z.object({
     awaitingClosure: z.object({
         markedAt: z.number(),
     }).optional(),
+    // User-driven "pending review" mark — the agent reported done but the
+    // user still wants to verify the result. Same storage shape and sync
+    // path as awaitingClosure (server-persisted, multi-device). Independent
+    // from awaitingClosure: a session can be marked for review, then
+    // re-marked for closure once the verification passes.
+    reviewPending: z.object({
+        markedAt: z.number(),
+    }).optional(),
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
     codexSessionId: z.string().optional(), // Codex CLI conversation ID

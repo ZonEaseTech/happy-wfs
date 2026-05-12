@@ -25,7 +25,7 @@ import { HappyError } from '@/utils/errors';
 import { getWorktreeInfo, cleanupWorktree } from '@/utils/worktreeOps';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
-import { useReviewPending, useIsReviewPending } from '@/sync/reviewPending';
+import { useIsReviewPending, toggleReviewPending } from '@/sync/reviewPending';
 import { useAwaitingClosureMarks, useIsAwaitingClosure, toggleAwaitingClosure } from '@/sync/awaitingClosure';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
@@ -441,7 +441,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     // and the green swipe action on native. Visible state: green left bar +
     // faint green bg + ✓ marker on the title row.
     const isPendingReview = useIsReviewPending(session.id);
-    const toggleReviewPending = useReviewPending(s => s.toggle);
     const isAwaitingClosure = useIsAwaitingClosure(session.id);
     const [rowMenuVisible, setRowMenuVisible] = React.useState(false);
     // PC right-click: anchor a small popover at the mouse position instead
@@ -452,8 +451,8 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         swipeableRef.current?.close();
         setRowMenuVisible(false);
         setRowMenuPos(null);
-        toggleReviewPending(session.id);
-    }, [session.id, toggleReviewPending]);
+        void toggleReviewPending(session.id);
+    }, [session.id]);
     const handleToggleAwaitingClosure = React.useCallback(() => {
         swipeableRef.current?.close();
         setRowMenuVisible(false);
