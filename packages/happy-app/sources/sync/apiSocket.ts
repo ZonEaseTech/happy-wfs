@@ -193,17 +193,18 @@ class ApiSocket {
         });
 
         if (result.ok) {
-            const decrypted = await sessionEncryption.decryptRaw(result.result);
-            if (decrypted == null) {
-                // decryptRaw swallows every error path into null. For a caller
-                // that returns an object shape (readFile -> { success }), a
-                // null leak crashes downstream `resp.success` access. Throw
-                // explicitly so the caller's try/catch can surface a real
-                // error message instead of an unhandled "Cannot read 'success'
-                // of null" rejection.
-                throw new Error(`RPC ${method} returned undecryptable payload (likely truncated or key mismatch)`);
+            const detailed = await sessionEncryption.decryptRawDetailed(result.result);
+            if (!detailed.ok) {
+                // Include the exact failure stage in the thrown message so the
+                // alert in the file-viewer (and any other RPC caller) tells
+                // the user where it broke: decodeBase64 / encryptor.decrypt /
+                // null-result. Without this the alert just said
+                // "undecryptable payload" with no actionable signal.
+                throw new Error(
+                    `RPC ${method} decrypt failed at ${detailed.stage}: ${detailed.error} (payload ${detailed.encryptedLen} chars)`,
+                );
             }
-            return decrypted as R;
+            return detailed.value as R;
         }
         throw new Error(result.error || 'RPC call failed');
     }

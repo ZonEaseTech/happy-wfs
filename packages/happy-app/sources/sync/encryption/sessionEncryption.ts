@@ -129,37 +129,44 @@ export class SessionEncryption {
     /**
      * Decrypt raw data using session-specific encryption.
      *
-     * Logs failure details to console.warn so users can capture the failure
-     * mode from DevTools (which stage threw, payload size, whether the
-     * decryptor returned undefined vs null). Without this hint the caller
-     * just sees "undecryptable payload" and there's no signal whether it's
-     * a base64 decode error, an AES-GCM auth fail, or a key-cache miss.
+     * Backward-compatible wrapper: returns null on every failure path so
+     * existing callers (messages, settings, etc.) keep their null-tolerant
+     * code paths. For callers that want failure detail (sessionRPC throws
+     * a user-visible error), use decryptRawDetailed instead.
      */
     async decryptRaw(encrypted: string): Promise<any | null> {
-        let stage = 'decodeBase64';
+        const detailed = await this.decryptRawDetailed(encrypted);
+        return detailed.ok ? detailed.value : null;
+    }
+
+    /**
+     * Same as decryptRaw but reports which stage of decryption failed
+     * (base64 decode / AES-GCM auth / null result) and how big the payload
+     * was. sessionRPC uses this to surface the stage in its thrown Error
+     * so the file-viewer modal alert tells the user "decrypt failed at
+     * encryptor.decrypt: auth-tag mismatch (payload 601432 chars)" instead
+     * of just "undecryptable payload".
+     */
+    async decryptRawDetailed(encrypted: string): Promise<
+        | { ok: true; value: any }
+        | { ok: false; stage: 'decodeBase64' | 'encryptor.decrypt' | 'null-result'; error: string; encryptedLen: number }
+    > {
+        let stage: 'decodeBase64' | 'encryptor.decrypt' | 'null-result' = 'decodeBase64';
         try {
             const encryptedData = decodeBase64(encrypted, 'base64');
             stage = 'encryptor.decrypt';
             const decrypted = await this.encryptor.decrypt([encryptedData]);
-            stage = 'result';
             if (decrypted[0] == null) {
-                // eslint-disable-next-line no-console
-                console.warn('[decryptRaw] decryptor returned null', {
-                    sessionId: this.sessionId,
-                    encryptedLen: encrypted.length,
-                    cipherBytes: encryptedData.length,
-                });
-                return null;
+                return { ok: false, stage: 'null-result', error: 'decryptor returned null/empty', encryptedLen: encrypted.length };
             }
-            return decrypted[0];
+            return { ok: true, value: decrypted[0] };
         } catch (error) {
-            // eslint-disable-next-line no-console
-            console.warn('[decryptRaw] failed at stage', stage, {
-                sessionId: this.sessionId,
-                encryptedLen: encrypted.length,
+            return {
+                ok: false,
+                stage,
                 error: error instanceof Error ? error.message : String(error),
-            });
-            return null;
+                encryptedLen: encrypted.length,
+            };
         }
     }
 
