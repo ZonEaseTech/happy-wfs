@@ -168,15 +168,21 @@ export class PermissionHandler {
         // Handle special cases
         //
 
-        // YOLO mode: auto-approve everything (including AskUserQuestion)
-        if (this.permissionMode === 'yolo') {
+        // User-interaction tools always require explicit user approval — they
+        // exist *to* gather user input, so auto-approving them throws away the
+        // entire purpose of the tool call. The agent ends up with empty
+        // answers like { "23 分支": "-", "脏树处理": "-" } and pretends the
+        // user chose nothing. Applies to every mode, including yolo.
+        const requiresUserApproval = ['AskUserQuestion', 'ExitPlanMode', 'exit_plan_mode'];
+        const isUserInteractionTool = requiresUserApproval.includes(toolName);
+
+        // YOLO mode: auto-approve everything except the user-interaction tools.
+        if (this.permissionMode === 'yolo' && !isUserInteractionTool) {
             return { behavior: 'allow', updatedInput: input as Record<string, unknown> };
         }
 
-        // Privileged mode (bypassPermissions): auto-approve everything EXCEPT user interaction tools
-        // These tools require explicit user approval even in privileged mode
-        const requiresUserApproval = ['AskUserQuestion', 'ExitPlanMode', 'exit_plan_mode'];
-        if (this.permissionMode === 'bypassPermissions' && !requiresUserApproval.includes(toolName)) {
+        // Privileged mode (bypassPermissions): same carve-out as yolo.
+        if (this.permissionMode === 'bypassPermissions' && !isUserInteractionTool) {
             return { behavior: 'allow', updatedInput: input as Record<string, unknown> };
         }
 
