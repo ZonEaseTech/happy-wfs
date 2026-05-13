@@ -134,9 +134,21 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     const [menuVisible, setMenuVisible] = React.useState(false);
     const [menuItems, setMenuItems] = React.useState<ActionMenuItem[]>([]);
     // Tree view state. Default is list view; user toggles via header button.
+    // Persisted to localStorage so reopening the panel restores the last
+    // pick — was annoying to flip to tree every time after a refresh.
     // Collapsed-dirs set tracks which folder paths are currently collapsed
     // (default empty = all expanded for best overview on small change sets).
-    const [treeView, setTreeView] = React.useState(false);
+    const [treeView, setTreeViewInternal] = React.useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        try { return window.localStorage?.getItem('files.treeView') === '1'; } catch { return false; }
+    });
+    const setTreeView = React.useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+        setTreeViewInternal(prev => {
+            const next = typeof v === 'function' ? (v as (p: boolean) => boolean)(prev) : v;
+            try { window.localStorage?.setItem('files.treeView', next ? '1' : '0'); } catch {}
+            return next;
+        });
+    }, []);
     const [collapsedDirs, setCollapsedDirs] = React.useState<Set<string>>(() => new Set());
     const toggleDir = React.useCallback((path: string) => {
         setCollapsedDirs(prev => {
