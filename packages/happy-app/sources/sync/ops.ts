@@ -78,14 +78,38 @@ function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {
         if (typeof value === 'function') return undefined;
         if (depth > 8) return undefined;
         if (value && typeof value === 'object') {
-            if (seen.has(value)) return undefined;
-            seen.add(value);
+            try {
+                if (seen.has(value)) return undefined;
+                seen.add(value);
+            } catch {
+                return undefined;
+            }
             if (Array.isArray(value)) {
-                return value.map((item) => toPlain(item, depth + 1));
+                const plainArray: unknown[] = [];
+                for (let index = 0; index < value.length; index++) {
+                    try {
+                        plainArray.push(toPlain(value[index], depth + 1));
+                    } catch {
+                        plainArray.push(undefined);
+                    }
+                }
+                return plainArray;
             }
             const plainObject: Record<string, unknown> = {};
-            for (const key of Object.keys(value)) {
-                const child = toPlain((value as Record<string, unknown>)[key], depth + 1);
+            let keys: string[];
+            try {
+                keys = Object.keys(value);
+            } catch {
+                return undefined;
+            }
+            for (const key of keys) {
+                let rawChild: unknown;
+                try {
+                    rawChild = (value as Record<string, unknown>)[key];
+                } catch {
+                    continue;
+                }
+                const child = toPlain(rawChild, depth + 1);
                 if (child !== undefined) {
                     plainObject[key] = child;
                 }
@@ -831,8 +855,9 @@ export async function sessionUpdateSummary(
             currentVersion = result.version!;
             // Decrypt latest metadata and re-apply our summary change
             const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata;
+            const latestBaseMetadata = normalizeSessionMetadataForWrite(latestMetadata);
             metadataToSend = {
-                ...latestMetadata,
+                ...latestBaseMetadata,
                 summary: {
                     text: newSummaryText,
                     updatedAt: Date.now()
@@ -886,7 +911,7 @@ export async function sessionUpdateMetadataFields(
         } else if (result.result === 'version-mismatch') {
             currentVersion = result.version!;
             const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata;
-            metadataToSend = { ...latestMetadata, ...updates };
+            metadataToSend = { ...normalizeSessionMetadataForWrite(latestMetadata), ...updates };
         } else {
             throw new Error(result.message || 'Failed to update session metadata');
         }
