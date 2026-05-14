@@ -19,6 +19,13 @@ const GitHubIssueSchema = z.object({
     projectTitles: z.array(z.string()),
 });
 
+const UpdateGitHubIssueStatusBodySchema = z.object({
+    repository: z.string().min(1),
+    number: z.number().int().positive(),
+    projectTitle: z.string().optional(),
+    status: z.string().min(1),
+});
+
 type GraphQLIssueNode = {
     databaseId: number;
     number: number;
@@ -40,6 +47,18 @@ type GraphQLIssueNode = {
                     field?: { name?: string | null } | null;
                 } | null> | null;
             } | null;
+        } | null> | null;
+    } | null;
+};
+
+type GraphQLProjectItemForUpdateNode = {
+    id?: string | null;
+    project?: { id?: string | null; title?: string | null } | null;
+    fieldValues?: {
+        nodes?: Array<{
+            name?: string | null;
+            text?: string | null;
+            field?: { name?: string | null } | null;
         } | null> | null;
     } | null;
 };
@@ -181,6 +200,86 @@ query HappyIssueInboxProjectItems($projectId: ID!, $after: String) {
 }
 `;
 
+const issueProjectItemForUpdateQuery = `
+query HappyIssueProjectItemForUpdate($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      databaseId
+      number
+      title
+      body
+      url
+      state
+      updatedAt
+      repository { nameWithOwner }
+      labels(first: 20) { nodes { name } }
+      assignees(first: 20) { nodes { login } }
+      projectItems(first: 20) {
+        nodes {
+          id
+          project { id title }
+          fieldValues(first: 30) {
+            nodes {
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+                field { ... on ProjectV2FieldCommon { name } }
+              }
+              ... on ProjectV2ItemFieldTextValue {
+                text
+                field { ... on ProjectV2FieldCommon { name } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+const projectStatusOptionsQuery = `
+query HappyProjectStatusOptions($projectId: ID!) {
+  node(id: $projectId) {
+    ... on ProjectV2 {
+      fields(first: 50) {
+        nodes {
+          ... on ProjectV2SingleSelectField {
+            id
+            name
+            options { id name }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+const updateProjectItemStatusMutation = `
+mutation HappyUpdateProjectItemStatus($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+  updateProjectV2ItemFieldValue(input: {
+    projectId: $projectId
+    itemId: $itemId
+    fieldId: $fieldId
+    value: { singleSelectOptionId: $optionId }
+  }) {
+    projectV2Item { id }
+  }
+}
+`;
+
+const clearProjectItemStatusMutation = `
+mutation HappyClearProjectItemStatus($projectId: ID!, $itemId: ID!, $fieldId: ID!) {
+  clearProjectV2ItemFieldValue(input: {
+    projectId: $projectId
+    itemId: $itemId
+    fieldId: $fieldId
+  }) {
+    projectV2Item { id }
+  }
+}
+`;
+
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
     return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => !!value)));
 }
@@ -257,6 +356,32 @@ type GitHubProjectItemsResponse = {
             items?: {
                 pageInfo?: { hasNextPage?: boolean; endCursor?: string | null } | null;
                 nodes?: Array<GraphQLProjectItemNode | null> | null;
+            } | null;
+        } | null;
+    };
+    errors?: Array<{ message?: string }>;
+};
+
+type GitHubIssueProjectItemForUpdateResponse = {
+    data?: {
+        repository?: {
+            issue?: (Omit<GraphQLIssueNode, "projectItems"> & {
+                projectItems?: { nodes?: Array<GraphQLProjectItemForUpdateNode | null> | null } | null;
+            }) | null;
+        } | null;
+    };
+    errors?: Array<{ message?: string }>;
+};
+
+type GitHubProjectStatusOptionsResponse = {
+    data?: {
+        node?: {
+            fields?: {
+                nodes?: Array<{
+                    id?: string | null;
+                    name?: string | null;
+                    options?: Array<{ id?: string | null; name?: string | null } | null> | null;
+                } | null> | null;
             } | null;
         } | null;
     };
@@ -359,6 +484,39 @@ function mapIssueNode(item: GraphQLIssueNode, projectTitles: string[], projectSt
         projectStatuses,
         projectTitles,
     };
+}
+
+function projectItemStatusValues(item: GraphQLProjectItemForUpdateNode): string[] {
+    const values = item.fieldValues?.nodes?.filter((value): value is NonNullable<typeof value> => !!value) ?? [];
+    return uniqueStrings(values
+        .filter((value) => value.field?.name?.toLowerCase() === 'status')
+        .map((value) => value.name ?? value.text));
+}
+
+function mapIssueForUpdateResponse(
+    issue: NonNullable<NonNullable<NonNullable<GitHubIssueProjectItemForUpdateResponse["data"]>["repository"]>["issue"]>,
+    updatedProjectItemId: string,
+    nextStatus: string,
+): GitHubIssue {
+    const projectItems = issue.projectItems?.nodes?.filter((node): node is GraphQLProjectItemForUpdateNode => !!node) ?? [];
+    const projectTitles = uniqueStrings(projectItems.map((node) => node.project?.title));
+    const projectStatuses = uniqueStrings(projectItems.flatMap((node) => {
+        if (node.id === updatedProjectItemId) return [nextStatus];
+        return projectItemStatusValues(node);
+    }));
+
+    return mapIssueNode({
+        databaseId: issue.databaseId,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body,
+        url: issue.url,
+        state: issue.state,
+        updatedAt: new Date().toISOString(),
+        repository: issue.repository,
+        labels: issue.labels,
+        assignees: issue.assignees,
+    }, projectTitles, projectStatuses);
 }
 
 async function fetchGitHubProjectIssues(args: {
@@ -534,5 +692,129 @@ export function githubRoutes(app: Fastify) {
         }
 
         return reply.send({ issues });
+    });
+
+    app.post('/v1/github/issues/status', {
+        preHandler: app.authenticate,
+        schema: {
+            body: UpdateGitHubIssueStatusBodySchema,
+            response: {
+                200: z.object({
+                    issue: GitHubIssueSchema,
+                    availableStatuses: z.array(z.string()),
+                }),
+                400: z.object({ error: z.string(), availableStatuses: z.array(z.string()).optional() }),
+                401: z.object({ error: z.string() }),
+                404: z.object({ error: z.string() }),
+            },
+        },
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const user = await db.account.findUnique({
+            where: { id: userId },
+            select: {
+                githubUserId: true,
+                githubUser: { select: { token: true } },
+            },
+        });
+
+        if (!user?.githubUserId || !user.githubUser?.token) {
+            return reply.code(401).send({ error: 'GitHub account is not connected' });
+        }
+
+        const [owner, repo] = request.body.repository.split('/');
+        if (!owner || !repo) {
+            return reply.code(400).send({ error: 'Invalid repository. Expected owner/name.' });
+        }
+
+        const token = decryptString(['user', userId, 'github', 'token'], user.githubUser.token);
+        const issueResult = await fetchGitHubGraphQL<GitHubIssueProjectItemForUpdateResponse>({
+            token,
+            query: issueProjectItemForUpdateQuery,
+            variables: { owner, repo, number: request.body.number },
+        });
+        if (!issueResult.ok) {
+            log({ module: 'github-issues', level: 'warn' }, `GitHub issue status lookup failed: ${issueResult.error}`);
+            return reply.code(issueResult.status === 404 ? 404 : 400).send({ error: issueResult.error });
+        }
+
+        const issue = issueResult.data.data?.repository?.issue;
+        if (!issue) {
+            return reply.code(404).send({ error: 'GitHub Issue not found' });
+        }
+
+        const projectItems = issue.projectItems?.nodes?.filter((node): node is GraphQLProjectItemForUpdateNode => !!node?.id && !!node.project?.id) ?? [];
+        if (projectItems.length === 0) {
+            return reply.code(400).send({ error: 'This issue is not linked to any GitHub Project item.' });
+        }
+
+        const projectTitle = request.body.projectTitle?.trim().toLowerCase();
+        const targetItem = projectTitle
+            ? (projectItems.find((item) => item.project?.title?.trim().toLowerCase() === projectTitle)
+                ?? projectItems.find((item) => item.project?.title?.trim().toLowerCase().includes(projectTitle)))
+            : projectItems[0];
+        if (!targetItem?.id || !targetItem.project?.id) {
+            return reply.code(404).send({ error: `Project item not found${request.body.projectTitle ? ` for ${request.body.projectTitle}` : ''}.` });
+        }
+
+        const optionsResult = await fetchGitHubGraphQL<GitHubProjectStatusOptionsResponse>({
+            token,
+            query: projectStatusOptionsQuery,
+            variables: { projectId: targetItem.project.id },
+        });
+        if (!optionsResult.ok) {
+            log({ module: 'github-issues', level: 'warn' }, `GitHub project status options unavailable: ${optionsResult.error}`);
+            return reply.code(400).send({ error: optionsResult.error });
+        }
+
+        const statusField = (optionsResult.data.data?.node?.fields?.nodes ?? [])
+            .find((field) => field?.id && field.name?.trim().toLowerCase() === 'status');
+        const availableStatuses = ['No Status', ...uniqueStrings((statusField?.options ?? []).map((option) => option?.name))];
+        const targetStatus = request.body.status.trim();
+        const wantsNoStatus = targetStatus.toLowerCase() === 'no status';
+        const targetOption = wantsNoStatus
+            ? null
+            : (statusField?.options ?? []).find((option) => option?.id && option.name?.trim().toLowerCase() === targetStatus.toLowerCase());
+        if (!statusField?.id || (!wantsNoStatus && !targetOption?.id)) {
+            return reply.code(400).send({
+                error: `Status option not found: ${targetStatus}`,
+                availableStatuses,
+            });
+        }
+
+        const mutationVariables = {
+            projectId: targetItem.project.id,
+            itemId: targetItem.id,
+            fieldId: statusField.id,
+        };
+        const updateResult = wantsNoStatus
+            ? await fetchGitHubGraphQL<{
+                data?: { clearProjectV2ItemFieldValue?: { projectV2Item?: { id?: string | null } | null } | null };
+                errors?: Array<{ message?: string }>;
+            }>({
+                token,
+                query: clearProjectItemStatusMutation,
+                variables: mutationVariables,
+            })
+            : await fetchGitHubGraphQL<{
+                data?: { updateProjectV2ItemFieldValue?: { projectV2Item?: { id?: string | null } | null } | null };
+                errors?: Array<{ message?: string }>;
+            }>({
+                token,
+                query: updateProjectItemStatusMutation,
+                variables: {
+                    ...mutationVariables,
+                    optionId: targetOption!.id,
+                },
+            });
+        if (!updateResult.ok) {
+            log({ module: 'github-issues', level: 'warn' }, `GitHub project status update failed: ${updateResult.error}`);
+            return reply.code(400).send({ error: updateResult.error, availableStatuses });
+        }
+
+        return reply.send({
+            issue: mapIssueForUpdateResponse(issue, targetItem.id, wantsNoStatus ? 'No Status' : (targetOption!.name ?? targetStatus)),
+            availableStatuses,
+        });
     });
 }

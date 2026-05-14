@@ -30,8 +30,10 @@ import { HappyError } from '@/utils/errors';
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { useAuth } from '@/auth/AuthContext';
-import { listGitHubIssues, saveGitHubToken, type GitHubIssue } from '@/sync/apiGithub';
+import { listGitHubIssues, saveGitHubToken, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
 import { storeTempData } from '@/utils/tempDataStore';
+import { ActionMenuModal } from './ActionMenuModal';
+import { ActionMenuItem } from './ActionMenu';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -979,6 +981,13 @@ export function SessionsList() {
             props: {
                 issue,
                 onStart: () => handleStartIssue(issue),
+                onIssueUpdated: (updatedIssue: GitHubIssue) => {
+                    setPendingIssues((current) => current.map((item) => (
+                        item.repository === updatedIssue.repository && item.number === updatedIssue.number
+                            ? updatedIssue
+                            : item
+                    )));
+                },
             },
         });
     }, [handleStartIssue]);
@@ -1337,31 +1346,69 @@ const GitHubIssueMarkdown = React.memo(({ body }: { body: string }) => {
     );
 });
 
-const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose }: {
+const COMMON_GITHUB_PROJECT_STATUSES = ['No Status', 'Triage', 'Backlog', 'Todo', 'In Progress', 'In Review', 'Done'];
+
+const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose, onIssueUpdated }: {
     issue: GitHubIssue;
     onStart: () => void;
     onClose: () => void;
+    onIssueUpdated?: (issue: GitHubIssue) => void;
 }) => {
     const styles = stylesheet;
+    const auth = useAuth();
+    const [currentIssue, setCurrentIssue] = React.useState(issue);
+    const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
+    const [updatingStatus, setUpdatingStatus] = React.useState(false);
     const updatedAt = React.useMemo(() => {
-        const date = new Date(issue.updatedAt);
+        const date = new Date(currentIssue.updatedAt);
         return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
-    }, [issue.updatedAt]);
-    const body = issue.body?.trim() || '这个 Issue 没有正文。';
-    const statusText = issue.projectStatuses.length > 0 ? issue.projectStatuses.join(', ') : 'No Status';
-    const projectText = issue.projectTitles.length > 0 ? issue.projectTitles.join(', ') : '未关联 Project';
+    }, [currentIssue.updatedAt]);
+    const body = currentIssue.body?.trim() || '这个 Issue 没有正文。';
+    const statusText = currentIssue.projectStatuses.length > 0 ? currentIssue.projectStatuses.join(', ') : 'No Status';
+    const projectText = currentIssue.projectTitles.length > 0 ? currentIssue.projectTitles.join(', ') : '未关联 Project';
+    const targetProjectTitle = currentIssue.projectTitles[0];
+
+    const handleSetStatus = React.useCallback(async (nextStatus: string) => {
+        if (!auth.credentials || updatingStatus) return;
+        setStatusMenuVisible(false);
+        setUpdatingStatus(true);
+        try {
+            const result = await updateGitHubIssueProjectStatus(auth.credentials, {
+                repository: currentIssue.repository,
+                number: currentIssue.number,
+                projectTitle: targetProjectTitle,
+                status: nextStatus,
+            });
+            setCurrentIssue(result.issue);
+            onIssueUpdated?.(result.issue);
+        } catch (error) {
+            Modal.alert('修改 GitHub 状态失败', error instanceof Error ? error.message : String(error));
+        } finally {
+            setUpdatingStatus(false);
+        }
+    }, [auth.credentials, currentIssue.number, currentIssue.repository, onIssueUpdated, targetProjectTitle, updatingStatus]);
+
+    const statusMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        const currentStatuses = new Set(currentIssue.projectStatuses.map((item) => item.toLowerCase()));
+        return COMMON_GITHUB_PROJECT_STATUSES.map((status) => ({
+            label: status,
+            selected: currentStatuses.has(status.toLowerCase()),
+            onPress: () => { void handleSetStatus(status); },
+        }));
+    }, [currentIssue.projectStatuses, handleSetStatus]);
+
     return (
         <View style={styles.issueDetailModal}>
             <View style={styles.issueDetailHeader}>
                 <Text style={styles.issueDetailRepo} selectable>
-                    {issue.repository} · #{issue.number} · {projectText} · 状态 {statusText}
+                    {currentIssue.repository} · #{currentIssue.number} · {projectText} · 状态 {statusText}
                 </Text>
                 <Text style={styles.issueDetailTitle} selectable>
-                    {issue.title}
+                    {currentIssue.title}
                 </Text>
                 {!!updatedAt && (
                     <Text style={styles.issueDetailRepo} selectable>
-                        更新于 {updatedAt}{issue.labels.length ? ` · ${issue.labels.join(', ')}` : ''}
+                        更新于 {updatedAt}{currentIssue.labels.length ? ` · ${currentIssue.labels.join(', ')}` : ''}
                     </Text>
                 )}
             </View>
@@ -1373,14 +1420,30 @@ const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose }: {
                     <Text style={styles.issueDetailActionText}>关闭</Text>
                 </Pressable>
                 <View style={styles.issueDetailActionSeparator} />
-                <Pressable style={styles.issueDetailAction} onPress={() => { void Linking.openURL(issue.htmlUrl); }}>
+                <Pressable style={styles.issueDetailAction} onPress={() => { void Linking.openURL(currentIssue.htmlUrl); }}>
                     <Text style={styles.issueDetailActionText}>打开 GitHub</Text>
+                </Pressable>
+                <View style={styles.issueDetailActionSeparator} />
+                <Pressable
+                    style={styles.issueDetailAction}
+                    disabled={updatingStatus}
+                    onPress={() => setStatusMenuVisible(true)}
+                >
+                    <Text style={styles.issueDetailActionText}>
+                        {updatingStatus ? '修改中…' : '改状态'}
+                    </Text>
                 </Pressable>
                 <View style={styles.issueDetailActionSeparator} />
                 <Pressable style={styles.issueDetailAction} onPress={() => { onClose(); onStart(); }}>
                     <Text style={styles.issueDetailActionText}>开始任务</Text>
                 </Pressable>
             </View>
+            <ActionMenuModal
+                visible={statusMenuVisible}
+                title={`修改 GitHub 状态：${statusText}`}
+                items={statusMenuItems}
+                onClose={() => setStatusMenuVisible(false)}
+            />
         </View>
     );
 });

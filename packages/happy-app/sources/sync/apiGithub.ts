@@ -41,6 +41,11 @@ export interface GitHubIssueListResult {
     warning?: string;
 }
 
+export interface GitHubIssueStatusUpdateResult {
+    issue: GitHubIssue;
+    availableStatuses: string[];
+}
+
 /**
  * Get GitHub OAuth parameters from the server
  */
@@ -172,4 +177,27 @@ export async function listGitHubIssues(credentials: AuthCredentials, options?: {
 
     const data = await response.json() as GitHubIssueListResult;
     return { issues: data.issues, warning: data.warning };
+}
+
+export async function updateGitHubIssueProjectStatus(
+    credentials: AuthCredentials,
+    input: { repository: string; number: number; projectTitle?: string; status: string },
+): Promise<GitHubIssueStatusUpdateResult> {
+    const API_ENDPOINT = getServerUrl();
+    const response = await fetch(`${API_ENDPOINT}/v1/github/issues/status`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => null) as { error?: string; availableStatuses?: string[] } | null;
+        const suffix = error?.availableStatuses?.length ? `\n可用状态：${error.availableStatuses.join(' / ')}` : '';
+        throw new HappyError(`${error?.error || `Failed to update GitHub issue status: ${response.status}`}${suffix}`, false);
+    }
+
+    return await response.json() as GitHubIssueStatusUpdateResult;
 }
