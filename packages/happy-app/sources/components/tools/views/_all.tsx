@@ -18,6 +18,7 @@ import { AskUserQuestionView } from './AskUserQuestionView';
 import { GeminiEditView } from './GeminiEditView';
 import { GeminiExecuteView } from './GeminiExecuteView';
 import { PreviewHtmlViewFull } from './PreviewHtmlViewFull';
+import { ViewImageToolView } from './ViewImageToolView';
 
 export type ToolViewProps = {
     tool: ToolCall;
@@ -47,6 +48,7 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
     // Gemini tools (lowercase)
     edit: GeminiEditView,
     execute: GeminiExecuteView,
+    view_image: ViewImageToolView,
 };
 
 export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
@@ -83,3 +85,4 @@ export { AskUserQuestionView } from './AskUserQuestionView';
 export { GeminiEditView } from './GeminiEditView';
 export { GeminiExecuteView } from './GeminiExecuteView';
 export { PreviewHtmlViewFull } from './PreviewHtmlViewFull';
+export { ViewImageToolView } from './ViewImageToolView';
