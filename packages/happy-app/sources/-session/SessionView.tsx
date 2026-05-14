@@ -17,10 +17,11 @@ import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useArchiveSession } from '@/hooks/useArchiveSession';
 import { useResumeSession } from '@/hooks/useResumeSession';
+import { useHappyAction } from '@/hooks/useHappyAction';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
-import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
+import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
 import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
@@ -38,6 +39,7 @@ import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/u
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
+import { HappyError } from '@/utils/errors';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -799,6 +801,33 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     // Both flows confirm via Modal first, so an accidental tap is recoverable.
     const { handleArchive, archiveOverlay } = useArchiveSession(session);
     const { handleResume } = useResumeSession(session);
+    const [, performDeleteSession] = useHappyAction(async () => {
+        const result = await sessionDelete(session.id);
+        if (!result.success) {
+            throw new HappyError(result.message || t('sessionInfo.failedToDeleteSession'), false);
+        }
+        storage.getState().deleteSession(session.id);
+        if (Platform.OS === 'web') {
+            router.replace('/');
+        } else {
+            router.back();
+        }
+    }, { timeoutMs: 35_000 });
+
+    const handleDeleteSession = React.useCallback(() => {
+        Modal.alert(
+            t('sessionInfo.deleteSession'),
+            t('sessionInfo.deleteSessionWarning'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                    text: t('sessionInfo.deleteSession'),
+                    style: 'destructive',
+                    onPress: performDeleteSession,
+                },
+            ],
+        );
+    }, [performDeleteSession]);
 
     // Handler for filling the input from option selection
     const handleFillInput = React.useCallback(async (text: string, allOptions?: string[]) => {
@@ -1228,6 +1257,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             metadata={session.metadata}
             onArchive={session.active ? handleArchive : undefined}
             onResume={!session.active ? handleResume : undefined}
+            onDeleteSession={!session.active ? handleDeleteSession : undefined}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
                 // Block sending during CLI upgrade

@@ -86,6 +86,8 @@ interface AgentInputProps {
     /** Optional inline resume trigger (archived sessions). Same slot as onArchive,
      *  shown as play-circle-outline. SessionView passes one based on session.active. */
     onResume?: () => void;
+    /** Optional destructive delete trigger for archived sessions. */
+    onDeleteSession?: () => void;
     metadata?: Metadata | null;
     onAbort?: () => void | Promise<void>;
     showAbortButton?: boolean;
@@ -1446,6 +1448,38 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     </Pressable>
                                 );
                             })()}
+                            {props.onDeleteSession && (
+                                <Pressable
+                                    {...webTooltip(t('sessionInfo.deleteSession'))}
+                                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                                    onPress={() => {
+                                        hapticsLight();
+                                        props.onDeleteSession?.();
+                                    }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('sessionInfo.deleteSession')}
+                                    style={({ pressed }) => ({
+                                        paddingHorizontal: 10,
+                                        paddingVertical: 4,
+                                        borderRadius: 12,
+                                        backgroundColor: pressed ? 'rgba(255, 59, 48, 0.12)' : theme.colors.surface,
+                                        borderWidth: Platform.select({ ios: 0.5, default: 1 }),
+                                        borderColor: '#FF3B30',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                    })}
+                                >
+                                    <Ionicons name="trash-outline" size={12} color="#FF3B30" />
+                                    <Text style={{
+                                        fontSize: 11,
+                                        color: '#FF3B30',
+                                        ...Typography.default('semiBold'),
+                                    }}>
+                                        {t('common.delete')}
+                                    </Text>
+                                </Pressable>
+                            )}
                             {props.onModelModeChange && (
                                 <Pressable hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={() => { hapticsLight(); setShowSettings(prev => prev === 'model' ? false : 'model'); }} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
                                     <Text style={{
