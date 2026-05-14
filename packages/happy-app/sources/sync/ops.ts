@@ -31,19 +31,61 @@ interface SessionModeChangeRequest {
  * the plain persisted fields. This avoids JSON.stringify/encryption blowing up
  * on proxy/circular bookkeeping with "Maximum call stack size exceeded".
  */
+const SESSION_METADATA_WRITE_KEYS = [
+    'path',
+    'host',
+    'version',
+    'name',
+    'os',
+    'model',
+    'reasoningEffort',
+    'models',
+    'currentModelCode',
+    'operatingModes',
+    'currentOperatingModeCode',
+    'thoughtLevels',
+    'currentThoughtLevelCode',
+    'summary',
+    'summaryPinned',
+    'awaitingClosure',
+    'reviewPending',
+    'machineId',
+    'claudeSessionId',
+    'codexSessionId',
+    'tools',
+    'slashCommands',
+    'skills',
+    'homeDir',
+    'happyHomeDir',
+    'hostPid',
+    'flavor',
+    'isWorktree',
+    'worktreeBasePath',
+    'worktreeBranchName',
+    'worktreePrUrl',
+    'reviewOfSessionId',
+    'workspaceRepos',
+    'workspacePath',
+    'injectedMemoryIds',
+    'externalContext',
+    'sessionIcon',
+    'completionDismissedAt',
+] as const;
+
 function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {
     const seen = new WeakSet<object>();
-    const toPlain = (value: unknown): unknown => {
+    const toPlain = (value: unknown, depth = 0): unknown => {
         if (typeof value === 'function') return undefined;
+        if (depth > 8) return undefined;
         if (value && typeof value === 'object') {
             if (seen.has(value)) return undefined;
             seen.add(value);
             if (Array.isArray(value)) {
-                return value.map((item) => toPlain(item));
+                return value.map((item) => toPlain(item, depth + 1));
             }
             const plainObject: Record<string, unknown> = {};
             for (const key of Object.keys(value)) {
-                const child = toPlain((value as Record<string, unknown>)[key]);
+                const child = toPlain((value as Record<string, unknown>)[key], depth + 1);
                 if (child !== undefined) {
                     plainObject[key] = child;
                 }
@@ -53,10 +95,17 @@ function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {
         return value;
     };
 
-    // Avoid running zod directly on observable/proxy metadata. Some session
-    // rows contain circular bookkeeping that can make recursive validators
-    // overflow before they get a chance to reject unknown fields.
-    const plain = toPlain(metadata);
+    // Avoid walking arbitrary observable/proxy keys. Some session row objects
+    // expose circular bookkeeping via enumerable properties; schema parsing
+    // would strip those keys anyway, but traversing them first can overflow.
+    const source = metadata as Record<string, unknown>;
+    const plain: Record<string, unknown> = {};
+    for (const key of SESSION_METADATA_WRITE_KEYS) {
+        const child = toPlain(source[key]);
+        if (child !== undefined) {
+            plain[key] = child;
+        }
+    }
     return MetadataSchema.parse(plain);
 }
 
