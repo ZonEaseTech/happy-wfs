@@ -198,6 +198,38 @@ function matchesAny(values: string[], filters: string[]): boolean {
     return filters.some((filter) => haystack.includes(filter));
 }
 
+function extractIssueSearchTerms(query: string | undefined): string[] {
+    return (query ?? '')
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter(Boolean)
+        // Remove GitHub search qualifiers such as is:issue, is:open,
+        // assignee:@me, archived:false, repo:owner/name, etc. When ProjectV2
+        // filters are present, the project itself is the source of truth.
+        .filter((term) => !/^-?[a-z][a-z0-9-]*:/i.test(term));
+}
+
+function issueMatchesSearchTerms(issue: GitHubIssue, terms: string[]): boolean {
+    if (terms.length === 0) return true;
+    const haystack = [
+        issue.repository,
+        `#${issue.number}`,
+        String(issue.number),
+        issue.title,
+        issue.body ?? '',
+        ...issue.labels,
+        ...issue.projectStatuses,
+        ...issue.projectTitles,
+    ].join('\n').toLowerCase();
+    return terms.every((term) => {
+        const normalized = term.replace(/^#\s*/, '').toLowerCase();
+        if (/^\d+$/.test(normalized)) {
+            return issue.number === Number(normalized);
+        }
+        return haystack.includes(normalized);
+    });
+}
+
 type GitHubGraphQLIssuesResponse = {
     data?: { search?: { nodes?: Array<GraphQLIssueNode | null> | null } | null };
     errors?: Array<{ message?: string }>;
@@ -452,10 +484,12 @@ export function githubRoutes(app: Fastify) {
         const projectFilters = splitFilterValues(request.query.projects);
         const statusFilters = splitFilterValues(request.query.statuses);
 
-        if (projectFilters.length > 0 && !request.query.query?.trim()) {
+        if (projectFilters.length > 0) {
             const result = await fetchGitHubProjectIssues({ token, projectFilters, statusFilters, limit });
             if (result.ok) {
-                return reply.send({ issues: result.issues });
+                const searchTerms = extractIssueSearchTerms(request.query.query);
+                const issues = result.issues.filter((issue) => issueMatchesSearchTerms(issue, searchTerms));
+                return reply.send({ issues });
             }
             log({ module: 'github-issues', level: 'warn' }, `GitHub project issues unavailable: ${result.error}`);
             return reply.send({
