@@ -57,6 +57,14 @@ import {
     parseCodexModelMode,
 } from 'happy-wire';
 
+export interface AgentQuickAction {
+    key: string;
+    label: string;
+    description: string;
+    prompt: string;
+    icon: string;
+}
+
 interface AgentInputProps {
     value: string;
     placeholder: string;
@@ -123,6 +131,8 @@ interface AgentInputProps {
     supportsImages?: boolean;
     isUploadingImages?: boolean;
     onImageDrop?: (files: File[]) => void;
+    quickActions?: AgentQuickAction[];
+    onCustomizeQuickActions?: () => void;
 }
 
 const agentFlavorIcons = {
@@ -699,25 +709,43 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
     // Settings modal state: 'model' shows model picker, 'permission' shows permission picker, false = closed
     const [showSettings, setShowSettings] = React.useState<'model' | 'permission' | false>(false);
+    const [showQuickActions, setShowQuickActions] = React.useState(false);
 
     // Dismiss keyboard when settings overlay opens
     React.useEffect(() => {
-        if (showSettings) {
+        if (showSettings || showQuickActions) {
             Keyboard.dismiss();
         }
-    }, [showSettings]);
+    }, [showSettings, showQuickActions]);
 
     // Handle settings button press (gear icon → model selection)
     const handleSettingsPress = React.useCallback(() => {
         hapticsLight();
+        setShowQuickActions(false);
         setShowSettings(prev => prev === 'model' ? false : 'model');
     }, []);
 
     // Handle permission mode text press (right-side text → permission mode selection)
     const handlePermissionPress = React.useCallback(() => {
         hapticsLight();
+        setShowQuickActions(false);
         setShowSettings(prev => prev === 'permission' ? false : 'permission');
     }, []);
+
+    const handleQuickActionPress = React.useCallback(() => {
+        hapticsLight();
+        setShowSettings(false);
+        setShowQuickActions(prev => !prev);
+    }, []);
+
+    const handleQuickActionSelect = React.useCallback((action: AgentQuickAction) => {
+        hapticsLight();
+        setShowQuickActions(false);
+        setInputState({ text: action.prompt, selection: { start: action.prompt.length, end: action.prompt.length } });
+        latestTextRef.current = action.prompt;
+        props.onChangeText(action.prompt);
+        setTimeout(() => inputRef.current?.focus(), 30);
+    }, [props.onChangeText]);
 
     // Handle settings selection
     const handleSettingsSelect = React.useCallback((mode: PermissionMode) => {
@@ -1090,6 +1118,106 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     )}
                                 </View>}
 
+                            </FloatingOverlay>
+                        </View>
+                    </>
+                )}
+
+                {/* Quick workflow prompts */}
+                {showQuickActions && (
+                    <>
+                        <TouchableWithoutFeedback onPress={() => setShowQuickActions(false)}>
+                            <View style={styles.overlayBackdrop} />
+                        </TouchableWithoutFeedback>
+                        <View style={[
+                            styles.settingsOverlay,
+                            { paddingHorizontal: screenWidth > 700 ? 0 : 8 }
+                        ]}>
+                            <FloatingOverlay maxHeight={380} keyboardShouldPersistTaps="always">
+                                <View style={styles.overlaySection}>
+                                    <Text style={{
+                                        fontSize: 12,
+                                        fontWeight: '600',
+                                        color: theme.colors.textSecondary,
+                                        paddingHorizontal: 16,
+                                        paddingBottom: 6,
+                                        ...Typography.default('semiBold'),
+                                    }}>
+                                        {t('agentInput.quickActions.title')}
+                                    </Text>
+                                    {(props.quickActions ?? []).map((action) => (
+                                        <Pressable
+                                            key={action.key}
+                                            onPress={() => handleQuickActionSelect(action)}
+                                            style={({ pressed }) => ({
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                paddingHorizontal: 16,
+                                                paddingVertical: 10,
+                                                gap: 12,
+                                                backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                                            })}
+                                        >
+                                            <Ionicons
+                                                name={action.icon as any}
+                                                size={18}
+                                                color={theme.colors.button.secondary.tint}
+                                            />
+                                            <View style={{ flex: 1, minWidth: 0 }}>
+                                                <Text style={{
+                                                    fontSize: 14,
+                                                    color: theme.colors.text,
+                                                    ...Typography.default('semiBold'),
+                                                }}>
+                                                    {action.label}
+                                                </Text>
+                                                <Text
+                                                    numberOfLines={2}
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: theme.colors.textSecondary,
+                                                        marginTop: 2,
+                                                        ...Typography.default(),
+                                                    }}
+                                                >
+                                                    {action.description}
+                                                </Text>
+                                            </View>
+                                        </Pressable>
+                                    ))}
+                                    {props.onCustomizeQuickActions && (
+                                        <>
+                                            <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 4 }]} />
+                                            <Pressable
+                                                onPress={() => {
+                                                    setShowQuickActions(false);
+                                                    props.onCustomizeQuickActions?.();
+                                                }}
+                                                style={({ pressed }) => ({
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 16,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                    backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                                                })}
+                                            >
+                                                <Ionicons
+                                                    name="create-outline"
+                                                    size={18}
+                                                    color={theme.colors.button.secondary.tint}
+                                                />
+                                                <Text style={{
+                                                    fontSize: 14,
+                                                    color: theme.colors.text,
+                                                    ...Typography.default('semiBold'),
+                                                }}>
+                                                    {t('agentInput.quickActions.customize')}
+                                                </Text>
+                                            </Pressable>
+                                        </>
+                                    )}
+                                </View>
                             </FloatingOverlay>
                         </View>
                     </>
@@ -1625,6 +1753,24 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 >
                                     <Ionicons name="library-outline" size={20} color={theme.colors.button.secondary.tint} />
                                 </Pressable>
+
+                                {/* Workflow prompt shortcuts. They fill the input so users can review before sending. */}
+                                {props.quickActions && props.quickActions.length > 0 && (
+                                    <Pressable
+                                        {...webTooltip(t('agentInput.quickActions.title'))}
+                                        onPress={handleQuickActionPress}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('agentInput.quickActions.title')}
+                                        style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Ionicons
+                                            name="sparkles-outline"
+                                            size={20}
+                                            color={showQuickActions ? theme.colors.button.primary.background : theme.colors.button.secondary.tint}
+                                        />
+                                    </Pressable>
+                                )}
 
                                 {/* Git Status Badge */}
                                 <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />

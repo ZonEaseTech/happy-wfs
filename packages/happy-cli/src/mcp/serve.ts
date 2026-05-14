@@ -2,9 +2,10 @@
  * happy-ai-cli mcp serve — stdio MCP server exposing happy session APIs.
  *
  * Reads credentials from `~/.happy-ai/` (whatever happy-cli already authenticated
- * with) and surfaces 6 tools:
+ * with) and surfaces 7 tools:
  *   - happy_session_list      (read)
  *   - happy_session_inspect   (read)
+ *   - happy_session_summary   (read)
  *   - happy_session_messages  (read)
  *   - happy_session_send      (write)
  *   - happy_session_cancel    (write — requires happy-server with the abort HTTP wrapper)
@@ -23,6 +24,7 @@ import { readCredentials } from '@/persistence';
 import { Credentials } from '@/persistence';
 import { runSessionList, sessionListInputSchema } from './tools/sessionList';
 import { runSessionInspect, sessionInspectInputSchema } from './tools/sessionInspect';
+import { runSessionSummary, sessionSummaryInputSchema } from './tools/sessionSummary';
 import { runSessionMessages, sessionMessagesInputSchema } from './tools/sessionMessages';
 import { runSessionSend, sessionSendInputSchema } from './tools/sessionSend';
 import { runSessionCancel, sessionCancelInputSchema } from './tools/sessionCancel';
@@ -82,6 +84,15 @@ export async function runMcpServe(): Promise<void> {
     );
 
     server.tool(
+        'happy_session_summary',
+        'Compact, bounded reader for large Happy sessions. Returns session metadata plus a concise chronological timeline ' +
+            'of user prompts, assistant text, and optional tool names without raw thinking/event/tool payloads. ' +
+            'Use this before happy_session_messages when you need to understand a long session quickly.',
+        sessionSummaryInputSchema,
+        wrap('happy_session_summary', credentials, runSessionSummary),
+    );
+
+    server.tool(
         'happy_session_messages',
         'Paginated decrypted message log for a session. Each message has role + structured content (user text, agent output). ' +
             'Use beforeSeq/afterSeq for pagination (mutually exclusive).',
@@ -116,5 +127,5 @@ export async function runMcpServe(): Promise<void> {
 
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    logStderr('serving on stdio (6 tools registered: list / inspect / messages / send / cancel / spawn)');
+    logStderr('serving on stdio (7 tools registered: list / inspect / summary / messages / send / cancel / spawn)');
 }

@@ -7,7 +7,7 @@ import { SimpleSyntaxHighlighter } from '@/components/SimpleSyntaxHighlighter';
 import { CodeEditor } from '@/components/CodeEditor';
 import { Typography } from '@/constants/Typography';
 import { Ionicons } from '@expo/vector-icons';
-import { sessionReadFile, sessionBash, sessionWriteFile } from '@/sync/ops';
+import { machineReadFile, sessionReadFile, sessionBash, sessionWriteFile } from '@/sync/ops';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { DropdownMenu } from '@/components/DropdownMenu';
 import { DesktopModalShell } from '@/components/DesktopModalShell';
@@ -27,7 +27,7 @@ import { showCopiedToast } from '@/components/Toast';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
-import { getExtensionFromMimeType, getImageMimeType, isPreviewableImage } from '@/utils/fileViewer';
+import { getExtensionFromMimeType, getImageMimeType, isPreviewableImage, isTemporaryPreviewableImagePath } from '@/utils/fileViewer';
 import { Image } from 'expo-image';
 import { selectFileViewerSharePayload } from '@/utils/fileViewerShare';
 import { File, Paths } from 'expo-file-system';
@@ -125,6 +125,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const encodedPath = props?.encodedPath ?? (searchParams.path as string);
     const ref = searchParams.ref as string | undefined;
     const preferredView = searchParams.view as 'file' | 'diff' | undefined;
+    const machineImageReaderId = typeof searchParams.machineId === 'string' ? searchParams.machineId : undefined;
     const isStaged = searchParams.staged === '1';
     const requestedLine = parsePositiveInt(searchParams.line);
     const requestedColumn = parsePositiveInt(searchParams.column);
@@ -175,6 +176,7 @@ export default function FileScreen(props?: FileScreenProps) {
 
     const fileName = filePath.split('/').pop() || filePath;
     const isPreviewImageFile = isPreviewableImage(filePath);
+    const canReadImageFromMachine = !!machineImageReaderId && isTemporaryPreviewableImagePath(filePath);
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
 
@@ -263,7 +265,7 @@ export default function FileScreen(props?: FileScreenProps) {
         ];
 
         // History: only for non-ref views (viewing current file, not a specific commit)
-        if (!ref && (gitCwd || sessionPath)) {
+        if (!ref && !canReadImageFromMachine && (gitCwd || sessionPath)) {
             items.push({
                 label: t('files.fileHistory'),
                 onPress: () => {
@@ -298,7 +300,9 @@ export default function FileScreen(props?: FileScreenProps) {
                 label: t('files.downloadFile'),
                 onPress: async () => {
                     try {
-                        const response = await sessionReadFile(sessionId, filePath);
+                        const response = canReadImageFromMachine
+                            ? await machineReadFile(machineImageReaderId!, filePath)
+                            : await sessionReadFile(sessionId, filePath);
                         if (!response.success || !response.content) {
                             Modal.alert(t('common.error'), response.error || 'Failed to download file');
                             return;
@@ -324,7 +328,7 @@ export default function FileScreen(props?: FileScreenProps) {
         }
 
         // Delete: only for non-ref views
-        if (!ref && (gitCwd || sessionPath)) {
+        if (!ref && !canReadImageFromMachine && (gitCwd || sessionPath)) {
             items.push({
                 label: t('files.deleteFile'),
                 destructive: true,
@@ -352,7 +356,7 @@ export default function FileScreen(props?: FileScreenProps) {
         }
 
         return items;
-    }, [relativePath, fileName, fileContent, diffContent, ref, sessionPath, gitCwd, sessionId, filePath, router, isPreviewImageFile, handleShare]);
+    }, [relativePath, fileName, fileContent, diffContent, ref, sessionPath, gitCwd, sessionId, filePath, router, isPreviewImageFile, handleShare, canReadImageFromMachine, machineImageReaderId]);
 
     // Determine file language from extension
     const getFileLanguage = React.useCallback((path: string): string | null => {
@@ -443,7 +447,9 @@ export default function FileScreen(props?: FileScreenProps) {
                 const sessionPath = session?.metadata?.path;
 
                 if (isPreviewImageFile && !ref) {
-                    const response = await sessionReadFile(sessionId!, filePath);
+                    const response = canReadImageFromMachine
+                        ? await machineReadFile(machineImageReaderId!, filePath)
+                        : await sessionReadFile(sessionId!, filePath);
                     if (!isCancelled) {
                         if (response && response.success && response.content) {
                             const mimeType = getImageMimeType(filePath) || 'image/png';
@@ -581,7 +587,7 @@ export default function FileScreen(props?: FileScreenProps) {
         return () => {
             isCancelled = true;
         };
-    }, [sessionId, filePath, ref, isStaged, isBinaryFile]);
+    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, canReadImageFromMachine, machineImageReaderId, gitCwd]);
 
     // Show error modal if there's an error
     React.useEffect(() => {

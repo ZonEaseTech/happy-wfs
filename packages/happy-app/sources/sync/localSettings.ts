@@ -4,6 +4,15 @@ import * as z from 'zod';
 // Schema
 //
 
+export const CustomQuickActionSchema = z.object({
+    label: z.string().trim().min(1),
+    description: z.string().trim().optional(),
+    prompt: z.string().trim().min(1),
+    icon: z.string().trim().optional(),
+});
+
+export type CustomQuickAction = z.infer<typeof CustomQuickActionSchema>;
+
 export const LocalSettingsSchema = z.object({
     // Developer settings (device-specific)
     debugMode: z.boolean().describe('Enable debug logging'),
@@ -17,6 +26,7 @@ export const LocalSettingsSchema = z.object({
     worktreeBranchPrefix: z.string().describe('Prefix prepended to auto-generated worktree branch names (e.g. "vk/")'),
     // CLI version acknowledgments - keyed by machineId
     acknowledgedCliVersions: z.record(z.string(), z.string()).describe('Acknowledged CLI versions per machine'),
+    customQuickActions: z.array(CustomQuickActionSchema).describe('Device-local AI shortcut prompts shown in the web session composer'),
 });
 
 //
@@ -42,6 +52,7 @@ export const localSettingsDefaults: LocalSettings = {
     hideSessionNotificationsWhenActive: false,
     worktreeBranchPrefix: '',
     acknowledgedCliVersions: {},
+    customQuickActions: [],
 };
 Object.freeze(localSettingsDefaults);
 

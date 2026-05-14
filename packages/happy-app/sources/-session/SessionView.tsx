@@ -1,5 +1,5 @@
 import { AgentContentView } from '@/components/AgentContentView';
-import { AgentInput } from '@/components/AgentInput';
+import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
 import { getSuggestions } from '@/components/autocomplete/suggestions';
@@ -20,7 +20,7 @@ import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
-import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -47,6 +47,7 @@ import { FileViewerModal } from '@/components/FileViewerModal';
 import { Terminal } from '@/components/Terminal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
+import { CustomQuickActionSchema } from '@/sync/localSettings';
 
 const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
@@ -56,6 +57,10 @@ const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
 const webTooltip = (label: string): Record<string, string> => (
     Platform.OS === 'web' ? { title: label } : {}
 );
+
+function applyQuickActionPlaceholders(prompt: string, params: { projectPath: string }): string {
+    return prompt.replaceAll('{{projectPath}}', params.projectPath);
+}
 
 export const SessionView = React.memo((props: { id: string }) => {
     const sessionId = props.id;
@@ -500,6 +505,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const sessionStatus = useSessionStatus(session);
     const sessionUsage = useSessionUsage(sessionId);
     const alwaysShowContextSize = useSetting('alwaysShowContextSize');
+    const [customQuickActions, setCustomQuickActions] = useLocalSettingMutable('customQuickActions');
     const [silentRefreshTrackingKey, setSilentRefreshTrackingKey] = React.useState(0);
     const [silentRefreshPhase, setSilentRefreshPhase] = React.useState<'idle' | 'refreshing' | 'failed'>('idle');
     const latestMessageSnapshotRef = React.useRef({ isLoaded, messages, fetchVersion });
@@ -601,6 +607,97 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
     // Ref for the input component (used for web auto-focus)
     const inputRef = React.useRef<MultiTextInputHandle>(null);
+    const sessionProjectPath = session.metadata?.path ?? '.';
+    const defaultQuickActions = React.useMemo<AgentQuickAction[]>(() => [
+        {
+            key: 'taskBrief',
+            label: t('agentInput.quickActions.taskBrief.title'),
+            description: t('agentInput.quickActions.taskBrief.description'),
+            prompt: t('agentInput.quickActions.taskBrief.prompt', { projectPath: sessionProjectPath }),
+            icon: 'git-pull-request-outline',
+        },
+        {
+            key: 'releaseGuard',
+            label: t('agentInput.quickActions.releaseGuard.title'),
+            description: t('agentInput.quickActions.releaseGuard.description'),
+            prompt: t('agentInput.quickActions.releaseGuard.prompt'),
+            icon: 'shield-checkmark-outline',
+        },
+        {
+            key: 'githubTakeover',
+            label: t('agentInput.quickActions.githubTakeover.title'),
+            description: t('agentInput.quickActions.githubTakeover.description'),
+            prompt: t('agentInput.quickActions.githubTakeover.prompt'),
+            icon: 'logo-github',
+        },
+        {
+            key: 'remoteDiagnose',
+            label: t('agentInput.quickActions.remoteDiagnose.title'),
+            description: t('agentInput.quickActions.remoteDiagnose.description'),
+            prompt: t('agentInput.quickActions.remoteDiagnose.prompt'),
+            icon: 'terminal-outline',
+        },
+        {
+            key: 'evidenceReport',
+            label: t('agentInput.quickActions.evidenceReport.title'),
+            description: t('agentInput.quickActions.evidenceReport.description'),
+            prompt: t('agentInput.quickActions.evidenceReport.prompt'),
+            icon: 'image-outline',
+        },
+    ], [sessionProjectPath]);
+    const quickActions = React.useMemo<AgentQuickAction[]>(() => {
+        if (customQuickActions.length === 0) return defaultQuickActions;
+        return customQuickActions.map((action, index) => ({
+            key: `custom-${index}`,
+            label: action.label,
+            description: action.description ?? '',
+            prompt: applyQuickActionPlaceholders(action.prompt, { projectPath: sessionProjectPath }),
+            icon: action.icon ?? 'sparkles-outline',
+        }));
+    }, [customQuickActions, defaultQuickActions, sessionProjectPath]);
+    const handleCustomizeQuickActions = React.useCallback(async () => {
+        const editableActions = customQuickActions.length > 0
+            ? customQuickActions
+            : defaultQuickActions.map((action) => ({
+                label: action.label,
+                description: action.description,
+                prompt: action.prompt.replaceAll(sessionProjectPath, '{{projectPath}}'),
+                icon: action.icon,
+            }));
+        const raw = await Modal.prompt(
+            t('agentInput.quickActions.customizeTitle'),
+            t('agentInput.quickActions.customizePrompt'),
+            {
+                defaultValue: JSON.stringify(editableActions, null, 2),
+                confirmText: t('common.save'),
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 14,
+            },
+        );
+        if (raw === null) return;
+        const trimmed = raw.trim();
+        if (!trimmed || trimmed === '[]') {
+            setCustomQuickActions([]);
+            return;
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            const result = CustomQuickActionSchema.array().safeParse(parsed);
+            if (!result.success) {
+                Modal.alert(t('common.error'), t('agentInput.quickActions.customizeInvalid'));
+                return;
+            }
+            setCustomQuickActions(result.data.map((action) => ({
+                label: action.label.trim(),
+                description: action.description?.trim() ?? '',
+                prompt: action.prompt.trim(),
+                icon: action.icon?.trim() || undefined,
+            })));
+        } catch {
+            Modal.alert(t('common.error'), t('agentInput.quickActions.customizeInvalid'));
+        }
+    }, [customQuickActions, defaultQuickActions, sessionProjectPath, setCustomQuickActions]);
 
     // Pill toggle in the status row: archive when active, resume when archived.
     // Both flows confirm via Modal first, so an accidental tap is recoverable.
@@ -1120,7 +1217,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 }
             }}
             // Autocomplete configuration
-            autocompletePrefixes={['@', '/']}
+            autocompletePrefixes={['@', '/', '$']}
             autocompleteSuggestions={(query) => getSuggestions(sessionId, query)}
             usageData={sessionUsage ? {
                 inputTokens: sessionUsage.inputTokens,
@@ -1153,6 +1250,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             supportsImages={supportsImages}
             isUploadingImages={isUploadingImages}
             onImageDrop={handleImageDrop}
+            quickActions={quickActions}
+            onCustomizeQuickActions={handleCustomizeQuickActions}
         />
     ) : null;
 

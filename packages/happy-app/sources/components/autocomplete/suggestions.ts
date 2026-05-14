@@ -3,7 +3,7 @@ import * as React from 'react';
 import { searchFiles, FileItem } from '@/sync/suggestionFile';
 import { searchCommands, CommandItem } from '@/sync/suggestionCommands';
 
-export async function getCommandSuggestions(sessionId: string, query: string): Promise<{
+export async function getCommandSuggestions(sessionId: string, query: string, kind?: 'command' | 'skill'): Promise<{
     key: string;
     text: string;
     component: React.ComponentType;
@@ -13,15 +13,16 @@ export async function getCommandSuggestions(sessionId: string, query: string): P
     
     try {
         // Use the command search cache with fuzzy matching
-        const commands = await searchCommands(sessionId, searchTerm, { limit: 5 });
+        const commands = await searchCommands(sessionId, searchTerm, { limit: 5, kind });
         
         // Convert CommandItem to suggestion format
         return commands.map((cmd: CommandItem) => ({
-            key: `cmd-${cmd.command}`,
-            text: `/${cmd.command}`,
+            key: `${cmd.kind ?? 'command'}-${cmd.command}`,
+            text: cmd.kind === 'skill' ? `$${cmd.command}` : `/${cmd.command}`,
             component: () => React.createElement(CommandSuggestion, {
                 command: cmd.command,
-                description: cmd.description
+                description: cmd.description,
+                prefix: cmd.kind === 'skill' ? '$' : '/'
             })
         }));
     } catch (error) {
@@ -72,7 +73,7 @@ export async function getSuggestions(sessionId: string, query: string): Promise<
         return [];
     }
     
-    // Check if it's a command (starts with /)
+    // Check if it's a command or skill discovery query (starts with /)
     if (query.startsWith('/')) {
         console.log('💡 getSuggestions: Command detected');
         const result = await getCommandSuggestions(sessionId, query);
@@ -82,6 +83,12 @@ export async function getSuggestions(sessionId: string, query: string): Promise<
             component: '[Function]'
         })), null, 2));
         return result;
+    }
+
+    // Check if it's an explicit skill query (starts with $)
+    if (query.startsWith('$')) {
+        console.log('💡 getSuggestions: Skill detected');
+        return getCommandSuggestions(sessionId, query, 'skill');
     }
     
     // Check if it's a file mention (starts with @)

@@ -34,6 +34,7 @@ import { ResizableHandle } from '@/components/ResizableHandle';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { getSession } from '@/sync/storage';
 import { t } from '@/text';
+import { getImageMimeType, isPreviewableImage } from '@/utils/fileViewer';
 
 // Override the app's Modal Manager with native browser dialogs INSIDE this
 // file. Reason: the FileViewerModal is rendered via createPortal directly into
@@ -77,6 +78,17 @@ const Modal = {
         const idx = parseInt(raw, 10) - 1;
         const target = buttons[idx];
         target?.onPress?.();
+    },
+    async confirm(
+        title: string,
+        message?: string,
+        options?: { confirmText?: string; cancelText?: string; destructive?: boolean },
+    ): Promise<boolean> {
+        const body = message ? `${title}\n\n${message}` : title;
+        const suffix = options?.confirmText || options?.cancelText
+            ? `\n\n[OK = ${options?.confirmText ?? 'OK'}, Cancel = ${options?.cancelText ?? 'Cancel'}]`
+            : '';
+        return window.confirm(`${body}${suffix}`);
     },
     async prompt(
         title: string,
@@ -144,6 +156,8 @@ interface Tab {
     original: string;
     dirty: boolean;
     language: string;
+    kind: 'text' | 'image';
+    mimeType?: string;
 }
 
 type CloseDecision = 'save' | 'discard' | 'cancel';
@@ -637,20 +651,17 @@ export function FileViewerModal({
                 Modal.alert(t('common.error'), resp?.error || tx('fileViewer.openFailed'));
                 return;
             }
-            let text: string;
-            try {
-                text = decodeBase64Utf8(resp.content);
-            } catch {
-                Modal.alert(t('common.error'), tx('fileViewer.binaryNotSupported'));
-                return;
-            }
+            const isImage = isPreviewableImage(path);
+            const text = isImage ? resp.content : decodeBase64Utf8(resp.content);
             const newTab: Tab = {
                 id: `${path}::${Date.now()}`,
                 path,
                 content: text,
                 original: text,
                 dirty: false,
-                language: inferLanguage(path),
+                language: isImage ? 'image' : inferLanguage(path),
+                kind: isImage ? 'image' : 'text',
+                mimeType: isImage ? getImageMimeType(path) ?? 'image/png' : undefined,
             };
             setTabs(prev => [...prev, newTab]);
             setActiveTabId(newTab.id);
@@ -780,15 +791,18 @@ export function FileViewerModal({
             Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
             return;
         }
-        let text: string;
-        try {
-            text = decodeBase64Utf8(resp.content);
-        } catch {
-            Modal.alert(t('common.error'), tx('fileViewer.binaryNotSupported'));
-            return;
-        }
+        const isImage = isPreviewableImage(tab.path);
+        const text = isImage ? resp.content : decodeBase64Utf8(resp.content);
         setTabs(prev => prev.map(p => p.id === tab.id
-            ? { ...p, content: text, original: text, dirty: false }
+            ? {
+                ...p,
+                content: text,
+                original: text,
+                dirty: false,
+                language: isImage ? 'image' : inferLanguage(tab.path),
+                kind: isImage ? 'image' : 'text',
+                mimeType: isImage ? getImageMimeType(tab.path) ?? 'image/png' : undefined,
+            }
             : p,
         ));
     }, [activeTab, saveTab, readFile]);
@@ -1105,7 +1119,7 @@ export function FileViewerModal({
                     <ToolbarIconButton
                         icon="save-outline"
                         label={tx('fileViewer.save')}
-                        disabled={!activeTab || !activeTab.dirty || saving}
+                        disabled={!activeTab || activeTab.kind !== 'text' || !activeTab.dirty || saving}
                         onPress={() => { if (activeTab) void saveTab(activeTab.id); }}
                     />
                     <ToolbarIconButton
@@ -1117,20 +1131,20 @@ export function FileViewerModal({
                     <ToolbarIconButton
                         icon="reload"
                         label={tx('fileViewer.refresh')}
-                        disabled={!activeTab}
+                        disabled={!activeTab || activeTab.kind !== 'text'}
                         onPress={() => { void refreshActiveTab(); }}
                     />
                     <View style={{ width: 1, height: 18, backgroundColor: theme.colors.divider, marginHorizontal: 6 }} />
                     <ToolbarIconButton
                         icon="search"
                         label={tx('fileViewer.find')}
-                        disabled={!activeTab}
+                        disabled={!activeTab || activeTab.kind !== 'text'}
                         onPress={() => runEditorAction('actions.find')}
                     />
                     <ToolbarIconButton
                         icon="swap-horizontal"
                         label={tx('fileViewer.replace')}
-                        disabled={!activeTab}
+                        disabled={!activeTab || activeTab.kind !== 'text'}
                         onPress={() => runEditorAction('editor.action.startFindReplaceAction')}
                     />
                     <ToolbarIconButton
@@ -1142,7 +1156,7 @@ export function FileViewerModal({
                     {/* Diff toggle — visible only when caller flagged the file
                         as a git entry (staged/unstaged). Browser/cwd entries
                         keep the toolbar uncluttered. */}
-                    {activeTab && initialFromGit !== undefined && (
+                    {activeTab && activeTab.kind === 'text' && initialFromGit !== undefined && (
                         <ToolbarIconButton
                             icon="git-compare-outline"
                             label={tx('fileViewer.diff')}
@@ -1151,7 +1165,7 @@ export function FileViewerModal({
                         />
                     )}
                     {/* Markdown preview toggle — visible only on .md tabs. */}
-                    {activeTab && activeTab.language === 'markdown' && (
+                    {activeTab && activeTab.kind === 'text' && activeTab.language === 'markdown' && (
                         <ToolbarIconButton
                             icon={previewTabIds.has(activeTab.id) ? 'create-outline' : 'eye-outline'}
                             label={previewTabIds.has(activeTab.id) ? 'Edit' : 'Preview'}
@@ -1386,7 +1400,26 @@ export function FileViewerModal({
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                         {activeTab ? (
-                            previewTabIds.has(activeTab.id) && activeTab.language === 'markdown' ? (
+                            activeTab.kind === 'image' ? (
+                                <View style={{
+                                    flex: 1,
+                                    backgroundColor: '#1e1e1e',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: 24,
+                                }}>
+                                    <img
+                                        src={`data:${activeTab.mimeType ?? 'image/png'};base64,${activeTab.content}`}
+                                        alt={basename(activeTab.path)}
+                                        style={{
+                                            maxWidth: '100%',
+                                            maxHeight: '100%',
+                                            objectFit: 'contain',
+                                            borderRadius: 6,
+                                        }}
+                                    />
+                                </View>
+                            ) : previewTabIds.has(activeTab.id) && activeTab.language === 'markdown' ? (
                                 <ScrollView
                                     style={{ flex: 1, backgroundColor: theme.colors.surface }}
                                     contentContainerStyle={{ padding: 24 }}
@@ -1562,7 +1595,7 @@ function NewDialog({ state, onSetState, onSubmit }: NewDialogProps) {
                 {state.stage === 'pick' ? (
                     <>
                         <Text style={{ fontSize: 16, color: theme.colors.text, ...Typography.default('semiBold'), marginBottom: 12 }}>
-                            {t('fileViewer.newItem' as any)}
+                            {tx('fileViewer.newItem')}
                         </Text>
                         <Pressable
                             onPress={() => onSetState({ stage: 'name', type: 'file', value: '', saving: false })}
@@ -1574,7 +1607,7 @@ function NewDialog({ state, onSetState, onSubmit }: NewDialogProps) {
                             })}
                         >
                             <Text style={{ fontSize: 14, color: theme.colors.text, ...Typography.default() }}>
-                                {t('fileViewer.newFile' as any)}
+                                {tx('fileViewer.newFile')}
                             </Text>
                         </Pressable>
                         <Pressable
@@ -1587,7 +1620,7 @@ function NewDialog({ state, onSetState, onSubmit }: NewDialogProps) {
                             })}
                         >
                             <Text style={{ fontSize: 14, color: theme.colors.text, ...Typography.default() }}>
-                                {t('fileViewer.newFolder' as any)}
+                                {tx('fileViewer.newFolder')}
                             </Text>
                         </Pressable>
                         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
@@ -1607,10 +1640,10 @@ function NewDialog({ state, onSetState, onSubmit }: NewDialogProps) {
                 ) : (
                     <>
                         <Text style={{ fontSize: 16, color: theme.colors.text, ...Typography.default('semiBold'), marginBottom: 4 }}>
-                            {t((state.type === 'file' ? 'fileViewer.newFile' : 'fileViewer.newFolder') as any)}
+                            {tx(state.type === 'file' ? 'fileViewer.newFile' : 'fileViewer.newFolder')}
                         </Text>
                         <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default(), marginBottom: 10 }}>
-                            {t((state.type === 'file' ? 'fileViewer.newFilePrompt' : 'fileViewer.newFolderPrompt') as any)}
+                            {tx(state.type === 'file' ? 'fileViewer.newFilePrompt' : 'fileViewer.newFolderPrompt')}
                         </Text>
                         <TextInput
                             ref={inputRef}

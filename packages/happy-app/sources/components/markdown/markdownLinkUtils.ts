@@ -2,6 +2,10 @@
  * Pure utility functions for resolving markdown links to in-app file viewer routes.
  */
 
+import { isPreviewableImage, isTemporaryPreviewableImagePath } from '@/utils/fileViewer';
+
+const IMAGE_FILE_REFERENCE_PATTERN = /(?:file:\/\/)?(?:\/[^\s`"'<>()[\]{}]+|(?:\.{1,2}\/|[A-Za-z0-9_.-]+\/)[^\s`"'<>()[\]{}]+)\.(?:png|jpe?g|gif|webp)(?:#[Ll]\d+(?:[Cc]\d+)?|:\d+(?::\d+)?)?/gi;
+
 export function encodeFilePathForRoute(filePath: string): string {
     const bytes = new TextEncoder().encode(filePath);
     let binary = '';
@@ -134,12 +138,102 @@ export function buildSessionFileHref(args: {
     filePath: string;
     line?: number;
     column?: number;
+    machineId?: string;
 }): string {
     const encodedPath = encodeURIComponent(encodeFilePathForRoute(args.filePath));
     const queryParams = [`path=${encodedPath}`, 'view=file'];
     if (args.line) queryParams.push(`line=${args.line}`);
     if (args.column) queryParams.push(`column=${args.column}`);
+    if (args.machineId) queryParams.push(`machineId=${encodeURIComponent(args.machineId)}`);
     return `/session/${args.sessionId}/file?${queryParams.join('&')}`;
+}
+
+export function resolveMarkdownImageReference(args: {
+    rawText: string;
+    sessionId?: string;
+    sessionWorkingDirectory?: string | null;
+    sessionHomeDirectory?: string | null;
+    machineId?: string | null;
+}): { href: string; target?: '_blank' } | null {
+    const trimmed = args.rawText.trim();
+    if (!trimmed || !args.sessionId) return null;
+
+    const parsed = parseLocalFileReference(trimmed);
+    if (!isPreviewableImage(parsed.filePath)) return null;
+
+    if (parsed.filePath.startsWith('/')) {
+        if (isLikelyAbsoluteFilePath(parsed.filePath, {
+            sessionWorkingDirectory: args.sessionWorkingDirectory,
+            sessionHomeDirectory: args.sessionHomeDirectory,
+        })) {
+            return {
+                href: buildSessionFileHref({
+                    sessionId: args.sessionId,
+                    filePath: parsed.filePath,
+                    line: parsed.line,
+                    column: parsed.column,
+                }),
+            };
+        }
+
+        if (args.machineId && isTemporaryPreviewableImagePath(parsed.filePath)) {
+            return {
+                href: buildSessionFileHref({
+                    sessionId: args.sessionId,
+                    filePath: parsed.filePath,
+                    line: parsed.line,
+                    column: parsed.column,
+                    machineId: args.machineId,
+                }),
+            };
+        }
+
+        return null;
+    }
+
+    if (args.sessionWorkingDirectory && isLikelyRelativeFilePath(trimmed)) {
+        const absolutePath = joinPosixPath(args.sessionWorkingDirectory, parsed.filePath);
+        return {
+            href: buildSessionFileHref({
+                sessionId: args.sessionId,
+                filePath: absolutePath,
+                line: parsed.line,
+                column: parsed.column,
+            }),
+        };
+    }
+
+    return null;
+}
+
+export function splitTextByImageReferences(args: {
+    text: string;
+    sessionId?: string;
+    sessionWorkingDirectory?: string | null;
+    sessionHomeDirectory?: string | null;
+    machineId?: string | null;
+}): Array<{ text: string; href?: string; target?: '_blank' }> {
+    const segments: Array<{ text: string; href?: string; target?: '_blank' }> = [];
+    let lastIndex = 0;
+
+    for (const match of args.text.matchAll(IMAGE_FILE_REFERENCE_PATTERN)) {
+        const rawText = match[0];
+        const index = match.index ?? 0;
+        const link = resolveMarkdownImageReference({ ...args, rawText });
+        if (!link) continue;
+
+        if (index > lastIndex) {
+            segments.push({ text: args.text.slice(lastIndex, index) });
+        }
+        segments.push({ text: rawText, href: link.href, target: link.target });
+        lastIndex = index + rawText.length;
+    }
+
+    if (lastIndex < args.text.length) {
+        segments.push({ text: args.text.slice(lastIndex) });
+    }
+
+    return segments.length > 0 ? segments : [{ text: args.text }];
 }
 
 export function resolveMarkdownLink(args: {

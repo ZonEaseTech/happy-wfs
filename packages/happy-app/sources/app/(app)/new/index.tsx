@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Platform, Pressable, useWindowDimensions, ScrollView, TextInput } from 'react-native';
 import Constants from 'expo-constants';
 import { Typography } from '@/constants/Typography';
-import { useAllMachines, storage, useSessionModeLastUsed, useSetting, useSettingMutable, useSessions } from '@/sync/storage';
+import { useAllMachines, storage, useLocalSettingMutable, useSessionModeLastUsed, useSetting, useSettingMutable, useSessions } from '@/sync/storage';
 import { Ionicons, Octicons } from '@expo/vector-icons';
 import { ItemGroup } from '@/components/ItemGroup';
 import { Item } from '@/components/Item';
@@ -28,7 +28,7 @@ import { getTempData, type NewSessionData } from '@/utils/tempDataStore';
 import { PermissionMode, ModelMode, PermissionModeSelector } from '@/components/PermissionModeSelector';
 import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile, DEFAULT_PROFILES } from '@/sync/profileUtils';
-import { AgentInput } from '@/components/AgentInput';
+import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { StyleSheet } from 'react-native-unistyles';
 import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
@@ -49,6 +49,7 @@ import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
+import { CustomQuickActionSchema } from '@/sync/localSettings';
 
 // Simple temporary state for passing selections back from picker screens
 let onMachineSelected: (machineId: string) => void = () => { };
@@ -110,6 +111,10 @@ const getRecentPathForMachine = (machineId: string | null, recentPaths: Array<{ 
 // Configuration constants
 const RECENT_PATHS_DEFAULT_VISIBLE = 5;
 const STATUS_ITEM_GAP = 11; // Spacing between status items (machine, CLI) - ~2 character spaces at 11px font
+
+function applyQuickActionPlaceholders(prompt: string, params: { projectPath: string }): string {
+    return prompt.replaceAll('{{projectPath}}', params.projectPath);
+}
 
 const styles = StyleSheet.create((theme, rt) => ({
     container: {
@@ -306,6 +311,7 @@ function NewSessionWizard() {
     const [favoriteDirectories, setFavoriteDirectories] = useSettingMutable('favoriteDirectories');
     const [favoriteMachines, setFavoriteMachines] = useSettingMutable('favoriteMachines');
     const [dismissedCLIWarnings, setDismissedCLIWarnings] = useSettingMutable('dismissedCLIWarnings');
+    const [customQuickActions, setCustomQuickActions] = useLocalSettingMutable('customQuickActions');
 
     // Combined profiles (built-in + custom)
     const allProfiles = React.useMemo(() => {
@@ -496,6 +502,97 @@ function NewSessionWizard() {
     });
     const [isCreating, setIsCreating] = React.useState(false);
     const [showAdvanced, setShowAdvanced] = React.useState(true);
+    const quickActionProjectPath = selectedPath || '.';
+    const defaultQuickActions = React.useMemo<AgentQuickAction[]>(() => [
+        {
+            key: 'taskBrief',
+            label: t('agentInput.quickActions.taskBrief.title'),
+            description: t('agentInput.quickActions.taskBrief.description'),
+            prompt: t('agentInput.quickActions.taskBrief.prompt', { projectPath: quickActionProjectPath }),
+            icon: 'git-pull-request-outline',
+        },
+        {
+            key: 'releaseGuard',
+            label: t('agentInput.quickActions.releaseGuard.title'),
+            description: t('agentInput.quickActions.releaseGuard.description'),
+            prompt: t('agentInput.quickActions.releaseGuard.prompt'),
+            icon: 'shield-checkmark-outline',
+        },
+        {
+            key: 'githubTakeover',
+            label: t('agentInput.quickActions.githubTakeover.title'),
+            description: t('agentInput.quickActions.githubTakeover.description'),
+            prompt: t('agentInput.quickActions.githubTakeover.prompt'),
+            icon: 'logo-github',
+        },
+        {
+            key: 'remoteDiagnose',
+            label: t('agentInput.quickActions.remoteDiagnose.title'),
+            description: t('agentInput.quickActions.remoteDiagnose.description'),
+            prompt: t('agentInput.quickActions.remoteDiagnose.prompt'),
+            icon: 'terminal-outline',
+        },
+        {
+            key: 'evidenceReport',
+            label: t('agentInput.quickActions.evidenceReport.title'),
+            description: t('agentInput.quickActions.evidenceReport.description'),
+            prompt: t('agentInput.quickActions.evidenceReport.prompt'),
+            icon: 'image-outline',
+        },
+    ], [quickActionProjectPath]);
+    const quickActions = React.useMemo<AgentQuickAction[]>(() => {
+        if (customQuickActions.length === 0) return defaultQuickActions;
+        return customQuickActions.map((action, index) => ({
+            key: `custom-${index}`,
+            label: action.label,
+            description: action.description ?? '',
+            prompt: applyQuickActionPlaceholders(action.prompt, { projectPath: quickActionProjectPath }),
+            icon: action.icon ?? 'sparkles-outline',
+        }));
+    }, [customQuickActions, defaultQuickActions, quickActionProjectPath]);
+    const handleCustomizeQuickActions = React.useCallback(async () => {
+        const editableActions = customQuickActions.length > 0
+            ? customQuickActions
+            : defaultQuickActions.map((action) => ({
+                label: action.label,
+                description: action.description,
+                prompt: action.prompt.replaceAll(quickActionProjectPath, '{{projectPath}}'),
+                icon: action.icon,
+            }));
+        const raw = await Modal.prompt(
+            t('agentInput.quickActions.customizeTitle'),
+            t('agentInput.quickActions.customizePrompt'),
+            {
+                defaultValue: JSON.stringify(editableActions, null, 2),
+                confirmText: t('common.save'),
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 14,
+            },
+        );
+        if (raw === null) return;
+        const trimmed = raw.trim();
+        if (!trimmed || trimmed === '[]') {
+            setCustomQuickActions([]);
+            return;
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            const result = CustomQuickActionSchema.array().safeParse(parsed);
+            if (!result.success) {
+                Modal.alert(t('common.error'), t('agentInput.quickActions.customizeInvalid'));
+                return;
+            }
+            setCustomQuickActions(result.data.map((action) => ({
+                label: action.label.trim(),
+                description: action.description?.trim() ?? '',
+                prompt: action.prompt.trim(),
+                icon: action.icon?.trim() || undefined,
+            })));
+        } catch {
+            Modal.alert(t('common.error'), t('agentInput.quickActions.customizeInvalid'));
+        }
+    }, [customQuickActions, defaultQuickActions, quickActionProjectPath, setCustomQuickActions]);
 
     // Image picker
     const {
@@ -1665,6 +1762,8 @@ function NewSessionWizard() {
                                 onImageButtonPress={handleImageButtonPress}
                                 supportsImages={supportsImages}
                                 onImageDrop={handleImageDrop}
+                                quickActions={quickActions}
+                                onCustomizeQuickActions={handleCustomizeQuickActions}
                             />
                         </View>
                     </View>
@@ -2454,6 +2553,8 @@ function NewSessionWizard() {
                             onImageButtonPress={handleImageButtonPress}
                             supportsImages={supportsImages}
                             onImageDrop={handleImageDrop}
+                            quickActions={quickActions}
+                            onCustomizeQuickActions={handleCustomizeQuickActions}
                         />
                     </View>
                 </View>

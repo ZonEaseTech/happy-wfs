@@ -9,11 +9,13 @@ import { getSession } from './storage';
 export interface CommandItem {
     command: string;        // The command without slash (e.g., "compact")
     description?: string;   // Optional description of what the command does
+    kind?: 'command' | 'skill';
 }
 
 interface SearchOptions {
     limit?: number;
     threshold?: number;
+    kind?: 'command' | 'skill';
 }
 
 // Commands to ignore/filter out
@@ -121,6 +123,22 @@ function getCommandsFromSession(sessionId: string): CommandItem[] {
             }
         }
     }
+
+    // Add Codex/agent skills from metadata. They are offered in the slash
+    // discovery popup, but selecting them inserts the Codex skill trigger form
+    // (`$skill`) rather than pretending they are slash commands.
+    if (session.metadata.skills) {
+        for (const skill of session.metadata.skills) {
+            const name = skill.name?.trim();
+            if (!name) continue;
+            if (commands.find(c => c.command === name && c.kind === 'skill')) continue;
+            commands.push({
+                command: name,
+                description: skill.description,
+                kind: 'skill',
+            });
+        }
+    }
     
     return commands;
 }
@@ -131,10 +149,10 @@ export async function searchCommands(
     query: string,
     options: SearchOptions = {}
 ): Promise<CommandItem[]> {
-    const { limit = 10, threshold = 0.3 } = options;
+    const { limit = 10, threshold = 0.3, kind } = options;
     
     // Get commands from session metadata (no caching)
-    const commands = getCommandsFromSession(sessionId);
+    const commands = getCommandsFromSession(sessionId).filter(cmd => !kind || (cmd.kind ?? 'command') === kind);
     
     // If query is empty, return all commands
     if (!query || query.trim().length === 0) {

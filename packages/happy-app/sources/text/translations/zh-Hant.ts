@@ -954,6 +954,38 @@ export const zhHant: TranslationStructure = {
             codex: 'Codex',
             gemini: 'Gemini',
         },
+        quickActions: {
+            title: 'AI 快捷操作',
+            customize: '自訂...',
+            customizeTitle: '自訂 AI 快捷操作',
+            customizePrompt: '編輯 JSON 陣列。欄位：label、description、prompt，可選 icon。用 {{projectPath}} 表示目前專案路徑。儲存空陣列 [] 可恢復預設。',
+            customizeInvalid: 'JSON 格式無效。請使用包含 label 和 prompt 的物件陣列。',
+            taskBrief: {
+                title: '會話接力',
+                description: '為目前專案生成接力包',
+                prompt: ({ projectPath }: { projectPath: string }) => `請執行 \`happy task brief --recent --project ${projectPath}\` 為目前專案生成會話接力包，然後根據接力包繼續目前任務。保留既有使用者改動，並回報驗證結果。`,
+            },
+            releaseGuard: {
+                title: '發布驗證',
+                description: '發布前先跑完整驗證',
+                prompt: '請先執行 `happy release guard --package happy-cli --dry-run` 做發布前驗證。除非我在 dry-run 通過後明確確認，否則不要執行 `--publish` 或 `--yes`。',
+            },
+            githubTakeover: {
+                title: 'GitHub 接管',
+                description: '生成 PR 或 Issue 接管清單',
+                prompt: '請接管一個 GitHub PR 或 Issue。如果我還沒提供 URL/編號和 repo，請先問我。然後執行 `happy github takeover <target> --repo <owner/name>`，並依生成的清單執行。',
+            },
+            remoteDiagnose: {
+                title: '遠端排查',
+                description: '生成唯讀遠端證據包',
+                prompt: '請準備一個唯讀遠端排查證據包。如果缺少 host/service/keyword，請先問我。然後執行 `happy diagnose remote --host <host> --service <service> --keyword <keyword>`，並總結需要收集的證據。',
+            },
+            evidenceReport: {
+                title: '證據報告',
+                description: '記錄截圖或日誌並生成報告',
+                prompt: '請收集 UI/除錯證據。如果我提供了圖片或日誌路徑，執行 `happy evidence add <path> --title "<title>"`；然後執行 `happy evidence report` 並總結報告。',
+            },
+        },
         model: {
             title: '模型',
             configureInCli: '在 CLI 設定中配置模型',

@@ -963,6 +963,38 @@ export const pl: TranslationStructure = {
             codex: 'Codex',
             gemini: 'Gemini',
         },
+        quickActions: {
+            title: 'AI Shortcuts',
+            customize: 'Customize...',
+            customizeTitle: 'Customize AI Shortcuts',
+            customizePrompt: 'Edit the JSON array. Fields: label, description, prompt, optional icon. Use {{projectPath}} for the current project path. Save an empty array [] to reset to defaults.',
+            customizeInvalid: 'Invalid JSON. Use an array of objects with label and prompt.',
+            taskBrief: {
+                title: 'Task Brief',
+                description: 'Generate a continuation brief for this project',
+                prompt: ({ projectPath }: { projectPath: string }) => `Please run \`happy task brief --recent --project ${projectPath}\` to generate a continuation brief for this project, then use that brief to continue the current task. Preserve existing user changes and report verification results.`,
+            },
+            releaseGuard: {
+                title: 'Release Check',
+                description: 'Run verification before any publish',
+                prompt: 'Please run `happy release guard --package happy-cli --dry-run` before any release. Do not run `--publish` or `--yes` unless I explicitly confirm after the dry-run passes.',
+            },
+            githubTakeover: {
+                title: 'GitHub Takeover',
+                description: 'Prepare a PR or issue takeover checklist',
+                prompt: 'Please take over a GitHub PR or issue. If I have not provided the URL/number and repo, ask me first. Then run `happy github takeover <target> --repo <owner/name>` and follow the generated checklist.',
+            },
+            remoteDiagnose: {
+                title: 'Remote Diagnose',
+                description: 'Create a read-only remote evidence pack',
+                prompt: 'Please prepare a read-only remote diagnosis evidence pack. If host/service/keyword are missing, ask me first. Then run `happy diagnose remote --host <host> --service <service> --keyword <keyword>` and summarize the evidence to collect.',
+            },
+            evidenceReport: {
+                title: 'Evidence Report',
+                description: 'Record screenshots or logs and render a report',
+                prompt: 'Please collect UI/debug evidence. If I provide image or log paths, run `happy evidence add <path> --title "<title>"`; then run `happy evidence report` and summarize the report.',
+            },
+        },
         model: {
             title: 'MODEL',
             configureInCli: 'Skonfiguruj modele w ustawieniach CLI',

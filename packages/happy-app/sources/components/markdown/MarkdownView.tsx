@@ -1,5 +1,5 @@
 import { MarkdownSpan, OptionItem as OptionItemData, parseMarkdown } from './parseMarkdown';
-import { resolveMarkdownLink } from './markdownLinkUtils';
+import { resolveMarkdownLink, splitTextByImageReferences } from './markdownLinkUtils';
 import { useWebHorizontalScroll } from '@/hooks/useWebHorizontalScroll';
 import { Link } from 'expo-router';
 import * as React from 'react';
@@ -38,6 +38,7 @@ export const MarkdownView = React.memo((props: {
     onOptionLongPress?: (option: Option, allOptions: OptionItemData[]) => void;
     optionsLoadingState?: OptionsLoadingState;
     sessionId?: string;
+    machineId?: string | null;
     sessionWorkingDirectory?: string | null;
     sessionHomeDirectory?: string | null;
     hideOptions?: boolean;
@@ -61,9 +62,10 @@ export const MarkdownView = React.memo((props: {
     const router = useRouter();
     const linkContext = React.useMemo(() => ({
         sessionId: props.sessionId,
+        machineId: props.machineId ?? null,
         sessionWorkingDirectory: props.sessionWorkingDirectory ?? null,
         sessionHomeDirectory: props.sessionHomeDirectory ?? null,
-    }), [props.sessionId, props.sessionWorkingDirectory, props.sessionHomeDirectory]);
+    }), [props.sessionId, props.machineId, props.sessionWorkingDirectory, props.sessionHomeDirectory]);
 
     const handleLongPress = React.useCallback(() => {
         try {
@@ -175,6 +177,7 @@ export const MarkdownView = React.memo((props: {
 
 const MarkdownLinkContext = React.createContext<{
     sessionId?: string;
+    machineId?: string | null;
     sessionWorkingDirectory?: string | null;
     sessionHomeDirectory?: string | null;
 }>({});
@@ -416,7 +419,27 @@ function RenderSpans(props: { spans: MarkdownSpan[], baseStyle?: any, isHeader?:
                     </Link>
                 );
             } else {
-                return <Text key={index} selectable style={[props.baseStyle, spanStyles]}>{span.text}</Text>
+                const parts = splitTextByImageReferences({
+                    text: span.text,
+                    sessionId: linkContext.sessionId,
+                    machineId: linkContext.machineId,
+                    sessionWorkingDirectory: linkContext.sessionWorkingDirectory,
+                    sessionHomeDirectory: linkContext.sessionHomeDirectory,
+                });
+                return parts.map((part, partIndex) => (
+                    part.href ? (
+                        <Link
+                            key={`${index}-${partIndex}`}
+                            href={part.href as any}
+                            target={part.target}
+                            style={[props.baseStyle, spanStyles, style.link]}
+                        >
+                            {part.text}
+                        </Link>
+                    ) : (
+                        <Text key={`${index}-${partIndex}`} selectable style={[props.baseStyle, spanStyles]}>{part.text}</Text>
+                    )
+                ));
             }
         })}
     </>)

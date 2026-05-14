@@ -10,6 +10,8 @@ export interface MonacoEditorProps {
     height?: number | string;
     /** Web-only escape hatch for the monaco editor instance — ignored on native. */
     onMount?: (editor: unknown) => void;
+    /** Web-only font size override — ignored on native fallback. */
+    fontSize?: number;
 }
 
 export function MonacoEditor({ value, height }: MonacoEditorProps) {

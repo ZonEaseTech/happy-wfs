@@ -68,6 +68,7 @@ function RenderBlock(props: {
         <UserTextBlock
           message={props.message}
           sessionId={props.sessionId}
+          machineId={props.metadata?.machineId ?? null}
           sessionWorkingDirectory={props.metadata?.path ?? null}
           sessionHomeDirectory={props.metadata?.homeDir ?? null}
           isNewestMessage={props.isNewestMessage}
@@ -84,6 +85,7 @@ function RenderBlock(props: {
         <AgentTextBlock
           message={props.message}
           sessionId={props.sessionId}
+          machineId={props.metadata?.machineId ?? null}
           sessionWorkingDirectory={props.metadata?.path ?? null}
           sessionHomeDirectory={props.metadata?.homeDir ?? null}
           isNewestMessage={props.isNewestMessage}
@@ -114,6 +116,7 @@ function RenderBlock(props: {
 function UserTextBlock(props: {
   message: UserTextMessage;
   sessionId: string;
+  machineId?: string | null;
   sessionWorkingDirectory?: string | null;
   sessionHomeDirectory?: string | null;
   isNewestMessage?: boolean;
@@ -222,6 +225,7 @@ function UserTextBlock(props: {
         <MarkdownView
           markdown={props.message.displayText || props.message.text}
           sessionId={props.sessionId}
+          machineId={props.machineId}
           sessionWorkingDirectory={props.sessionWorkingDirectory}
           sessionHomeDirectory={props.sessionHomeDirectory}
           onOptionPress={props.readOnly ? undefined : handleOptionPress}
@@ -240,6 +244,7 @@ function UserTextBlock(props: {
 function AgentTextBlock(props: {
   message: AgentTextMessage;
   sessionId: string;
+  machineId?: string | null;
   sessionWorkingDirectory?: string | null;
   sessionHomeDirectory?: string | null;
   isNewestMessage?: boolean;
@@ -302,6 +307,7 @@ function AgentTextBlock(props: {
       <MarkdownView
         markdown={props.message.text}
         sessionId={props.sessionId}
+        machineId={props.machineId}
         sessionWorkingDirectory={props.sessionWorkingDirectory}
         sessionHomeDirectory={props.sessionHomeDirectory}
         onOptionPress={props.readOnly ? undefined : handleOptionPress}

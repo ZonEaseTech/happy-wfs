@@ -732,7 +732,7 @@ describe('buildThreadParams', () => {
     expect(params.config?.model_reasoning_effort).toBe('high');
   });
 
-  it('injects default_tools_approval_mode=Approve for the happy MCP server', () => {
+  it('injects default_tools_approval_mode=approve for the happy MCP server', () => {
     const backend = new CodexAppServerBackend({
       cwd: process.cwd(),
       command: 'codex',
@@ -743,7 +743,7 @@ describe('buildThreadParams', () => {
     });
     const params = (backend as any).buildThreadParams();
     const servers = params.config?.mcp_servers as Record<string, any>;
-    expect(servers.happy.default_tools_approval_mode).toBe('Approve');
+    expect(servers.happy.default_tools_approval_mode).toBe('approve');
     expect(servers.happy.command).toBe('/bin/happy-mcp');
     expect(servers.happy.args).toEqual(['--url', 'http://127.0.0.1:40573/']);
     expect(servers.dootask.default_tools_approval_mode).toBeUndefined();

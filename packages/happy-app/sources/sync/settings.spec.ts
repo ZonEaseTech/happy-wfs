@@ -108,6 +108,8 @@ describe('settings', () => {
                 agentInputEnterToSend: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
+                showSidebarGroupAvatar: true,
+                mergeWorktreeGroups: false,
                 compactSessionView: false,
                 showThinkingMessages: true,
 
@@ -141,6 +143,8 @@ describe('settings', () => {
                 agentInputEnterToSend: true,
                 avatarStyle: 'gradient', // This should be preserved from currentSettings
                 showFlavorIcons: false,
+                showSidebarGroupAvatar: true,
+                mergeWorktreeGroups: false,
                 compactSessionView: false,
                 showThinkingMessages: true,
 
@@ -174,6 +178,8 @@ describe('settings', () => {
                 agentInputEnterToSend: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
+                showSidebarGroupAvatar: true,
+                mergeWorktreeGroups: false,
                 compactSessionView: false,
                 showThinkingMessages: true,
 
@@ -209,6 +215,8 @@ describe('settings', () => {
                 agentInputEnterToSend: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
+                showSidebarGroupAvatar: true,
+                mergeWorktreeGroups: false,
                 compactSessionView: false,
                 showThinkingMessages: true,
 
@@ -249,6 +257,8 @@ describe('settings', () => {
                 agentInputEnterToSend: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
+                showSidebarGroupAvatar: true,
+                mergeWorktreeGroups: false,
                 compactSessionView: false,
                 showThinkingMessages: true,
 
@@ -298,6 +308,8 @@ describe('settings', () => {
                 agentInputEnterToSend: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
+                showSidebarGroupAvatar: true,
+                mergeWorktreeGroups: false,
                 compactSessionView: false,
                 showThinkingMessages: true,
 
@@ -357,6 +369,8 @@ describe('settings', () => {
                 alwaysShowContextSize: false,
                 avatarStyle: 'brutalist',
                 showFlavorIcons: false,
+                showSidebarGroupAvatar: true,
+                mergeWorktreeGroups: false,
                 compactSessionView: false,
                 agentInputEnterToSend: true,
 

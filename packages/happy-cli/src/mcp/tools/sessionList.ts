@@ -32,13 +32,13 @@ export const sessionListInputSchema = {
         .describe('Max sessions to return. Default: 50.'),
 };
 
-interface SessionListInput {
+export interface SessionListInput {
     status?: 'active' | 'archived' | 'all';
     since?: number;
     limit?: number;
 }
 
-interface SessionSummary {
+export interface SessionListSession {
     sessionId: string;
     active: boolean;
     activeAt: number;
@@ -56,7 +56,7 @@ interface SessionSummary {
 export async function runSessionList(
     credentials: Credentials,
     input: SessionListInput,
-): Promise<{ sessions: SessionSummary[]; truncated: boolean }> {
+): Promise<{ sessions: SessionListSession[]; truncated: boolean }> {
     const limit = input.limit ?? 50;
 
     const params: Record<string, string> = {};
@@ -80,7 +80,7 @@ export async function runSessionList(
             return true;
         })
         .slice(0, limit)
-        .map<SessionSummary>((row) => {
+        .map<SessionListSession>((row) => {
             const meta = row.metadata ?? {};
             const summary = typeof meta.summary?.text === 'string' ? meta.summary.text : null;
             return {

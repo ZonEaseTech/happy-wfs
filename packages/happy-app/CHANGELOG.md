@@ -9,6 +9,10 @@ OpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, im
 - Models: add GPT-5.5 to available Codex model list with low/medium/high/xhigh reasoning levels
 - Image uploads: raise max dimension to 1568px and skip redundant compression when originals are already within limits, preserving text sharpness in code and UI screenshots
 - Session title: seed new sessions with the first user message instead of the project directory name, until an AI summary takes over
+- Chat: make image file paths in assistant messages clickable, including temporary screenshot paths such as `/tmp/*.png`
+- File viewer: preview image files such as JPG and PNG instead of opening their binary bytes as text
+- Composer: add customizable AI shortcut prompts on web and mobile for task briefs, release checks, GitHub takeover, remote diagnosis, and evidence reports
+- Codex: show local skills in composer autocomplete and insert them as `$skill` triggers
 - Web: return to home screen after archiving a session instead of staying on the archived page
 - Claude Opus 4.7: drop empty thinking blocks emitted by 4.x models that previously caused rendering glitches
 - Slash commands: surface Claude Code's result text when a turn (e.g. unknown slash command) produces no assistant message, preventing blank mobile replies

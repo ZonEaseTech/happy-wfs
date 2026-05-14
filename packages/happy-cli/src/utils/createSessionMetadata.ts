@@ -15,6 +15,7 @@ import type { AgentState, Metadata } from '@/api/types';
 import { configuration } from '@/configuration';
 import { projectPath } from '@/projectPath';
 import { detectGitWorktree } from '@/utils/gitWorktree';
+import { discoverCodexSkills } from '@/codex/utils/skillDiscovery';
 import packageJson from '../../package.json';
 
 /**
@@ -161,6 +162,10 @@ export function createSessionMetadata(opts: CreateSessionMetadataOptions): Sessi
         // Worktree metadata: env vars from daemon take priority, otherwise detect via git
         ...detectWorktreeMetadata(),
     };
+
+    if (opts.flavor === 'codex') {
+        metadata.skills = discoverCodexSkills();
+    }
 
     return { state, metadata };
 }

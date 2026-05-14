@@ -8,15 +8,16 @@ import { t } from '@/text';
 interface CommandSuggestionProps {
     command: string;
     description?: string;
+    prefix?: '/' | '$';
 }
 
-export const CommandSuggestion = React.memo(({ command, description }: CommandSuggestionProps) => {
+export const CommandSuggestion = React.memo(({ command, description, prefix = '/' }: CommandSuggestionProps) => {
     return (
         <View style={styles.suggestionContainer}>
             <Text 
                 style={[styles.commandText, { marginRight: description ? 12 : 0 }]}
             >
-                /{command}
+                {prefix}{command}
             </Text>
             {description && (
                 <Text

@@ -27,6 +27,12 @@ import { listDaemonSessions, stopDaemonSession } from './daemon/controlClient'
 import { handleAuthCommand } from './commands/auth'
 import { handleConnectCommand } from './commands/connect'
 import { handleUpdateCommand } from './commands/update'
+import { handleSessionCommand } from './commands/session'
+import { handleTaskCommand } from './commands/task'
+import { handleReleaseCommand } from './commands/release'
+import { handleGithubCommand } from './commands/github'
+import { handleDiagnoseCommand } from './commands/diagnose'
+import { handleEvidenceCommand } from './commands/evidence'
 import { spawnHappyCLI } from './utils/spawnHappyCLI'
 import { claudeCliPath } from './claude/claudeLocal'
 import { execFileSync } from 'node:child_process'
@@ -406,6 +412,72 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1)
     }
     return;
+  } else if (subcommand === 'session') {
+    try {
+      await handleSessionCommand(args.slice(1));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
+  } else if (subcommand === 'task') {
+    try {
+      await handleTaskCommand(args.slice(1));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
+  } else if (subcommand === 'release') {
+    try {
+      await handleReleaseCommand(args.slice(1));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
+  } else if (subcommand === 'github') {
+    try {
+      await handleGithubCommand(args.slice(1));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
+  } else if (subcommand === 'diagnose') {
+    try {
+      await handleDiagnoseCommand(args.slice(1));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
+  } else if (subcommand === 'evidence') {
+    try {
+      await handleEvidenceCommand(args.slice(1));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
   } else if (subcommand === 'mcp') {
     // happy-ai-cli mcp serve — stdio MCP exposing read/write tools over the
     // user's happy sessions. Currently only `serve` is supported.
@@ -621,6 +693,12 @@ ${chalk.bold('Usage:')}
   happy codex             Start Codex mode
   happy gemini            Start Gemini mode (ACP)
   happy connect           Connect AI vendor API keys
+  happy session           Read Happy sessions
+  happy task              Generate task handoff briefs
+  happy release           Verify before publishing
+  happy github            GitHub takeover helpers
+  happy diagnose          Diagnosis evidence helpers
+  happy evidence          Record screenshots/log evidence
   happy notify            Send push notification
   happy daemon            Manage background service
   happy daemon enable     Auto-start daemon on boot
@@ -637,6 +715,10 @@ ${chalk.bold('Examples:')}
   happy --claude-env ANTHROPIC_BASE_URL=http://127.0.0.1:3456
                            Use a custom API endpoint (e.g., claude-code-router)
   happy auth login --force Authenticate
+  happy task brief --recent --project .
+                           Generate a continuation brief
+  happy release guard --package happy-cli
+                           Run checks before publishing
   happy doctor             Run diagnostics
 
 ${chalk.bold('Happy AI supports ALL Claude options!')}

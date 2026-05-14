@@ -9,8 +9,10 @@ import {
     isLikelyAbsoluteFilePath,
     joinPosixPath,
     buildSessionFileHref,
+    resolveMarkdownImageReference,
     resolveMarkdownLink,
     encodeFilePathForRoute,
+    splitTextByImageReferences,
 } from './markdownLinkUtils';
 
 // ---------------------------------------------------------------------------
@@ -421,5 +423,59 @@ describe('resolveMarkdownLink', () => {
             sessionHomeDirectory: '/home/coder',
         });
         expect(result).toEqual({ href: '/home/coder/project/file.ts' });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// resolveMarkdownImageReference / splitTextByImageReferences
+// ---------------------------------------------------------------------------
+describe('resolveMarkdownImageReference', () => {
+    const ctx = {
+        sessionId: 'session-123',
+        machineId: 'machine-123',
+        sessionWorkingDirectory: '/home/coder/project',
+        sessionHomeDirectory: '/home/coder',
+    };
+
+    it('resolves relative image paths to the session file viewer', () => {
+        const result = resolveMarkdownImageReference({ rawText: 'screenshots/result.png', ...ctx });
+        expect(result?.href).toMatch(/^\/session\/session-123\/file\?/);
+        expect(result?.href).toContain('view=file');
+        expect(result?.href).not.toContain('machineId=');
+    });
+
+    it('resolves temporary image paths through machine-scoped image preview', () => {
+        const result = resolveMarkdownImageReference({ rawText: '/tmp/223-inventory-alert-detail-5554.png', ...ctx });
+        expect(result?.href).toMatch(/^\/session\/session-123\/file\?/);
+        expect(result?.href).toContain('machineId=machine-123');
+    });
+
+    it('does not resolve temporary image paths without machine metadata', () => {
+        const result = resolveMarkdownImageReference({
+            rawText: '/tmp/223-inventory-alert-detail-5554.png',
+            sessionId: 'session-123',
+            sessionWorkingDirectory: '/home/coder/project',
+            sessionHomeDirectory: '/home/coder',
+        });
+        expect(result).toBeNull();
+    });
+
+    it('does not resolve non-temporary image paths outside known directories', () => {
+        const result = resolveMarkdownImageReference({ rawText: '/etc/logo.png', ...ctx });
+        expect(result).toBeNull();
+    });
+});
+
+describe('splitTextByImageReferences', () => {
+    it('links multiple image references without swallowing trailing punctuation', () => {
+        const parts = splitTextByImageReferences({
+            text: 'mini: /tmp/a.png, local: screenshots/b.webp.',
+            sessionId: 'session-123',
+            machineId: 'machine-123',
+            sessionWorkingDirectory: '/home/coder/project',
+            sessionHomeDirectory: '/home/coder',
+        });
+        expect(parts.filter(part => part.href).map(part => part.text)).toEqual(['/tmp/a.png', 'screenshots/b.webp']);
+        expect(parts.at(-1)?.text).toBe('.');
     });
 });
