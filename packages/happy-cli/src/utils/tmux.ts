@@ -811,15 +811,12 @@ export class TmuxUtilities {
                         continue;
                     }
 
-                    // Escape value for shell safety
-                    // Must escape: backslashes, double quotes, dollar signs, backticks
-                    const escapedValue = value
-                        .replace(/\\/g, '\\\\')   // Backslash first!
-                        .replace(/"/g, '\\"')     // Double quotes
-                        .replace(/\$/g, '\\$')    // Dollar signs
-                        .replace(/`/g, '\\`');    // Backticks
-
-                    createWindowArgs.push('-e', `${key}="${escapedValue}"`);
+                    // This is passed to tmux as one argv item (shell:false), so
+                    // do not add shell quoting/escaping here. Quoting turns
+                    // JSON env values such as HAPPY_WORKSPACE_REPOS into a
+                    // literal quoted/escaped string and JSON.parse fails in the
+                    // spawned agent, causing multi-repo worktree metadata loss.
+                    createWindowArgs.push('-e', `${key}=${value}`);
                 }
                 logger.debug(`[TMUX] Setting ${Object.keys(env).length} environment variables in tmux window`);
             }
