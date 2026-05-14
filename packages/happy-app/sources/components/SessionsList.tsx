@@ -366,6 +366,81 @@ const stylesheet = StyleSheet.create((theme) => ({
         color: theme.colors.text,
         ...Typography.default(),
     },
+    issueMarkdownParagraph: {
+        fontSize: 15,
+        lineHeight: 24,
+        color: theme.colors.text,
+        marginBottom: 10,
+        ...Typography.default(),
+    },
+    issueMarkdownHeading: {
+        fontSize: 18,
+        lineHeight: 26,
+        color: theme.colors.text,
+        marginTop: 12,
+        marginBottom: 10,
+        ...Typography.default('semiBold'),
+    },
+    issueMarkdownQuote: {
+        borderLeftWidth: 4,
+        borderLeftColor: theme.colors.divider,
+        paddingLeft: 12,
+        marginBottom: 12,
+    },
+    issueMarkdownQuoteText: {
+        fontSize: 15,
+        lineHeight: 23,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
+    issueMarkdownListRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    },
+    issueMarkdownListMarker: {
+        width: 24,
+        fontSize: 15,
+        lineHeight: 24,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
+    issueMarkdownListText: {
+        flex: 1,
+        fontSize: 15,
+        lineHeight: 24,
+        color: theme.colors.text,
+        ...Typography.default(),
+    },
+    issueMarkdownInlineCode: {
+        fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+        backgroundColor: theme.colors.surfaceHigh,
+        borderRadius: 4,
+        paddingHorizontal: 4,
+        color: theme.colors.text,
+    },
+    issueMarkdownLink: {
+        color: theme.colors.textLink,
+        textDecorationLine: 'underline',
+    },
+    issueMarkdownCodeBlock: {
+        backgroundColor: theme.colors.surfaceHigh,
+        borderColor: theme.colors.divider,
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 14,
+    },
+    issueMarkdownCodeText: {
+        fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+        fontSize: 13,
+        lineHeight: 21,
+        color: theme.colors.text,
+    },
+    issueMarkdownSpacer: {
+        height: 6,
+    },
     issueDetailActions: {
         flexDirection: 'row',
         borderTopWidth: 1,
@@ -1043,6 +1118,169 @@ const GitHubIssueItem = React.memo(({ issue, onPress }: {
     );
 });
 
+function renderGitHubIssueInlineMarkdown(text: string, styles: typeof stylesheet, keyPrefix: string) {
+    const parts: React.ReactNode[] = [];
+    const pattern = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*)/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(text.slice(lastIndex, match.index));
+        }
+        const token = match[0];
+        const key = `${keyPrefix}-${match.index}`;
+        const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (link) {
+            const label = link[1] ?? '';
+            const url = link[2] ?? '';
+            parts.push(
+                <Text
+                    key={key}
+                    style={styles.issueMarkdownLink}
+                    onPress={() => { void Linking.openURL(url); }}
+                >
+                    {label}
+                </Text>,
+            );
+        } else if (token.startsWith('`') && token.endsWith('`')) {
+            parts.push(
+                <Text key={key} style={styles.issueMarkdownInlineCode}>
+                    {token.slice(1, -1)}
+                </Text>,
+            );
+        } else if (token.startsWith('**') && token.endsWith('**')) {
+            parts.push(
+                <Text key={key} style={Typography.default('semiBold')}>
+                    {token.slice(2, -2)}
+                </Text>,
+            );
+        }
+        lastIndex = match.index + token.length;
+    }
+    if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+    }
+    return parts.length > 0 ? parts : text;
+}
+
+const GitHubIssueMarkdown = React.memo(({ body }: { body: string }) => {
+    const styles = stylesheet;
+    const blocks = React.useMemo(() => {
+        const lines = body.replace(/\r\n/g, '\n').split('\n');
+        const result: Array<
+            | { type: 'blank' }
+            | { type: 'code'; language: string; text: string }
+            | { type: 'heading'; text: string }
+            | { type: 'quote'; text: string }
+            | { type: 'list'; marker: string; text: string }
+            | { type: 'paragraph'; text: string }
+        > = [];
+
+        for (let index = 0; index < lines.length; index += 1) {
+            const line = lines[index] ?? '';
+            const fence = line.match(/^```(\w+)?\s*$/);
+            if (fence) {
+                const codeLines: string[] = [];
+                index += 1;
+                while (index < lines.length && !/^```\s*$/.test(lines[index] ?? '')) {
+                    codeLines.push(lines[index] ?? '');
+                    index += 1;
+                }
+                result.push({ type: 'code', language: fence[1] ?? '', text: codeLines.join('\n') });
+                continue;
+            }
+
+            if (!line.trim()) {
+                result.push({ type: 'blank' });
+                continue;
+            }
+
+            const heading = line.match(/^#{1,3}\s+(.+)$/);
+            if (heading) {
+                result.push({ type: 'heading', text: heading[1] ?? '' });
+                continue;
+            }
+
+            const quote = line.match(/^>\s?(.*)$/);
+            if (quote) {
+                result.push({ type: 'quote', text: quote[1] ?? '' });
+                continue;
+            }
+
+            const unordered = line.match(/^\s*[-*•]\s+(.+)$/);
+            if (unordered) {
+                result.push({ type: 'list', marker: '•', text: unordered[1] ?? '' });
+                continue;
+            }
+
+            const ordered = line.match(/^\s*(\d+)[.)]\s+(.+)$/);
+            if (ordered) {
+                result.push({ type: 'list', marker: `${ordered[1]}.`, text: ordered[2] ?? '' });
+                continue;
+            }
+
+            result.push({ type: 'paragraph', text: line });
+        }
+        return result;
+    }, [body]);
+
+    return (
+        <View>
+            {blocks.map((block, index) => {
+                if (block.type === 'blank') {
+                    return <View key={`blank-${index}`} style={styles.issueMarkdownSpacer} />;
+                }
+                if (block.type === 'code') {
+                    return (
+                        <ScrollView
+                            key={`code-${index}`}
+                            horizontal
+                            style={styles.issueMarkdownCodeBlock}
+                        >
+                            <Text style={styles.issueMarkdownCodeText} selectable>
+                                {block.text}
+                            </Text>
+                        </ScrollView>
+                    );
+                }
+                if (block.type === 'heading') {
+                    return (
+                        <Text key={`heading-${index}`} style={styles.issueMarkdownHeading} selectable>
+                            {renderGitHubIssueInlineMarkdown(block.text, styles, `heading-${index}`)}
+                        </Text>
+                    );
+                }
+                if (block.type === 'quote') {
+                    return (
+                        <View key={`quote-${index}`} style={styles.issueMarkdownQuote}>
+                            <Text style={styles.issueMarkdownQuoteText} selectable>
+                                {renderGitHubIssueInlineMarkdown(block.text, styles, `quote-${index}`)}
+                            </Text>
+                        </View>
+                    );
+                }
+                if (block.type === 'list') {
+                    return (
+                        <View key={`list-${index}`} style={styles.issueMarkdownListRow}>
+                            <Text style={styles.issueMarkdownListMarker} selectable>
+                                {block.marker}
+                            </Text>
+                            <Text style={styles.issueMarkdownListText} selectable>
+                                {renderGitHubIssueInlineMarkdown(block.text, styles, `list-${index}`)}
+                            </Text>
+                        </View>
+                    );
+                }
+                return (
+                    <Text key={`paragraph-${index}`} style={styles.issueMarkdownParagraph} selectable>
+                        {renderGitHubIssueInlineMarkdown(block.text, styles, `paragraph-${index}`)}
+                    </Text>
+                );
+            })}
+        </View>
+    );
+});
+
 const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose }: {
     issue: GitHubIssue;
     onStart: () => void;
@@ -1072,9 +1310,7 @@ const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose }: {
                 )}
             </View>
             <ScrollView style={styles.issueDetailBody}>
-                <Text style={styles.issueDetailBodyText} selectable>
-                    {body}
-                </Text>
+                <GitHubIssueMarkdown body={body} />
             </ScrollView>
             <View style={styles.issueDetailActions}>
                 <Pressable style={styles.issueDetailAction} onPress={onClose}>
