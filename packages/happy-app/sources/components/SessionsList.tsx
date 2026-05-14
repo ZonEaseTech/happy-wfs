@@ -30,7 +30,7 @@ import { HappyError } from '@/utils/errors';
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { useAuth } from '@/auth/AuthContext';
-import { listGitHubIssues, type GitHubIssue } from '@/sync/apiGithub';
+import { listGitHubIssues, saveGitHubToken, type GitHubIssue } from '@/sync/apiGithub';
 import { storeTempData } from '@/utils/tempDataStore';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -364,6 +364,12 @@ function buildGitHubIssueSearchQuery(searchText: string): string {
     return clauses.join(' ');
 }
 
+function isGitHubBadCredentialsMessage(message: string | undefined | null): boolean {
+    if (!message) return false;
+    const normalized = message.toLowerCase();
+    return normalized.includes('bad credentials') || normalized.includes('status 401') || normalized.includes('responded with 401');
+}
+
 export function SessionsList() {
     const styles = stylesheet;
     const safeArea = useSafeAreaInsets();
@@ -384,6 +390,7 @@ export function SessionsList() {
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
     const [pendingIssueSearchText, setPendingIssueSearchText] = React.useState('');
     const lastPendingIssuesLoadKeyRef = React.useRef<string | null>(null);
+    const githubTokenPromptOpenRef = React.useRef(false);
     const pathname = usePathname();
     const isTablet = useIsTablet();
     const navigateToSession = useNavigateToSession();
@@ -392,22 +399,68 @@ export function SessionsList() {
     const { theme } = useUnistyles();
     const [refreshing, setRefreshing] = React.useState(false);
     const pendingIssueServerQuery = React.useMemo(() => buildGitHubIssueSearchQuery(pendingIssueSearchText), [pendingIssueSearchText]);
+    const promptForGitHubToken = React.useCallback(async (): Promise<boolean> => {
+        if (!auth.credentials || githubTokenPromptOpenRef.current) return false;
+        githubTokenPromptOpenRef.current = true;
+        try {
+            const token = await Modal.prompt(
+                'GitHub token 已失效',
+                'GitHub 返回 Bad credentials。请输入新的 Personal Access Token（需要 repo / read:org / read:project 权限），保存后会自动重试读取 Issues。',
+                {
+                    placeholder: 'github_pat_...',
+                    inputType: 'secure-text',
+                    confirmText: '保存',
+                    cancelText: t('common.cancel'),
+                },
+            );
+            const trimmed = token?.trim();
+            if (!trimmed) return false;
+            await saveGitHubToken(auth.credentials, trimmed);
+            await sync.refreshProfile().catch(() => undefined);
+            lastPendingIssuesLoadKeyRef.current = null;
+            return true;
+        } catch (error) {
+            Modal.alert(
+                t('common.error'),
+                error instanceof Error ? error.message : 'GitHub token 保存失败',
+            );
+            return false;
+        } finally {
+            githubTokenPromptOpenRef.current = false;
+        }
+    }, [auth.credentials]);
     const loadPendingIssues = React.useCallback(async (showSpinner: boolean = true) => {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
         setPendingIssuesError(null);
         try {
-            const result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+            let result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+            if (isGitHubBadCredentialsMessage(result.warning)) {
+                setPendingIssuesError(result.warning ?? null);
+                const saved = await promptForGitHubToken();
+                if (saved) {
+                    result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+                }
+            }
             setPendingIssues(result.issues);
             if (result.warning) {
                 setPendingIssuesError(result.warning);
             }
         } catch (error) {
-            setPendingIssuesError(error instanceof Error ? error.message : String(error));
+            const message = error instanceof Error ? error.message : String(error);
+            setPendingIssuesError(message);
+            if (isGitHubBadCredentialsMessage(message)) {
+                const saved = await promptForGitHubToken();
+                if (saved) {
+                    const result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+                    setPendingIssues(result.issues);
+                    setPendingIssuesError(result.warning ?? null);
+                }
+            }
         } finally {
             setPendingIssuesLoading(false);
         }
-    }, [auth.credentials, pendingIssueServerQuery]);
+    }, [auth.credentials, pendingIssueServerQuery, promptForGitHubToken]);
     const handleRefresh = React.useCallback(async () => {
         setRefreshing(true);
         try {
@@ -719,15 +772,6 @@ export function SessionsList() {
                                 </Pressable>
                             ))}
                         </View>
-                        {activeTab === 'pending' && (
-                            <Pressable
-                                onPress={handleConfigurePending}
-                                hitSlop={10}
-                                style={{ marginRight: 16, marginTop: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: theme.colors.surface }}
-                            >
-                                <Ionicons name="options-outline" size={18} color={theme.colors.text} />
-                            </Pressable>
-                        )}
                     </View>
                 )}
                 {activeTab === 'pending' && (

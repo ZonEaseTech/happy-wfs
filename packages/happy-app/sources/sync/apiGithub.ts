@@ -126,6 +126,26 @@ export async function disconnectGitHub(credentials: AuthCredentials): Promise<vo
     });
 }
 
+export async function saveGitHubToken(credentials: AuthCredentials, token: string): Promise<GitHubProfile> {
+    const API_ENDPOINT = getServerUrl();
+    const response = await fetch(`${API_ENDPOINT}/v1/connect/github/token`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token })
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => null) as { error?: string } | null;
+        throw new HappyError(error?.error || `Failed to save GitHub token: ${response.status}`, false);
+    }
+
+    const data = await response.json() as { github: GitHubProfile };
+    return data.github;
+}
+
 export async function listGitHubIssues(credentials: AuthCredentials, options?: { query?: string; limit?: number }): Promise<GitHubIssueListResult> {
     const API_ENDPOINT = getServerUrl();
     const url = new URL(`${API_ENDPOINT}/v1/github/issues`);

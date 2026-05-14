@@ -171,6 +171,52 @@ export function connectRoutes(app: Fastify) {
         }
     });
 
+    // Manually update GitHub token. Useful when an existing OAuth token was
+    // revoked/expired and the issue inbox needs a fresh Personal Access Token.
+    app.post('/v1/connect/github/token', {
+        preHandler: app.authenticate,
+        schema: {
+            body: z.object({
+                token: z.string().trim().min(1),
+            }),
+            response: {
+                200: z.object({
+                    github: z.any(),
+                }),
+                401: z.object({
+                    error: z.string(),
+                }),
+                500: z.object({
+                    error: z.string(),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        const accessToken = request.body.token.trim();
+        const userResponse = await fetch('https://api.github.com/user', {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'happy-ai',
+            },
+        });
+
+        const userData = await userResponse.json().catch(() => null) as GitHubProfile | { message?: string } | null;
+        if (!userResponse.ok || !userData || !('id' in userData)) {
+            return reply.code(401).send({
+                error: (userData && 'message' in userData && userData.message) ? userData.message : 'Invalid GitHub token',
+            });
+        }
+
+        try {
+            await githubConnect(Context.create(request.userId), userData, accessToken);
+            return reply.send({ github: userData });
+        } catch (error) {
+            log({ module: 'github-token', level: 'error' }, `Failed to save GitHub token: ${error}`);
+            return reply.code(500).send({ error: 'Failed to save GitHub token' });
+        }
+    });
+
     // GitHub webhook handler with type safety
     app.post('/v1/connect/github/webhook', {
         schema: {

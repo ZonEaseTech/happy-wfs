@@ -36,20 +36,20 @@ export async function githubConnect(
         where: { id: userId },
         select: { githubUserId: true, username: true }
     });
-    if (currentUser.githubUserId === githubUserId) {
-        return;
-    }
+    const isSameAccount = currentUser.githubUserId === githubUserId;
 
     // Step 2: Check if GitHub account is connected to another user
-    const existingConnection = await db.account.findFirst({
-        where: {
-            githubUserId: githubUserId,
-            NOT: { id: userId }
+    if (!isSameAccount) {
+        const existingConnection = await db.account.findFirst({
+            where: {
+                githubUserId: githubUserId,
+                NOT: { id: userId }
+            }
+        });
+        if (existingConnection) {
+            const disconnectCtx: Context = Context.create(existingConnection.id);
+            await githubDisconnect(disconnectCtx);
         }
-    });
-    if (existingConnection) {
-        const disconnectCtx: Context = Context.create(existingConnection.id);
-        await githubDisconnect(disconnectCtx);
     }
 
     // Step 3: Upload avatar to S3 (outside transaction for performance)
