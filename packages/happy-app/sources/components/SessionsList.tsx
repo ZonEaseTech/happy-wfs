@@ -477,9 +477,100 @@ const stylesheet = StyleSheet.create((theme) => ({
 
 type SessionTab = 'active' | 'closure' | 'inactive' | 'shared' | 'sharedByMe';
 type SidebarTab = 'pending' | SessionTab;
+type SidebarTabItem = { key: SidebarTab; label: string };
 
 // Persists selected tab across navigation (survives component unmount/remount)
 let lastActiveTab: SidebarTab = 'active';
+
+const SessionsListHeader = React.memo(({
+    activeTab,
+    visibleTabs,
+    pendingIssueSearchText,
+    projectFilterLabel,
+    onTabPress,
+    onPendingIssueSearchChange,
+    onClearPendingIssueSearch,
+    onConfigurePending,
+}: {
+    activeTab: SidebarTab;
+    visibleTabs: SidebarTabItem[];
+    pendingIssueSearchText: string;
+    projectFilterLabel: string;
+    onTabPress: (tab: SidebarTab) => void;
+    onPendingIssueSearchChange: (value: string) => void;
+    onClearPendingIssueSearch: () => void;
+    onConfigurePending: () => void;
+}) => {
+    const styles = stylesheet;
+    const { theme } = useUnistyles();
+    const showFilterRow = visibleTabs.length > 1;
+
+    return (
+        <>
+            <UpdateBanner />
+            {showFilterRow && (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={[styles.filterRow, { flex: 1 }]}>
+                        {visibleTabs.map((tab) => (
+                            <Pressable
+                                key={tab.key}
+                                style={[
+                                    styles.filterChip,
+                                    { backgroundColor: activeTab === tab.key ? theme.colors.button.primary.background : theme.colors.surface },
+                                ]}
+                                onPress={() => onTabPress(tab.key)}
+                            >
+                                <Text style={[
+                                    styles.filterChipText,
+                                    { color: activeTab === tab.key ? theme.colors.button.primary.tint : theme.colors.text },
+                                ]}>
+                                    {tab.label}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                </View>
+            )}
+            {activeTab === 'pending' && (
+                <View style={styles.pendingSearchSection}>
+                    <View style={styles.pendingSearchBox}>
+                        <Ionicons name="search-outline" size={18} color={theme.colors.textSecondary} />
+                        <TextInput
+                            style={styles.pendingSearchInput}
+                            value={pendingIssueSearchText}
+                            onChangeText={onPendingIssueSearchChange}
+                            placeholder="搜索 #1212 / 标题 / 仓库"
+                            placeholderTextColor={theme.colors.textSecondary}
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                            returnKeyType="search"
+                            blurOnSubmit={false}
+                        />
+                        {pendingIssueSearchText.trim().length > 0 && (
+                            <Pressable
+                                onPress={onClearPendingIssueSearch}
+                                hitSlop={8}
+                            >
+                                <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
+                            </Pressable>
+                        )}
+                    </View>
+                    <Pressable
+                        onPress={onConfigurePending}
+                        style={styles.pendingProjectFilterButton}
+                    >
+                        <Ionicons name="albums-outline" size={17} color={theme.colors.textSecondary} />
+                        <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
+                            {projectFilterLabel}
+                        </Text>
+                        <Ionicons name="options-outline" size={17} color={theme.colors.textSecondary} />
+                    </Pressable>
+                </View>
+            )}
+        </>
+    );
+});
+SessionsListHeader.displayName = 'SessionsListHeader';
 
 function splitGitHubIssueFilterValues(value: string | undefined): string[] {
     return (value ?? '')
@@ -924,7 +1015,7 @@ export function SessionsList() {
         return parts.join(' · ');
     }, [githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects]);
 
-    const tabs: { key: SidebarTab; label: string }[] = React.useMemo(() => [
+    const tabs: SidebarTabItem[] = React.useMemo(() => [
         { key: 'pending', label: '待处理' },
         { key: 'active', label: t('session.tabs.active') },
         { key: 'closure', label: t('session.tabs.closure') },
@@ -934,12 +1025,11 @@ export function SessionsList() {
     ], []);
 
     const hasInactiveSessions = inactiveData && inactiveData.length > 0;
-    const hasClosureSessions = closureData && closureData.length > 0;
     const hasSharedSessions = sharedData && sharedData.length > 0;
     const hasSharedByMeSessions = sharedByMeData && sharedByMeData.length > 0;
 
-    const HeaderComponent = React.useCallback(() => {
-        const visibleTabs = tabs.filter(tab => {
+    const visibleTabs = React.useMemo(() => {
+        return tabs.filter(tab => {
             if (tab.key === 'pending') return true;
             if (tab.key === 'active') return true;
             // Closure tab is always visible — it's an affordance, not a
@@ -951,71 +1041,37 @@ export function SessionsList() {
             if (tab.key === 'sharedByMe') return hasSharedByMeSessions;
             return true;
         });
-        const showFilterRow = visibleTabs.length > 1;
-        return (
-            <>
-                <UpdateBanner />
-                {showFilterRow && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={[styles.filterRow, { flex: 1 }]}>
-                            {visibleTabs.map((tab) => (
-                                <Pressable
-                                    key={tab.key}
-                                    style={[
-                                        styles.filterChip,
-                                        { backgroundColor: activeTab === tab.key ? theme.colors.button.primary.background : theme.colors.surface },
-                                    ]}
-                                    onPress={() => setActiveTab(tab.key)}
-                                >
-                                    <Text style={[
-                                        styles.filterChipText,
-                                        { color: activeTab === tab.key ? theme.colors.button.primary.tint : theme.colors.text },
-                                    ]}>
-                                        {tab.label}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </View>
-                    </View>
-                )}
-                {activeTab === 'pending' && (
-                    <View style={styles.pendingSearchSection}>
-                        <View style={styles.pendingSearchBox}>
-                            <Ionicons name="search-outline" size={18} color={theme.colors.textSecondary} />
-                            <TextInput
-                                style={styles.pendingSearchInput}
-                                value={pendingIssueSearchText}
-                                onChangeText={setPendingIssueSearchText}
-                                placeholder="搜索 #1212 / 标题 / 仓库"
-                                placeholderTextColor={theme.colors.textSecondary}
-                                autoCorrect={false}
-                                autoCapitalize="none"
-                                returnKeyType="search"
-                            />
-                            {pendingIssueSearchText.trim().length > 0 && (
-                                <Pressable
-                                    onPress={() => setPendingIssueSearchText('')}
-                                    hitSlop={8}
-                                >
-                                    <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
-                                </Pressable>
-                            )}
-                        </View>
-                        <Pressable
-                            onPress={handleConfigurePending}
-                            style={styles.pendingProjectFilterButton}
-                        >
-                            <Ionicons name="albums-outline" size={17} color={theme.colors.textSecondary} />
-                            <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
-                                {projectFilterLabel}
-                            </Text>
-                            <Ionicons name="options-outline" size={17} color={theme.colors.textSecondary} />
-                        </Pressable>
-                    </View>
-                )}
-            </>
-        );
-    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions, tabs, handleConfigurePending, pendingIssueSearchText, projectFilterLabel]);
+    }, [hasInactiveSessions, hasSharedSessions, hasSharedByMeSessions, tabs]);
+
+    const handlePendingIssueSearchChange = React.useCallback((value: string) => {
+        setPendingIssueSearchText(value);
+    }, []);
+
+    const handleClearPendingIssueSearch = React.useCallback(() => {
+        setPendingIssueSearchText('');
+    }, []);
+
+    const headerElement = React.useMemo(() => (
+        <SessionsListHeader
+            activeTab={activeTab}
+            visibleTabs={visibleTabs}
+            pendingIssueSearchText={pendingIssueSearchText}
+            projectFilterLabel={projectFilterLabel}
+            onTabPress={setActiveTab}
+            onPendingIssueSearchChange={handlePendingIssueSearchChange}
+            onClearPendingIssueSearch={handleClearPendingIssueSearch}
+            onConfigurePending={handleConfigurePending}
+        />
+    ), [
+        activeTab,
+        handleClearPendingIssueSearch,
+        handleConfigurePending,
+        handlePendingIssueSearchChange,
+        pendingIssueSearchText,
+        projectFilterLabel,
+        setActiveTab,
+        visibleTabs,
+    ]);
 
     const EmptyComponent = React.useCallback(() => (
         <View style={styles.emptyContainer}>
@@ -1044,7 +1100,7 @@ export function SessionsList() {
                         renderItem={renderPendingIssue}
                         keyExtractor={(item) => `github-issue-${item.repository}-${item.number}`}
                         contentContainerStyle={{ paddingBottom: safeArea.bottom + 128, maxWidth: layout.maxWidth }}
-                        ListHeaderComponent={HeaderComponent}
+                        ListHeaderComponent={headerElement}
                         ListEmptyComponent={PendingEmptyComponent}
                         refreshControl={
                             <RefreshControl
@@ -1067,7 +1123,7 @@ export function SessionsList() {
                     renderItem={renderItem}
                     keyExtractor={keyExtractor}
                     contentContainerStyle={{ paddingBottom: safeArea.bottom + 128, maxWidth: layout.maxWidth }}
-                    ListHeaderComponent={HeaderComponent}
+                    ListHeaderComponent={headerElement}
                     ListEmptyComponent={EmptyComponent}
                     removeClippedSubviews={true}
                     refreshControl={
