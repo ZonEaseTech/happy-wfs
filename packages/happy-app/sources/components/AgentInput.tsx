@@ -52,6 +52,7 @@ import {
     getClaudeReasoningOptions,
     getCodexReasoningOptions,
     getMaxContextSize,
+    isModelModeForAgent,
     MODEL_MODE_DEFAULT,
     parseClaudeModelMode,
     parseCodexModelMode,
@@ -420,12 +421,66 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     });
     const screenWidth = useWindowDimensions().width;
 
-    // Check if this is a Codex or Gemini session
-    // Use metadata.flavor for existing sessions, agentType prop for new sessions
-    const isCodex = props.metadata?.flavor === 'codex' || props.agentType === 'codex';
-    const isGemini = props.metadata?.flavor === 'gemini' || props.agentType === 'gemini';
-    const isClaude = !isCodex && !isGemini;
     const selectedModelMode: ModelMode = props.modelMode || 'default';
+    // Check if this is a Codex or Gemini session.
+    //
+    // Existing sessions should normally carry metadata.flavor, but older
+    // metadata repair paths may have stripped it. In that case, infer the
+    // agent from other stable hints before falling back to Claude; otherwise a
+    // Codex session whose modelMode is gpt-* renders the Claude model list with
+    // no selected radio item.
+    const effectiveAgentType = React.useMemo<'claude' | 'codex' | 'gemini'>(() => {
+        const flavor = props.metadata?.flavor;
+        if (flavor === 'codex' || flavor === 'gemini' || flavor === 'claude') {
+            return flavor;
+        }
+        if (props.agentType) {
+            return props.agentType;
+        }
+        if (props.metadata?.codexSessionId) {
+            return 'codex';
+        }
+        if (props.metadata?.claudeSessionId) {
+            return 'claude';
+        }
+        if (selectedModelMode !== MODEL_MODE_DEFAULT) {
+            if (isModelModeForAgent('codex', selectedModelMode)) {
+                return 'codex';
+            }
+            if (isModelModeForAgent('gemini', selectedModelMode)) {
+                return 'gemini';
+            }
+            if (isModelModeForAgent('claude', selectedModelMode)) {
+                return 'claude';
+            }
+        }
+
+        const modelHints = [
+            props.metadata?.model,
+            props.metadata?.currentModelCode,
+        ].filter((value): value is string => typeof value === 'string').join(' ').toLowerCase();
+        if (modelHints.includes('gemini')) {
+            return 'gemini';
+        }
+        if (modelHints.includes('gpt') || modelHints.includes('codex')) {
+            return 'codex';
+        }
+        if (modelHints.includes('claude')) {
+            return 'claude';
+        }
+        return 'claude';
+    }, [
+        props.agentType,
+        props.metadata?.claudeSessionId,
+        props.metadata?.codexSessionId,
+        props.metadata?.currentModelCode,
+        props.metadata?.flavor,
+        props.metadata?.model,
+        selectedModelMode,
+    ]);
+    const isCodex = effectiveAgentType === 'codex';
+    const isGemini = effectiveAgentType === 'gemini';
+    const isClaude = effectiveAgentType === 'claude';
     const codexSelection = React.useMemo<{ family: CodexModelFamily; effort: CodexReasoningEffort }>(() => {
         return parseCodexModelMode(selectedModelMode);
     }, [selectedModelMode]);
@@ -502,7 +557,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Calculate context warning
     // Prefer dynamic contextWindowSize from CLI (e.g. Codex reports model_context_window),
     // fall back to static lookup by model/agent flavor
-    const agentFlavor = props.metadata?.flavor || props.agentType || null;
+    const agentFlavor = effectiveAgentType;
     const maxContextSize = props.usageData?.contextWindowSize || getMaxContextSize(props.modelMode, agentFlavor, props.metadata?.model);
     const contextWarning = props.usageData?.contextSize
         ? getContextWarning(props.usageData.contextSize, maxContextSize, props.alwaysShowContextSize ?? false, theme)
