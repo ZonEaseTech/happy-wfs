@@ -383,6 +383,7 @@ export function SessionsList() {
     const [pendingIssuesError, setPendingIssuesError] = React.useState<string | null>(null);
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
     const [pendingIssueSearchText, setPendingIssueSearchText] = React.useState('');
+    const lastPendingIssuesLoadKeyRef = React.useRef<string | null>(null);
     const pathname = usePathname();
     const isTablet = useIsTablet();
     const navigateToSession = useNavigateToSession();
@@ -396,8 +397,11 @@ export function SessionsList() {
         if (showSpinner) setPendingIssuesLoading(true);
         setPendingIssuesError(null);
         try {
-            const issues = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
-            setPendingIssues(issues);
+            const result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+            setPendingIssues(result.issues);
+            if (result.warning) {
+                setPendingIssuesError(result.warning);
+            }
         } catch (error) {
             setPendingIssuesError(error instanceof Error ? error.message : String(error));
         } finally {
@@ -419,11 +423,14 @@ export function SessionsList() {
 
     React.useEffect(() => {
         if (activeTab !== 'pending') return;
+        const loadKey = `${auth.credentials?.token ?? ''}:${pendingIssueServerQuery}`;
+        if (lastPendingIssuesLoadKeyRef.current === loadKey) return;
+        lastPendingIssuesLoadKeyRef.current = loadKey;
         const timeout = setTimeout(() => {
             void loadPendingIssues();
         }, pendingIssueSearchText.trim() ? 350 : 0);
         return () => clearTimeout(timeout);
-    }, [activeTab, pendingIssueSearchText, loadPendingIssues]);
+    }, [activeTab, auth.credentials?.token, pendingIssueSearchText, pendingIssueServerQuery, loadPendingIssues]);
     const pendingIssueFilterKeywords = React.useMemo(() => {
         return splitGitHubIssueFilterValues(githubIssueInboxFilters.keywords);
     }, [githubIssueInboxFilters.keywords]);

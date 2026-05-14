@@ -164,9 +164,9 @@ export function githubRoutes(app: Fastify) {
             response: {
                 200: z.object({
                     issues: z.array(GitHubIssueSchema),
+                    warning: z.string().optional(),
                 }),
                 401: z.object({ error: z.string() }),
-                500: z.object({ error: z.string() }),
             },
         },
     }, async (request, reply) => {
@@ -194,8 +194,10 @@ export function githubRoutes(app: Fastify) {
         }
 
         if (!result.ok) {
-            return reply.code(500).send({
-                error: `Failed to fetch GitHub issues: ${result.error}`,
+            log({ module: 'github-issues', level: 'warn' }, `GitHub issues unavailable, returning empty inbox: ${result.error}`);
+            return reply.send({
+                issues: [],
+                warning: `GitHub Issues 暂时读取失败：${result.error}`,
             });
         }
 

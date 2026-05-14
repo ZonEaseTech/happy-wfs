@@ -36,6 +36,11 @@ export interface GitHubIssue {
     projectTitles: string[];
 }
 
+export interface GitHubIssueListResult {
+    issues: GitHubIssue[];
+    warning?: string;
+}
+
 /**
  * Get GitHub OAuth parameters from the server
  */
@@ -121,7 +126,7 @@ export async function disconnectGitHub(credentials: AuthCredentials): Promise<vo
     });
 }
 
-export async function listGitHubIssues(credentials: AuthCredentials, options?: { query?: string; limit?: number }): Promise<GitHubIssue[]> {
+export async function listGitHubIssues(credentials: AuthCredentials, options?: { query?: string; limit?: number }): Promise<GitHubIssueListResult> {
     const API_ENDPOINT = getServerUrl();
     const url = new URL(`${API_ENDPOINT}/v1/github/issues`);
     if (options?.query) url.searchParams.set('query', options.query);
@@ -143,6 +148,6 @@ export async function listGitHubIssues(credentials: AuthCredentials, options?: {
         throw new HappyError(error?.error || `Failed to get GitHub issues: ${response.status}`, false);
     }
 
-    const data = await response.json() as { issues: GitHubIssue[] };
-    return data.issues;
+    const data = await response.json() as GitHubIssueListResult;
+    return { issues: data.issues, warning: data.warning };
 }
