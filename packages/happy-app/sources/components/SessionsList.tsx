@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, FlatList, Platform, RefreshControl } from 'react-native';
+import { View, Pressable, FlatList, Platform, RefreshControl, TextInput } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
@@ -255,6 +255,47 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 13,
         ...Typography.default(),
     },
+    pendingSearchSection: {
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        paddingBottom: 12,
+        gap: 8,
+    },
+    pendingSearchBox: {
+        minHeight: 40,
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+    },
+    pendingSearchInput: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        fontSize: 15,
+        color: theme.colors.text,
+        ...Typography.default(),
+        ...(Platform.OS === 'web' ? {
+            outlineStyle: 'none',
+            outlineWidth: 0,
+        } as any : {}),
+    },
+    pendingProjectFilterButton: {
+        minHeight: 36,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+    },
+    pendingProjectFilterText: {
+        flex: 1,
+        marginLeft: 8,
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
     issueItem: {
         minHeight: 72,
         flexDirection: 'row',
@@ -306,6 +347,23 @@ type SidebarTab = 'pending' | SessionTab;
 // Persists selected tab across navigation (survives component unmount/remount)
 let lastActiveTab: SidebarTab = 'active';
 
+function splitGitHubIssueFilterValues(value: string | undefined): string[] {
+    return (value ?? '')
+        .split(/[\n,，]/)
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function buildGitHubIssueSearchQuery(searchText: string): string {
+    const clauses = ['is:issue', 'is:open', 'assignee:@me', 'archived:false'];
+    const search = searchText.trim();
+    if (!search) return clauses.join(' ');
+
+    const issueNumber = search.match(/^#\s*(\d+)$/)?.[1] ?? search.match(/^(\d+)$/)?.[1];
+    clauses.push(issueNumber ?? search);
+    return clauses.join(' ');
+}
+
 export function SessionsList() {
     const styles = stylesheet;
     const safeArea = useSafeAreaInsets();
@@ -324,6 +382,7 @@ export function SessionsList() {
     const [pendingIssuesLoading, setPendingIssuesLoading] = React.useState(false);
     const [pendingIssuesError, setPendingIssuesError] = React.useState<string | null>(null);
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
+    const [pendingIssueSearchText, setPendingIssueSearchText] = React.useState('');
     const pathname = usePathname();
     const isTablet = useIsTablet();
     const navigateToSession = useNavigateToSession();
@@ -331,19 +390,20 @@ export function SessionsList() {
     const router = useRouter();
     const { theme } = useUnistyles();
     const [refreshing, setRefreshing] = React.useState(false);
+    const pendingIssueServerQuery = React.useMemo(() => buildGitHubIssueSearchQuery(pendingIssueSearchText), [pendingIssueSearchText]);
     const loadPendingIssues = React.useCallback(async (showSpinner: boolean = true) => {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
         setPendingIssuesError(null);
         try {
-            const issues = await listGitHubIssues(auth.credentials, { limit: 30 });
+            const issues = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
             setPendingIssues(issues);
         } catch (error) {
             setPendingIssuesError(error instanceof Error ? error.message : String(error));
         } finally {
             setPendingIssuesLoading(false);
         }
-    }, [auth.credentials]);
+    }, [auth.credentials, pendingIssueServerQuery]);
     const handleRefresh = React.useCallback(async () => {
         setRefreshing(true);
         try {
@@ -358,30 +418,54 @@ export function SessionsList() {
     }, [activeTab, loadPendingIssues]);
 
     React.useEffect(() => {
-        if (activeTab === 'pending' && pendingIssues.length === 0 && !pendingIssuesLoading) {
+        if (activeTab !== 'pending') return;
+        const timeout = setTimeout(() => {
             void loadPendingIssues();
-        }
-    }, [activeTab, pendingIssues.length, pendingIssuesLoading, loadPendingIssues]);
+        }, pendingIssueSearchText.trim() ? 350 : 0);
+        return () => clearTimeout(timeout);
+    }, [activeTab, pendingIssueSearchText, loadPendingIssues]);
     const pendingIssueFilterKeywords = React.useMemo(() => {
-        return githubIssueInboxFilters.keywords
-            .split(/[\n,，]/)
-            .map((value) => value.trim().toLowerCase())
-            .filter(Boolean);
+        return splitGitHubIssueFilterValues(githubIssueInboxFilters.keywords);
     }, [githubIssueInboxFilters.keywords]);
+    const pendingIssueProjectFilters = React.useMemo(() => {
+        return splitGitHubIssueFilterValues(githubIssueInboxFilters.projects);
+    }, [githubIssueInboxFilters.projects]);
+    const pendingIssueSearchNumber = React.useMemo(() => {
+        const trimmed = pendingIssueSearchText.trim();
+        const value = trimmed.match(/^#\s*(\d+)$/)?.[1] ?? trimmed.match(/^(\d+)$/)?.[1];
+        return value ? Number(value) : null;
+    }, [pendingIssueSearchText]);
+    const pendingIssueSearchKeyword = React.useMemo(() => pendingIssueSearchText.trim().replace(/^#\s*/, '').toLowerCase(), [pendingIssueSearchText]);
     const filteredPendingIssues = React.useMemo(() => {
-        if (pendingIssueFilterKeywords.length === 0) return pendingIssues;
         return pendingIssues.filter((issue) => {
             const haystack = [
                 issue.repository,
+                `#${issue.number}`,
+                String(issue.number),
                 issue.title,
                 issue.body ?? '',
                 ...issue.labels,
                 ...issue.projectStatuses,
                 ...issue.projectTitles,
             ].join('\n').toLowerCase();
-            return pendingIssueFilterKeywords.some((keyword) => haystack.includes(keyword));
+            if (pendingIssueSearchNumber !== null && issue.number !== pendingIssueSearchNumber) {
+                return false;
+            }
+            if (pendingIssueSearchNumber === null && pendingIssueSearchKeyword && !haystack.includes(pendingIssueSearchKeyword)) {
+                return false;
+            }
+            if (pendingIssueProjectFilters.length > 0) {
+                const projectHaystack = issue.projectTitles.join('\n').toLowerCase();
+                if (!pendingIssueProjectFilters.some((keyword) => projectHaystack.includes(keyword))) {
+                    return false;
+                }
+            }
+            if (pendingIssueFilterKeywords.length > 0 && !pendingIssueFilterKeywords.some((keyword) => haystack.includes(keyword))) {
+                return false;
+            }
+            return true;
         });
-    }, [pendingIssues, pendingIssueFilterKeywords]);
+    }, [pendingIssues, pendingIssueFilterKeywords, pendingIssueProjectFilters, pendingIssueSearchKeyword, pendingIssueSearchNumber]);
     // Reset to 'active' tab if current tab's data becomes empty.
     // Closure tab is exempt — it's an affordance (the user needs to see
     // *where* to mark sessions for closure), so it stays visible and
@@ -543,8 +627,21 @@ export function SessionsList() {
         <GitHubIssueItem issue={item} onStart={handleStartIssue} />
     ), [handleStartIssue]);
     const handleConfigurePending = React.useCallback(async () => {
+        const projects = await Modal.prompt(
+            '指定项目过滤',
+            '输入要显示的 GitHub Project 名称，逗号或换行分隔。例如：TTPOS。留空显示全部项目。',
+            {
+                defaultValue: githubIssueInboxFilters.projects ?? '',
+                placeholder: 'TTPOS',
+                confirmText: '保存',
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 3,
+            },
+        );
+        if (projects === null) return;
         const value = await Modal.prompt(
-            '配置待处理过滤',
+            '配置标题/状态过滤',
             '输入要显示的标题/状态关键词，逗号或换行分隔。例如：Todo, High, POS Core。留空显示全部。',
             {
                 defaultValue: githubIssueInboxFilters.keywords,
@@ -556,8 +653,12 @@ export function SessionsList() {
             },
         );
         if (value === null) return;
-        setGithubIssueInboxFilters({ keywords: value.trim() });
-    }, [githubIssueInboxFilters.keywords, setGithubIssueInboxFilters]);
+        setGithubIssueInboxFilters({ keywords: value.trim(), projects: projects.trim() });
+    }, [githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, setGithubIssueInboxFilters]);
+    const projectFilterLabel = React.useMemo(() => {
+        const values = splitGitHubIssueFilterValues(githubIssueInboxFilters.projects);
+        return values.length > 0 ? `项目：${values.join(' / ')}` : '项目：全部';
+    }, [githubIssueInboxFilters.projects]);
 
     const tabs: { key: SidebarTab; label: string }[] = React.useMemo(() => [
         { key: 'pending', label: '待处理' },
@@ -622,9 +723,44 @@ export function SessionsList() {
                         )}
                     </View>
                 )}
+                {activeTab === 'pending' && (
+                    <View style={styles.pendingSearchSection}>
+                        <View style={styles.pendingSearchBox}>
+                            <Ionicons name="search-outline" size={18} color={theme.colors.textSecondary} />
+                            <TextInput
+                                style={styles.pendingSearchInput}
+                                value={pendingIssueSearchText}
+                                onChangeText={setPendingIssueSearchText}
+                                placeholder="搜索 #1212 / 标题 / 仓库"
+                                placeholderTextColor={theme.colors.textSecondary}
+                                autoCorrect={false}
+                                autoCapitalize="none"
+                                returnKeyType="search"
+                            />
+                            {pendingIssueSearchText.trim().length > 0 && (
+                                <Pressable
+                                    onPress={() => setPendingIssueSearchText('')}
+                                    hitSlop={8}
+                                >
+                                    <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
+                                </Pressable>
+                            )}
+                        </View>
+                        <Pressable
+                            onPress={handleConfigurePending}
+                            style={styles.pendingProjectFilterButton}
+                        >
+                            <Ionicons name="albums-outline" size={17} color={theme.colors.textSecondary} />
+                            <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
+                                {projectFilterLabel}
+                            </Text>
+                            <Ionicons name="options-outline" size={17} color={theme.colors.textSecondary} />
+                        </Pressable>
+                    </View>
+                )}
             </>
         );
-    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions, tabs, handleConfigurePending]);
+    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions, tabs, handleConfigurePending, pendingIssueSearchText, projectFilterLabel]);
 
     const EmptyComponent = React.useCallback(() => (
         <View style={styles.emptyContainer}>
@@ -639,10 +775,10 @@ export function SessionsList() {
         <View style={styles.emptyContainer}>
             <Ionicons name="logo-github" size={48} color={theme.colors.textSecondary} style={{ marginBottom: 12, opacity: 0.5 }} />
             <Text style={styles.emptyText}>
-                {pendingIssuesLoading ? '正在读取 GitHub Issues…' : pendingIssuesError || (pendingIssueFilterKeywords.length > 0 ? '没有匹配过滤条件的 GitHub Issues' : '没有待处理的 GitHub Issues')}
+                {pendingIssuesLoading ? '正在读取 GitHub Issues…' : pendingIssuesError || ((pendingIssueFilterKeywords.length > 0 || pendingIssueProjectFilters.length > 0 || pendingIssueSearchKeyword) ? '没有匹配条件的 GitHub Issues' : '没有待处理的 GitHub Issues')}
             </Text>
         </View>
-    ), [theme, pendingIssuesLoading, pendingIssuesError, pendingIssueFilterKeywords.length]);
+    ), [theme, pendingIssuesLoading, pendingIssuesError, pendingIssueFilterKeywords.length, pendingIssueProjectFilters.length, pendingIssueSearchKeyword]);
 
     if (activeTab === 'pending') {
         return (

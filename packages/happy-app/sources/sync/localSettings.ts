@@ -34,6 +34,11 @@ export const LocalSettingsSchema = z.object({
          * Status value (e.g. "Todo").
          */
         keywords: z.string(),
+        /**
+         * Comma/newline separated GitHub project titles. A GitHub issue is
+         * shown only when it belongs to at least one matching project.
+         */
+        projects: z.string().optional(),
     }).describe('Device-local filters for the GitHub issue inbox'),
 });
 
@@ -61,7 +66,7 @@ export const localSettingsDefaults: LocalSettings = {
     worktreeBranchPrefix: '',
     acknowledgedCliVersions: {},
     customQuickActions: [],
-    githubIssueInboxFilters: { keywords: '' },
+    githubIssueInboxFilters: { keywords: '', projects: '' },
 };
 Object.freeze(localSettingsDefaults);
 
