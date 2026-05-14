@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/storage/db";
 import { decryptString } from "@/modules/encrypt";
 import { Fastify } from "../types";
+import { log } from "@/utils/log";
 
 const GitHubIssueSchema = z.object({
     id: z.number(),
@@ -81,8 +82,75 @@ query HappyIssueInbox($query: String!, $limit: Int!) {
 }
 `;
 
+const issueSearchQueryWithoutProjects = `
+query HappyIssueInbox($query: String!, $limit: Int!) {
+  search(type: ISSUE, query: $query, first: $limit) {
+    nodes {
+      ... on Issue {
+        databaseId
+        number
+        title
+        body
+        url
+        state
+        updatedAt
+        repository { nameWithOwner }
+        labels(first: 20) { nodes { name } }
+        assignees(first: 20) { nodes { login } }
+      }
+    }
+  }
+}
+`;
+
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
     return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => !!value)));
+}
+
+type GitHubGraphQLIssuesResponse = {
+    data?: { search?: { nodes?: Array<GraphQLIssueNode | null> | null } | null };
+    errors?: Array<{ message?: string }>;
+};
+
+async function fetchGitHubIssueSearch(args: {
+    token: string;
+    query: string;
+    limit: number;
+    includeProjects: boolean;
+}): Promise<{ ok: true; data: GitHubGraphQLIssuesResponse } | { ok: false; status?: number; error: string }> {
+    const response = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${args.token}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'happy-ai',
+        },
+        body: JSON.stringify({
+            query: args.includeProjects ? issueSearchQuery : issueSearchQueryWithoutProjects,
+            variables: { query: args.query, limit: args.limit },
+        }),
+    });
+
+    if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        return {
+            ok: false,
+            status: response.status,
+            error: `GitHub responded with ${response.status}${body ? ` ${body.slice(0, 200)}` : ''}`,
+        };
+    }
+
+    const data = await response.json() as GitHubGraphQLIssuesResponse;
+    if (data.errors?.length) {
+        return {
+            ok: false,
+            error: data.errors.map((e) => e.message).filter(Boolean).join('; ') || 'GitHub GraphQL query failed',
+        };
+    }
+
+    return { ok: true, data };
 }
 
 export function githubRoutes(app: Fastify) {
@@ -119,39 +187,19 @@ export function githubRoutes(app: Fastify) {
         const query = request.query.query?.trim() || 'is:issue is:open assignee:@me archived:false';
         const limit = request.query.limit ?? 30;
 
-        const response = await fetch('https://api.github.com/graphql', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: 'application/vnd.github+json',
-                'Content-Type': 'application/json',
-                'X-GitHub-Api-Version': '2022-11-28',
-                'User-Agent': 'happy-ai',
-            },
-            body: JSON.stringify({
-                query: issueSearchQuery,
-                variables: { query, limit },
-            }),
-        });
+        let result = await fetchGitHubIssueSearch({ token, query, limit, includeProjects: true });
+        if (!result.ok) {
+            log({ module: 'github-issues', level: 'warn' }, `GitHub issues project fields unavailable, retrying without project fields: ${result.error}`);
+            result = await fetchGitHubIssueSearch({ token, query, limit, includeProjects: false });
+        }
 
-        if (!response.ok) {
-            const body = await response.text().catch(() => '');
+        if (!result.ok) {
             return reply.code(500).send({
-                error: `Failed to fetch GitHub issues: ${response.status}${body ? ` ${body.slice(0, 200)}` : ''}`,
+                error: `Failed to fetch GitHub issues: ${result.error}`,
             });
         }
 
-        const data = await response.json() as {
-            data?: { search?: { nodes?: Array<GraphQLIssueNode | null> | null } | null };
-            errors?: Array<{ message?: string }>;
-        };
-        if (data.errors?.length) {
-            return reply.code(500).send({
-                error: `Failed to fetch GitHub issues: ${data.errors.map((e) => e.message).filter(Boolean).join('; ')}`,
-            });
-        }
-
-        const issues = (data.data?.search?.nodes ?? [])
+        const issues = (result.data.data?.search?.nodes ?? [])
             .filter((item): item is GraphQLIssueNode => !!item)
             .map((item) => {
                 const projectItems = item.projectItems?.nodes?.filter((node): node is NonNullable<typeof node> => !!node) ?? [];

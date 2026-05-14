@@ -127,21 +127,22 @@ export async function listGitHubIssues(credentials: AuthCredentials, options?: {
     if (options?.query) url.searchParams.set('query', options.query);
     if (options?.limit) url.searchParams.set('limit', String(options.limit));
 
-    return await backoff(async () => {
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${credentials.token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            const error = await response.json().catch(() => null) as { error?: string } | null;
-            throw new HappyError(error?.error || `Failed to get GitHub issues: ${response.status}`, false);
+    // Do not use the global infinite backoff here. GitHub OAuth scope/API
+    // failures are usually permanent until the user reconnects, and retrying
+    // floods the console plus the API.
+    const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
         }
-
-        const data = await response.json() as { issues: GitHubIssue[] };
-        return data.issues;
     });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => null) as { error?: string } | null;
+        throw new HappyError(error?.error || `Failed to get GitHub issues: ${response.status}`, false);
+    }
+
+    const data = await response.json() as { issues: GitHubIssue[] };
+    return data.issues;
 }
