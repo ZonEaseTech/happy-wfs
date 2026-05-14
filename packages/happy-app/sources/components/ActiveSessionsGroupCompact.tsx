@@ -467,12 +467,27 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         const y = typeof e?.clientY === 'number' ? e.clientY : 0;
         setRowMenuPos({ x, y });
     }, []);
+    const waitForMenuDismissal = React.useCallback(() => new Promise<void>((resolve) => {
+        // On web the rename action is usually launched from a context-menu
+        // RNModal. Opening the prompt in the same event turn can leave two
+        // React Native Web modals fighting over focus/portal teardown, which
+        // has shown up as "Maximum call stack size exceeded" when confirming
+        // the rename. Wait until the menu state has had a chance to unmount
+        // before showing the prompt.
+        if (Platform.OS === 'web' && typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => setTimeout(resolve, 0));
+            return;
+        }
+        setTimeout(resolve, 0);
+    }), []);
+
     // Reuse the existing happy "rename session" feature (server-side
     // sessionUpdateSummary + promptWithCheckbox UI with the "fixed title"
     // toggle) — same modal that lives on the session info page.
     const handleRenameSession = React.useCallback(async () => {
         setRowMenuVisible(false);
         setRowMenuPos(null);
+        await waitForMenuDismissal();
         if (!session.metadata) return;
         const result = await Modal.promptWithCheckbox(
             t('sessionInfo.renameSession'),
@@ -505,7 +520,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 e instanceof Error ? e.message : t('sessionInfo.failedToRenameSession'),
             );
         }
-    }, [session.id, session.metadata, session.metadataVersion]);
+    }, [session.id, session.metadata, session.metadataVersion, waitForMenuDismissal]);
     const rowMenuItems = React.useMemo<ActionMenuItem[]>(() => [
         {
             label: t('sessionInfo.renameSession'),
