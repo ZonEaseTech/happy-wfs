@@ -52,6 +52,8 @@ export interface PromptModalConfig extends BaseModalConfig {
     multiline?: boolean;
     /** When multiline, override the visible row count (default 6). */
     multilineRows?: number;
+    /** Larger web prompt layout for editing structured or long-form text. */
+    size?: 'default' | 'large';
 }
 
 export interface CustomModalConfig extends BaseModalConfig {

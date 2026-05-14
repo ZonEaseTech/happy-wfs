@@ -32,21 +32,31 @@ interface SessionModeChangeRequest {
  * on proxy/circular bookkeeping with "Maximum call stack size exceeded".
  */
 function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {
-    const parsed = MetadataSchema.safeParse(metadata);
-    if (parsed.success) {
-        return parsed.data;
-    }
-
     const seen = new WeakSet<object>();
-    const plain = JSON.parse(JSON.stringify(metadata, (_key, value) => {
+    const toPlain = (value: unknown): unknown => {
         if (typeof value === 'function') return undefined;
         if (value && typeof value === 'object') {
             if (seen.has(value)) return undefined;
             seen.add(value);
+            if (Array.isArray(value)) {
+                return value.map((item) => toPlain(item));
+            }
+            const plainObject: Record<string, unknown> = {};
+            for (const key of Object.keys(value)) {
+                const child = toPlain((value as Record<string, unknown>)[key]);
+                if (child !== undefined) {
+                    plainObject[key] = child;
+                }
+            }
+            return plainObject;
         }
         return value;
-    }));
+    };
 
+    // Avoid running zod directly on observable/proxy metadata. Some session
+    // rows contain circular bookkeeping that can make recursive validators
+    // overflow before they get a chance to reject unknown fields.
+    const plain = toPlain(metadata);
     return MetadataSchema.parse(plain);
 }
 

@@ -592,7 +592,8 @@ function NewSessionWizard() {
                 confirmText: t('common.save'),
                 cancelText: t('common.cancel'),
                 multiline: true,
-                multilineRows: 14,
+                multilineRows: 22,
+                size: 'large',
             },
         );
         if (raw === null) return;
