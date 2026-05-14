@@ -61,22 +61,34 @@ RUN echo 'server { \
     \
     location /_expo/ { \
         root   /usr/share/nginx/html; \
+        error_page 404 =404; \
         try_files $uri =404; \
+        add_header Cache-Control "public, max-age=31536000, immutable" always; \
     } \
     \
     location /assets/ { \
         root   /usr/share/nginx/html; \
+        error_page 404 =404; \
         try_files $uri =404; \
+        add_header Cache-Control "public, max-age=31536000, immutable" always; \
     } \
     \
     location /.well-known/ { \
         root   /usr/share/nginx/html; \
+        error_page 404 =404; \
+        try_files $uri =404; \
+    } \
+    \
+    location = /index.html { \
+        root   /usr/share/nginx/html; \
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always; \
         try_files $uri =404; \
     } \
     \
     location / { \
         root   /usr/share/nginx/html; \
         index  index.html index.htm; \
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always; \
         try_files $uri $uri.html $uri/index.html $uri/index.htm $uri/ /index.html /index.htm =404; \
     } \
     \
