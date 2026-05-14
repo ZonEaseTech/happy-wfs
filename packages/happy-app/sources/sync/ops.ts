@@ -206,6 +206,39 @@ function buildEmergencySessionMetadataBase(source: Record<string, unknown>): Rec
             // Ignore corrupt/proxy arrays on the emergency fallback path.
         }
     };
+    const copyWorkspaceRepos = (target: Record<string, unknown>) => {
+        try {
+            const value = source.workspaceRepos;
+            if (!Array.isArray(value)) return;
+            const repos = value
+                .map((item): Record<string, string> | null => {
+                    if (!item || typeof item !== 'object') return null;
+                    const repoSource = item as Record<string, unknown>;
+                    const repo: Record<string, string> = {};
+                    [
+                        'repoId',
+                        'path',
+                        'basePath',
+                        'branchName',
+                        'targetBranch',
+                        'prUrl',
+                        'displayName',
+                    ].forEach(key => {
+                        const field = repoSource[key];
+                        if (typeof field === 'string') {
+                            repo[key] = field;
+                        }
+                    });
+                    return repo.path && repo.basePath && repo.branchName ? repo : null;
+                })
+                .filter((repo): repo is Record<string, string> => repo !== null);
+            if (repos.length > 0) {
+                target.workspaceRepos = repos;
+            }
+        } catch {
+            // Ignore corrupt/proxy workspace repo arrays on the emergency fallback path.
+        }
+    };
     const copyMarkedAt = (target: Record<string, unknown>, key: string) => {
         try {
             const value = source[key] as { markedAt?: unknown } | undefined;
@@ -258,6 +291,7 @@ function buildEmergencySessionMetadataBase(source: Record<string, unknown>): Rec
     copyStringArray(base, 'tools');
     copyStringArray(base, 'slashCommands');
     copyStringArray(base, 'injectedMemoryIds');
+    copyWorkspaceRepos(base);
     copyMarkedAt(base, 'awaitingClosure');
     copyMarkedAt(base, 'reviewPending');
 
