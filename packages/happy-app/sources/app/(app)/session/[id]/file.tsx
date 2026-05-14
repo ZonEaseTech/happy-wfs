@@ -27,7 +27,7 @@ import { showCopiedToast } from '@/components/Toast';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
-import { getExtensionFromMimeType, getImageMimeType, isPreviewableImage, isTemporaryPreviewableImagePath } from '@/utils/fileViewer';
+import { getExtensionFromMimeType, getImageMimeType, isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
 import { Image } from 'expo-image';
 import { selectFileViewerSharePayload } from '@/utils/fileViewerShare';
 import { File, Paths } from 'expo-file-system';
@@ -125,7 +125,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const encodedPath = props?.encodedPath ?? (searchParams.path as string);
     const ref = searchParams.ref as string | undefined;
     const preferredView = searchParams.view as 'file' | 'diff' | undefined;
-    const machineImageReaderId = typeof searchParams.machineId === 'string' ? searchParams.machineId : undefined;
+    const machineFileReaderId = typeof searchParams.machineId === 'string' ? searchParams.machineId : undefined;
     const isStaged = searchParams.staged === '1';
     const requestedLine = parsePositiveInt(searchParams.line);
     const requestedColumn = parsePositiveInt(searchParams.column);
@@ -176,7 +176,7 @@ export default function FileScreen(props?: FileScreenProps) {
 
     const fileName = filePath.split('/').pop() || filePath;
     const isPreviewImageFile = isPreviewableImage(filePath);
-    const canReadImageFromMachine = !!machineImageReaderId && isTemporaryPreviewableImagePath(filePath);
+    const canReadFromMachine = !!machineFileReaderId && isTemporaryFilePath(filePath);
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
 
@@ -265,7 +265,7 @@ export default function FileScreen(props?: FileScreenProps) {
         ];
 
         // History: only for non-ref views (viewing current file, not a specific commit)
-        if (!ref && !canReadImageFromMachine && (gitCwd || sessionPath)) {
+        if (!ref && !canReadFromMachine && (gitCwd || sessionPath)) {
             items.push({
                 label: t('files.fileHistory'),
                 onPress: () => {
@@ -300,8 +300,8 @@ export default function FileScreen(props?: FileScreenProps) {
                 label: t('files.downloadFile'),
                 onPress: async () => {
                     try {
-                        const response = canReadImageFromMachine
-                            ? await machineReadFile(machineImageReaderId!, filePath)
+                        const response = canReadFromMachine
+                            ? await machineReadFile(machineFileReaderId!, filePath)
                             : await sessionReadFile(sessionId, filePath);
                         if (!response.success || !response.content) {
                             Modal.alert(t('common.error'), response.error || 'Failed to download file');
@@ -328,7 +328,7 @@ export default function FileScreen(props?: FileScreenProps) {
         }
 
         // Delete: only for non-ref views
-        if (!ref && !canReadImageFromMachine && (gitCwd || sessionPath)) {
+        if (!ref && !canReadFromMachine && (gitCwd || sessionPath)) {
             items.push({
                 label: t('files.deleteFile'),
                 destructive: true,
@@ -356,7 +356,7 @@ export default function FileScreen(props?: FileScreenProps) {
         }
 
         return items;
-    }, [relativePath, fileName, fileContent, diffContent, ref, sessionPath, gitCwd, sessionId, filePath, router, isPreviewImageFile, handleShare, canReadImageFromMachine, machineImageReaderId]);
+    }, [relativePath, fileName, fileContent, diffContent, ref, sessionPath, gitCwd, sessionId, filePath, router, isPreviewImageFile, handleShare, canReadFromMachine, machineFileReaderId]);
 
     // Determine file language from extension
     const getFileLanguage = React.useCallback((path: string): string | null => {
@@ -447,8 +447,8 @@ export default function FileScreen(props?: FileScreenProps) {
                 const sessionPath = session?.metadata?.path;
 
                 if (isPreviewImageFile && !ref) {
-                    const response = canReadImageFromMachine
-                        ? await machineReadFile(machineImageReaderId!, filePath)
+                    const response = canReadFromMachine
+                        ? await machineReadFile(machineFileReaderId!, filePath)
                         : await sessionReadFile(sessionId!, filePath);
                     if (!isCancelled) {
                         if (response && response.success && response.content) {
@@ -483,7 +483,7 @@ export default function FileScreen(props?: FileScreenProps) {
                 // Fetch git diff for the file
                 // Use repo-specific cwd for multi-repo workspaces
                 const effectiveCwd = gitCwd || sessionPath;
-                if (effectiveCwd && sessionId) {
+                if (!canReadFromMachine && effectiveCwd && sessionId) {
                     try {
                         const repoRelativePath = getRepoRelativePath(filePath, effectiveCwd);
                         const escapedPath = shellEscape(repoRelativePath);
@@ -529,7 +529,9 @@ export default function FileScreen(props?: FileScreenProps) {
                         }
                     }
                 } else {
-                    const response = await sessionReadFile(sessionId, filePath);
+                    const response = canReadFromMachine
+                        ? await machineReadFile(machineFileReaderId!, filePath)
+                        : await sessionReadFile(sessionId, filePath);
 
                     if (!isCancelled) {
                         if (response && response.success && response.content) {
@@ -587,7 +589,7 @@ export default function FileScreen(props?: FileScreenProps) {
         return () => {
             isCancelled = true;
         };
-    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, canReadImageFromMachine, machineImageReaderId, gitCwd]);
+    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, canReadFromMachine, machineFileReaderId, gitCwd]);
 
     // Show error modal if there's an error
     React.useEffect(() => {

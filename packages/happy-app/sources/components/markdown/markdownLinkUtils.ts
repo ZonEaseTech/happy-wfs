@@ -2,9 +2,10 @@
  * Pure utility functions for resolving markdown links to in-app file viewer routes.
  */
 
-import { isPreviewableImage, isTemporaryPreviewableImagePath } from '@/utils/fileViewer';
+import { isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
 
 const IMAGE_FILE_REFERENCE_PATTERN = /(?:file:\/\/)?(?:\/[^\s`"'<>()[\]{}]+|(?:\.{1,2}\/|[A-Za-z0-9_.-]+\/)[^\s`"'<>()[\]{}]+)\.(?:png|jpe?g|gif|webp)(?:#[Ll]\d+(?:[Cc]\d+)?|:\d+(?::\d+)?)?/gi;
+const LOCAL_FILE_REFERENCE_PATTERN = /(?:file:\/\/)?(?:\/[^\s`"'<>()[\]{}]+|(?:\.{1,2}\/|[A-Za-z0-9_.-]+\/)[^\s`"'<>()[\]{}]+)\.[A-Za-z0-9][A-Za-z0-9_-]{0,15}(?:#[Ll]\d+(?:[Cc]\d+)?|:\d+(?::\d+)?)?/gi;
 
 export function encodeFilePathForRoute(filePath: string): string {
     const bytes = new TextEncoder().encode(filePath);
@@ -161,6 +162,25 @@ export function resolveMarkdownImageReference(args: {
     const parsed = parseLocalFileReference(trimmed);
     if (!isPreviewableImage(parsed.filePath)) return null;
 
+    return resolveParsedLocalFileReference({
+        parsed,
+        sessionId: args.sessionId,
+        sessionWorkingDirectory: args.sessionWorkingDirectory,
+        sessionHomeDirectory: args.sessionHomeDirectory,
+        machineId: args.machineId,
+    });
+}
+
+function resolveParsedLocalFileReference(args: {
+    parsed: { filePath: string; line?: number; column?: number };
+    sessionId?: string;
+    sessionWorkingDirectory?: string | null;
+    sessionHomeDirectory?: string | null;
+    machineId?: string | null;
+}): { href: string; target?: '_blank' } | null {
+    const { parsed } = args;
+    if (!args.sessionId) return null;
+
     if (parsed.filePath.startsWith('/')) {
         if (isLikelyAbsoluteFilePath(parsed.filePath, {
             sessionWorkingDirectory: args.sessionWorkingDirectory,
@@ -176,7 +196,7 @@ export function resolveMarkdownImageReference(args: {
             };
         }
 
-        if (args.machineId && isTemporaryPreviewableImagePath(parsed.filePath)) {
+        if (args.machineId && isTemporaryFilePath(parsed.filePath)) {
             return {
                 href: buildSessionFileHref({
                     sessionId: args.sessionId,
@@ -191,7 +211,7 @@ export function resolveMarkdownImageReference(args: {
         return null;
     }
 
-    if (args.sessionWorkingDirectory && isLikelyRelativeFilePath(trimmed)) {
+    if (args.sessionWorkingDirectory && isLikelyRelativeFilePath(parsed.filePath)) {
         const absolutePath = joinPosixPath(args.sessionWorkingDirectory, parsed.filePath);
         return {
             href: buildSessionFileHref({
@@ -204,6 +224,26 @@ export function resolveMarkdownImageReference(args: {
     }
 
     return null;
+}
+
+export function resolveMarkdownLocalFileReference(args: {
+    rawText: string;
+    sessionId?: string;
+    sessionWorkingDirectory?: string | null;
+    sessionHomeDirectory?: string | null;
+    machineId?: string | null;
+}): { href: string; target?: '_blank' } | null {
+    const trimmed = args.rawText.trim();
+    if (!trimmed || !args.sessionId) return null;
+
+    const parsed = parseLocalFileReference(trimmed);
+    return resolveParsedLocalFileReference({
+        parsed,
+        sessionId: args.sessionId,
+        sessionWorkingDirectory: args.sessionWorkingDirectory,
+        sessionHomeDirectory: args.sessionHomeDirectory,
+        machineId: args.machineId,
+    });
 }
 
 export function splitTextByImageReferences(args: {
@@ -236,11 +276,42 @@ export function splitTextByImageReferences(args: {
     return segments.length > 0 ? segments : [{ text: args.text }];
 }
 
+export function splitTextByLocalFileReferences(args: {
+    text: string;
+    sessionId?: string;
+    sessionWorkingDirectory?: string | null;
+    sessionHomeDirectory?: string | null;
+    machineId?: string | null;
+}): Array<{ text: string; href?: string; target?: '_blank' }> {
+    const segments: Array<{ text: string; href?: string; target?: '_blank' }> = [];
+    let lastIndex = 0;
+
+    for (const match of args.text.matchAll(LOCAL_FILE_REFERENCE_PATTERN)) {
+        const rawText = match[0];
+        const index = match.index ?? 0;
+        const link = resolveMarkdownLocalFileReference({ ...args, rawText });
+        if (!link) continue;
+
+        if (index > lastIndex) {
+            segments.push({ text: args.text.slice(lastIndex, index) });
+        }
+        segments.push({ text: rawText, href: link.href, target: link.target });
+        lastIndex = index + rawText.length;
+    }
+
+    if (lastIndex < args.text.length) {
+        segments.push({ text: args.text.slice(lastIndex) });
+    }
+
+    return segments.length > 0 ? segments : [{ text: args.text }];
+}
+
 export function resolveMarkdownLink(args: {
     rawUrl: string;
     sessionId?: string;
     sessionWorkingDirectory?: string | null;
     sessionHomeDirectory?: string | null;
+    machineId?: string | null;
 }): { href: string; target?: '_blank' } {
     const trimmed = args.rawUrl.trim();
     if (!trimmed) {
@@ -255,18 +326,15 @@ export function resolveMarkdownLink(args: {
     if (trimmed.startsWith('/')) {
         if (args.sessionId) {
             const parsed = parseLocalFileReference(trimmed);
-            if (isLikelyAbsoluteFilePath(parsed.filePath, {
+            const localFileLink = resolveParsedLocalFileReference({
+                parsed,
+                sessionId: args.sessionId,
                 sessionWorkingDirectory: args.sessionWorkingDirectory,
                 sessionHomeDirectory: args.sessionHomeDirectory,
-            })) {
-                return {
-                    href: buildSessionFileHref({
-                        sessionId: args.sessionId,
-                        filePath: parsed.filePath,
-                        line: parsed.line,
-                        column: parsed.column,
-                    }),
-                };
+                machineId: args.machineId,
+            });
+            if (localFileLink) {
+                return localFileLink;
             }
         }
         return { href: trimmed };

@@ -1,5 +1,5 @@
 import { MarkdownSpan, OptionItem as OptionItemData, parseMarkdown } from './parseMarkdown';
-import { resolveMarkdownLink, splitTextByImageReferences } from './markdownLinkUtils';
+import { resolveMarkdownLink, splitTextByLocalFileReferences } from './markdownLinkUtils';
 import { useWebHorizontalScroll } from '@/hooks/useWebHorizontalScroll';
 import { Link } from 'expo-router';
 import * as React from 'react';
@@ -405,6 +405,7 @@ function RenderSpans(props: { spans: MarkdownSpan[], baseStyle?: any, isHeader?:
                 const link = resolveMarkdownLink({
                     rawUrl: span.url,
                     sessionId: linkContext.sessionId,
+                    machineId: linkContext.machineId,
                     sessionWorkingDirectory: linkContext.sessionWorkingDirectory,
                     sessionHomeDirectory: linkContext.sessionHomeDirectory,
                 });
@@ -419,7 +420,7 @@ function RenderSpans(props: { spans: MarkdownSpan[], baseStyle?: any, isHeader?:
                     </Link>
                 );
             } else {
-                const parts = splitTextByImageReferences({
+                const parts = splitTextByLocalFileReferences({
                     text: span.text,
                     sessionId: linkContext.sessionId,
                     machineId: linkContext.machineId,

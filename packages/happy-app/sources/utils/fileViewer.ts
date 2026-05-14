@@ -20,12 +20,16 @@ export function isPreviewableImage(path: string): boolean {
     return !!ext && ext in PREVIEW_IMAGE_MIME_BY_EXT;
 }
 
-export function isTemporaryPreviewableImagePath(path: string): boolean {
+export function isTemporaryFilePath(path: string): boolean {
     const normalizedPath = path.startsWith('file://') ? path.slice('file://'.length) : path;
-    if (!isPreviewableImage(normalizedPath)) return false;
     return normalizedPath.startsWith('/tmp/')
         || normalizedPath.startsWith('/var/tmp/')
         || normalizedPath.startsWith('/private/tmp/');
+}
+
+export function isTemporaryPreviewableImagePath(path: string): boolean {
+    const normalizedPath = path.startsWith('file://') ? path.slice('file://'.length) : path;
+    return isPreviewableImage(normalizedPath) && isTemporaryFilePath(normalizedPath);
 }
 
 export function getImageMimeType(path: string): string | null {
