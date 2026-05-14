@@ -968,6 +968,13 @@ export function SessionsList() {
                     repository: issue.repository,
                     number: issue.number,
                     labels: issue.labels,
+                    body: issue.body,
+                    htmlUrl: issue.htmlUrl,
+                    state: issue.state,
+                    updatedAt: issue.updatedAt,
+                    assignees: issue.assignees,
+                    projectStatuses: issue.projectStatuses,
+                    projectTitles: issue.projectTitles,
                 },
             },
         });

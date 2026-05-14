@@ -12,6 +12,7 @@ import type { ActionMenuItem } from '@/components/ActionMenu';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
+import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useArchiveSession } from '@/hooks/useArchiveSession';
@@ -20,6 +21,7 @@ import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
+import type { GitHubIssue } from '@/sync/apiGithub';
 import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
@@ -57,6 +59,51 @@ const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
 const webTooltip = (label: string): Record<string, string> => (
     Platform.OS === 'web' ? { title: label } : {}
 );
+
+function readString(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined;
+}
+
+function readStringArray(value: unknown): string[] {
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function buildLinkedGitHubIssue(session: Session | null | undefined): GitHubIssue | null {
+    const context = session?.metadata?.externalContext;
+    if (!context || context.source !== 'github' || context.resourceType !== 'issue') {
+        return null;
+    }
+
+    const extra = context.extra && typeof context.extra === 'object'
+        ? context.extra as Record<string, unknown>
+        : {};
+    const resourceMatch = context.resourceId.match(/^(.+)#(\d+)$/);
+    const repository = readString(extra.repository) || resourceMatch?.[1];
+    const numberValue = typeof extra.number === 'number' ? extra.number : Number(resourceMatch?.[2]);
+    if (!repository || !Number.isFinite(numberValue) || numberValue <= 0) {
+        return null;
+    }
+
+    const title = readString(context.title)?.replace(new RegExp(`^#${numberValue}\\s+`), '')
+        || readString(extra.title)
+        || `#${numberValue}`;
+    const htmlUrl = readString(extra.htmlUrl) || context.sourceUrl || context.deepLink || '';
+
+    return {
+        id: 0,
+        number: numberValue,
+        title,
+        body: readString(extra.body) ?? null,
+        htmlUrl,
+        repository,
+        state: readString(extra.state) || 'open',
+        updatedAt: readString(extra.updatedAt) || '',
+        labels: readStringArray(extra.labels),
+        assignees: readStringArray(extra.assignees),
+        projectStatuses: readStringArray(extra.projectStatuses),
+        projectTitles: readStringArray(extra.projectTitles),
+    };
+}
 
 function applyQuickActionPlaceholders(prompt: string, params: { projectPath: string }): string {
     return prompt.replaceAll('{{projectPath}}', params.projectPath);
@@ -109,6 +156,17 @@ export const SessionView = React.memo((props: { id: string }) => {
             router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
         }
     }, [router, sessionId, isDesktopPanelMode]);
+    const linkedGitHubIssue = React.useMemo(() => buildLinkedGitHubIssue(session), [session]);
+    const handleOpenLinkedGitHubIssue = React.useCallback(() => {
+        if (!linkedGitHubIssue) return;
+        Modal.show({
+            component: GitHubIssueDetailModal,
+            props: {
+                issue: linkedGitHubIssue,
+                fetchLatest: true,
+            },
+        });
+    }, [linkedGitHubIssue]);
 
     // Track if we've confirmed the session doesn't exist after data loads
     const [sessionNotFound, setSessionNotFound] = React.useState(false);
@@ -257,6 +315,24 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 >
                                     <Ionicons name="finger-print-outline" size={20} color={theme.colors.header.tint} />
                                 </Pressable>
+                                {linkedGitHubIssue && (
+                                    <Pressable
+                                        {...webTooltip('查看任务内容')}
+                                        onPress={handleOpenLinkedGitHubIssue}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="查看任务内容"
+                                        style={{
+                                            width: 38,
+                                            height: 38,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons name="ticket-outline" size={21} color={theme.colors.header.tint} />
+                                    </Pressable>
+                                )}
                                 {/* Injected-memories badge — count = memories actually merged into
                                     THIS session's system prompt. Tap opens the same modal as the
                                     Info-panel chip (mute toggles + manage-all link). */}
