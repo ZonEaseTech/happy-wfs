@@ -176,6 +176,119 @@ function normalizeSessionMetadataForSummaryWrite(metadata: Metadata, newSummaryT
     }
 }
 
+function buildMinimalSessionSummaryMetadata(metadata: Metadata, newSummaryText: string, pinned?: boolean): Metadata {
+    const source = metadata as Record<string, unknown>;
+    const readString = (key: string, fallback: string): string => {
+        try {
+            const value = source[key];
+            return typeof value === 'string' ? value : fallback;
+        } catch {
+            return fallback;
+        }
+    };
+    const minimal: Record<string, unknown> = {
+        path: readString('path', ''),
+        host: readString('host', ''),
+        summary: {
+            text: typeof newSummaryText === 'string' ? newSummaryText : String(newSummaryText ?? ''),
+            updatedAt: Date.now()
+        },
+        summaryPinned: pinned
+    };
+    const machineId = readString('machineId', '');
+    if (machineId) {
+        minimal.machineId = machineId;
+    }
+    return MetadataSchema.parse(minimal);
+}
+
+function buildMinimalSessionMetadataWithUpdates(metadata: Metadata, updates: Partial<Metadata>): Metadata {
+    const source = metadata as Record<string, unknown>;
+    const readString = (key: string, fallback: string): string => {
+        try {
+            const value = source[key];
+            return typeof value === 'string' ? value : fallback;
+        } catch {
+            return fallback;
+        }
+    };
+    const minimal: Record<string, unknown> = {
+        path: readString('path', ''),
+        host: readString('host', ''),
+    };
+    const machineId = readString('machineId', '');
+    if (machineId) {
+        minimal.machineId = machineId;
+    }
+    try {
+        const summary = source.summary as { text?: unknown; updatedAt?: unknown } | undefined;
+        if (summary && typeof summary.text === 'string' && typeof summary.updatedAt === 'number') {
+            minimal.summary = { text: summary.text, updatedAt: summary.updatedAt };
+        }
+    } catch {
+        // Ignore corrupt/proxy summary on the emergency fallback path.
+    }
+    return MetadataSchema.parse({
+        ...minimal,
+        ...updates,
+    });
+}
+
+async function encryptSessionSummaryMetadata(
+    sessionEncryption: { encryptRaw(data: any): Promise<string> },
+    metadataToSend: Metadata,
+    fallbackSource: Metadata,
+    newSummaryText: string,
+    pinned?: boolean,
+): Promise<{ encryptedMetadata: string; metadataToSend: Metadata }> {
+    try {
+        return {
+            encryptedMetadata: await sessionEncryption.encryptRaw(metadataToSend),
+            metadataToSend,
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/maximum call stack size exceeded/i.test(message)) {
+            throw error;
+        }
+
+        // Last safety net for renamed sessions: if a legacy/deep metadata
+        // payload still overflows JSON.stringify inside encryption, retry with
+        // the schema-required fields plus the requested title. This prevents a
+        // corrupt/deep metadata object from making rename unusable.
+        const minimalMetadata = buildMinimalSessionSummaryMetadata(fallbackSource, newSummaryText, pinned);
+        return {
+            encryptedMetadata: await sessionEncryption.encryptRaw(minimalMetadata),
+            metadataToSend: minimalMetadata,
+        };
+    }
+}
+
+async function encryptSessionMetadataFields(
+    sessionEncryption: { encryptRaw(data: any): Promise<string> },
+    metadataToSend: Metadata,
+    fallbackSource: Metadata,
+    updates: Partial<Metadata>,
+): Promise<{ encryptedMetadata: string; metadataToSend: Metadata }> {
+    try {
+        return {
+            encryptedMetadata: await sessionEncryption.encryptRaw(metadataToSend),
+            metadataToSend,
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/maximum call stack size exceeded/i.test(message)) {
+            throw error;
+        }
+
+        const minimalMetadata = buildMinimalSessionMetadataWithUpdates(fallbackSource, updates);
+        return {
+            encryptedMetadata: await sessionEncryption.encryptRaw(minimalMetadata),
+            metadataToSend: minimalMetadata,
+        };
+    }
+}
+
 async function fetchSessionMetadataSnapshot(sessionId: string): Promise<{ metadata: string; metadataVersion: number } | null> {
     try {
         const response = await apiSocket.request(`/v1/sessions/${encodeURIComponent(sessionId)}/metadata`);
@@ -896,9 +1009,18 @@ export async function sessionUpdateSummary(
     }
 
     let metadataToSend = normalizeSessionMetadataForSummaryWrite(safeCurrentMetadata, newSummaryText, pinned);
+    let metadataFallbackSource = safeCurrentMetadata;
 
     for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
-        const encryptedMetadata = await sessionEncryption.encryptRaw(metadataToSend);
+        const encrypted = await encryptSessionSummaryMetadata(
+            sessionEncryption,
+            metadataToSend,
+            metadataFallbackSource,
+            newSummaryText,
+            pinned,
+        );
+        const encryptedMetadata = encrypted.encryptedMetadata;
+        metadataToSend = encrypted.metadataToSend;
 
         const result = await apiSocket.emitWithAck<{
             result: 'success' | 'version-mismatch' | 'error';
@@ -917,6 +1039,7 @@ export async function sessionUpdateSummary(
             currentVersion = result.version!;
             // Decrypt latest metadata and re-apply our summary change
             const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata;
+            metadataFallbackSource = latestMetadata;
             metadataToSend = normalizeSessionMetadataForSummaryWrite(latestMetadata, newSummaryText, pinned);
         } else {
             throw new Error(result.message || 'Failed to update session metadata');
@@ -943,11 +1066,29 @@ export async function sessionUpdateMetadataFields(
         throw new Error(`Session encryption not found for ${sessionId}`);
     }
 
-    const baseMetadata = normalizeSessionMetadataForWrite(currentMetadata);
+    let safeCurrentMetadata = currentMetadata;
+    const serverSnapshot = await fetchSessionMetadataSnapshot(sessionId);
+    if (serverSnapshot) {
+        currentVersion = serverSnapshot.metadataVersion;
+        const decryptedMetadata = await sessionEncryption.decryptRaw(serverSnapshot.metadata) as Metadata | null;
+        if (decryptedMetadata) {
+            safeCurrentMetadata = decryptedMetadata;
+        }
+    }
+
+    const baseMetadata = normalizeSessionMetadataForWrite(safeCurrentMetadata);
     let metadataToSend: Metadata = { ...baseMetadata, ...updates };
+    let metadataFallbackSource = safeCurrentMetadata;
 
     for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
-        const encryptedMetadata = await sessionEncryption.encryptRaw(metadataToSend);
+        const encrypted = await encryptSessionMetadataFields(
+            sessionEncryption,
+            metadataToSend,
+            metadataFallbackSource,
+            updates,
+        );
+        const encryptedMetadata = encrypted.encryptedMetadata;
+        metadataToSend = encrypted.metadataToSend;
 
         const result = await apiSocket.emitWithAck<{
             result: 'success' | 'version-mismatch' | 'error';
@@ -964,8 +1105,9 @@ export async function sessionUpdateMetadataFields(
             return { version: result.version! };
         } else if (result.result === 'version-mismatch') {
             currentVersion = result.version!;
-            const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata;
-            metadataToSend = { ...normalizeSessionMetadataForWrite(latestMetadata), ...updates };
+            const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata | null;
+            metadataFallbackSource = latestMetadata ?? metadataFallbackSource;
+            metadataToSend = { ...normalizeSessionMetadataForWrite(metadataFallbackSource), ...updates };
         } else {
             throw new Error(result.message || 'Failed to update session metadata');
         }
