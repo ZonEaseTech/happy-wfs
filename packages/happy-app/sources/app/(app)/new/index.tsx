@@ -388,7 +388,7 @@ function NewSessionWizard() {
         sync.applySettings({ lastUsedAgent: agentType });
     }, [agentType]);
 
-    const [sessionType, setSessionType] = React.useState<'simple' | 'worktree'>(persistedDraft?.sessionType || 'simple');
+    const [sessionType, setSessionType] = React.useState<'simple' | 'worktree'>(tempSessionData?.sessionType || persistedDraft?.sessionType || 'simple');
     const [branchMode, setBranchMode] = React.useState<'new' | 'existing'>('new');
     const [selectedRepos, setSelectedRepos] = React.useState<SelectedRepo[]>([]);
     const [addDirBranchMenu, setAddDirBranchMenu] = React.useState<{ visible: boolean; items: ActionMenuItem[] }>({ visible: false, items: [] });
@@ -433,6 +433,9 @@ function NewSessionWizard() {
 
     // Session details state
     const [selectedMachineId, setSelectedMachineId] = React.useState<string | null>(() => {
+        if (tempSessionData?.machineId && machines.find(m => m.id === tempSessionData.machineId)) {
+            return tempSessionData.machineId;
+        }
         // First try the persisted draft (saved immediately on selection)
         if (persistedDraft?.selectedMachineId && machines.find(m => m.id === persistedDraft.selectedMachineId)) {
             return persistedDraft.selectedMachineId;
@@ -491,6 +494,9 @@ function NewSessionWizard() {
     //
 
     const [selectedPath, setSelectedPath] = React.useState<string>(() => {
+        if (tempSessionData?.path) {
+            return tempSessionData.path;
+        }
         // First try the persisted draft (saved immediately on selection)
         if (persistedDraft?.selectedPath) {
             return persistedDraft.selectedPath;

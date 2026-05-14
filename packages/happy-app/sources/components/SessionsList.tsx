@@ -29,6 +29,9 @@ import { sessionDelete } from '@/sync/ops';
 import { HappyError } from '@/utils/errors';
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
+import { useAuth } from '@/auth/AuthContext';
+import { listGitHubIssues, type GitHubIssue } from '@/sync/apiGithub';
+import { storeTempData } from '@/utils/tempDataStore';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -252,6 +255,38 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 13,
         ...Typography.default(),
     },
+    issueItem: {
+        minHeight: 72,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        marginHorizontal: 16,
+        marginBottom: 8,
+    },
+    issueContent: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    issueRepo: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
+    issueTitle: {
+        fontSize: 15,
+        color: theme.colors.text,
+        marginTop: 3,
+        ...Typography.default('semiBold'),
+    },
+    issueMeta: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        marginTop: 4,
+        ...Typography.default(),
+    },
     emptyContainer: {
         alignItems: 'center',
         paddingTop: 80,
@@ -266,9 +301,10 @@ const stylesheet = StyleSheet.create((theme) => ({
 }));
 
 type SessionTab = 'active' | 'closure' | 'inactive' | 'shared' | 'sharedByMe';
+type SidebarTab = 'pending' | SessionTab;
 
 // Persists selected tab across navigation (survives component unmount/remount)
-let lastActiveTab: SessionTab = 'active';
+let lastActiveTab: SidebarTab = 'active';
 
 export function SessionsList() {
     const styles = stylesheet;
@@ -278,11 +314,15 @@ export function SessionsList() {
     const closureData = useClosureSessionListViewData();
     const sharedData = useSharedSessionListViewData();
     const sharedByMeData = useSharedByMeSessionListViewData();
-    const [activeTab, _setActiveTab] = React.useState<SessionTab>(lastActiveTab);
-    const setActiveTab = React.useCallback((tab: SessionTab) => {
+    const [activeTab, _setActiveTab] = React.useState<SidebarTab>(lastActiveTab);
+    const setActiveTab = React.useCallback((tab: SidebarTab) => {
         lastActiveTab = tab;
         _setActiveTab(tab);
     }, []);
+    const auth = useAuth();
+    const [pendingIssues, setPendingIssues] = React.useState<GitHubIssue[]>([]);
+    const [pendingIssuesLoading, setPendingIssuesLoading] = React.useState(false);
+    const [pendingIssuesError, setPendingIssuesError] = React.useState<string | null>(null);
     const pathname = usePathname();
     const isTablet = useIsTablet();
     const navigateToSession = useNavigateToSession();
@@ -290,14 +330,37 @@ export function SessionsList() {
     const router = useRouter();
     const { theme } = useUnistyles();
     const [refreshing, setRefreshing] = React.useState(false);
+    const loadPendingIssues = React.useCallback(async (showSpinner: boolean = true) => {
+        if (!auth.credentials) return;
+        if (showSpinner) setPendingIssuesLoading(true);
+        setPendingIssuesError(null);
+        try {
+            const issues = await listGitHubIssues(auth.credentials, { limit: 30 });
+            setPendingIssues(issues);
+        } catch (error) {
+            setPendingIssuesError(error instanceof Error ? error.message : String(error));
+        } finally {
+            setPendingIssuesLoading(false);
+        }
+    }, [auth.credentials]);
     const handleRefresh = React.useCallback(async () => {
         setRefreshing(true);
         try {
+            if (activeTab === 'pending') {
+                await loadPendingIssues(false);
+                return;
+            }
             await sync.refreshSessions();
         } finally {
             setRefreshing(false);
         }
-    }, []);
+    }, [activeTab, loadPendingIssues]);
+
+    React.useEffect(() => {
+        if (activeTab === 'pending' && pendingIssues.length === 0 && !pendingIssuesLoading) {
+            void loadPendingIssues();
+        }
+    }, [activeTab, pendingIssues.length, pendingIssuesLoading, loadPendingIssues]);
     // Reset to 'active' tab if current tab's data becomes empty.
     // Closure tab is exempt — it's an affordance (the user needs to see
     // *where* to mark sessions for closure), so it stays visible and
@@ -415,7 +478,52 @@ export function SessionsList() {
     // Remove this section as we'll use FlatList for all items now
 
 
-    const tabs: { key: SessionTab; label: string }[] = React.useMemo(() => [
+    const handleStartIssue = React.useCallback((issue: GitHubIssue) => {
+        const body = issue.body?.trim();
+        const bodyForPrompt = body && body.length > 4000 ? `${body.slice(0, 4000)}\n…` : body;
+        const prompt = [
+            `请开始处理这个 GitHub Issue：`,
+            ``,
+            `- 仓库：${issue.repository}`,
+            `- Issue：#${issue.number} ${issue.title}`,
+            `- 链接：${issue.htmlUrl}`,
+            bodyForPrompt ? `\nIssue 内容：\n${bodyForPrompt}` : '',
+            ``,
+            `执行要求：`,
+            `1. 先用 gh / GitHub 工具读取 issue 最新描述、评论和相关上下文。`,
+            `2. 基于本地仓库完成修复或实现。`,
+            `3. 保留已有用户改动，完成后运行必要验证。`,
+            `4. 汇报改动、验证结果和后续发布建议。`,
+        ].filter(Boolean).join('\n');
+        const dataId = storeTempData({
+            prompt,
+            agentType: 'codex',
+            sessionType: 'worktree',
+            sessionTitle: `#${issue.number} ${issue.title}`,
+            sessionIcon: '🐙',
+            externalContext: {
+                source: 'github',
+                sourceUrl: issue.htmlUrl,
+                resourceType: 'issue',
+                resourceId: `${issue.repository}#${issue.number}`,
+                title: `#${issue.number} ${issue.title}`,
+                deepLink: issue.htmlUrl,
+                extra: {
+                    repository: issue.repository,
+                    number: issue.number,
+                    labels: issue.labels,
+                },
+            },
+        });
+        router.push(`/new?dataId=${encodeURIComponent(dataId)}`);
+    }, [router]);
+
+    const renderPendingIssue = React.useCallback(({ item }: { item: GitHubIssue }) => (
+        <GitHubIssueItem issue={item} onStart={handleStartIssue} />
+    ), [handleStartIssue]);
+
+    const tabs: { key: SidebarTab; label: string }[] = React.useMemo(() => [
+        { key: 'pending', label: '待处理' },
         { key: 'active', label: t('session.tabs.active') },
         { key: 'closure', label: t('session.tabs.closure') },
         { key: 'inactive', label: t('session.tabs.inactive') },
@@ -430,6 +538,7 @@ export function SessionsList() {
 
     const HeaderComponent = React.useCallback(() => {
         const visibleTabs = tabs.filter(tab => {
+            if (tab.key === 'pending') return true;
             if (tab.key === 'active') return true;
             // Closure tab is always visible — it's an affordance, not a
             // notification. Users need to see the bucket exists in order
@@ -467,7 +576,7 @@ export function SessionsList() {
                 )}
             </>
         );
-    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions]);
+    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions, tabs]);
 
     const EmptyComponent = React.useCallback(() => (
         <View style={styles.emptyContainer}>
@@ -477,6 +586,39 @@ export function SessionsList() {
             </Text>
         </View>
     ), [theme]);
+
+    const PendingEmptyComponent = React.useCallback(() => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="logo-github" size={48} color={theme.colors.textSecondary} style={{ marginBottom: 12, opacity: 0.5 }} />
+            <Text style={styles.emptyText}>
+                {pendingIssuesLoading ? '正在读取 GitHub Issues…' : pendingIssuesError || '没有待处理的 GitHub Issues'}
+            </Text>
+        </View>
+    ), [theme, pendingIssuesLoading, pendingIssuesError]);
+
+    if (activeTab === 'pending') {
+        return (
+            <View style={styles.container}>
+                <View style={styles.contentContainer}>
+                    <FlatList
+                        data={pendingIssues}
+                        renderItem={renderPendingIssue}
+                        keyExtractor={(item) => `github-issue-${item.repository}-${item.number}`}
+                        contentContainerStyle={{ paddingBottom: safeArea.bottom + 128, maxWidth: layout.maxWidth }}
+                        ListHeaderComponent={HeaderComponent}
+                        ListEmptyComponent={PendingEmptyComponent}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing || pendingIssuesLoading}
+                                onRefresh={handleRefresh}
+                                tintColor={theme.colors.textSecondary}
+                            />
+                        }
+                    />
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -501,6 +643,40 @@ export function SessionsList() {
         </View>
     );
 }
+
+const GitHubIssueItem = React.memo(({ issue, onStart }: {
+    issue: GitHubIssue;
+    onStart: (issue: GitHubIssue) => void;
+}) => {
+    const styles = stylesheet;
+    const updatedAt = React.useMemo(() => {
+        const date = new Date(issue.updatedAt);
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
+    }, [issue.updatedAt]);
+    return (
+        <Pressable
+            style={({ pressed }) => [
+                styles.issueItem,
+                pressed && { opacity: 0.78 },
+            ]}
+            onPress={() => onStart(issue)}
+        >
+            <Ionicons name="logo-github" size={24} color={styles.issueRepo.color} />
+            <View style={styles.issueContent}>
+                <Text style={styles.issueRepo} numberOfLines={1}>
+                    {issue.repository} · #{issue.number}
+                </Text>
+                <Text style={styles.issueTitle} numberOfLines={2}>
+                    {issue.title}
+                </Text>
+                <Text style={styles.issueMeta} numberOfLines={1}>
+                    {updatedAt ? `更新于 ${updatedAt}` : 'GitHub Issue'}{issue.labels.length ? ` · ${issue.labels.slice(0, 3).join(', ')}` : ''}
+                </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={styles.issueRepo.color} />
+        </Pressable>
+    );
+});
 
 // Sub-component that handles session message logic
 const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }: {

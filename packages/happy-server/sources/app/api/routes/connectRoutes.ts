@@ -78,7 +78,9 @@ export function connectRoutes(app: Fastify) {
         const params = new URLSearchParams({
             client_id: clientId,
             redirect_uri: redirectUri,
-            scope: 'read:user,user:email,read:org,codespace',
+            // repo is required to read private repository issues for the
+            // Happy "pending GitHub issues" task inbox.
+            scope: 'read:user,user:email,read:org,codespace,repo',
             state: state
         });
 

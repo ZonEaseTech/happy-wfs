@@ -21,6 +21,19 @@ export interface AccountProfile {
     github: GitHubProfile | null;
 }
 
+export interface GitHubIssue {
+    id: number;
+    number: number;
+    title: string;
+    body: string | null;
+    htmlUrl: string;
+    repository: string;
+    state: string;
+    updatedAt: string;
+    labels: string[];
+    assignees: string[];
+}
+
 /**
  * Get GitHub OAuth parameters from the server
  */
@@ -103,5 +116,30 @@ export async function disconnectGitHub(credentials: AuthCredentials): Promise<vo
         if (!data.success) {
             throw new Error('Failed to disconnect GitHub account');
         }
+    });
+}
+
+export async function listGitHubIssues(credentials: AuthCredentials, options?: { query?: string; limit?: number }): Promise<GitHubIssue[]> {
+    const API_ENDPOINT = getServerUrl();
+    const url = new URL(`${API_ENDPOINT}/v1/github/issues`);
+    if (options?.query) url.searchParams.set('query', options.query);
+    if (options?.limit) url.searchParams.set('limit', String(options.limit));
+
+    return await backoff(async () => {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${credentials.token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => null) as { error?: string } | null;
+            throw new HappyError(error?.error || `Failed to get GitHub issues: ${response.status}`, false);
+        }
+
+        const data = await response.json() as { issues: GitHubIssue[] };
+        return data.issues;
     });
 }
