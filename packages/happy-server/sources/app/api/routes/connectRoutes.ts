@@ -80,7 +80,7 @@ export function connectRoutes(app: Fastify) {
             redirect_uri: redirectUri,
             // repo is required to read private repository issues for the
             // Happy "pending GitHub issues" task inbox.
-            scope: 'read:user,user:email,read:org,codespace,repo',
+            scope: 'read:user,user:email,read:org,codespace,repo,read:project',
             state: state
         });
 

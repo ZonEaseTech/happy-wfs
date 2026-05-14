@@ -3,7 +3,7 @@ import { View, Pressable, FlatList, Platform, RefreshControl } from 'react-nativ
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
-import { SessionListViewItem, useSetting, useOrchestratorRunningTaskCount } from '@/sync/storage';
+import { SessionListViewItem, useLocalSettingMutable, useSetting, useOrchestratorRunningTaskCount } from '@/sync/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { getSessionName, useSessionStatus, getSessionSubtitle, getSessionAvatarId } from '@/utils/sessionUtils';
 import { Avatar } from './Avatar';
@@ -323,6 +323,7 @@ export function SessionsList() {
     const [pendingIssues, setPendingIssues] = React.useState<GitHubIssue[]>([]);
     const [pendingIssuesLoading, setPendingIssuesLoading] = React.useState(false);
     const [pendingIssuesError, setPendingIssuesError] = React.useState<string | null>(null);
+    const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
     const pathname = usePathname();
     const isTablet = useIsTablet();
     const navigateToSession = useNavigateToSession();
@@ -361,6 +362,26 @@ export function SessionsList() {
             void loadPendingIssues();
         }
     }, [activeTab, pendingIssues.length, pendingIssuesLoading, loadPendingIssues]);
+    const pendingIssueFilterKeywords = React.useMemo(() => {
+        return githubIssueInboxFilters.keywords
+            .split(/[\n,，]/)
+            .map((value) => value.trim().toLowerCase())
+            .filter(Boolean);
+    }, [githubIssueInboxFilters.keywords]);
+    const filteredPendingIssues = React.useMemo(() => {
+        if (pendingIssueFilterKeywords.length === 0) return pendingIssues;
+        return pendingIssues.filter((issue) => {
+            const haystack = [
+                issue.repository,
+                issue.title,
+                issue.body ?? '',
+                ...issue.labels,
+                ...issue.projectStatuses,
+                ...issue.projectTitles,
+            ].join('\n').toLowerCase();
+            return pendingIssueFilterKeywords.some((keyword) => haystack.includes(keyword));
+        });
+    }, [pendingIssues, pendingIssueFilterKeywords]);
     // Reset to 'active' tab if current tab's data becomes empty.
     // Closure tab is exempt — it's an affordance (the user needs to see
     // *where* to mark sessions for closure), so it stays visible and
@@ -521,6 +542,22 @@ export function SessionsList() {
     const renderPendingIssue = React.useCallback(({ item }: { item: GitHubIssue }) => (
         <GitHubIssueItem issue={item} onStart={handleStartIssue} />
     ), [handleStartIssue]);
+    const handleConfigurePending = React.useCallback(async () => {
+        const value = await Modal.prompt(
+            '配置待处理过滤',
+            '输入要显示的标题/状态关键词，逗号或换行分隔。例如：Todo, High, POS Core。留空显示全部。',
+            {
+                defaultValue: githubIssueInboxFilters.keywords,
+                placeholder: 'Todo',
+                confirmText: '保存',
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 4,
+            },
+        );
+        if (value === null) return;
+        setGithubIssueInboxFilters({ keywords: value.trim() });
+    }, [githubIssueInboxFilters.keywords, setGithubIssueInboxFilters]);
 
     const tabs: { key: SidebarTab; label: string }[] = React.useMemo(() => [
         { key: 'pending', label: '待处理' },
@@ -554,29 +591,40 @@ export function SessionsList() {
             <>
                 <UpdateBanner />
                 {showFilterRow && (
-                    <View style={styles.filterRow}>
-                        {visibleTabs.map((tab) => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.filterRow, { flex: 1 }]}>
+                            {visibleTabs.map((tab) => (
+                                <Pressable
+                                    key={tab.key}
+                                    style={[
+                                        styles.filterChip,
+                                        { backgroundColor: activeTab === tab.key ? theme.colors.button.primary.background : theme.colors.surface },
+                                    ]}
+                                    onPress={() => setActiveTab(tab.key)}
+                                >
+                                    <Text style={[
+                                        styles.filterChipText,
+                                        { color: activeTab === tab.key ? theme.colors.button.primary.tint : theme.colors.text },
+                                    ]}>
+                                        {tab.label}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </View>
+                        {activeTab === 'pending' && (
                             <Pressable
-                                key={tab.key}
-                                style={[
-                                    styles.filterChip,
-                                    { backgroundColor: activeTab === tab.key ? theme.colors.button.primary.background : theme.colors.surface },
-                                ]}
-                                onPress={() => setActiveTab(tab.key)}
+                                onPress={handleConfigurePending}
+                                hitSlop={10}
+                                style={{ marginRight: 16, marginTop: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: theme.colors.surface }}
                             >
-                                <Text style={[
-                                    styles.filterChipText,
-                                    { color: activeTab === tab.key ? theme.colors.button.primary.tint : theme.colors.text },
-                                ]}>
-                                    {tab.label}
-                                </Text>
+                                <Ionicons name="options-outline" size={18} color={theme.colors.text} />
                             </Pressable>
-                        ))}
+                        )}
                     </View>
                 )}
             </>
         );
-    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions, tabs]);
+    }, [activeTab, theme, hasInactiveSessions, hasClosureSessions, hasSharedSessions, hasSharedByMeSessions, tabs, handleConfigurePending]);
 
     const EmptyComponent = React.useCallback(() => (
         <View style={styles.emptyContainer}>
@@ -591,17 +639,17 @@ export function SessionsList() {
         <View style={styles.emptyContainer}>
             <Ionicons name="logo-github" size={48} color={theme.colors.textSecondary} style={{ marginBottom: 12, opacity: 0.5 }} />
             <Text style={styles.emptyText}>
-                {pendingIssuesLoading ? '正在读取 GitHub Issues…' : pendingIssuesError || '没有待处理的 GitHub Issues'}
+                {pendingIssuesLoading ? '正在读取 GitHub Issues…' : pendingIssuesError || (pendingIssueFilterKeywords.length > 0 ? '没有匹配过滤条件的 GitHub Issues' : '没有待处理的 GitHub Issues')}
             </Text>
         </View>
-    ), [theme, pendingIssuesLoading, pendingIssuesError]);
+    ), [theme, pendingIssuesLoading, pendingIssuesError, pendingIssueFilterKeywords.length]);
 
     if (activeTab === 'pending') {
         return (
             <View style={styles.container}>
                 <View style={styles.contentContainer}>
                     <FlatList
-                        data={pendingIssues}
+                        data={filteredPendingIssues}
                         renderItem={renderPendingIssue}
                         keyExtractor={(item) => `github-issue-${item.repository}-${item.number}`}
                         contentContainerStyle={{ paddingBottom: safeArea.bottom + 128, maxWidth: layout.maxWidth }}
@@ -653,6 +701,7 @@ const GitHubIssueItem = React.memo(({ issue, onStart }: {
         const date = new Date(issue.updatedAt);
         return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
     }, [issue.updatedAt]);
+    const statusText = issue.projectStatuses.length > 0 ? issue.projectStatuses.join(', ') : null;
     return (
         <Pressable
             style={({ pressed }) => [
@@ -670,7 +719,7 @@ const GitHubIssueItem = React.memo(({ issue, onStart }: {
                     {issue.title}
                 </Text>
                 <Text style={styles.issueMeta} numberOfLines={1}>
-                    {updatedAt ? `更新于 ${updatedAt}` : 'GitHub Issue'}{issue.labels.length ? ` · ${issue.labels.slice(0, 3).join(', ')}` : ''}
+                    {statusText ? `状态 ${statusText}` : (updatedAt ? `更新于 ${updatedAt}` : 'GitHub Issue')}{issue.labels.length ? ` · ${issue.labels.slice(0, 3).join(', ')}` : ''}
                 </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={styles.issueRepo.color} />

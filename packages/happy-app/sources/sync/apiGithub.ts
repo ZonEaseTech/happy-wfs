@@ -32,6 +32,8 @@ export interface GitHubIssue {
     updatedAt: string;
     labels: string[];
     assignees: string[];
+    projectStatuses: string[];
+    projectTitles: string[];
 }
 
 /**

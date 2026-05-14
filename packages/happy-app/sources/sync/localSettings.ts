@@ -27,6 +27,14 @@ export const LocalSettingsSchema = z.object({
     // CLI version acknowledgments - keyed by machineId
     acknowledgedCliVersions: z.record(z.string(), z.string()).describe('Acknowledged CLI versions per machine'),
     customQuickActions: z.array(CustomQuickActionSchema).describe('Device-local AI shortcut prompts shown in the web session composer'),
+    githubIssueInboxFilters: z.object({
+        /**
+         * Comma/newline separated keywords. A GitHub issue is shown when any
+         * keyword matches its title, repo, labels, project title, or project
+         * Status value (e.g. "Todo").
+         */
+        keywords: z.string(),
+    }).describe('Device-local filters for the GitHub issue inbox'),
 });
 
 //
@@ -53,6 +61,7 @@ export const localSettingsDefaults: LocalSettings = {
     worktreeBranchPrefix: '',
     acknowledgedCliVersions: {},
     customQuickActions: [],
+    githubIssueInboxFilters: { keywords: '' },
 };
 Object.freeze(localSettingsDefaults);
 

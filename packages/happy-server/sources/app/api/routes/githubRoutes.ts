@@ -14,26 +14,75 @@ const GitHubIssueSchema = z.object({
     updatedAt: z.string(),
     labels: z.array(z.string()),
     assignees: z.array(z.string()),
+    projectStatuses: z.array(z.string()),
+    projectTitles: z.array(z.string()),
 });
 
-type GitHubSearchIssue = {
-    id: number;
+type GraphQLIssueNode = {
+    databaseId: number;
     number: number;
     title: string;
     body: string | null;
-    html_url: string;
-    repository_url: string;
+    url: string;
     state: string;
-    updated_at: string;
-    labels?: Array<{ name?: string }>;
-    assignees?: Array<{ login?: string }>;
-    pull_request?: unknown;
+    updatedAt: string;
+    repository: { nameWithOwner: string };
+    labels?: { nodes?: Array<{ name?: string } | null> | null };
+    assignees?: { nodes?: Array<{ login?: string } | null> | null };
+    projectItems?: {
+        nodes?: Array<{
+            project?: { title?: string | null } | null;
+            fieldValues?: {
+                nodes?: Array<{
+                    name?: string | null;
+                    text?: string | null;
+                    field?: { name?: string | null } | null;
+                } | null> | null;
+            } | null;
+        } | null> | null;
+    } | null;
 };
 
-function repoNameFromApiUrl(repositoryUrl: string): string {
-    const marker = '/repos/';
-    const idx = repositoryUrl.indexOf(marker);
-    return idx >= 0 ? repositoryUrl.slice(idx + marker.length) : repositoryUrl;
+const issueSearchQuery = `
+query HappyIssueInbox($query: String!, $limit: Int!) {
+  search(type: ISSUE, query: $query, first: $limit) {
+    nodes {
+      ... on Issue {
+        databaseId
+        number
+        title
+        body
+        url
+        state
+        updatedAt
+        repository { nameWithOwner }
+        labels(first: 20) { nodes { name } }
+        assignees(first: 20) { nodes { login } }
+        projectItems(first: 20) {
+          nodes {
+            project { title }
+            fieldValues(first: 20) {
+              nodes {
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  name
+                  field { ... on ProjectV2FieldCommon { name } }
+                }
+                ... on ProjectV2ItemFieldTextValue {
+                  text
+                  field { ... on ProjectV2FieldCommon { name } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+    return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => !!value)));
 }
 
 export function githubRoutes(app: Fastify) {
@@ -69,19 +118,20 @@ export function githubRoutes(app: Fastify) {
         const token = decryptString(['user', userId, 'github', 'token'], user.githubUser.token);
         const query = request.query.query?.trim() || 'is:issue is:open assignee:@me archived:false';
         const limit = request.query.limit ?? 30;
-        const url = new URL('https://api.github.com/search/issues');
-        url.searchParams.set('q', query);
-        url.searchParams.set('sort', 'updated');
-        url.searchParams.set('order', 'desc');
-        url.searchParams.set('per_page', String(limit));
 
-        const response = await fetch(url, {
+        const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
             headers: {
                 Authorization: `Bearer ${token}`,
                 Accept: 'application/vnd.github+json',
+                'Content-Type': 'application/json',
                 'X-GitHub-Api-Version': '2022-11-28',
                 'User-Agent': 'happy-ai',
             },
+            body: JSON.stringify({
+                query: issueSearchQuery,
+                variables: { query, limit },
+            }),
         });
 
         if (!response.ok) {
@@ -91,21 +141,43 @@ export function githubRoutes(app: Fastify) {
             });
         }
 
-        const data = await response.json() as { items?: GitHubSearchIssue[] };
-        const issues = (data.items ?? [])
-            .filter((item) => !item.pull_request)
-            .map((item) => ({
-                id: item.id,
-                number: item.number,
-                title: item.title,
-                body: item.body,
-                htmlUrl: item.html_url,
-                repository: repoNameFromApiUrl(item.repository_url),
-                state: item.state,
-                updatedAt: item.updated_at,
-                labels: (item.labels ?? []).map((label) => label.name).filter((name): name is string => !!name),
-                assignees: (item.assignees ?? []).map((assignee) => assignee.login).filter((login): login is string => !!login),
-            }));
+        const data = await response.json() as {
+            data?: { search?: { nodes?: Array<GraphQLIssueNode | null> | null } | null };
+            errors?: Array<{ message?: string }>;
+        };
+        if (data.errors?.length) {
+            return reply.code(500).send({
+                error: `Failed to fetch GitHub issues: ${data.errors.map((e) => e.message).filter(Boolean).join('; ')}`,
+            });
+        }
+
+        const issues = (data.data?.search?.nodes ?? [])
+            .filter((item): item is GraphQLIssueNode => !!item)
+            .map((item) => {
+                const projectItems = item.projectItems?.nodes?.filter((node): node is NonNullable<typeof node> => !!node) ?? [];
+                const projectTitles = uniqueStrings(projectItems.map((node) => node.project?.title));
+                const projectStatuses = uniqueStrings(projectItems.flatMap((node) => {
+                    const values = node.fieldValues?.nodes?.filter((value): value is NonNullable<typeof value> => !!value) ?? [];
+                    return values
+                        .filter((value) => value.field?.name?.toLowerCase() === 'status')
+                        .map((value) => value.name ?? value.text);
+                }));
+
+                return {
+                    id: item.databaseId,
+                    number: item.number,
+                    title: item.title,
+                    body: item.body,
+                    htmlUrl: item.url,
+                    repository: item.repository.nameWithOwner,
+                    state: item.state,
+                    updatedAt: item.updatedAt,
+                    labels: (item.labels?.nodes ?? []).map((label) => label?.name).filter((name): name is string => !!name),
+                    assignees: (item.assignees?.nodes ?? []).map((assignee) => assignee?.login).filter((login): login is string => !!login),
+                    projectStatuses,
+                    projectTitles,
+                };
+            });
 
         return reply.send({ issues });
     });
