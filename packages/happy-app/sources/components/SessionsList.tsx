@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, FlatList, Platform, RefreshControl, TextInput } from 'react-native';
+import { View, Pressable, FlatList, Platform, RefreshControl, TextInput, ScrollView, Linking } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
@@ -328,6 +328,65 @@ const stylesheet = StyleSheet.create((theme) => ({
         marginTop: 4,
         ...Typography.default(),
     },
+    issueDetailModal: {
+        width: 560,
+        maxWidth: '92%',
+        maxHeight: '82%',
+        borderRadius: 16,
+        overflow: 'hidden',
+        backgroundColor: theme.colors.surface,
+    },
+    issueDetailHeader: {
+        paddingHorizontal: 18,
+        paddingTop: 18,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.divider,
+    },
+    issueDetailRepo: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
+    issueDetailTitle: {
+        marginTop: 6,
+        fontSize: 18,
+        lineHeight: 24,
+        color: theme.colors.text,
+        ...Typography.default('semiBold'),
+    },
+    issueDetailBody: {
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+        maxHeight: 420,
+    },
+    issueDetailBodyText: {
+        fontSize: 14,
+        lineHeight: 21,
+        color: theme.colors.text,
+        ...Typography.default(),
+    },
+    issueDetailActions: {
+        flexDirection: 'row',
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.divider,
+        minHeight: 52,
+    },
+    issueDetailAction: {
+        flex: 1,
+        minHeight: 52,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    issueDetailActionSeparator: {
+        width: 1,
+        backgroundColor: theme.colors.divider,
+    },
+    issueDetailActionText: {
+        fontSize: 16,
+        color: theme.colors.textLink,
+        ...Typography.default('semiBold'),
+    },
     emptyContainer: {
         alignItems: 'center',
         paddingTop: 80,
@@ -417,7 +476,12 @@ function buildGitHubIssueSearchQuery(searchText: string): string {
 function isGitHubBadCredentialsMessage(message: string | undefined | null): boolean {
     if (!message) return false;
     const normalized = message.toLowerCase();
-    return normalized.includes('bad credentials') || normalized.includes('status 401') || normalized.includes('responded with 401');
+    return normalized.includes('bad credentials')
+        || normalized.includes('status 401')
+        || normalized.includes('responded with 401')
+        || normalized.includes('insufficient_scopes')
+        || normalized.includes('required scopes')
+        || normalized.includes('read:project');
 }
 
 export function SessionsList() {
@@ -483,13 +547,19 @@ export function SessionsList() {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
         setPendingIssuesError(null);
+        const requestOptions = {
+            limit: 100,
+            query: pendingIssueServerQuery,
+            projects: githubIssueInboxFilters.projects,
+            statuses: githubIssueInboxFilters.keywords,
+        };
         try {
-            let result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+            let result = await listGitHubIssues(auth.credentials, requestOptions);
             if (isGitHubBadCredentialsMessage(result.warning)) {
                 setPendingIssuesError(result.warning ?? null);
                 const saved = await promptForGitHubToken();
                 if (saved) {
-                    result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+                    result = await listGitHubIssues(auth.credentials, requestOptions);
                 }
             }
             setPendingIssues(result.issues);
@@ -502,7 +572,7 @@ export function SessionsList() {
             if (isGitHubBadCredentialsMessage(message)) {
                 const saved = await promptForGitHubToken();
                 if (saved) {
-                    const result = await listGitHubIssues(auth.credentials, { limit: 50, query: pendingIssueServerQuery });
+                    const result = await listGitHubIssues(auth.credentials, requestOptions);
                     setPendingIssues(result.issues);
                     setPendingIssuesError(result.warning ?? null);
                 }
@@ -510,7 +580,7 @@ export function SessionsList() {
         } finally {
             setPendingIssuesLoading(false);
         }
-    }, [auth.credentials, pendingIssueServerQuery, promptForGitHubToken]);
+    }, [auth.credentials, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueServerQuery, promptForGitHubToken]);
     const handleRefresh = React.useCallback(async () => {
         setRefreshing(true);
         try {
@@ -526,14 +596,14 @@ export function SessionsList() {
 
     React.useEffect(() => {
         if (activeTab !== 'pending') return;
-        const loadKey = `${auth.credentials?.token ?? ''}:${pendingIssueServerQuery}`;
+        const loadKey = `${auth.credentials?.token ?? ''}:${pendingIssueServerQuery}:${githubIssueInboxFilters.projects ?? ''}:${githubIssueInboxFilters.keywords ?? ''}`;
         if (lastPendingIssuesLoadKeyRef.current === loadKey) return;
         lastPendingIssuesLoadKeyRef.current = loadKey;
         const timeout = setTimeout(() => {
             void loadPendingIssues();
         }, pendingIssueSearchText.trim() ? 350 : 0);
         return () => clearTimeout(timeout);
-    }, [activeTab, auth.credentials?.token, pendingIssueSearchText, pendingIssueServerQuery, loadPendingIssues]);
+    }, [activeTab, auth.credentials?.token, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueSearchText, pendingIssueServerQuery, loadPendingIssues]);
     const pendingIssueFilterKeywords = React.useMemo(() => {
         return splitGitHubIssueFilterValues(githubIssueInboxFilters.keywords);
     }, [githubIssueInboxFilters.keywords]);
@@ -732,10 +802,19 @@ export function SessionsList() {
         });
         router.push(`/new?dataId=${encodeURIComponent(dataId)}`);
     }, [router]);
+    const handleOpenIssueDetails = React.useCallback((issue: GitHubIssue) => {
+        Modal.show({
+            component: GitHubIssueDetailModal,
+            props: {
+                issue,
+                onStart: () => handleStartIssue(issue),
+            },
+        });
+    }, [handleStartIssue]);
 
     const renderPendingIssue = React.useCallback(({ item }: { item: GitHubIssue }) => (
-        <GitHubIssueItem issue={item} onStart={handleStartIssue} />
-    ), [handleStartIssue]);
+        <GitHubIssueItem issue={item} onPress={handleOpenIssueDetails} />
+    ), [handleOpenIssueDetails]);
     const handleConfigurePending = React.useCallback(async () => {
         const value = await Modal.prompt(
             'GitHub Issues 过滤',
@@ -752,6 +831,7 @@ export function SessionsList() {
             },
         );
         if (value === null) return;
+        lastPendingIssuesLoadKeyRef.current = null;
         setGithubIssueInboxFilters(parseGitHubIssueFilterConfig(value));
     }, [githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, setGithubIssueInboxFilters]);
     const projectFilterLabel = React.useMemo(() => {
@@ -923,9 +1003,9 @@ export function SessionsList() {
     );
 }
 
-const GitHubIssueItem = React.memo(({ issue, onStart }: {
+const GitHubIssueItem = React.memo(({ issue, onPress }: {
     issue: GitHubIssue;
-    onStart: (issue: GitHubIssue) => void;
+    onPress: (issue: GitHubIssue) => void;
 }) => {
     const styles = stylesheet;
     const updatedAt = React.useMemo(() => {
@@ -939,7 +1019,7 @@ const GitHubIssueItem = React.memo(({ issue, onStart }: {
                 styles.issueItem,
                 pressed && { opacity: 0.78 },
             ]}
-            onPress={() => onStart(issue)}
+            onPress={() => onPress(issue)}
         >
             <Ionicons name="logo-github" size={24} color={styles.issueRepo.color} />
             <View style={styles.issueContent}>
@@ -955,6 +1035,56 @@ const GitHubIssueItem = React.memo(({ issue, onStart }: {
             </View>
             <Ionicons name="chevron-forward" size={18} color={styles.issueRepo.color} />
         </Pressable>
+    );
+});
+
+const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose }: {
+    issue: GitHubIssue;
+    onStart: () => void;
+    onClose: () => void;
+}) => {
+    const styles = stylesheet;
+    const updatedAt = React.useMemo(() => {
+        const date = new Date(issue.updatedAt);
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+    }, [issue.updatedAt]);
+    const body = issue.body?.trim() || '这个 Issue 没有正文。';
+    const statusText = issue.projectStatuses.length > 0 ? issue.projectStatuses.join(', ') : 'No Status';
+    const projectText = issue.projectTitles.length > 0 ? issue.projectTitles.join(', ') : '未关联 Project';
+    return (
+        <View style={styles.issueDetailModal}>
+            <View style={styles.issueDetailHeader}>
+                <Text style={styles.issueDetailRepo} selectable>
+                    {issue.repository} · #{issue.number} · {projectText} · 状态 {statusText}
+                </Text>
+                <Text style={styles.issueDetailTitle} selectable>
+                    {issue.title}
+                </Text>
+                {!!updatedAt && (
+                    <Text style={styles.issueDetailRepo} selectable>
+                        更新于 {updatedAt}{issue.labels.length ? ` · ${issue.labels.join(', ')}` : ''}
+                    </Text>
+                )}
+            </View>
+            <ScrollView style={styles.issueDetailBody}>
+                <Text style={styles.issueDetailBodyText} selectable>
+                    {body}
+                </Text>
+            </ScrollView>
+            <View style={styles.issueDetailActions}>
+                <Pressable style={styles.issueDetailAction} onPress={onClose}>
+                    <Text style={styles.issueDetailActionText}>关闭</Text>
+                </Pressable>
+                <View style={styles.issueDetailActionSeparator} />
+                <Pressable style={styles.issueDetailAction} onPress={() => { void Linking.openURL(issue.htmlUrl); }}>
+                    <Text style={styles.issueDetailActionText}>打开 GitHub</Text>
+                </Pressable>
+                <View style={styles.issueDetailActionSeparator} />
+                <Pressable style={styles.issueDetailAction} onPress={() => { onClose(); onStart(); }}>
+                    <Text style={styles.issueDetailActionText}>开始任务</Text>
+                </Pressable>
+            </View>
+        </View>
     );
 });
 
