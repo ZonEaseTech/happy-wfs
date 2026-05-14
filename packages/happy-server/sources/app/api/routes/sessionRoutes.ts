@@ -214,6 +214,38 @@ export function sessionRoutes(app: Fastify) {
         });
     });
 
+    app.get('/v1/sessions/:sessionId/metadata', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                sessionId: z.string()
+            })
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { sessionId } = request.params;
+
+        const session = await db.session.findFirst({
+            where: {
+                id: sessionId,
+                accountId: userId
+            },
+            select: {
+                metadata: true,
+                metadataVersion: true
+            }
+        });
+
+        if (!session) {
+            return reply.code(404).send({ error: 'Session not found' });
+        }
+
+        return reply.send({
+            metadata: session.metadata,
+            metadataVersion: session.metadataVersion
+        });
+    });
+
     // Spawn a new session on a machine (proxies RPC to daemon)
     app.post('/v1/sessions/spawn', {
         schema: {

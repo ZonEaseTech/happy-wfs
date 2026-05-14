@@ -176,6 +176,23 @@ function normalizeSessionMetadataForSummaryWrite(metadata: Metadata, newSummaryT
     }
 }
 
+async function fetchSessionMetadataSnapshot(sessionId: string): Promise<{ metadata: string; metadataVersion: number } | null> {
+    try {
+        const response = await apiSocket.request(`/v1/sessions/${encodeURIComponent(sessionId)}/metadata`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        if (typeof data?.metadata !== 'string' || typeof data?.metadataVersion !== 'number') {
+            return null;
+        }
+        return {
+            metadata: data.metadata,
+            metadataVersion: data.metadataVersion
+        };
+    } catch {
+        return null;
+    }
+}
+
 // Bash operation types
 interface SessionBashRequest {
     command: string;
@@ -868,7 +885,17 @@ export async function sessionUpdateSummary(
         throw new Error(`Session encryption not found for ${sessionId}`);
     }
 
-    let metadataToSend = normalizeSessionMetadataForSummaryWrite(currentMetadata, newSummaryText, pinned);
+    let safeCurrentMetadata = currentMetadata;
+    const serverSnapshot = await fetchSessionMetadataSnapshot(sessionId);
+    if (serverSnapshot) {
+        currentVersion = serverSnapshot.metadataVersion;
+        const decryptedMetadata = await sessionEncryption.decryptRaw(serverSnapshot.metadata) as Metadata | null;
+        if (decryptedMetadata) {
+            safeCurrentMetadata = decryptedMetadata;
+        }
+    }
+
+    let metadataToSend = normalizeSessionMetadataForSummaryWrite(safeCurrentMetadata, newSummaryText, pinned);
 
     for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
         const encryptedMetadata = await sessionEncryption.encryptRaw(metadataToSend);
