@@ -158,10 +158,16 @@ export function getSessionAvatarId(session: Session): string {
  * Otherwise returns the full path.
  */
 export function formatPathRelativeToHome(path: string, homeDir?: string): string {
-    if (!homeDir) return path;
+    // Older/corrupt session metadata may be missing `homeDir`. In that case,
+    // still recover the common Unix/macOS home prefix so paths keep their
+    // historical "~/" display and project-group ordering.
+    const inferredHomeDir = homeDir
+        || path.match(/^(\/home\/[^/]+)(?:\/|$)/)?.[1]
+        || path.match(/^(\/Users\/[^/]+)(?:\/|$)/)?.[1];
+    if (!inferredHomeDir) return path;
     
     // Normalize paths to handle trailing slashes
-    const normalizedHome = homeDir.endsWith('/') ? homeDir.slice(0, -1) : homeDir;
+    const normalizedHome = inferredHomeDir.endsWith('/') ? inferredHomeDir.slice(0, -1) : inferredHomeDir;
     const normalizedPath = path;
     
     // Check if path starts with home directory
