@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, FlatList, Platform, RefreshControl, TextInput, ScrollView, Linking } from 'react-native';
+import { View, Pressable, FlatList, Platform, RefreshControl, TextInput, ScrollView, Linking, useWindowDimensions } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
@@ -331,9 +331,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     issueDetailModal: {
-        width: 860,
-        maxWidth: '96%',
-        maxHeight: '92%',
         borderRadius: 16,
         overflow: 'hidden',
         backgroundColor: theme.colors.surface,
@@ -361,6 +358,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 18,
         paddingVertical: 14,
         maxHeight: 660,
+        flexShrink: 1,
     },
     issueDetailBodyText: {
         fontSize: 14,
@@ -1356,9 +1354,33 @@ const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose, onIssueUpd
 }) => {
     const styles = stylesheet;
     const auth = useAuth();
+    const windowSize = useWindowDimensions();
+    const safeArea = useSafeAreaInsets();
     const [currentIssue, setCurrentIssue] = React.useState(issue);
     const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
     const [updatingStatus, setUpdatingStatus] = React.useState(false);
+    const issueModalLayout = React.useMemo(() => {
+        const compact = windowSize.width < 600;
+        const horizontalMargin = compact ? 12 : Math.max(24, windowSize.width * 0.02);
+        const verticalMargin = compact ? 10 : Math.max(24, windowSize.height * 0.04);
+        const width = compact
+            ? Math.max(280, windowSize.width - horizontalMargin * 2)
+            : Math.min(860, windowSize.width - horizontalMargin * 2);
+        const maxHeight = Math.max(
+            320,
+            windowSize.height - safeArea.top - safeArea.bottom - verticalMargin * 2,
+        );
+        return {
+            modal: {
+                width,
+                maxWidth: width,
+                maxHeight,
+            },
+            body: {
+                maxHeight: Math.max(180, maxHeight - (compact ? 188 : 172)),
+            },
+        };
+    }, [safeArea.bottom, safeArea.top, windowSize.height, windowSize.width]);
     const updatedAt = React.useMemo(() => {
         const date = new Date(currentIssue.updatedAt);
         return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
@@ -1398,7 +1420,7 @@ const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose, onIssueUpd
     }, [currentIssue.projectStatuses, handleSetStatus]);
 
     return (
-        <View style={styles.issueDetailModal}>
+        <View style={[styles.issueDetailModal, issueModalLayout.modal]}>
             <View style={styles.issueDetailHeader}>
                 <Text style={styles.issueDetailRepo} selectable>
                     {currentIssue.repository} · #{currentIssue.number} · {projectText} · 状态 {statusText}
@@ -1412,7 +1434,7 @@ const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose, onIssueUpd
                     </Text>
                 )}
             </View>
-            <ScrollView style={styles.issueDetailBody}>
+            <ScrollView style={[styles.issueDetailBody, issueModalLayout.body]}>
                 <GitHubIssueMarkdown body={body} />
             </ScrollView>
             <View style={styles.issueDetailActions}>
