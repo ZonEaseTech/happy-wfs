@@ -57,6 +57,12 @@ type GraphQLProjectItemNode = {
 
 type GitHubIssue = z.infer<typeof GitHubIssueSchema>;
 
+type GitHubProjectSearchNode = {
+    id?: string;
+    title?: string | null;
+    closed?: boolean | null;
+};
+
 const issueSearchQuery = `
 query HappyIssueInbox($query: String!, $limit: Int!) {
   search(type: ISSUE, query: $query, first: $limit) {
@@ -120,13 +126,13 @@ const projectSearchQuery = `
 query HappyIssueInboxProjects($query: String!) {
   viewer {
     projectsV2(first: 20, query: $query) {
-      nodes { id title }
+      nodes { id title closed }
     }
     organizations(first: 50) {
       nodes {
         login
         projectsV2(first: 20, query: $query) {
-          nodes { id title }
+          nodes { id title closed }
         }
       }
     }
@@ -200,11 +206,11 @@ type GitHubGraphQLIssuesResponse = {
 type GitHubProjectSearchResponse = {
     data?: {
         viewer?: {
-            projectsV2?: { nodes?: Array<{ id?: string; title?: string | null } | null> | null } | null;
+            projectsV2?: { nodes?: Array<GitHubProjectSearchNode | null> | null } | null;
             organizations?: {
                 nodes?: Array<{
                     login?: string | null;
-                    projectsV2?: { nodes?: Array<{ id?: string; title?: string | null } | null> | null } | null;
+                    projectsV2?: { nodes?: Array<GitHubProjectSearchNode | null> | null } | null;
                 } | null> | null;
             } | null;
         } | null;
@@ -342,11 +348,15 @@ async function fetchGitHubProjectIssues(args: {
         const viewerProjects = result.data.data?.viewer?.projectsV2?.nodes ?? [];
         const orgProjects = (result.data.data?.viewer?.organizations?.nodes ?? [])
             .flatMap((org) => org?.projectsV2?.nodes ?? []);
-        for (const project of [...viewerProjects, ...orgProjects]) {
+        const matchingActiveProjects = [...viewerProjects, ...orgProjects]
+            .filter((project): project is GitHubProjectSearchNode => !!project?.id && !!project.title?.trim() && project.closed !== true)
+            .filter((project) => project.title!.trim().toLowerCase().includes(projectFilter));
+        const exactMatches = matchingActiveProjects.filter((project) => project.title!.trim().toLowerCase() === projectFilter);
+        const selectedProjects = exactMatches.length > 0 ? exactMatches : matchingActiveProjects;
+        for (const project of selectedProjects) {
             const id = project?.id;
             const title = project?.title?.trim();
             if (!id || !title) continue;
-            if (!title.toLowerCase().includes(projectFilter)) continue;
             projectsById.set(id, { id, title });
         }
     }
