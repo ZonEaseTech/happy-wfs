@@ -783,7 +783,13 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     // Check if the current session flavor supports images
     const supportsImages = React.useMemo(() => {
         const flavor = session?.metadata?.flavor;
-        return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex';
+        if (flavor) {
+            return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex';
+        }
+        // Older/corrupt metadata may miss `flavor`. Do not pessimistically
+        // disable image upload in that case; message delivery can still carry
+        // mixed content and the CLI/provider is the final authority.
+        return true;
     }, [session?.metadata?.flavor]);
 
     // Handle dismissing CLI version warning

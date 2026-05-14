@@ -152,21 +152,12 @@ function normalizeSessionMetadataForSummaryWrite(metadata: Metadata, newSummaryT
         };
     } catch {
         const source = metadata as Record<string, unknown>;
-        const readString = (key: string, fallback: string): string => {
-            try {
-                const value = source[key];
-                return typeof value === 'string' ? value : fallback;
-            } catch {
-                return fallback;
-            }
-        };
 
         // Last-resort path for corrupt/proxy metadata. Keep the schema-required
-        // fields and the requested title only, so renaming a session never
-        // crashes the UI with a recursive serialization error.
+        // fields plus scalar/session identity fields, so renaming a session
+        // never crashes the UI or strips the agent flavor/image capability.
         return MetadataSchema.parse({
-            path: readString('path', ''),
-            host: readString('host', ''),
+            ...buildEmergencySessionMetadataBase(source),
             summary: {
                 text: fallbackText,
                 updatedAt: Date.now()
@@ -176,9 +167,8 @@ function normalizeSessionMetadataForSummaryWrite(metadata: Metadata, newSummaryT
     }
 }
 
-function buildMinimalSessionSummaryMetadata(metadata: Metadata, newSummaryText: string, pinned?: boolean): Metadata {
-    const source = metadata as Record<string, unknown>;
-    const readString = (key: string, fallback: string): string => {
+function buildEmergencySessionMetadataBase(source: Record<string, unknown>): Record<string, unknown> {
+    const readString = (key: string, fallback = ''): string => {
         try {
             const value = source[key];
             return typeof value === 'string' ? value : fallback;
@@ -186,40 +176,112 @@ function buildMinimalSessionSummaryMetadata(metadata: Metadata, newSummaryText: 
             return fallback;
         }
     };
-    const minimal: Record<string, unknown> = {
+    const readNumber = (key: string): number | undefined => {
+        try {
+            const value = source[key];
+            return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+        } catch {
+            return undefined;
+        }
+    };
+    const readBoolean = (key: string): boolean | undefined => {
+        try {
+            const value = source[key];
+            return typeof value === 'boolean' ? value : undefined;
+        } catch {
+            return undefined;
+        }
+    };
+    const copyString = (target: Record<string, unknown>, key: string) => {
+        const value = readString(key);
+        if (value) target[key] = value;
+    };
+    const copyStringArray = (target: Record<string, unknown>, key: string) => {
+        try {
+            const value = source[key];
+            if (Array.isArray(value) && value.every(item => typeof item === 'string')) {
+                target[key] = [...value];
+            }
+        } catch {
+            // Ignore corrupt/proxy arrays on the emergency fallback path.
+        }
+    };
+    const copyMarkedAt = (target: Record<string, unknown>, key: string) => {
+        try {
+            const value = source[key] as { markedAt?: unknown } | undefined;
+            if (value && typeof value.markedAt === 'number' && Number.isFinite(value.markedAt)) {
+                target[key] = { markedAt: value.markedAt };
+            }
+        } catch {
+            // Ignore corrupt/proxy mark objects on the emergency fallback path.
+        }
+    };
+
+    const base: Record<string, unknown> = {
         path: readString('path', ''),
         host: readString('host', ''),
+    };
+
+    // Preserve agent/session identity. Losing these fields makes existing
+    // Codex/Claude/Gemini sessions look like a generic AI, which disables
+    // image upload and fork/duplicate affordances after a rename/status write.
+    [
+        'version',
+        'name',
+        'os',
+        'model',
+        'reasoningEffort',
+        'currentModelCode',
+        'currentOperatingModeCode',
+        'currentThoughtLevelCode',
+        'machineId',
+        'claudeSessionId',
+        'codexSessionId',
+        'flavor',
+        'homeDir',
+        'happyHomeDir',
+        'worktreeBasePath',
+        'worktreeBranchName',
+        'worktreePrUrl',
+        'reviewOfSessionId',
+        'workspacePath',
+        'sessionIcon',
+    ].forEach(key => copyString(base, key));
+
+    const hostPid = readNumber('hostPid');
+    if (hostPid !== undefined) base.hostPid = hostPid;
+    const completionDismissedAt = readNumber('completionDismissedAt');
+    if (completionDismissedAt !== undefined) base.completionDismissedAt = completionDismissedAt;
+    const isWorktree = readBoolean('isWorktree');
+    if (isWorktree !== undefined) base.isWorktree = isWorktree;
+
+    copyStringArray(base, 'tools');
+    copyStringArray(base, 'slashCommands');
+    copyStringArray(base, 'injectedMemoryIds');
+    copyMarkedAt(base, 'awaitingClosure');
+    copyMarkedAt(base, 'reviewPending');
+
+    return base;
+}
+
+function buildMinimalSessionSummaryMetadata(metadata: Metadata, newSummaryText: string, pinned?: boolean): Metadata {
+    const source = metadata as Record<string, unknown>;
+    const minimal: Record<string, unknown> = {
+        ...buildEmergencySessionMetadataBase(source),
         summary: {
             text: typeof newSummaryText === 'string' ? newSummaryText : String(newSummaryText ?? ''),
             updatedAt: Date.now()
         },
         summaryPinned: pinned
     };
-    const machineId = readString('machineId', '');
-    if (machineId) {
-        minimal.machineId = machineId;
-    }
     return MetadataSchema.parse(minimal);
 }
 
 function buildMinimalSessionMetadataWithUpdates(metadata: Metadata, updates: Partial<Metadata>): Metadata {
     const source = metadata as Record<string, unknown>;
-    const readString = (key: string, fallback: string): string => {
-        try {
-            const value = source[key];
-            return typeof value === 'string' ? value : fallback;
-        } catch {
-            return fallback;
-        }
-    };
     const minimal: Record<string, unknown> = {
-        path: readString('path', ''),
-        host: readString('host', ''),
+        ...buildEmergencySessionMetadataBase(source),
     };
-    const machineId = readString('machineId', '');
-    if (machineId) {
-        minimal.machineId = machineId;
-    }
     try {
         const summary = source.summary as { text?: unknown; updatedAt?: unknown } | undefined;
         if (summary && typeof summary.text === 'string' && typeof summary.updatedAt === 'number') {
