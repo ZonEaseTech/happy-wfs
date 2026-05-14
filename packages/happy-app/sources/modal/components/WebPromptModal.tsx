@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, KeyboardTypeOptions, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, KeyboardTypeOptions, Platform, useWindowDimensions } from 'react-native';
 import { BaseModal } from './BaseModal';
 import { PromptModalConfig } from '../types';
 import { Modal } from '../ModalManager';
@@ -16,11 +16,16 @@ interface WebPromptModalProps {
 
 export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalProps) {
     const { theme } = useUnistyles();
+    const window = useWindowDimensions();
     const [inputValue, setInputValue] = useState(config.defaultValue || '');
     const [checkboxChecked, setCheckboxChecked] = useState(config.checkbox?.defaultValue ?? false);
     const inputRef = useRef<TextInput>(null);
     const isLargePrompt = config.size === 'large' || (config.multiline && (config.multilineRows ?? 6) >= 12);
     const visibleMultilineRows = config.multiline ? Math.min(config.multilineRows ?? 6, isLargePrompt ? 12 : 8) : 1;
+    const modalMaxHeight = Math.max(260, Math.floor(window.height * 0.82));
+    const modalWidth = Math.min(isLargePrompt ? 560 : 270, Math.max(240, Math.floor(window.width * 0.92)));
+    const buttonHeight = 52;
+    const contentMaxHeight = Math.max(160, modalMaxHeight - buttonHeight);
 
     useEffect(() => {
         // Auto-focus the input when modal opens
@@ -59,9 +64,8 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
         container: {
             backgroundColor: theme.colors.surface,
             borderRadius: 14,
-            width: isLargePrompt ? 560 : 270,
-            maxWidth: '92%',
-            maxHeight: '88%',
+            width: modalWidth,
+            maxHeight: modalMaxHeight,
             overflow: 'hidden',
             shadowColor: theme.colors.shadow.color,
             shadowOffset: {
@@ -74,10 +78,12 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
         },
         content: {
             paddingHorizontal: isLargePrompt ? 24 : 16,
-            paddingTop: 20,
-            paddingBottom: 16,
+            paddingTop: 16,
+            paddingBottom: 12,
             alignItems: 'center',
-            flexShrink: 1
+            flexShrink: 1,
+            maxHeight: contentMaxHeight,
+            overflow: 'hidden'
         },
         title: {
             fontSize: 17,
@@ -108,11 +114,12 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
             borderTopWidth: 1,
             borderTopColor: theme.colors.divider,
             flexDirection: 'row',
-            flexShrink: 0
+            flexShrink: 0,
+            minHeight: buttonHeight
         },
         button: {
             flex: 1,
-            paddingVertical: 11,
+            minHeight: buttonHeight,
             alignItems: 'center',
             justifyContent: 'center'
         },
