@@ -125,12 +125,55 @@ function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {
     const source = metadata as Record<string, unknown>;
     const plain: Record<string, unknown> = {};
     for (const key of SESSION_METADATA_WRITE_KEYS) {
-        const child = toPlain(source[key]);
+        let rawChild: unknown;
+        try {
+            rawChild = source[key];
+        } catch {
+            continue;
+        }
+        const child = toPlain(rawChild);
         if (child !== undefined) {
             plain[key] = child;
         }
     }
     return MetadataSchema.parse(plain);
+}
+
+function normalizeSessionMetadataForSummaryWrite(metadata: Metadata, newSummaryText: string, pinned?: boolean): Metadata {
+    const fallbackText = typeof newSummaryText === 'string' ? newSummaryText : String(newSummaryText ?? '');
+    try {
+        return {
+            ...normalizeSessionMetadataForWrite(metadata),
+            summary: {
+                text: fallbackText,
+                updatedAt: Date.now()
+            },
+            summaryPinned: pinned
+        };
+    } catch {
+        const source = metadata as Record<string, unknown>;
+        const readString = (key: string, fallback: string): string => {
+            try {
+                const value = source[key];
+                return typeof value === 'string' ? value : fallback;
+            } catch {
+                return fallback;
+            }
+        };
+
+        // Last-resort path for corrupt/proxy metadata. Keep the schema-required
+        // fields and the requested title only, so renaming a session never
+        // crashes the UI with a recursive serialization error.
+        return MetadataSchema.parse({
+            path: readString('path', ''),
+            host: readString('host', ''),
+            summary: {
+                text: fallbackText,
+                updatedAt: Date.now()
+            },
+            summaryPinned: pinned
+        });
+    }
 }
 
 // Bash operation types
@@ -825,15 +868,7 @@ export async function sessionUpdateSummary(
         throw new Error(`Session encryption not found for ${sessionId}`);
     }
 
-    const baseMetadata = normalizeSessionMetadataForWrite(currentMetadata);
-    let metadataToSend: Metadata = {
-        ...baseMetadata,
-        summary: {
-            text: newSummaryText,
-            updatedAt: Date.now()
-        },
-        summaryPinned: pinned
-    };
+    let metadataToSend = normalizeSessionMetadataForSummaryWrite(currentMetadata, newSummaryText, pinned);
 
     for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
         const encryptedMetadata = await sessionEncryption.encryptRaw(metadataToSend);
@@ -855,15 +890,7 @@ export async function sessionUpdateSummary(
             currentVersion = result.version!;
             // Decrypt latest metadata and re-apply our summary change
             const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata;
-            const latestBaseMetadata = normalizeSessionMetadataForWrite(latestMetadata);
-            metadataToSend = {
-                ...latestBaseMetadata,
-                summary: {
-                    text: newSummaryText,
-                    updatedAt: Date.now()
-                },
-                summaryPinned: pinned
-            };
+            metadataToSend = normalizeSessionMetadataForSummaryWrite(latestMetadata, newSummaryText, pinned);
         } else {
             throw new Error(result.message || 'Failed to update session metadata');
         }
