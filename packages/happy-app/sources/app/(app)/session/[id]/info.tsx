@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { View, Text, Animated, Pressable, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { Ionicons, AntDesign, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -32,7 +32,6 @@ import { Session } from '@/sync/storageTypes';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { useResumeSession } from '@/hooks/useResumeSession';
 import { HappyError } from '@/utils/errors';
-import { formatModelDisplay, resolveLocalModelDisplay, isModelFast, FAST_MODE_ICON_COLOR } from 'happy-wire';
 
 // Animated status dot component
 function StatusDot({ color, isPulsing, size = 8 }: { color: string; isPulsing?: boolean; size?: number }) {
@@ -81,26 +80,6 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
     const sessionStatus = useSessionStatus(session);
     const isOwner = !session.accessLevel;
     const isAdmin = isOwner || session.accessLevel === 'admin';
-    const localModelDisplay = React.useMemo(() => resolveLocalModelDisplay(session.modelMode), [session.modelMode]);
-    const modelSubtitle = React.useMemo(() => {
-        const cliModel = session.metadata?.model;
-        const cliEffort = session.metadata?.reasoningEffort;
-        const cliLabel = formatModelDisplay(cliModel, cliEffort);
-
-        const localLabel = formatModelDisplay(localModelDisplay.model, localModelDisplay.reasoningEffort);
-
-        let text: string | null;
-        if (cliLabel && localLabel && cliLabel !== localLabel) {
-            text = `${cliLabel} → ${localLabel}`;
-        } else {
-            text = cliLabel || localLabel;
-        }
-        if (!text) return null;
-
-        const fast = session.fastMode === true || isModelFast(cliModel) || isModelFast(localModelDisplay.model);
-        if (!fast) return text;
-        return <>{text} <MaterialCommunityIcons name="lightning-bolt" size={14} color={FAST_MODE_ICON_COLOR} /></>;
-    }, [localModelDisplay.model, localModelDisplay.reasoningEffort, session.metadata?.model, session.metadata?.reasoningEffort, session.fastMode]);
     const geminiSessionId = session.metadata?.flavor === 'gemini' ? session.id : undefined;
     
     // Check if CLI version is outdated
@@ -856,24 +835,39 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                         icon={<Ionicons name="pulse-outline" size={29} color={sessionStatus.isConnected ? "#34C759" : "#8E8E93"} />}
                         showChevron={false}
                     />
-                    <Item
-                        title={t('sessionInfo.created')}
-                        subtitle={formatDate(session.createdAt)}
-                        icon={<Ionicons name="calendar-outline" size={29} color="#007AFF" />}
-                        showChevron={false}
-                    />
-                    <Item
-                        title={t('sessionInfo.lastUpdated')}
-                        subtitle={formatDate(session.updatedAt)}
-                        icon={<Ionicons name="time-outline" size={29} color="#007AFF" />}
-                        showChevron={false}
-                    />
-                    <Item
-                        title={t('sessionInfo.sequence')}
-                        detail={session.seq.toString()}
-                        icon={<Ionicons name="git-commit-outline" size={29} color="#007AFF" />}
-                        showChevron={false}
-                    />
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'stretch',
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        gap: 10,
+                    }}>
+                        {[
+                            { label: t('sessionInfo.created'), value: formatDate(session.createdAt), icon: 'calendar-outline' as const },
+                            { label: t('sessionInfo.lastUpdated'), value: formatDate(session.updatedAt), icon: 'time-outline' as const },
+                            { label: t('sessionInfo.sequence'), value: session.seq.toString(), icon: 'git-commit-outline' as const },
+                        ].map((item) => (
+                            <View key={item.label} style={{ flex: 1, minWidth: 0 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                    <Ionicons name={item.icon} size={15} color="#007AFF" style={{ marginRight: 4 }} />
+                                    <Text style={{
+                                        fontSize: 12,
+                                        color: theme.colors.textSecondary,
+                                        ...Typography.default(),
+                                    }} numberOfLines={1}>
+                                        {item.label}
+                                    </Text>
+                                </View>
+                                <Text style={{
+                                    fontSize: 13,
+                                    color: theme.colors.text,
+                                    ...Typography.default(),
+                                }} numberOfLines={1}>
+                                    {item.value}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
                 </ItemGroup>
 
 
@@ -1021,13 +1015,6 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                             showChevron={false}
                             onPress={() => session.metadata?.host && copyValue(session.metadata.host)}
                         />
-                        <Item
-                            title={t('sessionInfo.path')}
-                            subtitle={formatPathRelativeToHome(session.metadata.path, session.metadata.homeDir)}
-                            icon={<Ionicons name="folder-outline" size={29} color="#5856D6" />}
-                            showChevron={false}
-                            onPress={() => session.metadata?.path && copyValue(session.metadata.path)}
-                        />
                         {session.metadata.version && (
                             <Item
                                 title={t('sessionInfo.cliVersion')}
@@ -1045,29 +1032,6 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                                 icon={<Ionicons name="hardware-chip-outline" size={29} color="#5856D6" />}
                                 showChevron={false}
                                 onPress={() => session.metadata?.os && copyValue(session.metadata.os)}
-                            />
-                        )}
-                        <Item
-                            title={t('sessionInfo.aiProvider')}
-                            subtitle={(() => {
-                                const flavor = session.metadata.flavor || 'claude';
-                                if (flavor === 'claude') return 'Claude';
-                                if (flavor === 'codex') return 'Codex';
-                                if (flavor === 'gpt' || flavor === 'openai') return 'Codex';
-                                if (flavor === 'gemini') return 'Gemini';
-                                return flavor;
-                            })()}
-                            icon={<Ionicons name="sparkles-outline" size={29} color="#5856D6" />}
-                            showChevron={false}
-                            onPress={() => session.metadata?.flavor && copyValue(session.metadata.flavor)}
-                        />
-                        {modelSubtitle && (
-                            <Item
-                                title={t('sessionInfo.model')}
-                                subtitle={modelSubtitle}
-                                icon={<Ionicons name="options-outline" size={29} color="#5856D6" />}
-                                showChevron={false}
-                                onPress={() => session.metadata?.model && copyValue(session.metadata.model)}
                             />
                         )}
                         {session.metadata.hostPid && (
