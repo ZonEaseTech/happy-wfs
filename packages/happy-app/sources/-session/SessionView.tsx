@@ -362,25 +362,25 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         </Text>
                                     </Pressable>
                                 )}
-                                <Pressable
-                                    onPress={handleOpenSessionRuns}
-                                    hitSlop={15}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={t('settings.orchestratorOpenRuns')}
-                                    style={{
-                                        width: 38,
-                                        height: 38,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: 2,
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="layers-outline"
-                                        size={22}
-                                        color={isDesktopPanelMode && rightPanelType === 'orchestrator' ? theme.colors.button.primary.background : theme.colors.header.tint}
-                                    />
-                                    {runningTaskCount > 0 && (
+                                {runningTaskCount > 0 && (
+                                    <Pressable
+                                        onPress={handleOpenSessionRuns}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('settings.orchestratorOpenRuns')}
+                                        style={{
+                                            width: 38,
+                                            height: 38,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name="layers-outline"
+                                            size={22}
+                                            color={isDesktopPanelMode && rightPanelType === 'orchestrator' ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                        />
                                         <View style={{
                                             position: 'absolute',
                                             top: 2,
@@ -401,8 +401,8 @@ export const SessionView = React.memo((props: { id: string }) => {
                                                 {runningTaskCount > 99 ? '99+' : runningTaskCount}
                                             </Text>
                                         </View>
-                                    )}
-                                </Pressable>
+                                    </Pressable>
+                                )}
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
