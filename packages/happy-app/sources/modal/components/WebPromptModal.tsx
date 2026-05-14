@@ -20,6 +20,7 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
     const [checkboxChecked, setCheckboxChecked] = useState(config.checkbox?.defaultValue ?? false);
     const inputRef = useRef<TextInput>(null);
     const isLargePrompt = config.size === 'large' || (config.multiline && (config.multilineRows ?? 6) >= 12);
+    const visibleMultilineRows = config.multiline ? Math.min(config.multilineRows ?? 6, isLargePrompt ? 12 : 8) : 1;
 
     useEffect(() => {
         // Auto-focus the input when modal opens
@@ -75,7 +76,8 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
             paddingHorizontal: isLargePrompt ? 24 : 16,
             paddingTop: 20,
             paddingBottom: 16,
-            alignItems: 'center'
+            alignItems: 'center',
+            flexShrink: 1
         },
         title: {
             fontSize: 17,
@@ -105,7 +107,8 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
         buttonContainer: {
             borderTopWidth: 1,
             borderTopColor: theme.colors.divider,
-            flexDirection: 'row'
+            flexDirection: 'row',
+            flexShrink: 0
         },
         button: {
             flex: 1,
@@ -147,8 +150,9 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
                             styles.input,
                             Typography.default(),
                             config.multiline && {
-                                minHeight: 24 * (config.multilineRows ?? 6),
-                                maxHeight: isLargePrompt ? 520 : undefined,
+                                minHeight: 24 * visibleMultilineRows,
+                                maxHeight: isLargePrompt ? 420 : undefined,
+                                flexShrink: 1,
                                 textAlignVertical: 'top' as const,
                                 paddingTop: 12,
                             },
