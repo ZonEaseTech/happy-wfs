@@ -354,6 +354,56 @@ function splitGitHubIssueFilterValues(value: string | undefined): string[] {
         .filter(Boolean);
 }
 
+function formatGitHubIssueFilterConfig(filters: { projects?: string; keywords?: string } | undefined): string {
+    return [
+        `项目：${filters?.projects?.trim() ?? ''}`,
+        `状态：${filters?.keywords?.trim() ?? ''}`,
+    ].join('\n');
+}
+
+function stripGitHubIssueFilterPrefix(line: string, prefixes: string[]): string {
+    const normalized = line.trim();
+    for (const prefix of prefixes) {
+        const match = normalized.match(new RegExp(`^${prefix}\\s*[:：=]\\s*(.*)$`, 'i'));
+        if (match) return match[1]?.trim() ?? '';
+    }
+    return normalized;
+}
+
+function parseGitHubIssueFilterConfig(value: string): { projects: string; keywords: string } {
+    const lines = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const projectLines: string[] = [];
+    const keywordLines: string[] = [];
+    const freeLines: string[] = [];
+
+    for (const line of lines) {
+        if (/^(project|projects|项目|專案)\s*[:：=]/i.test(line)) {
+            projectLines.push(stripGitHubIssueFilterPrefix(line, ['project', 'projects', '项目', '專案']));
+        } else if (/^(status|statuses|state|title|keyword|keywords|状态|狀態|标题|標題|关键词|關鍵詞)\s*[:：=]/i.test(line)) {
+            keywordLines.push(stripGitHubIssueFilterPrefix(line, ['status', 'statuses', 'state', 'title', 'keyword', 'keywords', '状态', '狀態', '标题', '標題', '关键词', '關鍵詞']));
+        } else {
+            freeLines.push(line);
+        }
+    }
+
+    // Backward-friendly shorthand:
+    // - One unlabelled line means project name (the old dialog behavior).
+    // - Two+ unlabelled lines mean first line project, remaining lines status/title keywords.
+    if (freeLines.length > 0) {
+        if (projectLines.length === 0) {
+            projectLines.push(freeLines[0]!);
+            keywordLines.push(...freeLines.slice(1));
+        } else {
+            keywordLines.push(...freeLines);
+        }
+    }
+
+    return {
+        projects: projectLines.filter(Boolean).join('\n').trim(),
+        keywords: keywordLines.filter(Boolean).join('\n').trim(),
+    };
+}
+
 function buildGitHubIssueSearchQuery(searchText: string): string {
     const clauses = ['is:issue', 'is:open', 'assignee:@me', 'archived:false'];
     const search = searchText.trim();
@@ -687,38 +737,32 @@ export function SessionsList() {
         <GitHubIssueItem issue={item} onStart={handleStartIssue} />
     ), [handleStartIssue]);
     const handleConfigurePending = React.useCallback(async () => {
-        const projects = await Modal.prompt(
-            '指定项目过滤',
-            '输入要显示的 GitHub Project 名称，逗号或换行分隔。例如：TTPOS。留空显示全部项目。',
-            {
-                defaultValue: githubIssueInboxFilters.projects ?? '',
-                placeholder: 'TTPOS',
-                confirmText: '保存',
-                cancelText: t('common.cancel'),
-                multiline: true,
-                multilineRows: 3,
-            },
-        );
-        if (projects === null) return;
         const value = await Modal.prompt(
-            '配置标题/状态过滤',
-            '输入要显示的标题/状态关键词，逗号或换行分隔。例如：Todo, High, POS Core。留空显示全部。',
+            'GitHub Issues 过滤',
+            '同时配置 GitHub Project 和状态/标题过滤。示例：\n项目：TTPOS\n状态：Todo\n留空显示全部。',
             {
-                defaultValue: githubIssueInboxFilters.keywords,
-                placeholder: 'Todo',
+                defaultValue: formatGitHubIssueFilterConfig(githubIssueInboxFilters),
+                placeholder: '项目：TTPOS\n状态：Todo',
                 confirmText: '保存',
                 cancelText: t('common.cancel'),
+                inputType: 'default',
                 multiline: true,
-                multilineRows: 4,
+                multilineRows: 5,
+                size: 'large',
             },
         );
         if (value === null) return;
-        setGithubIssueInboxFilters({ keywords: value.trim(), projects: projects.trim() });
+        setGithubIssueInboxFilters(parseGitHubIssueFilterConfig(value));
     }, [githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, setGithubIssueInboxFilters]);
     const projectFilterLabel = React.useMemo(() => {
-        const values = splitGitHubIssueFilterValues(githubIssueInboxFilters.projects);
-        return values.length > 0 ? `项目：${values.join(' / ')}` : '项目：全部';
-    }, [githubIssueInboxFilters.projects]);
+        const projects = splitGitHubIssueFilterValues(githubIssueInboxFilters.projects);
+        const keywords = splitGitHubIssueFilterValues(githubIssueInboxFilters.keywords);
+        const parts = [
+            projects.length > 0 ? `项目：${projects.join(' / ')}` : '项目：全部',
+            keywords.length > 0 ? `状态/标题：${keywords.join(' / ')}` : null,
+        ].filter(Boolean);
+        return parts.join(' · ');
+    }, [githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects]);
 
     const tabs: { key: SidebarTab; label: string }[] = React.useMemo(() => [
         { key: 'pending', label: '待处理' },
