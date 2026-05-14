@@ -157,6 +157,7 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
                             styles.input,
                             Typography.default(),
                             config.multiline && {
+                                height: 24 * visibleMultilineRows,
                                 minHeight: 24 * visibleMultilineRows,
                                 maxHeight: isLargePrompt ? 420 : undefined,
                                 flexShrink: 1,
@@ -178,6 +179,7 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
                         // submits via onKeyPress below.
                         multiline={config.multiline ?? false}
                         numberOfLines={config.multiline ? (config.multilineRows ?? 6) : 1}
+                        blurOnSubmit={!config.multiline}
                         onSubmitEditing={config.multiline ? undefined : handleConfirm}
                         onKeyPress={config.multiline ? (e: any) => {
                             const key = e?.nativeEvent?.key;

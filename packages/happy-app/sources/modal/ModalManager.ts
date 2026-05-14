@@ -175,7 +175,7 @@ class ModalManagerClass implements IModal {
         message?: string,
         options?: PromptOptions
     ): Promise<string | null> {
-        if (Platform.OS === 'ios' && !options?.inputType) {
+        if (Platform.OS === 'ios' && !options?.inputType && !options?.multiline) {
             // Use native Alert.prompt on iOS (only supports basic text input)
             return new Promise<string | null>((resolve) => {
                 // @ts-ignore - Alert.prompt is iOS only
