@@ -807,6 +807,35 @@ export function FileViewerModal({
         ));
     }, [activeTab, saveTab, readFile]);
 
+    // Repair image tabs that were opened as text before the image-preview
+    // support loaded. This protects long-lived web sessions after a deploy and
+    // turns existing garbled JPG/PNG tabs into real previews without requiring
+    // the user to close/reopen each file.
+    React.useEffect(() => {
+        if (!activeTab || activeTab.kind === 'image' || !isPreviewableImage(activeTab.path)) return;
+        let cancelled = false;
+        void (async () => {
+            const resp = await readFile(activeTab.path);
+            if (cancelled || !resp.success || !resp.content) return;
+            const content = resp.content;
+            setTabs(prev => prev.map(tab => tab.id === activeTab.id
+                ? {
+                    ...tab,
+                    content,
+                    original: content,
+                    dirty: false,
+                    language: 'image',
+                    kind: 'image',
+                    mimeType: getImageMimeType(tab.path) ?? 'image/png',
+                }
+                : tab,
+            ));
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [activeTab, readFile]);
+
     // Esc closes the modal — but we route through requestClose so dirty tabs
     // still get the save/discard prompt.
     React.useEffect(() => {
@@ -1131,7 +1160,7 @@ export function FileViewerModal({
                     <ToolbarIconButton
                         icon="reload"
                         label={tx('fileViewer.refresh')}
-                        disabled={!activeTab || activeTab.kind !== 'text'}
+                        disabled={!activeTab}
                         onPress={() => { void refreshActiveTab(); }}
                     />
                     <View style={{ width: 1, height: 18, backgroundColor: theme.colors.divider, marginHorizontal: 6 }} />
@@ -1150,7 +1179,7 @@ export function FileViewerModal({
                     <ToolbarIconButton
                         icon="navigate-outline"
                         label={tx('fileViewer.gotoLine')}
-                        disabled={!activeTab}
+                        disabled={!activeTab || activeTab.kind !== 'text'}
                         onPress={() => runEditorAction('editor.action.gotoLine')}
                     />
                     {/* Diff toggle — visible only when caller flagged the file
