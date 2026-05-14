@@ -26,6 +26,7 @@ import type { GitHubIssue } from '@/sync/apiGithub';
 import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
+import type { Message } from '@/sync/typesMessage';
 import { sync } from '@/sync/sync';
 import { InjectedMemoriesModal } from '@/components/InjectedMemoriesModal';
 import * as Clipboard from 'expo-clipboard';
@@ -105,6 +106,67 @@ function buildLinkedGitHubIssue(session: Session | null | undefined): GitHubIssu
         projectStatuses: readStringArray(extra.projectStatuses),
         projectTitles: readStringArray(extra.projectTitles),
     };
+}
+
+function excerpt(value: string, max = 1200): string {
+    const normalized = value.replace(/\s+\n/g, '\n').trim();
+    if (normalized.length <= max) return normalized;
+    return `${normalized.slice(0, max)}\n…`;
+}
+
+function formatMessageForCodexCopy(message: Message): string | null {
+    if (message.kind === 'user-text') {
+        const text = message.displayText || message.text;
+        if (!text?.trim()) return null;
+        return `User:\n${excerpt(text)}`;
+    }
+    if (message.kind === 'agent-text') {
+        if (!message.text?.trim()) return null;
+        return `Assistant:\n${excerpt(message.text)}`;
+    }
+    if (message.kind === 'tool-call') {
+        const result = typeof message.tool.result === 'string'
+            ? message.tool.result
+            : message.tool.result
+                ? JSON.stringify(message.tool.result)
+                : '';
+        const parts = [
+            `Tool: ${message.tool.name}`,
+            message.tool.description ? `Description: ${message.tool.description}` : '',
+            result ? `Result:\n${excerpt(result, 800)}` : '',
+        ].filter(Boolean);
+        return parts.join('\n');
+    }
+    return null;
+}
+
+function buildCopyToCodexPrompt(session: Session, messages: Message[]): string {
+    const title = getSessionName(session);
+    const provider = session.metadata?.flavor || 'unknown';
+    const path = session.metadata?.path || '';
+    const summary = session.metadata?.summary?.text;
+    const recentMessages = messages
+        .slice(-24)
+        .map(formatMessageForCodexCopy)
+        .filter((item): item is string => Boolean(item));
+    const recentConversation = recentMessages.length > 0
+        ? recentMessages.join('\n\n---\n\n')
+        : '(No loaded message history was available in Happy AI. Continue from the session metadata and ask for missing context if needed.)';
+
+    return [
+        'You are continuing work that was copied from another Happy AI session into a new Codex session.',
+        'Read the context below first. Do not repeat completed work unless verification is needed. Continue naturally from the user’s latest intent.',
+        '',
+        '## Source session',
+        `- Title: ${title}`,
+        `- Happy session ID: ${session.id}`,
+        `- Provider: ${provider}`,
+        path ? `- Project path: ${path}` : '',
+        summary ? `- Summary: ${summary}` : '',
+        '',
+        '## Recent conversation',
+        recentConversation,
+    ].filter(Boolean).join('\n');
 }
 
 function applyQuickActionPlaceholders(prompt: string, params: { projectPath: string }): string {
@@ -829,6 +891,63 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         );
     }, [performDeleteSession]);
 
+    const [isCopyingToCodexSession, performCopyToCodexSession] = useHappyAction(async () => {
+        const sessionPath = session.metadata?.path;
+        if (!machineId || !sessionPath) {
+            throw new HappyError(t('duplicate.notAvailable'), false);
+        }
+
+        const newSessionTitle = `${getSessionName(session)} (Codex)`;
+        const spawnResult = await machineSpawnNewSession({
+            machineId,
+            directory: sessionPath,
+            agent: 'codex',
+            sessionTitle: newSessionTitle,
+        });
+
+        if (spawnResult.type !== 'success' || !spawnResult.sessionId) {
+            throw new HappyError(
+                spawnResult.type === 'error' ? spawnResult.errorMessage : t('duplicate.failed'),
+                false,
+            );
+        }
+
+        await sync.refreshSessions();
+        await copySessionMetadata(session, spawnResult.sessionId).catch(e => console.warn('copySessionMetadata failed:', e));
+        const codexPermissionMode = (
+            permissionMode === 'read-only'
+            || permissionMode === 'safe-yolo'
+            || permissionMode === 'yolo'
+            || permissionMode === 'default'
+        ) ? permissionMode : 'default';
+        sync.queueSessionModeConfigUpdate({
+            sessionId: spawnResult.sessionId,
+            agentType: 'codex',
+            permissionMode: codexPermissionMode,
+            modelMode: 'default',
+            fastMode: false,
+            includeSessionEntry: true,
+            includeLastUsed: false,
+        });
+
+        const sendResult = await sync.sendMessage(spawnResult.sessionId, buildCopyToCodexPrompt(session, messages));
+        if (!sendResult.success) {
+            throw new HappyError(sendResult.error || t('duplicate.failed'), false);
+        }
+        router.replace(`/session/${spawnResult.sessionId}`);
+    }, { timeoutMs: 120_000 });
+
+    const handleCopyToCodexSession = React.useCallback(async () => {
+        if (session.metadata?.flavor === 'codex' || session.metadata?.codexSessionId) return;
+        const confirmed = await Modal.confirm(
+            t('sessionHistory.copyConfirmTitle'),
+            t('sessionHistory.copyConfirmMessage', { provider: 'Codex' }),
+            { confirmText: t('common.continue'), cancelText: t('common.cancel') },
+        );
+        if (!confirmed) return;
+        performCopyToCodexSession();
+    }, [performCopyToCodexSession, session.metadata?.codexSessionId, session.metadata?.flavor]);
+
     // Handler for filling the input from option selection
     const handleFillInput = React.useCallback(async (text: string, allOptions?: string[]) => {
         const currentMessage = message.trim();
@@ -1258,6 +1377,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             onArchive={session.active ? handleArchive : undefined}
             onResume={!session.active ? handleResume : undefined}
             onDeleteSession={!session.active ? handleDeleteSession : undefined}
+            onCopyToCodexSession={session.metadata?.flavor !== 'codex' && !session.metadata?.codexSessionId ? handleCopyToCodexSession : undefined}
+            isCopyingToCodexSession={isCopyingToCodexSession}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
                 // Block sending during CLI upgrade

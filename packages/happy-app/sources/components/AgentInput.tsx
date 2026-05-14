@@ -88,6 +88,9 @@ interface AgentInputProps {
     onResume?: () => void;
     /** Optional destructive delete trigger for archived sessions. */
     onDeleteSession?: () => void;
+    /** Optional cross-provider copy trigger for non-Codex sessions. */
+    onCopyToCodexSession?: () => void;
+    isCopyingToCodexSession?: boolean;
     metadata?: Metadata | null;
     onAbort?: () => void | Promise<void>;
     showAbortButton?: boolean;
@@ -1109,6 +1112,55 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
                                 {/* Model Section */}
                                 {showSettings === 'model' && <View style={{ paddingVertical: 8 }}>
+                                    {!isCodex && props.onCopyToCodexSession && (
+                                        <>
+                                            <Pressable
+                                                onPress={() => {
+                                                    if (props.isCopyingToCodexSession) return;
+                                                    hapticsLight();
+                                                    props.onCopyToCodexSession?.();
+                                                }}
+                                                disabled={props.isCopyingToCodexSession}
+                                                style={({ pressed }) => ({
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 16,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                    opacity: props.isCopyingToCodexSession ? 0.6 : 1,
+                                                    backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                                                })}
+                                            >
+                                                {props.isCopyingToCodexSession ? (
+                                                    <ActivityIndicator size="small" color={theme.colors.button.secondary.tint} />
+                                                ) : (
+                                                    <Image
+                                                        source={agentFlavorIcons.codex}
+                                                        style={{ width: 18, height: 18, tintColor: theme.colors.button.secondary.tint }}
+                                                        contentFit="contain"
+                                                    />
+                                                )}
+                                                <View style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text style={{
+                                                        fontSize: 14,
+                                                        color: theme.colors.text,
+                                                        ...Typography.default('semiBold'),
+                                                    }}>
+                                                        {t('sessionInfo.copySession')} · Codex
+                                                    </Text>
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: theme.colors.textSecondary,
+                                                        marginTop: 2,
+                                                        ...Typography.default(),
+                                                    }}>
+                                                        {t('sessionHistory.copyConfirmMessage', { provider: 'Codex' })}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                            <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
+                                        </>
+                                    )}
                                     {isCodex ? (
                                         <>
                                             {renderRadioOptions(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange)}
