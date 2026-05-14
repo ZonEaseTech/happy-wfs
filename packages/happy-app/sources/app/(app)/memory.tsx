@@ -20,8 +20,9 @@ const GROUP_ORDER: GroupKey[] = ['manual', 'message-pin'];
 
 /**
  * Top-level memory page. Shows the user's stored memories sorted newest-first.
- * Memory rows are injected by happy-cli into Claude's system prompt at session
- * start so anything saved here is available across all future conversations.
+ * Memory rows are injected by happy-cli into supported agents' first-turn
+ * system instructions at session start so anything saved here is available
+ * across all future conversations.
  *
  * Two creation paths:
  *   - "+" header button → manual entry via Modal.prompt

@@ -210,6 +210,25 @@ export async function runCodex(opts: {
         }));
     }
 
+    // Fetch user memories and inject them into Codex's first-turn system
+    // instructions as a <user_memory> block. The metadata is used by
+    // happy-app to surface "N memories injected" in the session UI.
+    const injectedMemories = await api.listMemories();
+    let initialMemoryAppendPrompt: string | undefined;
+    if (injectedMemories.length > 0) {
+        const memoryBlock = '<user_memory>\n' +
+            injectedMemories.map((m) => m.content).join('\n\n') +
+            '\n</user_memory>';
+        initialMemoryAppendPrompt = memoryBlock;
+
+        const injectedMemoryIds = injectedMemories.map((m) => m.id);
+        session.updateMetadata((currentMetadata) => ({
+            ...currentMetadata,
+            injectedMemoryIds
+        }));
+        logger.debug(`[START] Injected ${injectedMemoryIds.length} memories into Codex session`);
+    }
+
     // Always report to daemon if it exists (skip if offline)
     if (response) {
         try {
@@ -324,6 +343,7 @@ export async function runCodex(opts: {
         // Both are passed as baseInstructions to Codex (true system prompt).
         if (sessionSystemPrompt === undefined) {
             const parts: string[] = [];
+            if (initialMemoryAppendPrompt) parts.push(initialMemoryAppendPrompt);
             if (message.meta?.appendSystemPrompt) parts.push(message.meta.appendSystemPrompt);
             if (firstTurnInstruction) parts.push(firstTurnInstruction);
             sessionSystemPrompt = parts.join('\n\n');
