@@ -329,9 +329,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     issueDetailModal: {
-        width: 560,
-        maxWidth: '92%',
-        maxHeight: '82%',
+        width: 860,
+        maxWidth: '96%',
+        maxHeight: '92%',
         borderRadius: 16,
         overflow: 'hidden',
         backgroundColor: theme.colors.surface,
@@ -358,7 +358,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     issueDetailBody: {
         paddingHorizontal: 18,
         paddingVertical: 14,
-        maxHeight: 420,
+        maxHeight: 660,
     },
     issueDetailBodyText: {
         fontSize: 14,
