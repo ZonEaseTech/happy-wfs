@@ -547,9 +547,14 @@ export function SessionsList() {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
         setPendingIssuesError(null);
+        const hasProjectFilter = !!githubIssueInboxFilters.projects?.trim();
         const requestOptions = {
             limit: 100,
-            query: pendingIssueServerQuery,
+            // When reading a GitHub Project inbox, let the server query ProjectV2
+            // items directly. Sending the default "assignee:@me" search query
+            // makes the backend fall back to GitHub issue search first, so the
+            // project list only shows issues assigned to the current user.
+            query: hasProjectFilter ? undefined : pendingIssueServerQuery,
             projects: githubIssueInboxFilters.projects,
             statuses: githubIssueInboxFilters.keywords,
         };
