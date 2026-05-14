@@ -608,12 +608,31 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     // Ref for the input component (used for web auto-focus)
     const inputRef = React.useRef<MultiTextInputHandle>(null);
     const sessionProjectPath = session.metadata?.path ?? '.';
+    const resolveTaskBriefPrompt = React.useCallback(async () => {
+        const sessionId = await Modal.prompt(
+            t('agentInput.quickActions.taskBrief.sessionIdTitle'),
+            t('agentInput.quickActions.taskBrief.sessionIdPrompt'),
+            {
+                defaultValue: session.id,
+                placeholder: t('agentInput.quickActions.taskBrief.sessionIdPlaceholder'),
+                confirmText: t('common.ok'),
+                cancelText: t('common.cancel'),
+            },
+        );
+        const trimmed = sessionId?.trim();
+        if (!trimmed) return null;
+        return t('agentInput.quickActions.taskBrief.promptForSession', {
+            sessionId: trimmed,
+            projectPath: sessionProjectPath,
+        });
+    }, [session.id, sessionProjectPath]);
     const defaultQuickActions = React.useMemo<AgentQuickAction[]>(() => [
         {
             key: 'taskBrief',
             label: t('agentInput.quickActions.taskBrief.title'),
             description: t('agentInput.quickActions.taskBrief.description'),
             prompt: t('agentInput.quickActions.taskBrief.prompt', { projectPath: sessionProjectPath }),
+            resolvePrompt: resolveTaskBriefPrompt,
             icon: 'git-pull-request-outline',
         },
         {
@@ -644,7 +663,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             prompt: t('agentInput.quickActions.evidenceReport.prompt'),
             icon: 'image-outline',
         },
-    ], [sessionProjectPath]);
+    ], [sessionProjectPath, resolveTaskBriefPrompt]);
     const quickActions = React.useMemo<AgentQuickAction[]>(() => {
         if (customQuickActions.length === 0) return defaultQuickActions;
         return customQuickActions.map((action, index) => ({

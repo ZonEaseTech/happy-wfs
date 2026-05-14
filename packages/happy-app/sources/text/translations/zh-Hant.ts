@@ -962,8 +962,12 @@ export const zhHant: TranslationStructure = {
             customizeInvalid: 'JSON 格式無效。請使用包含 label 和 prompt 的物件陣列。',
             taskBrief: {
                 title: '會話接力',
-                description: '為目前專案生成接力包',
+                description: '輸入會話 ID 生成接力包',
                 prompt: ({ projectPath }: { projectPath: string }) => `請執行 \`happy task brief --recent --project ${projectPath}\` 為目前專案生成會話接力包，然後根據接力包繼續目前任務。保留既有使用者改動，並回報驗證結果。`,
+                promptForSession: ({ sessionId, projectPath }: { sessionId: string; projectPath: string }) => `請執行 \`happy task brief --session ${sessionId} --project ${projectPath}\` 為該會話生成接力包，然後根據接力包繼續任務。保留既有使用者改動，並回報驗證結果。`,
+                sessionIdTitle: '會話 ID',
+                sessionIdPrompt: '請輸入要生成接力包的會話 ID。',
+                sessionIdPlaceholder: '會話 ID',
             },
             releaseGuard: {
                 title: '發布驗證',

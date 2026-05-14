@@ -960,8 +960,12 @@ export const es: TranslationStructure = {
             customizeInvalid: 'Invalid JSON. Use an array of objects with label and prompt.',
             taskBrief: {
                 title: 'Task Brief',
-                description: 'Generate a continuation brief for this project',
+                description: 'Generate a continuation brief by session ID',
                 prompt: ({ projectPath }: { projectPath: string }) => `Please run \`happy task brief --recent --project ${projectPath}\` to generate a continuation brief for this project, then use that brief to continue the current task. Preserve existing user changes and report verification results.`,
+                promptForSession: ({ sessionId, projectPath }: { sessionId: string; projectPath: string }) => `Please run \`happy task brief --session ${sessionId} --project ${projectPath}\` to generate a continuation brief for that session, then use that brief to continue the task. Preserve existing user changes and report verification results.`,
+                sessionIdTitle: 'Session ID',
+                sessionIdPrompt: 'Enter the session ID to generate a continuation brief for.',
+                sessionIdPlaceholder: 'Session ID',
             },
             releaseGuard: {
                 title: 'Release Check',

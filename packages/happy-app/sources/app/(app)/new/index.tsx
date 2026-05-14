@@ -509,12 +509,31 @@ function NewSessionWizard() {
     const [isCreating, setIsCreating] = React.useState(false);
     const [showAdvanced, setShowAdvanced] = React.useState(true);
     const quickActionProjectPath = selectedPath || '.';
+    const resolveTaskBriefPrompt = React.useCallback(async () => {
+        const sessionId = await Modal.prompt(
+            t('agentInput.quickActions.taskBrief.sessionIdTitle'),
+            t('agentInput.quickActions.taskBrief.sessionIdPrompt'),
+            {
+                defaultValue: '',
+                placeholder: t('agentInput.quickActions.taskBrief.sessionIdPlaceholder'),
+                confirmText: t('common.ok'),
+                cancelText: t('common.cancel'),
+            },
+        );
+        const trimmed = sessionId?.trim();
+        if (!trimmed) return null;
+        return t('agentInput.quickActions.taskBrief.promptForSession', {
+            sessionId: trimmed,
+            projectPath: quickActionProjectPath,
+        });
+    }, [quickActionProjectPath]);
     const defaultQuickActions = React.useMemo<AgentQuickAction[]>(() => [
         {
             key: 'taskBrief',
             label: t('agentInput.quickActions.taskBrief.title'),
             description: t('agentInput.quickActions.taskBrief.description'),
             prompt: t('agentInput.quickActions.taskBrief.prompt', { projectPath: quickActionProjectPath }),
+            resolvePrompt: resolveTaskBriefPrompt,
             icon: 'git-pull-request-outline',
         },
         {
@@ -545,7 +564,7 @@ function NewSessionWizard() {
             prompt: t('agentInput.quickActions.evidenceReport.prompt'),
             icon: 'image-outline',
         },
-    ], [quickActionProjectPath]);
+    ], [quickActionProjectPath, resolveTaskBriefPrompt]);
     const quickActions = React.useMemo<AgentQuickAction[]>(() => {
         if (customQuickActions.length === 0) return defaultQuickActions;
         return customQuickActions.map((action, index) => ({

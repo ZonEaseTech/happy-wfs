@@ -962,8 +962,12 @@ export const zhHans: TranslationStructure = {
             customizeInvalid: 'JSON 格式无效。请使用包含 label 和 prompt 的对象数组。',
             taskBrief: {
                 title: '会话接力',
-                description: '为当前项目生成接力包',
+                description: '输入会话 ID 生成接力包',
                 prompt: ({ projectPath }: { projectPath: string }) => `请运行 \`happy task brief --recent --project ${projectPath}\` 为当前项目生成会话接力包，然后基于接力包继续当前任务。保留已有用户改动，并汇报验证结果。`,
+                promptForSession: ({ sessionId, projectPath }: { sessionId: string; projectPath: string }) => `请运行 \`happy task brief --session ${sessionId} --project ${projectPath}\` 为该会话生成接力包，然后基于接力包继续任务。保留已有用户改动，并汇报验证结果。`,
+                sessionIdTitle: '会话 ID',
+                sessionIdPrompt: '请输入要生成接力包的会话 ID。',
+                sessionIdPlaceholder: '会话 ID',
             },
             releaseGuard: {
                 title: '发布验证',

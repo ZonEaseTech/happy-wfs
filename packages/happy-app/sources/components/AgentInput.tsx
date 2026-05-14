@@ -63,6 +63,7 @@ export interface AgentQuickAction {
     description: string;
     prompt: string;
     icon: string;
+    resolvePrompt?: () => Promise<string | null>;
 }
 
 interface AgentInputProps {
@@ -738,12 +739,14 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         setShowQuickActions(prev => !prev);
     }, []);
 
-    const handleQuickActionSelect = React.useCallback((action: AgentQuickAction) => {
+    const handleQuickActionSelect = React.useCallback(async (action: AgentQuickAction) => {
         hapticsLight();
         setShowQuickActions(false);
-        setInputState({ text: action.prompt, selection: { start: action.prompt.length, end: action.prompt.length } });
-        latestTextRef.current = action.prompt;
-        props.onChangeText(action.prompt);
+        const prompt = action.resolvePrompt ? await action.resolvePrompt() : action.prompt;
+        if (prompt === null) return;
+        setInputState({ text: prompt, selection: { start: prompt.length, end: prompt.length } });
+        latestTextRef.current = prompt;
+        props.onChangeText(prompt);
         setTimeout(() => inputRef.current?.focus(), 30);
     }, [props.onChangeText]);
 
