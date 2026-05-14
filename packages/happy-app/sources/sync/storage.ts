@@ -227,8 +227,11 @@ function buildSessionListViewData(
         }
     });
 
-    // Sort sessions by updated date (newest first)
-    activeSessions.sort((a, b) => b.updatedAt - a.updatedAt);
+    // Keep active navigation stable. Metadata-only updates such as renaming,
+    // marking review/closure, or syncing GitHub state bump `updatedAt`; using
+    // that field here makes the sidebar jump while the user is operating on a
+    // row. Inactive/history rows can still use updatedAt below.
+    activeSessions.sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
     inactiveSessions.sort((a, b) => b.updatedAt - a.updatedAt);
 
     // Build unified list view data
@@ -2116,4 +2119,3 @@ export function useSessionAccessLevel(sessionId: string) {
 export function useIsSessionOwner(sessionId: string) {
     return storage((state) => !!state.sessions[sessionId] && !state.sharedSessions[sessionId]);
 }
-
