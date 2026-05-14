@@ -5,7 +5,7 @@
 
 import { apiSocket } from './apiSocket';
 import { sync } from './sync';
-import type { MachineMetadata, Metadata } from './storageTypes';
+import { MetadataSchema, type MachineMetadata, type Metadata } from './storageTypes';
 
 // Strict type definitions for all operations
 
@@ -23,6 +23,31 @@ interface SessionPermissionRequest {
 // Mode change operation types
 interface SessionModeChangeRequest {
     to: 'remote' | 'local';
+}
+
+/**
+ * UI session rows can be backed by observable/proxy objects. Before encrypting
+ * metadata for write RPCs, normalize it through the zod schema so we only send
+ * the plain persisted fields. This avoids JSON.stringify/encryption blowing up
+ * on proxy/circular bookkeeping with "Maximum call stack size exceeded".
+ */
+function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {
+    const parsed = MetadataSchema.safeParse(metadata);
+    if (parsed.success) {
+        return parsed.data;
+    }
+
+    const seen = new WeakSet<object>();
+    const plain = JSON.parse(JSON.stringify(metadata, (_key, value) => {
+        if (typeof value === 'function') return undefined;
+        if (value && typeof value === 'object') {
+            if (seen.has(value)) return undefined;
+            seen.add(value);
+        }
+        return value;
+    }));
+
+    return MetadataSchema.parse(plain);
 }
 
 // Bash operation types
@@ -717,8 +742,9 @@ export async function sessionUpdateSummary(
         throw new Error(`Session encryption not found for ${sessionId}`);
     }
 
+    const baseMetadata = normalizeSessionMetadataForWrite(currentMetadata);
     let metadataToSend: Metadata = {
-        ...currentMetadata,
+        ...baseMetadata,
         summary: {
             text: newSummaryText,
             updatedAt: Date.now()
@@ -779,7 +805,8 @@ export async function sessionUpdateMetadataFields(
         throw new Error(`Session encryption not found for ${sessionId}`);
     }
 
-    let metadataToSend: Metadata = { ...currentMetadata, ...updates };
+    const baseMetadata = normalizeSessionMetadataForWrite(currentMetadata);
+    let metadataToSend: Metadata = { ...baseMetadata, ...updates };
 
     for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
         const encryptedMetadata = await sessionEncryption.encryptRaw(metadataToSend);
