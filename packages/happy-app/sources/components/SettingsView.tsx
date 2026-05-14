@@ -259,6 +259,12 @@ export const SettingsView = React.memo(function SettingsView() {
                     onPress={() => openDesktop('/settings/claude-config', { title: t('claudeConfig.title') })}
                 />
                 <Item
+                    title={t('settings.mcpConfigTitle')}
+                    subtitle={t('settings.mcpConfigSubtitle')}
+                    icon={<Ionicons name="extension-puzzle-outline" size={29} color="#AF52DE" />}
+                    onPress={() => openDesktop('/settings/mcp-config', { title: t('mcpConfig.title') })}
+                />
+                <Item
                     title={t('settings.feishuNotification')}
                     subtitle={t('settings.feishuNotificationSubtitle')}
                     icon={<Ionicons name="notifications-outline" size={29} color="#34C759" />}

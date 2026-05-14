@@ -44,6 +44,8 @@ function getFileLanguage(path: string): string {
         case 'yaml':
         case 'yml':
             return 'YAML';
+        case 'toml':
+            return 'TOML';
         case 'sh':
         case 'bash':
             return 'Shell';
@@ -100,6 +102,8 @@ function getEditorLanguage(path: string): string {
         case 'yaml':
         case 'yml':
             return 'yaml';
+        case 'toml':
+            return 'toml';
         case 'sh':
         case 'bash':
             return 'shell';

@@ -246,6 +246,8 @@ export const ja: TranslationStructure = {
         worktreeBranchPrefixSubtitle: '新しい worktree のブランチ名に自動で付与されます',
         claudeConfigTitle: 'User-level Claude config',
         claudeConfigSubtitle: 'Edit settings.json, CLAUDE.md, and browse ~/.claude on this machine',
+        mcpConfigTitle: 'MCP management',
+        mcpConfigSubtitle: 'Manage MCP config for Claude, Codex, and Gemini',
         worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `現在: ${prefix}`,
         githubNotConfigured: 'サーバーでGitHub OAuthが設定されていません。管理者にお問い合わせください。',
         claudeAuthSuccess: 'Claudeへの接続に成功しました',
@@ -1264,6 +1266,18 @@ export const ja: TranslationStructure = {
         browse: 'Browse ~/.claude',
         browseSubtitle: 'skills/, commands/, agents/, anything else',
         browseTitle: '~/.claude',
+    },
+
+    mcpConfig: {
+        title: 'MCP management',
+        machineGroup: 'MCP config by model',
+        machineFooter: ({ machine, status }: { machine: string; status: string }) => `Edits go to CLI config files on ${machine} (${status})`,
+        noMachine: 'No machine connected.',
+        machineOffline: 'Machine is offline.',
+        noMachineFooter: 'Connect a machine to edit MCP config.',
+        browseGroup: 'Browse config folders',
+        browseTarget: ({ target }: { target: string }) => `Browse ${target} config`,
+        hint: 'Claude and Gemini use settings.json; Codex uses config.toml.',
     },
 
     machineEdit: {

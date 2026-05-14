@@ -216,6 +216,8 @@ export const zhHans: TranslationStructure = {
         worktreeBranchPrefixSubtitle: '新建 worktree 时分支名自动加这个前缀',
         claudeConfigTitle: '用户级 Claude 配置',
         claudeConfigSubtitle: '在这台机器上编辑 settings.json / CLAUDE.md，浏览 ~/.claude',
+        mcpConfigTitle: 'MCP 管理',
+        mcpConfigSubtitle: '管理 Claude、Codex、Gemini 的 MCP 配置',
         worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `当前：${prefix}`,
         githubNotConfigured: '服务器未配置 GitHub OAuth，请联系管理员。',
         claudeAuthSuccess: '成功连接到 Claude',
@@ -1234,6 +1236,18 @@ export const zhHans: TranslationStructure = {
         browse: '浏览 ~/.claude',
         browseSubtitle: 'skills/、commands/、agents/ 等',
         browseTitle: '~/.claude',
+    },
+
+    mcpConfig: {
+        title: 'MCP 管理',
+        machineGroup: '按模型管理 MCP 配置',
+        machineFooter: ({ machine, status }: { machine: string; status: string }) => `将在 ${machine}（${status}）上编辑各 CLI 配置文件`,
+        noMachine: '没有已连接的机器。',
+        machineOffline: '机器离线。',
+        noMachineFooter: '连接机器后即可编辑 MCP 配置。',
+        browseGroup: '浏览配置目录',
+        browseTarget: ({ target }: { target: string }) => `浏览 ${target} 配置`,
+        hint: 'Claude 和 Gemini 使用 settings.json；Codex 使用 config.toml。',
     },
 
     machineEdit: {

@@ -230,6 +230,8 @@ export const en: TranslationStructure = {
         worktreeBranchPrefixSubtitle: 'Auto-prepended to new worktree branch names',
         claudeConfigTitle: 'User-level Claude config',
         claudeConfigSubtitle: 'Edit settings.json, CLAUDE.md, and browse ~/.claude on this machine',
+        mcpConfigTitle: 'MCP management',
+        mcpConfigSubtitle: 'Manage MCP config for Claude, Codex, and Gemini',
         worktreeBranchPrefixSet: ({ prefix }: { prefix: string }) => `Current: ${prefix}`,
         githubNotConfigured: 'GitHub OAuth is not configured on the server. Please contact your administrator.',
         claudeAuthSuccess: 'Successfully connected to Claude',
@@ -1249,6 +1251,18 @@ export const en: TranslationStructure = {
         browse: 'Browse ~/.claude',
         browseSubtitle: 'skills/, commands/, agents/, anything else',
         browseTitle: '~/.claude',
+    },
+
+    mcpConfig: {
+        title: 'MCP management',
+        machineGroup: 'MCP config by model',
+        machineFooter: ({ machine, status }: { machine: string; status: string }) => `Edits go to CLI config files on ${machine} (${status})`,
+        noMachine: 'No machine connected.',
+        machineOffline: 'Machine is offline.',
+        noMachineFooter: 'Connect a machine to edit MCP config.',
+        browseGroup: 'Browse config folders',
+        browseTarget: ({ target }: { target: string }) => `Browse ${target} config`,
+        hint: 'Claude and Gemini use settings.json; Codex uses config.toml.',
     },
 
     machineEdit: {
