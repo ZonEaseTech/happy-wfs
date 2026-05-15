@@ -64,6 +64,11 @@ type GraphQLProjectItemForUpdateNode = {
     } | null;
 };
 
+type GraphQLIssueForUpdateNode = Omit<GraphQLIssueNode, "projectItems"> & {
+    projectItems?: { nodes?: Array<GraphQLProjectItemForUpdateNode | null> | null } | null;
+    subIssues?: { nodes?: Array<GraphQLIssueForUpdateNode | null> | null } | null;
+};
+
 type GraphQLProjectItemNode = {
     content?: GraphQLIssueNode | null;
     fieldValues?: {
@@ -234,6 +239,39 @@ query HappyIssueProjectItemForUpdate($owner: String!, $repo: String!, $number: I
           }
         }
       }
+      subIssues(first: 50) {
+        nodes {
+          databaseId
+          number
+          title
+          body
+          url
+          state
+          updatedAt
+          repository { nameWithOwner }
+          parent { id number title }
+          labels(first: 20) { nodes { name } }
+          assignees(first: 20) { nodes { login } }
+          projectItems(first: 20) {
+            nodes {
+              id
+              project { id title }
+              fieldValues(first: 30) {
+                nodes {
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    name
+                    field { ... on ProjectV2FieldCommon { name } }
+                  }
+                  ... on ProjectV2ItemFieldTextValue {
+                    text
+                    field { ... on ProjectV2FieldCommon { name } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -367,9 +405,7 @@ type GitHubProjectItemsResponse = {
 type GitHubIssueProjectItemForUpdateResponse = {
     data?: {
         repository?: {
-            issue?: (Omit<GraphQLIssueNode, "projectItems"> & {
-                projectItems?: { nodes?: Array<GraphQLProjectItemForUpdateNode | null> | null } | null;
-            }) | null;
+            issue?: GraphQLIssueForUpdateNode | null;
         } | null;
     };
     errors?: Array<{ message?: string }>;
@@ -495,8 +531,66 @@ function projectItemStatusValues(item: GraphQLProjectItemForUpdateNode): string[
         .map((value) => value.name ?? value.text));
 }
 
+function projectItemForStatusUpdate(args: {
+    projectItems: GraphQLProjectItemForUpdateNode[];
+    projectTitle?: string;
+    projectId?: string;
+}): GraphQLProjectItemForUpdateNode | undefined {
+    if (args.projectId) {
+        const exactProject = args.projectItems.find((item) => item.project?.id === args.projectId);
+        if (exactProject) return exactProject;
+    }
+
+    const projectTitle = args.projectTitle?.trim().toLowerCase();
+    if (!projectTitle) return args.projectItems[0];
+
+    return args.projectItems.find((item) => item.project?.title?.trim().toLowerCase() === projectTitle)
+        ?? args.projectItems.find((item) => item.project?.title?.trim().toLowerCase().includes(projectTitle));
+}
+
+async function setProjectItemStatus(args: {
+    token: string;
+    projectId: string;
+    itemId: string;
+    fieldId: string;
+    optionId?: string;
+}): Promise<{ ok: true } | { ok: false; status?: number; error: string }> {
+    if (!args.optionId) {
+        const result = await fetchGitHubGraphQL<{
+            data?: { clearProjectV2ItemFieldValue?: { projectV2Item?: { id?: string | null } | null } | null };
+            errors?: Array<{ message?: string }>;
+        }>({
+            token: args.token,
+            query: clearProjectItemStatusMutation,
+            variables: {
+                projectId: args.projectId,
+                itemId: args.itemId,
+                fieldId: args.fieldId,
+            },
+        });
+        if (!result.ok) return result;
+        return { ok: true };
+    }
+
+    const result = await fetchGitHubGraphQL<{
+        data?: { updateProjectV2ItemFieldValue?: { projectV2Item?: { id?: string | null } | null } | null };
+        errors?: Array<{ message?: string }>;
+    }>({
+        token: args.token,
+        query: updateProjectItemStatusMutation,
+        variables: {
+            projectId: args.projectId,
+            itemId: args.itemId,
+            fieldId: args.fieldId,
+            optionId: args.optionId,
+        },
+    });
+    if (!result.ok) return result;
+    return { ok: true };
+}
+
 function mapIssueForUpdateResponse(
-    issue: NonNullable<NonNullable<NonNullable<GitHubIssueProjectItemForUpdateResponse["data"]>["repository"]>["issue"]>,
+    issue: GraphQLIssueForUpdateNode,
     updatedProjectItemId: string,
     nextStatus: string,
 ): GitHubIssue {
@@ -522,7 +616,7 @@ function mapIssueForUpdateResponse(
 }
 
 function mapIssueFromProjectItemsForUpdateResponse(
-    issue: NonNullable<NonNullable<NonNullable<GitHubIssueProjectItemForUpdateResponse["data"]>["repository"]>["issue"]>,
+    issue: GraphQLIssueForUpdateNode,
 ): GitHubIssue {
     const projectItems = issue.projectItems?.nodes?.filter((node): node is GraphQLProjectItemForUpdateNode => !!node) ?? [];
     const projectTitles = uniqueStrings(projectItems.map((node) => node.project?.title));
@@ -811,11 +905,10 @@ export function githubRoutes(app: Fastify) {
             return reply.code(400).send({ error: 'This issue is not linked to any GitHub Project item.' });
         }
 
-        const projectTitle = request.body.projectTitle?.trim().toLowerCase();
-        const targetItem = projectTitle
-            ? (projectItems.find((item) => item.project?.title?.trim().toLowerCase() === projectTitle)
-                ?? projectItems.find((item) => item.project?.title?.trim().toLowerCase().includes(projectTitle)))
-            : projectItems[0];
+        const targetItem = projectItemForStatusUpdate({
+            projectItems,
+            projectTitle: request.body.projectTitle,
+        });
         if (!targetItem?.id || !targetItem.project?.id) {
             return reply.code(404).send({ error: `Project item not found${request.body.projectTitle ? ` for ${request.body.projectTitle}` : ''}.` });
         }
@@ -845,37 +938,64 @@ export function githubRoutes(app: Fastify) {
             });
         }
 
-        const mutationVariables = {
+        const updateResult = await setProjectItemStatus({
+            token,
             projectId: targetItem.project.id,
             itemId: targetItem.id,
             fieldId: statusField.id,
-        };
-        const updateResult = wantsNoStatus
-            ? await fetchGitHubGraphQL<{
-                data?: { clearProjectV2ItemFieldValue?: { projectV2Item?: { id?: string | null } | null } | null };
-                errors?: Array<{ message?: string }>;
-            }>({
-                token,
-                query: clearProjectItemStatusMutation,
-                variables: mutationVariables,
-            })
-            : await fetchGitHubGraphQL<{
-                data?: { updateProjectV2ItemFieldValue?: { projectV2Item?: { id?: string | null } | null } | null };
-                errors?: Array<{ message?: string }>;
-            }>({
-                token,
-                query: updateProjectItemStatusMutation,
-                variables: {
-                    ...mutationVariables,
-                    optionId: targetOption!.id,
-                },
-            });
+            optionId: targetOption?.id ?? undefined,
+        });
         if (!updateResult.ok) {
             log({ module: 'github-issues', level: 'warn' }, `GitHub project status update failed: ${updateResult.error}`);
             return reply.code(400).send({ error: updateResult.error, availableStatuses });
         }
 
         const nextStatus = wantsNoStatus ? 'No Status' : (targetOption!.name ?? targetStatus);
+        const subIssues = issue.subIssues?.nodes?.filter((node): node is GraphQLIssueForUpdateNode => !!node) ?? [];
+        for (const subIssue of subIssues) {
+            const subIssueProjectItems = subIssue.projectItems?.nodes?.filter((node): node is GraphQLProjectItemForUpdateNode => !!node?.id && !!node.project?.id) ?? [];
+            const subIssueTargetItem = projectItemForStatusUpdate({
+                projectItems: subIssueProjectItems,
+                projectId: targetItem.project.id,
+                projectTitle: targetItem.project.title ?? request.body.projectTitle ?? undefined,
+            });
+            if (!subIssueTargetItem?.id || !subIssueTargetItem.project?.id) {
+                log({ module: 'github-issues', level: 'warn' }, `GitHub sub-issue #${subIssue.number} has no matching project item for ${targetItem.project.title ?? targetItem.project.id}`);
+                continue;
+            }
+
+            const subIssueUpdateResult = await setProjectItemStatus({
+                token,
+                projectId: subIssueTargetItem.project.id,
+                itemId: subIssueTargetItem.id,
+                fieldId: statusField.id,
+                optionId: targetOption?.id ?? undefined,
+            });
+            if (!subIssueUpdateResult.ok) {
+                log({ module: 'github-issues', level: 'warn' }, `GitHub sub-issue #${subIssue.number} project status update failed: ${subIssueUpdateResult.error}`);
+                return reply.code(400).send({
+                    error: `Project status updated, but GitHub sub-issue #${subIssue.number} status sync failed: ${subIssueUpdateResult.error}`,
+                    availableStatuses,
+                });
+            }
+
+            const subIssueStateSyncResult = await syncGitHubIssueOpenStateForProjectStatus({
+                token,
+                owner,
+                repo,
+                number: subIssue.number,
+                currentState: subIssue.state,
+                status: nextStatus,
+            });
+            if (!subIssueStateSyncResult.ok) {
+                log({ module: 'github-issues', level: 'warn' }, `GitHub sub-issue #${subIssue.number} state sync failed: ${subIssueStateSyncResult.error}`);
+                return reply.code(400).send({
+                    error: `Project status updated, but GitHub sub-issue #${subIssue.number} state sync failed: ${subIssueStateSyncResult.error}`,
+                    availableStatuses,
+                });
+            }
+        }
+
         if (issue.parent?.id) {
             const stateSyncResult = await syncGitHubIssueOpenStateForProjectStatus({
                 token,
