@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, FlatList, Platform, RefreshControl, TextInput, ScrollView, Linking, useWindowDimensions } from 'react-native';
+import { View, Pressable, FlatList, Platform, RefreshControl, TextInput, ScrollView, Linking, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
@@ -486,6 +486,7 @@ const SessionsListHeader = React.memo(({
     activeTab,
     visibleTabs,
     pendingIssueSearchText,
+    pendingIssuesLoading,
     projectFilterLabel,
     onTabPress,
     onPendingIssueSearchChange,
@@ -495,6 +496,7 @@ const SessionsListHeader = React.memo(({
     activeTab: SidebarTab;
     visibleTabs: SidebarTabItem[];
     pendingIssueSearchText: string;
+    pendingIssuesLoading: boolean;
     projectFilterLabel: string;
     onTabPress: (tab: SidebarTab) => void;
     onPendingIssueSearchChange: (value: string) => void;
@@ -546,6 +548,13 @@ const SessionsListHeader = React.memo(({
                             returnKeyType="search"
                             blurOnSubmit={false}
                         />
+                        {pendingIssuesLoading && (
+                            <ActivityIndicator
+                                size="small"
+                                color={theme.colors.textSecondary}
+                                style={{ marginRight: pendingIssueSearchText.trim().length > 0 ? 8 : 0 }}
+                            />
+                        )}
                         {pendingIssueSearchText.trim().length > 0 && (
                             <Pressable
                                 onPress={onClearPendingIssueSearch}
@@ -668,7 +677,7 @@ export function SessionsList() {
     const [pendingIssuesLoading, setPendingIssuesLoading] = React.useState(false);
     const [pendingIssuesError, setPendingIssuesError] = React.useState<string | null>(null);
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
-    const [pendingIssueSearchText, setPendingIssueSearchText] = React.useState('');
+    const [pendingIssueSearchText, setPendingIssueSearchText] = useLocalSettingMutable('githubIssueInboxSearchText');
     const lastPendingIssuesLoadKeyRef = React.useRef<string | null>(null);
     const githubTokenPromptOpenRef = React.useRef(false);
     const pathname = usePathname();
@@ -1070,6 +1079,7 @@ export function SessionsList() {
             activeTab={activeTab}
             visibleTabs={visibleTabs}
             pendingIssueSearchText={pendingIssueSearchText}
+            pendingIssuesLoading={pendingIssuesLoading}
             projectFilterLabel={projectFilterLabel}
             onTabPress={setActiveTab}
             onPendingIssueSearchChange={handlePendingIssueSearchChange}
