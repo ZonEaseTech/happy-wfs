@@ -35,6 +35,7 @@ type GraphQLIssueNode = {
     state: string;
     updatedAt: string;
     repository: { nameWithOwner: string };
+    parent?: { id?: string | null; number?: number | null; title?: string | null } | null;
     labels?: { nodes?: Array<{ name?: string } | null> | null };
     assignees?: { nodes?: Array<{ login?: string } | null> | null };
     projectItems?: {
@@ -212,6 +213,7 @@ query HappyIssueProjectItemForUpdate($owner: String!, $repo: String!, $number: I
       state
       updatedAt
       repository { nameWithOwner }
+      parent { id number title }
       labels(first: 20) { nodes { name } }
       assignees(first: 20) { nodes { login } }
       projectItems(first: 20) {
@@ -519,6 +521,67 @@ function mapIssueForUpdateResponse(
     }, projectTitles, projectStatuses);
 }
 
+function mapIssueFromProjectItemsForUpdateResponse(
+    issue: NonNullable<NonNullable<NonNullable<GitHubIssueProjectItemForUpdateResponse["data"]>["repository"]>["issue"]>,
+): GitHubIssue {
+    const projectItems = issue.projectItems?.nodes?.filter((node): node is GraphQLProjectItemForUpdateNode => !!node) ?? [];
+    const projectTitles = uniqueStrings(projectItems.map((node) => node.project?.title));
+    const projectStatuses = uniqueStrings(projectItems.flatMap(projectItemStatusValues));
+
+    return mapIssueNode({
+        databaseId: issue.databaseId,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body,
+        url: issue.url,
+        state: issue.state,
+        updatedAt: issue.updatedAt,
+        repository: issue.repository,
+        labels: issue.labels,
+        assignees: issue.assignees,
+    }, projectTitles, projectStatuses);
+}
+
+async function syncGitHubIssueOpenStateForProjectStatus(args: {
+    token: string;
+    owner: string;
+    repo: string;
+    number: number;
+    currentState: string;
+    status: string;
+}): Promise<{ ok: true } | { ok: false; status?: number; error: string }> {
+    const desiredState = args.status.trim().toLowerCase() === 'done' ? 'closed' : 'open';
+    if (args.currentState.trim().toLowerCase() === desiredState) {
+        return { ok: true };
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repo)}/issues/${args.number}`, {
+        method: 'PATCH',
+        headers: {
+            Authorization: `Bearer ${args.token}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'happy-ai',
+        },
+        body: JSON.stringify({
+            state: desiredState,
+            ...(desiredState === 'closed' ? { state_reason: 'completed' } : {}),
+        }),
+    });
+
+    if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        return {
+            ok: false,
+            status: response.status,
+            error: `GitHub Issue ${desiredState === 'closed' ? 'close' : 'reopen'} failed with ${response.status}${body ? ` ${body.slice(0, 200)}` : ''}`,
+        };
+    }
+
+    return { ok: true };
+}
+
 async function fetchGitHubProjectIssues(args: {
     token: string;
     projectFilters: string[];
@@ -812,8 +875,36 @@ export function githubRoutes(app: Fastify) {
             return reply.code(400).send({ error: updateResult.error, availableStatuses });
         }
 
+        const nextStatus = wantsNoStatus ? 'No Status' : (targetOption!.name ?? targetStatus);
+        if (issue.parent?.id) {
+            const stateSyncResult = await syncGitHubIssueOpenStateForProjectStatus({
+                token,
+                owner,
+                repo,
+                number: request.body.number,
+                currentState: issue.state,
+                status: nextStatus,
+            });
+            if (!stateSyncResult.ok) {
+                log({ module: 'github-issues', level: 'warn' }, `GitHub sub-issue state sync failed: ${stateSyncResult.error}`);
+                return reply.code(400).send({
+                    error: `Project status updated, but GitHub sub-issue state sync failed: ${stateSyncResult.error}`,
+                    availableStatuses,
+                });
+            }
+        }
+
+        const refreshedIssueResult = await fetchGitHubGraphQL<GitHubIssueProjectItemForUpdateResponse>({
+            token,
+            query: issueProjectItemForUpdateQuery,
+            variables: { owner, repo, number: request.body.number },
+        });
+        const refreshedIssue = refreshedIssueResult.ok ? refreshedIssueResult.data.data?.repository?.issue : null;
+
         return reply.send({
-            issue: mapIssueForUpdateResponse(issue, targetItem.id, wantsNoStatus ? 'No Status' : (targetOption!.name ?? targetStatus)),
+            issue: refreshedIssue
+                ? mapIssueFromProjectItemsForUpdateResponse(refreshedIssue)
+                : mapIssueForUpdateResponse(issue, targetItem.id, nextStatus),
             availableStatuses,
         });
     });
