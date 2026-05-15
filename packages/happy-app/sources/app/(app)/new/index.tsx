@@ -116,6 +116,56 @@ function applyQuickActionPlaceholders(prompt: string, params: { projectPath: str
     return prompt.replaceAll('{{projectPath}}', params.projectPath);
 }
 
+function joinPosixPath(basePath: string, childName: string): string {
+    if (!basePath || basePath === '/') return `/${childName}`;
+    return `${basePath.replace(/\/+$/, '')}/${childName}`;
+}
+
+function expandHomePath(pathText: string, homeDir?: string): string {
+    if (!homeDir) return pathText;
+    if (pathText === '~') return homeDir;
+    if (pathText.startsWith('~/')) return `${homeDir}${pathText.slice(1)}`;
+    return pathText;
+}
+
+function splitDirectorySuggestionQuery(params: {
+    inputText: string;
+    selectedPath: string;
+    homeDir?: string;
+}): { basePath: string; prefix: string } | null {
+    const { inputText, selectedPath, homeDir } = params;
+    const trimmed = inputText.trim();
+
+    if (!trimmed) {
+        const basePath = selectedPath || homeDir;
+        return basePath ? { basePath, prefix: '' } : null;
+    }
+
+    const expanded = expandHomePath(trimmed, homeDir);
+    if (!expanded) {
+        const basePath = selectedPath || homeDir;
+        return basePath ? { basePath, prefix: '' } : null;
+    }
+
+    if (expanded.endsWith('/')) {
+        return { basePath: expanded === '/' ? '/' : expanded.replace(/\/+$/, ''), prefix: '' };
+    }
+
+    const slashIndex = expanded.lastIndexOf('/');
+    if (slashIndex < 0) {
+        const basePath = selectedPath || homeDir;
+        return basePath ? { basePath, prefix: expanded } : null;
+    }
+    if (slashIndex === 0) {
+        return { basePath: '/', prefix: expanded.slice(1) };
+    }
+
+    return {
+        basePath: expanded.slice(0, slashIndex),
+        prefix: expanded.slice(slashIndex + 1),
+    };
+}
+
 const styles = StyleSheet.create((theme, rt) => ({
     container: {
         flex: 1,
@@ -299,7 +349,8 @@ function NewSessionWizard() {
     const persistedDraft = React.useRef(loadNewSessionDraft()).current;
 
     // Settings and state
-    const recentMachinePaths = useSetting('recentMachinePaths');
+    const [recentMachinePaths, setRecentMachinePaths] = useSettingMutable('recentMachinePaths');
+    const [dismissedRecentMachinePaths, setDismissedRecentMachinePaths] = useSettingMutable('dismissedRecentMachinePaths');
     const lastUsedAgent = useSetting('lastUsedAgent');
 
     // A/B Test Flag - determines which wizard UI to show
@@ -503,6 +554,9 @@ function NewSessionWizard() {
         }
         return getRecentPathForMachine(selectedMachineId, recentMachinePaths);
     });
+    const [pathInputText, setPathInputText] = React.useState<string>('');
+    const [directorySuggestions, setDirectorySuggestions] = React.useState<string[]>([]);
+    const [directorySuggestionsLoading, setDirectorySuggestionsLoading] = React.useState(false);
     const [sessionPrompt, setSessionPrompt] = React.useState(() => {
         return tempSessionData?.prompt || prompt || persistedDraft?.input || '';
     });
@@ -1024,10 +1078,15 @@ function NewSessionWizard() {
 
         const paths: string[] = [];
         const pathSet = new Set<string>();
+        const dismissedPaths = new Set(
+            dismissedRecentMachinePaths
+                .filter(entry => entry.machineId === selectedMachineId)
+                .map(entry => entry.path)
+        );
 
         // First, add paths from recentMachinePaths (these are the most recent)
         recentMachinePaths.forEach(entry => {
-            if (entry.machineId === selectedMachineId && !pathSet.has(entry.path)) {
+            if (entry.machineId === selectedMachineId && !dismissedPaths.has(entry.path) && !pathSet.has(entry.path)) {
                 paths.push(entry.path);
                 pathSet.add(entry.path);
             }
@@ -1043,7 +1102,7 @@ function NewSessionWizard() {
                 const session = item as any;
                 if (session.metadata?.machineId === selectedMachineId && session.metadata?.path) {
                     const path = session.metadata.path;
-                    if (!pathSet.has(path)) {
+                    if (!dismissedPaths.has(path) && !pathSet.has(path)) {
                         pathSet.add(path);
                         pathsWithTimestamps.push({
                             path,
@@ -1060,7 +1119,79 @@ function NewSessionWizard() {
         }
 
         return paths;
-    }, [sessions, selectedMachineId, recentMachinePaths]);
+    }, [dismissedRecentMachinePaths, sessions, selectedMachineId, recentMachinePaths]);
+
+    const handleRemoveRecentPath = React.useCallback((path: string) => {
+        if (!selectedMachineId) return;
+        setRecentMachinePaths(
+            recentMachinePaths.filter(entry =>
+                !(entry.machineId === selectedMachineId && entry.path === path)
+            )
+        );
+        const alreadyDismissed = dismissedRecentMachinePaths.some(entry =>
+            entry.machineId === selectedMachineId && entry.path === path
+        );
+        if (!alreadyDismissed) {
+            setDismissedRecentMachinePaths([
+                { machineId: selectedMachineId, path },
+                ...dismissedRecentMachinePaths,
+            ].slice(0, 100));
+        }
+    }, [dismissedRecentMachinePaths, recentMachinePaths, selectedMachineId, setDismissedRecentMachinePaths, setRecentMachinePaths]);
+
+    React.useEffect(() => {
+        if (!selectedMachineId) {
+            setDirectorySuggestions([]);
+            setDirectorySuggestionsLoading(false);
+            return;
+        }
+
+        const homeDir = selectedMachine?.metadata?.homeDir;
+        const query = splitDirectorySuggestionQuery({
+            inputText: pathInputText,
+            selectedPath,
+            homeDir,
+        });
+        if (!query) {
+            setDirectorySuggestions([]);
+            setDirectorySuggestionsLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+        setDirectorySuggestionsLoading(true);
+        const timer = setTimeout(() => {
+            const command = "ls -1ap 2>/dev/null | grep '/$' | grep -v '^\\.\\.?/$' | sed 's#/$##' | head -100";
+            machineBash(selectedMachineId, { command, cwd: query.basePath, timeout: 5000 })
+                .then((result) => {
+                    if (cancelled) return;
+                    if (!result.success) {
+                        setDirectorySuggestions([]);
+                        return;
+                    }
+                    const prefixLower = query.prefix.toLowerCase();
+                    const suggestions = result.stdout
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(Boolean)
+                        .filter(name => !prefixLower || name.toLowerCase().startsWith(prefixLower))
+                        .slice(0, 20)
+                        .map(name => joinPosixPath(query.basePath, name));
+                    setDirectorySuggestions(suggestions);
+                })
+                .catch(() => {
+                    if (!cancelled) setDirectorySuggestions([]);
+                })
+                .finally(() => {
+                    if (!cancelled) setDirectorySuggestionsLoading(false);
+                });
+        }, 180);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [pathInputText, selectedMachine?.metadata?.homeDir, selectedMachineId, selectedPath]);
 
     // Validation
     const canCreate = React.useMemo(() => {
@@ -1527,6 +1658,9 @@ function NewSessionWizard() {
             const updatedPaths = [{ machineId: selectedMachineId, path: selectedPath }, ...recentMachinePaths.filter(rp => rp.machineId !== selectedMachineId)].slice(0, 10);
             sync.applySettings({
                 recentMachinePaths: updatedPaths,
+                dismissedRecentMachinePaths: dismissedRecentMachinePaths.filter(entry =>
+                    !(entry.machineId === selectedMachineId && entry.path === selectedPath)
+                ),
                 lastUsedAgent: agentType,
                 lastUsedProfile: selectedProfileId,
             });
@@ -1629,7 +1763,7 @@ function NewSessionWizard() {
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);
         }
-    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, agentType, selectedProfileId, permissionMode, modelMode, fastMode, recentMachinePaths, profileMap, router, images, clearImages, tempSessionData, selectedRepos]);
+    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, tempSessionData, selectedRepos]);
 
     const screenWidth = useWindowDimensions().width;
 
@@ -2437,6 +2571,7 @@ function NewSessionWizard() {
                                     },
                                     searchPlaceholder: t('wizard.filterDirectories'),
                                     recentSectionTitle: t('wizard.recentDirectories'),
+                                    allSectionTitle: directorySuggestionsLoading ? t('wizard.currentSubdirectoriesLoading') : t('wizard.currentSubdirectories'),
                                     favoritesSectionTitle: t('wizard.favoriteDirectories'),
                                     noItemsMessage: t('wizard.noRecentDirectories'),
                                     showFavorites: false,
@@ -2444,8 +2579,9 @@ function NewSessionWizard() {
                                     showSearch: true,
                                     allowCustomInput: true,
                                     compactItems: true,
+                                    onInputTextChange: setPathInputText,
                                 }}
-                                items={[]}
+                                items={directorySuggestions}
                                 recentItems={recentPaths}
                                 favoriteItems={(() => {
                                     if (!selectedMachine?.metadata?.homeDir) return [];
@@ -2455,8 +2591,10 @@ function NewSessionWizard() {
                                 })()}
                                 selectedItem={selectedPath}
                                 onSelect={(path) => {
+                                    setPathInputText('');
                                     setSelectedPath(path);
                                 }}
+                                onRemoveRecentItem={handleRemoveRecentPath}
                                 onToggleFavorite={(path) => {
                                     const homeDir = selectedMachine?.metadata?.homeDir;
                                     if (!homeDir) return;

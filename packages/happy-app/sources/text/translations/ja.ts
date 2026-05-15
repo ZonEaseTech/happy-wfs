@@ -1862,6 +1862,8 @@ export const ja: TranslationStructure = {
         noMachinesAvailable: '利用可能なマシンがありません',
         filterDirectories: 'ディレクトリを検索またはパスを入力...',
         recentDirectories: '最近使用したディレクトリ',
+        currentSubdirectories: '現在のサブディレクトリ',
+        currentSubdirectoriesLoading: 'サブディレクトリを読み込み中...',
         favoriteDirectories: 'お気に入りのディレクトリ',
         noRecentDirectories: '最近使用したディレクトリがありません',
         selectPath: 'パスを選択',

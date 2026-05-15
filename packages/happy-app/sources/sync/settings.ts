@@ -281,6 +281,10 @@ export const SettingsSchema = z.object({
         machineId: z.string(),
         path: z.string()
     })).describe('Last 10 machine-path combinations, ordered by most recent first'),
+    dismissedRecentMachinePaths: z.array(z.object({
+        machineId: z.string(),
+        path: z.string()
+    })).describe('Machine-path combinations hidden from recent directory pickers'),
     lastUsedAgent: z.string().nullable().describe('Last selected agent type for new sessions'),
     // Profile management settings
     profiles: z.array(AIBackendProfileSchema).describe('User-defined profiles for AI backend and environment variables'),
@@ -347,6 +351,7 @@ export const settingsDefaults: Settings = {
     voiceAssistantLanguage: null,
     preferredLanguage: null,
     recentMachinePaths: [],
+    dismissedRecentMachinePaths: [],
     lastUsedAgent: null,
     // Profile management defaults
     profiles: [],

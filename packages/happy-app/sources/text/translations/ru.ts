@@ -1884,6 +1884,8 @@ export const ru: TranslationStructure = {
         noMachinesAvailable: 'No machines available',
         filterDirectories: 'Type to filter or enter custom directory...',
         recentDirectories: 'Recent Directories',
+        currentSubdirectories: 'Current Subdirectories',
+        currentSubdirectoriesLoading: 'Loading Subdirectories...',
         favoriteDirectories: 'Favorite Directories',
         noRecentDirectories: 'No recent directories',
         selectPath: 'Выбрать путь',

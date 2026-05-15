@@ -1861,6 +1861,8 @@ export const zhHans: TranslationStructure = {
         noMachinesAvailable: '没有可用的机器',
         filterDirectories: '输入以筛选或输入自定义目录...',
         recentDirectories: '最近使用的目录',
+        currentSubdirectories: '当前子目录',
+        currentSubdirectoriesLoading: '正在读取子目录...',
         favoriteDirectories: '收藏的目录',
         noRecentDirectories: '没有最近使用的目录',
         selectPath: '选择路径',

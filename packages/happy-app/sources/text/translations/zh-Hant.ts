@@ -1862,6 +1862,8 @@ export const zhHant: TranslationStructure = {
         noMachinesAvailable: '沒有可用的機器',
         filterDirectories: '輸入以篩選或輸入自訂目錄...',
         recentDirectories: '最近使用的目錄',
+        currentSubdirectories: '目前子目錄',
+        currentSubdirectoriesLoading: '正在讀取子目錄...',
         favoriteDirectories: '收藏的目錄',
         noRecentDirectories: '沒有最近使用的目錄',
         selectPath: '選擇路徑',

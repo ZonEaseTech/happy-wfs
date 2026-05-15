@@ -40,6 +40,7 @@ export interface SelectorConfig<T> {
     searchPlaceholder: string;
     recentSectionTitle: string;
     favoritesSectionTitle: string;
+    allSectionTitle?: string;
     noItemsMessage: string;
 
     // Optional features
@@ -62,6 +63,10 @@ export interface SelectorConfig<T> {
 
     // Visual customization
     compactItems?: boolean; // Use reduced padding for more compact lists (default: false)
+
+    // Optional input observer for callers that provide dynamic items based on
+    // the current text (for example, remote directory suggestions).
+    onInputTextChange?: (text: string) => void;
 }
 
 /**
@@ -75,6 +80,7 @@ export interface SearchableListSelectorProps<T> {
     selectedItem: T | null;
     onSelect: (item: T) => void;
     onToggleFavorite?: (item: T) => void;
+    onRemoveRecentItem?: (item: T) => void;
     context?: any;  // Additional context (e.g., homeDir for paths)
 
     // Optional overrides
@@ -215,6 +221,7 @@ export function SearchableListSelector<T>(props: SearchableListSelectorProps<T>)
         selectedItem,
         onSelect,
         onToggleFavorite,
+        onRemoveRecentItem,
         context,
         showFavorites = config.showFavorites !== false,
         showRecent = config.showRecent !== false,
@@ -327,6 +334,7 @@ export function SearchableListSelector<T>(props: SearchableListSelectorProps<T>)
     const handleInputChange = (text: string) => {
         isUserTyping.current = true; // User is actively typing
         setInputText(text);
+        config.onInputTextChange?.(text);
 
         // If allowCustomInput, try to parse and select
         if (config.allowCustomInput && text.trim()) {
@@ -425,6 +433,17 @@ export function SearchableListSelector<T>(props: SearchableListSelectorProps<T>)
                 rightElement={
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: ITEM_SPACING_GAP }}>
                         {renderStatus(status)}
+                        {forRecent && onRemoveRecentItem && (
+                            <Pressable
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveRecentItem(item);
+                                }}
+                            >
+                                <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                            </Pressable>
+                        )}
                     </View>
                 }
                 onPress={() => handleSelectItem(item)}
@@ -628,7 +647,7 @@ export function SearchableListSelector<T>(props: SearchableListSelectorProps<T>)
                         onPress={toggleAllItemsSection}
                     >
                         <Text style={styles.sectionHeaderText}>
-                            {config.recentSectionTitle.replace('Recent ', 'All ')}
+                            {config.allSectionTitle ?? config.recentSectionTitle.replace('Recent ', 'All ')}
                         </Text>
                         <Ionicons
                             name={showAllItemsSection ? "chevron-up" : "chevron-down"}
