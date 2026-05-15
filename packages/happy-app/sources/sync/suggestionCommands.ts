@@ -10,6 +10,7 @@ export interface CommandItem {
     command: string;        // The command without slash (e.g., "compact")
     description?: string;   // Optional description of what the command does
     kind?: 'command' | 'skill';
+    insertText?: string;    // Optional text inserted when the suggestion is selected
 }
 
 interface SearchOptions {
@@ -69,6 +70,42 @@ const FORKABLE_COMMANDS: CommandItem[] = [
     { command: 'duplicate', description: 'Duplicate conversation from a specific point' },
 ];
 
+// Superpowers are skills, not native slash commands. These shortcuts provide
+// a familiar slash-command discovery surface and insert the corresponding
+// skill request as normal chat text.
+const SUPERPOWERS_SHORTCUT_COMMANDS: CommandItem[] = [
+    {
+        command: 'brainstorm',
+        description: 'Use brainstorming skill to clarify and design the work',
+        insertText: '请使用 brainstorming skill 和我一起梳理需求。',
+    },
+    {
+        command: 'plan',
+        description: 'Use writing-plans skill to create an implementation plan',
+        insertText: '请使用 writing-plans skill 为当前任务制定实施计划。',
+    },
+    {
+        command: 'debug',
+        description: 'Use systematic-debugging skill to investigate a problem',
+        insertText: '请使用 systematic-debugging skill 系统排查这个问题。',
+    },
+    {
+        command: 'tdd',
+        description: 'Use test-driven-development skill to implement with RED/GREEN/REFACTOR',
+        insertText: '请使用 test-driven-development skill 按红绿重构实现。',
+    },
+    {
+        command: 'verify',
+        description: 'Use verification-before-completion skill before claiming completion',
+        insertText: '请使用 verification-before-completion skill 验证当前改动并汇报结果。',
+    },
+    {
+        command: 'review',
+        description: 'Use requesting-code-review skill to review the current changes',
+        insertText: '请使用 requesting-code-review skill 对当前改动做代码审查。',
+    },
+];
+
 // Command descriptions for known tools/commands
 const COMMAND_DESCRIPTIONS: Record<string, string> = {
     // Default commands
@@ -106,6 +143,12 @@ function getCommandsFromSession(sessionId: string): CommandItem[] {
     // Add forkable commands for sessions with session history (Claude, Gemini, Codex)
     if (session.metadata.claudeSessionId || session.metadata.flavor === 'gemini' || session.metadata.codexSessionId) {
         commands.push(...FORKABLE_COMMANDS);
+    }
+
+    for (const cmd of SUPERPOWERS_SHORTCUT_COMMANDS) {
+        if (!commands.find(c => c.command === cmd.command && (c.kind ?? 'command') === 'command')) {
+            commands.push(cmd);
+        }
     }
     
     // Add commands from metadata.slashCommands (filter with ignore list)

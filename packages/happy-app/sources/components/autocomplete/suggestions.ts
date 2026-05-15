@@ -18,7 +18,7 @@ export async function getCommandSuggestions(sessionId: string, query: string, ki
         // Convert CommandItem to suggestion format
         return commands.map((cmd: CommandItem) => ({
             key: `${cmd.kind ?? 'command'}-${cmd.command}`,
-            text: cmd.kind === 'skill' ? `$${cmd.command}` : `/${cmd.command}`,
+            text: cmd.insertText ?? (cmd.kind === 'skill' ? `$${cmd.command}` : `/${cmd.command}`),
             component: () => React.createElement(CommandSuggestion, {
                 command: cmd.command,
                 description: cmd.description,
