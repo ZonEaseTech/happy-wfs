@@ -140,11 +140,18 @@ function formatMessageForCodexCopy(message: Message): string | null {
     return null;
 }
 
-function buildCopyToCodexPrompt(session: Session, messages: Message[]): string {
+type CopyTargetAgent = 'claude' | 'codex';
+
+function formatCopyTargetAgent(agent: CopyTargetAgent): string {
+    return agent === 'codex' ? 'Codex' : 'Claude';
+}
+
+function buildCopyToAgentPrompt(session: Session, messages: Message[], targetAgent: CopyTargetAgent): string {
     const title = getSessionName(session);
     const provider = session.metadata?.flavor || 'unknown';
     const path = session.metadata?.path || '';
     const summary = session.metadata?.summary?.text;
+    const targetProvider = formatCopyTargetAgent(targetAgent);
     const recentMessages = messages
         .slice(-24)
         .map(formatMessageForCodexCopy)
@@ -154,7 +161,7 @@ function buildCopyToCodexPrompt(session: Session, messages: Message[]): string {
         : '(No loaded message history was available in Happy AI. Continue from the session metadata and ask for missing context if needed.)';
 
     return [
-        'You are continuing work that was copied from another Happy AI session into a new Codex session.',
+        `You are continuing work that was copied from another Happy AI session into a new ${targetProvider} session.`,
         'Read the context below first. Do not repeat completed work unless verification is needed. Continue naturally from the user’s latest intent.',
         '',
         '## Source session',
@@ -167,6 +174,21 @@ function buildCopyToCodexPrompt(session: Session, messages: Message[]): string {
         '## Recent conversation',
         recentConversation,
     ].filter(Boolean).join('\n');
+}
+
+function mapPermissionModeForCopyTarget(
+    permissionMode: Session['permissionMode'],
+    targetAgent: CopyTargetAgent,
+): NonNullable<Session['permissionMode']> {
+    const mode = permissionMode || 'default';
+    if (targetAgent === 'codex') {
+        return (mode === 'read-only' || mode === 'safe-yolo' || mode === 'yolo' || mode === 'default')
+            ? mode
+            : 'default';
+    }
+    return (mode === 'acceptEdits' || mode === 'plan' || mode === 'bypassPermissions' || mode === 'yolo' || mode === 'default')
+        ? mode
+        : 'default';
 }
 
 function applyQuickActionPlaceholders(prompt: string, params: { projectPath: string }): string {
@@ -891,17 +913,18 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         );
     }, [performDeleteSession]);
 
-    const [isCopyingToCodexSession, performCopyToCodexSession] = useHappyAction(async () => {
+    const copySessionToAgent = React.useCallback(async (targetAgent: CopyTargetAgent) => {
         const sessionPath = session.metadata?.path;
         if (!machineId || !sessionPath) {
             throw new HappyError(t('duplicate.notAvailable'), false);
         }
 
-        const newSessionTitle = `${getSessionName(session)} (Codex)`;
+        const targetProvider = formatCopyTargetAgent(targetAgent);
+        const newSessionTitle = `${getSessionName(session)} (${targetProvider})`;
         const spawnResult = await machineSpawnNewSession({
             machineId,
             directory: sessionPath,
-            agent: 'codex',
+            agent: targetAgent,
             sessionTitle: newSessionTitle,
         });
 
@@ -914,27 +937,29 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
         await sync.refreshSessions();
         await copySessionMetadata(session, spawnResult.sessionId).catch(e => console.warn('copySessionMetadata failed:', e));
-        const codexPermissionMode = (
-            permissionMode === 'read-only'
-            || permissionMode === 'safe-yolo'
-            || permissionMode === 'yolo'
-            || permissionMode === 'default'
-        ) ? permissionMode : 'default';
         sync.queueSessionModeConfigUpdate({
             sessionId: spawnResult.sessionId,
-            agentType: 'codex',
-            permissionMode: codexPermissionMode,
+            agentType: targetAgent,
+            permissionMode: mapPermissionModeForCopyTarget(permissionMode, targetAgent),
             modelMode: 'default',
             fastMode: false,
             includeSessionEntry: true,
             includeLastUsed: false,
         });
 
-        const sendResult = await sync.sendMessage(spawnResult.sessionId, buildCopyToCodexPrompt(session, messages));
+        const sendResult = await sync.sendMessage(spawnResult.sessionId, buildCopyToAgentPrompt(session, messages, targetAgent));
         if (!sendResult.success) {
             throw new HappyError(sendResult.error || t('duplicate.failed'), false);
         }
         router.replace(`/session/${spawnResult.sessionId}`);
+    }, [machineId, messages, permissionMode, router, session]);
+
+    const [isCopyingToCodexSession, performCopyToCodexSession] = useHappyAction(async () => {
+        await copySessionToAgent('codex');
+    }, { timeoutMs: 120_000 });
+
+    const [isCopyingToClaudeSession, performCopyToClaudeSession] = useHappyAction(async () => {
+        await copySessionToAgent('claude');
     }, { timeoutMs: 120_000 });
 
     const handleCopyToCodexSession = React.useCallback(async () => {
@@ -947,6 +972,17 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         if (!confirmed) return;
         performCopyToCodexSession();
     }, [performCopyToCodexSession, session.metadata?.codexSessionId, session.metadata?.flavor]);
+
+    const handleCopyToClaudeSession = React.useCallback(async () => {
+        if (session.metadata?.flavor === 'claude' || session.metadata?.claudeSessionId) return;
+        const confirmed = await Modal.confirm(
+            t('sessionHistory.copyConfirmTitle'),
+            t('sessionHistory.copyConfirmMessage', { provider: 'Claude' }),
+            { confirmText: t('common.continue'), cancelText: t('common.cancel') },
+        );
+        if (!confirmed) return;
+        performCopyToClaudeSession();
+    }, [performCopyToClaudeSession, session.metadata?.claudeSessionId, session.metadata?.flavor]);
 
     // Handler for filling the input from option selection
     const handleFillInput = React.useCallback(async (text: string, allOptions?: string[]) => {
@@ -1379,6 +1415,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             onDeleteSession={!session.active ? handleDeleteSession : undefined}
             onCopyToCodexSession={session.metadata?.flavor !== 'codex' && !session.metadata?.codexSessionId ? handleCopyToCodexSession : undefined}
             isCopyingToCodexSession={isCopyingToCodexSession}
+            onCopyToClaudeSession={session.metadata?.flavor !== 'claude' && !session.metadata?.claudeSessionId ? handleCopyToClaudeSession : undefined}
+            isCopyingToClaudeSession={isCopyingToClaudeSession}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
                 // Block sending during CLI upgrade

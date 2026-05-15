@@ -91,6 +91,9 @@ interface AgentInputProps {
     /** Optional cross-provider copy trigger for non-Codex sessions. */
     onCopyToCodexSession?: () => void;
     isCopyingToCodexSession?: boolean;
+    /** Optional cross-provider copy trigger for non-Claude sessions. */
+    onCopyToClaudeSession?: () => void;
+    isCopyingToClaudeSession?: boolean;
     metadata?: Metadata | null;
     onAbort?: () => void | Promise<void>;
     showAbortButton?: boolean;
@@ -1112,6 +1115,55 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
                                 {/* Model Section */}
                                 {showSettings === 'model' && <View style={{ paddingVertical: 8 }}>
+                                    {!isClaude && props.onCopyToClaudeSession && (
+                                        <>
+                                            <Pressable
+                                                onPress={() => {
+                                                    if (props.isCopyingToClaudeSession) return;
+                                                    hapticsLight();
+                                                    props.onCopyToClaudeSession?.();
+                                                }}
+                                                disabled={props.isCopyingToClaudeSession}
+                                                style={({ pressed }) => ({
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 16,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                    opacity: props.isCopyingToClaudeSession ? 0.6 : 1,
+                                                    backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                                                })}
+                                            >
+                                                {props.isCopyingToClaudeSession ? (
+                                                    <ActivityIndicator size="small" color={theme.colors.button.secondary.tint} />
+                                                ) : (
+                                                    <Image
+                                                        source={agentFlavorIcons.claude}
+                                                        style={{ width: 18, height: 18, tintColor: theme.colors.button.secondary.tint }}
+                                                        contentFit="contain"
+                                                    />
+                                                )}
+                                                <View style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text style={{
+                                                        fontSize: 14,
+                                                        color: theme.colors.text,
+                                                        ...Typography.default('semiBold'),
+                                                    }}>
+                                                        {t('sessionInfo.copySession')} · Claude
+                                                    </Text>
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: theme.colors.textSecondary,
+                                                        marginTop: 2,
+                                                        ...Typography.default(),
+                                                    }}>
+                                                        {t('sessionHistory.copyConfirmMessage', { provider: 'Claude' })}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                            <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
+                                        </>
+                                    )}
                                     {!isCodex && props.onCopyToCodexSession && (
                                         <>
                                             <Pressable
