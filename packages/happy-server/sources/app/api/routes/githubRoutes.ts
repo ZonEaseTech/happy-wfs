@@ -348,6 +348,23 @@ function extractIssueSearchTerms(query: string | undefined): string[] {
         .filter((term) => !/^-?[a-z][a-z0-9-]*:/i.test(term));
 }
 
+function extractExactIssueNumber(query: string | undefined): number | null {
+    const terms = extractIssueSearchTerms(query);
+    if (terms.length !== 1) return null;
+    const normalized = terms[0]?.replace(/^#\s*/, '').trim();
+    if (!normalized || !/^\d+$/.test(normalized)) return null;
+    return Number(normalized);
+}
+
+function extractRepoQualifier(query: string | undefined): { owner: string; repo: string } | null {
+    const repoTerm = (query ?? '').split(/\s+/).find((term) => /^repo:/i.test(term));
+    const value = repoTerm?.replace(/^repo:/i, '').trim();
+    if (!value) return null;
+    const [owner, repo] = value.split('/');
+    if (!owner || !repo) return null;
+    return { owner, repo };
+}
+
 function issueMatchesSearchTerms(issue: GitHubIssue, terms: string[]): boolean {
     if (terms.length === 0) return true;
     const haystack = [
@@ -408,6 +425,11 @@ type GitHubIssueProjectItemForUpdateResponse = {
             issue?: GraphQLIssueForUpdateNode | null;
         } | null;
     };
+    errors?: Array<{ message?: string }>;
+};
+
+type GitHubIssueNumberSearchResponse = {
+    data?: { search?: { nodes?: Array<GraphQLIssueNode | null> | null } | null };
     errors?: Array<{ message?: string }>;
 };
 
@@ -505,6 +527,61 @@ async function fetchGitHubIssueSearch(args: {
     }
 
     return { ok: true, data };
+}
+
+async function fetchGitHubIssueByRepositoryNumber(args: {
+    token: string;
+    owner: string;
+    repo: string;
+    number: number;
+}): Promise<{ ok: true; issue: GitHubIssue | null } | { ok: false; status?: number; error: string }> {
+    const result = await fetchGitHubGraphQL<GitHubIssueProjectItemForUpdateResponse>({
+        token: args.token,
+        query: issueProjectItemForUpdateQuery,
+        variables: { owner: args.owner, repo: args.repo, number: args.number },
+    });
+    if (!result.ok) return result;
+    const issue = result.data.data?.repository?.issue;
+    return { ok: true, issue: issue ? mapIssueFromProjectItemsForUpdateResponse(issue) : null };
+}
+
+async function fetchGitHubIssuesByNumberSearch(args: {
+    token: string;
+    number: number;
+    query?: string;
+    limit: number;
+}): Promise<{ ok: true; issues: GitHubIssue[] } | { ok: false; status?: number; error: string }> {
+    const qualifiers = (args.query ?? '')
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter((term) => /^-?[a-z][a-z0-9-]*:/i.test(term))
+        .filter((term) => !/^assignee:/i.test(term))
+        .filter((term) => !/^is:issue$/i.test(term));
+    const searchQuery = uniqueStrings(['is:issue', 'archived:false', ...qualifiers, String(args.number)]).join(' ');
+    const result = await fetchGitHubGraphQL<GitHubIssueNumberSearchResponse>({
+        token: args.token,
+        query: issueSearchQuery,
+        variables: { query: searchQuery, limit: Math.min(Math.max(args.limit, 10), 50) },
+    });
+    if (!result.ok) return result;
+
+    const issues = (result.data.data?.search?.nodes ?? [])
+        .filter((item): item is GraphQLIssueNode => !!item && item.number === args.number)
+        .map((item) => {
+            const projectItems = item.projectItems?.nodes?.filter((node): node is NonNullable<typeof node> => !!node) ?? [];
+            const projectTitles = uniqueStrings(projectItems.map((node) => node.project?.title));
+            const projectStatuses = uniqueStrings(projectItems.flatMap((node) => {
+                const values = node.fieldValues?.nodes?.filter((value): value is NonNullable<typeof value> => !!value) ?? [];
+                return values
+                    .filter((value) => value.field?.name?.toLowerCase() === 'status')
+                    .map((value) => value.name ?? value.text);
+            }));
+            return mapIssueNode(item, projectTitles, projectStatuses);
+        })
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+        .slice(0, args.limit);
+
+    return { ok: true, issues };
 }
 
 function mapIssueNode(item: GraphQLIssueNode, projectTitles: string[], projectStatuses: string[]): GitHubIssue {
@@ -798,6 +875,44 @@ export function githubRoutes(app: Fastify) {
         const limit = request.query.limit ?? 30;
         const projectFilters = splitFilterValues(request.query.projects);
         const statusFilters = splitFilterValues(request.query.statuses);
+        const issueNumber = extractExactIssueNumber(request.query.query);
+
+        if (issueNumber !== null) {
+            const repoQualifier = extractRepoQualifier(request.query.query);
+            let issuesResult: { ok: true; issues: GitHubIssue[] } | { ok: false; status?: number; error: string };
+
+            if (repoQualifier) {
+                const singleResult = await fetchGitHubIssueByRepositoryNumber({
+                    token,
+                    owner: repoQualifier.owner,
+                    repo: repoQualifier.repo,
+                    number: issueNumber,
+                });
+                issuesResult = singleResult.ok
+                    ? { ok: true, issues: singleResult.issue ? [singleResult.issue] : [] }
+                    : singleResult;
+            } else {
+                issuesResult = await fetchGitHubIssuesByNumberSearch({
+                    token,
+                    number: issueNumber,
+                    query: request.query.query,
+                    limit,
+                });
+            }
+
+            if (!issuesResult.ok) {
+                log({ module: 'github-issues', level: 'warn' }, `GitHub issue number lookup failed: ${issuesResult.error}`);
+                return reply.send({
+                    issues: [],
+                    warning: `GitHub Issue #${issueNumber} 暂时读取失败：${issuesResult.error}`,
+                });
+            }
+
+            const issues = issuesResult.issues
+                .filter((issue) => matchesAny(issue.projectTitles, projectFilters))
+                .filter((issue) => matchesAny(issue.projectStatuses.length > 0 ? issue.projectStatuses : ['No Status'], statusFilters));
+            return reply.send({ issues });
+        }
 
         if (projectFilters.length > 0) {
             const result = await fetchGitHubProjectIssues({ token, projectFilters, statusFilters, limit });
