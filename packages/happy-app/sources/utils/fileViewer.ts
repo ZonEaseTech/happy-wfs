@@ -20,6 +20,11 @@ export function isPreviewableImage(path: string): boolean {
     return !!ext && ext in PREVIEW_IMAGE_MIME_BY_EXT;
 }
 
+export function isPreviewableHtml(path: string): boolean {
+    const ext = getFileExtension(path);
+    return ext === 'html' || ext === 'htm';
+}
+
 export function isTemporaryFilePath(path: string): boolean {
     const normalizedPath = path.startsWith('file://') ? path.slice('file://'.length) : path;
     return normalizedPath.startsWith('/tmp/')

@@ -13,6 +13,7 @@ import {
     resolveMarkdownLink,
     encodeFilePathForRoute,
     splitTextByImageReferences,
+    splitTextByLocalFileReferences,
 } from './markdownLinkUtils';
 
 // ---------------------------------------------------------------------------
@@ -314,6 +315,11 @@ describe('buildSessionFileHref', () => {
         // The path should be URL-encoded base64
         expect(href).toContain('path=');
     });
+    it('opens html files in preview mode', () => {
+        const href = buildSessionFileHref({ sessionId: 'sess1', filePath: '/home/file.html' });
+        expect(href).toContain('/session/sess1/file?');
+        expect(href).toContain('view=preview');
+    });
     it('includes line and column params', () => {
         const href = buildSessionFileHref({ sessionId: 's1', filePath: '/f.ts', line: 10, column: 5 });
         expect(href).toContain('line=10');
@@ -477,5 +483,21 @@ describe('splitTextByImageReferences', () => {
         });
         expect(parts.filter(part => part.href).map(part => part.text)).toEqual(['/tmp/a.png', 'screenshots/b.webp']);
         expect(parts.at(-1)?.text).toBe('.');
+    });
+});
+
+describe('splitTextByLocalFileReferences', () => {
+    it('links html file references to preview mode', () => {
+        const parts = splitTextByLocalFileReferences({
+            text: '已提供 HTML 版设计稿: /home/coder/project/shop-approval-flow-design.html',
+            sessionId: 'session-123',
+            machineId: 'machine-123',
+            sessionWorkingDirectory: '/home/coder/project',
+            sessionHomeDirectory: '/home/coder',
+        });
+        const linked = parts.find(part => part.href);
+        expect(linked?.text).toBe('/home/coder/project/shop-approval-flow-design.html');
+        expect(linked?.href).toContain('/session/session-123/file?');
+        expect(linked?.href).toContain('view=preview');
     });
 });

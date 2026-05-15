@@ -2,7 +2,7 @@
  * Pure utility functions for resolving markdown links to in-app file viewer routes.
  */
 
-import { isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
+import { isPreviewableHtml, isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
 
 const IMAGE_FILE_REFERENCE_PATTERN = /(?:file:\/\/)?(?:\/[^\s`"'<>()[\]{}]+|(?:\.{1,2}\/|[A-Za-z0-9_.-]+\/)[^\s`"'<>()[\]{}]+)\.(?:png|jpe?g|gif|webp)(?:#[Ll]\d+(?:[Cc]\d+)?|:\d+(?::\d+)?)?/gi;
 const LOCAL_FILE_REFERENCE_PATTERN = /(?:file:\/\/)?(?:\/[^\s`"'<>()[\]{}]+|(?:\.{1,2}\/|[A-Za-z0-9_.-]+\/)[^\s`"'<>()[\]{}]+)\.[A-Za-z0-9][A-Za-z0-9_-]{0,15}(?:#[Ll]\d+(?:[Cc]\d+)?|:\d+(?::\d+)?)?/gi;
@@ -142,7 +142,10 @@ export function buildSessionFileHref(args: {
     machineId?: string;
 }): string {
     const encodedPath = encodeURIComponent(encodeFilePathForRoute(args.filePath));
-    const queryParams = [`path=${encodedPath}`, 'view=file'];
+    const queryParams = [
+        `path=${encodedPath}`,
+        isPreviewableHtml(args.filePath) ? 'view=preview' : 'view=file',
+    ];
     if (args.line) queryParams.push(`line=${args.line}`);
     if (args.column) queryParams.push(`column=${args.column}`);
     if (args.machineId) queryParams.push(`machineId=${encodeURIComponent(args.machineId)}`);

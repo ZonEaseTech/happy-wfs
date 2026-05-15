@@ -27,13 +27,15 @@ import { showCopiedToast } from '@/components/Toast';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
-import { getExtensionFromMimeType, getImageMimeType, isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
+import { getExtensionFromMimeType, getImageMimeType, isPreviewableHtml, isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
 import { Image } from 'expo-image';
 import { selectFileViewerSharePayload } from '@/utils/fileViewerShare';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { ImageViewer } from '@/components/ImageViewer';
 import type { ImageViewerImage } from '@/components/ImageViewer';
+
+const WebView = require('react-native-webview').default;
 
 function getRepoRelativePath(filePath: string, repoPath: string): string {
     if (repoPath && filePath.startsWith(`${repoPath}/`)) {
@@ -46,6 +48,36 @@ interface FileContent {
     content: string;
     encoding: 'utf8' | 'base64';
     isBinary: boolean;
+}
+
+function HtmlPreview(props: { html: string; fileName: string }) {
+    if (Platform.OS === 'web') {
+        return (
+            <View style={styles.htmlPreviewContainer}>
+                {React.createElement('iframe', {
+                    title: props.fileName || t('machineEdit.previewMode'),
+                    srcDoc: props.html,
+                    sandbox: 'allow-forms allow-modals allow-popups allow-scripts',
+                    style: {
+                        border: '0',
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'white',
+                    },
+                } as any)}
+            </View>
+        );
+    }
+
+    return (
+        <WebView
+            source={{ html: props.html }}
+            style={styles.htmlPreviewWebView}
+            originWhitelist={['*']}
+            javaScriptEnabled={true}
+            scrollEnabled={true}
+        />
+    );
 }
 
 function parsePositiveInt(value: string | string[] | undefined): number | undefined {
@@ -124,7 +156,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const searchParams = useLocalSearchParams();
     const encodedPath = props?.encodedPath ?? (searchParams.path as string);
     const ref = searchParams.ref as string | undefined;
-    const preferredView = searchParams.view as 'file' | 'diff' | undefined;
+    const preferredView = searchParams.view as 'file' | 'diff' | 'preview' | undefined;
     const machineFileReaderId = typeof searchParams.machineId === 'string' ? searchParams.machineId : undefined;
     const isStaged = searchParams.staged === '1';
     const requestedLine = parsePositiveInt(searchParams.line);
@@ -158,7 +190,7 @@ export default function FileScreen(props?: FileScreenProps) {
 
     const [fileContent, setFileContent] = React.useState<FileContent | null>(null);
     const [diffContent, setDiffContent] = React.useState<string | null>(null);
-    const [displayMode, setDisplayMode] = React.useState<'file' | 'diff'>('diff');
+    const [displayMode, setDisplayMode] = React.useState<'file' | 'diff' | 'preview'>('diff');
     const [imageBase64, setImageBase64] = React.useState<string | null>(null);
     const [imageMimeType, setImageMimeType] = React.useState('image/png');
     const [imageViewerVisible, setImageViewerVisible] = React.useState(false);
@@ -176,6 +208,7 @@ export default function FileScreen(props?: FileScreenProps) {
 
     const fileName = filePath.split('/').pop() || filePath;
     const isPreviewImageFile = isPreviewableImage(filePath);
+    const isPreviewHtmlFile = isPreviewableHtml(filePath);
     const canReadFromMachine = !!machineFileReaderId && isTemporaryFilePath(filePath);
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
@@ -600,20 +633,25 @@ export default function FileScreen(props?: FileScreenProps) {
 
     // Set default display mode based on diff availability
     React.useEffect(() => {
-        if (preferredView === 'file' && fileContent && !fileContent.isBinary) {
+        if (preferredView === 'preview' && isPreviewHtmlFile && fileContent && !fileContent.isBinary) {
+            setDisplayMode('preview');
+        } else if (preferredView === 'file' && fileContent && !fileContent.isBinary) {
             setDisplayMode('file');
         } else if (preferredView === 'diff' && diffContent) {
             setDisplayMode('diff');
         } else if (diffContent) {
             setDisplayMode('diff');
+        } else if (isPreviewHtmlFile && fileContent && !fileContent.isBinary) {
+            setDisplayMode('preview');
         } else if (fileContent) {
             setDisplayMode('file');
         }
-    }, [diffContent, fileContent, preferredView]);
+    }, [diffContent, fileContent, preferredView, isPreviewHtmlFile]);
 
     const language = getFileLanguage(filePath);
     const editorLanguage = language || 'plaintext';
     const useReadOnlyCodeEditor = displayMode === 'file' && !!fileContent?.content;
+    const useHtmlPreview = displayMode === 'preview' && isPreviewHtmlFile && !!fileContent?.content;
     const handleReadOnlyEditorChange = React.useCallback(() => {
         // Viewer mode only: ignore edits.
     }, []);
@@ -889,7 +927,7 @@ export default function FileScreen(props?: FileScreenProps) {
             ) : (
                 <>
                     {/* Toggle buttons for File/Diff view */}
-                    {diffContent && (
+                    {(diffContent || isPreviewHtmlFile) && (
                         <View style={{
                             flexDirection: 'row',
                             paddingHorizontal: 16,
@@ -898,25 +936,49 @@ export default function FileScreen(props?: FileScreenProps) {
                             borderBottomColor: theme.colors.divider,
                             backgroundColor: theme.colors.surface
                         }}>
-                            <Pressable
-                                onPress={() => setDisplayMode('diff')}
-                                style={{
-                                    paddingHorizontal: 16,
-                                    paddingVertical: 8,
-                                    borderRadius: 8,
-                                    backgroundColor: displayMode === 'diff' ? theme.colors.textLink : theme.colors.input.background,
-                                    marginRight: 8
-                                }}
-                            >
-                                <Text style={{
-                                    fontSize: 14,
-                                    fontWeight: '600',
-                                    color: displayMode === 'diff' ? 'white' : theme.colors.textSecondary,
-                                    ...Typography.default()
-                                }}>
-                                    {t('files.diff')}
-                                </Text>
-                            </Pressable>
+                            {diffContent && (
+                                <Pressable
+                                    onPress={() => setDisplayMode('diff')}
+                                    style={{
+                                        paddingHorizontal: 16,
+                                        paddingVertical: 8,
+                                        borderRadius: 8,
+                                        backgroundColor: displayMode === 'diff' ? theme.colors.textLink : theme.colors.input.background,
+                                        marginRight: 8
+                                    }}
+                                >
+                                    <Text style={{
+                                        fontSize: 14,
+                                        fontWeight: '600',
+                                        color: displayMode === 'diff' ? 'white' : theme.colors.textSecondary,
+                                        ...Typography.default()
+                                    }}>
+                                        {t('files.diff')}
+                                    </Text>
+                                </Pressable>
+                            )}
+
+                            {isPreviewHtmlFile && (
+                                <Pressable
+                                    onPress={() => setDisplayMode('preview')}
+                                    style={{
+                                        paddingHorizontal: 16,
+                                        paddingVertical: 8,
+                                        borderRadius: 8,
+                                        backgroundColor: displayMode === 'preview' ? theme.colors.textLink : theme.colors.input.background,
+                                        marginRight: 8
+                                    }}
+                                >
+                                    <Text style={{
+                                        fontSize: 14,
+                                        fontWeight: '600',
+                                        color: displayMode === 'preview' ? 'white' : theme.colors.textSecondary,
+                                        ...Typography.default()
+                                    }}>
+                                        {t('machineEdit.previewMode')}
+                                    </Text>
+                                </Pressable>
+                            )}
 
                             <Pressable
                                 onPress={() => setDisplayMode('file')}
@@ -940,7 +1002,9 @@ export default function FileScreen(props?: FileScreenProps) {
                     )}
 
                     {/* Content display */}
-                    {useReadOnlyCodeEditor ? (
+                    {useHtmlPreview ? (
+                        <HtmlPreview html={fileContent?.content || ''} fileName={fileName} />
+                    ) : useReadOnlyCodeEditor ? (
                         <View style={{ flex: 1 }}>
                             <CodeEditor
                                 value={fileContent?.content || ''}
@@ -1034,5 +1098,12 @@ const styles = StyleSheet.create((theme) => ({
         maxWidth: layout.maxWidth,
         alignSelf: 'center',
         width: '100%',
-    }
+    },
+    htmlPreviewContainer: {
+        flex: 1,
+        backgroundColor: theme.colors.surface,
+    },
+    htmlPreviewWebView: {
+        flex: 1,
+    },
 }));
