@@ -4,6 +4,8 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { ToolViewProps } from './_all';
 import { ToolSectionView } from '../ToolSectionView';
 import { sessionAllow } from '@/sync/ops';
+import { sync } from '@/sync/sync';
+import { buildAnswersReplyText } from '@/components/optionReply';
 import { t } from '@/text';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
@@ -294,9 +296,16 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId 
         });
 
         try {
-            // Approve the permission with answers embedded — no separate sendMessage needed
+            // Preferred path: approve the permission with answers embedded —
+            // the agent receives them as the AskUserQuestion tool result.
             if (tool.permission?.id) {
                 await sessionAllow(sessionId, tool.permission.id, undefined, undefined, undefined, answers);
+            } else {
+                // No permission correlated with this tool call, so there is no
+                // tool result to answer into. Without this branch the submit
+                // was silently dropped and the agent saw no answer. Fall back
+                // to an explicit message so the selection still reaches it.
+                await sync.sendOrQueueMessage(sessionId, buildAnswersReplyText(answers));
             }
         } catch (error) {
             console.error('Failed to submit answer:', error);
