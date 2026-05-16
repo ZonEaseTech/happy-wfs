@@ -16,6 +16,7 @@ import { Modal } from "@/modal";
 import { sync } from "@/sync/sync";
 import { useSetting } from "@/sync/storage";
 import { useMessageActions } from "@/hooks/useMessageActions";
+import { buildOptionReplyText } from "./optionReply";
 
 export const MessageView = (props: {
   message: Message;
@@ -153,7 +154,7 @@ function UserTextBlock(props: {
     setOptionsLoadingState({ loadingIndex: index });
 
     try {
-      await sync.sendOrQueueMessage(props.sessionId, option.title);
+      await sync.sendOrQueueMessage(props.sessionId, buildOptionReplyText(option.title), option.title);
     } finally {
       setOptionsLoadingState({ loadingIndex: null });
     }
@@ -282,7 +283,7 @@ function AgentTextBlock(props: {
     setOptionsLoadingState({ loadingIndex: index });
 
     try {
-      await sync.sendOrQueueMessage(props.sessionId, option.title);
+      await sync.sendOrQueueMessage(props.sessionId, buildOptionReplyText(option.title), option.title);
     } finally {
       setOptionsLoadingState({ loadingIndex: null });
     }
