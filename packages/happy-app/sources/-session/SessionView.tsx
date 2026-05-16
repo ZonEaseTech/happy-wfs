@@ -822,7 +822,15 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     // Pill toggle in the status row: archive when active, resume when archived.
     // Both flows confirm via Modal first, so an accidental tap is recoverable.
     const { handleArchive, archiveOverlay } = useArchiveSession(session);
-    const { handleResume } = useResumeSession(session);
+    const { handleResume, isResuming } = useResumeSession(session);
+    // Same-agent copy reuses useResumeSession.handleResume (it copies when the
+    // session is active). Gate on the same forkable metadata the hook requires
+    // so the model-panel "copy session" row never renders as a dead tap target.
+    const canCopySession = !!(
+        (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId)
+        && session.metadata?.path
+        && session.metadata?.machineId
+    );
     const [, performDeleteSession] = useHappyAction(async () => {
         const result = await sessionDelete(session.id);
         if (!result.success) {
@@ -1358,6 +1366,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             isCopyingToCodexSession={isCopyingToCodexSession}
             onCopyToClaudeSession={session.metadata?.flavor !== 'claude' && !session.metadata?.claudeSessionId ? handleCopyToClaudeSession : undefined}
             isCopyingToClaudeSession={isCopyingToClaudeSession}
+            onCopySession={session.active && canCopySession ? handleResume : undefined}
+            isCopyingSession={isResuming}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
                 // Block sending during CLI upgrade

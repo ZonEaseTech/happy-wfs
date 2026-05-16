@@ -94,6 +94,11 @@ interface AgentInputProps {
     /** Optional cross-provider copy trigger for non-Claude sessions. */
     onCopyToClaudeSession?: () => void;
     isCopyingToClaudeSession?: boolean;
+    /** Optional same-agent copy trigger — forks the current session keeping its
+     *  agent. Mirrors the standalone "copy session" action on the session info
+     *  page; shown above the cross-provider copy rows in the model panel. */
+    onCopySession?: () => void;
+    isCopyingSession?: boolean;
     metadata?: Metadata | null;
     onAbort?: () => void | Promise<void>;
     showAbortButton?: boolean;
@@ -1138,6 +1143,55 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
                                 {/* Model Section */}
                                 {showSettings === 'model' && <View style={{ paddingVertical: 8 }}>
+                                    {props.onCopySession && (
+                                        <>
+                                            <Pressable
+                                                onPress={() => {
+                                                    if (props.isCopyingSession) return;
+                                                    hapticsLight();
+                                                    props.onCopySession?.();
+                                                }}
+                                                disabled={props.isCopyingSession}
+                                                style={({ pressed }) => ({
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 16,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                    opacity: props.isCopyingSession ? 0.6 : 1,
+                                                    backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                                                })}
+                                            >
+                                                {props.isCopyingSession ? (
+                                                    <ActivityIndicator size="small" color={theme.colors.button.secondary.tint} />
+                                                ) : (
+                                                    <Ionicons
+                                                        name="copy-outline"
+                                                        size={18}
+                                                        color={theme.colors.button.secondary.tint}
+                                                    />
+                                                )}
+                                                <View style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text style={{
+                                                        fontSize: 14,
+                                                        color: theme.colors.text,
+                                                        ...Typography.default('semiBold'),
+                                                    }}>
+                                                        {t('sessionInfo.copySession')}
+                                                    </Text>
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: theme.colors.textSecondary,
+                                                        marginTop: 2,
+                                                        ...Typography.default(),
+                                                    }}>
+                                                        {t('sessionInfo.copySessionSubtitle')}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                            <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
+                                        </>
+                                    )}
                                     {!isClaude && props.onCopyToClaudeSession && (
                                         <>
                                             <Pressable
