@@ -26,7 +26,6 @@ import type { GitHubIssue } from '@/sync/apiGithub';
 import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
-import type { Message } from '@/sync/typesMessage';
 import { sync } from '@/sync/sync';
 import { InjectedMemoriesModal } from '@/components/InjectedMemoriesModal';
 import * as Clipboard from 'expo-clipboard';
@@ -50,6 +49,7 @@ import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View
 import { RightPanel, RightPanelType } from '@/components/RightPanel';
 import { FileViewerModal } from '@/components/FileViewerModal';
 import { Terminal } from '@/components/Terminal';
+import { buildCopyToAgentBriefPrompt } from './sessionCopyPrompt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
@@ -108,72 +108,10 @@ function buildLinkedGitHubIssue(session: Session | null | undefined): GitHubIssu
     };
 }
 
-function excerpt(value: string, max = 1200): string {
-    const normalized = value.replace(/\s+\n/g, '\n').trim();
-    if (normalized.length <= max) return normalized;
-    return `${normalized.slice(0, max)}\n…`;
-}
-
-function formatMessageForCodexCopy(message: Message): string | null {
-    if (message.kind === 'user-text') {
-        const text = message.displayText || message.text;
-        if (!text?.trim()) return null;
-        return `User:\n${excerpt(text)}`;
-    }
-    if (message.kind === 'agent-text') {
-        if (!message.text?.trim()) return null;
-        return `Assistant:\n${excerpt(message.text)}`;
-    }
-    if (message.kind === 'tool-call') {
-        const result = typeof message.tool.result === 'string'
-            ? message.tool.result
-            : message.tool.result
-                ? JSON.stringify(message.tool.result)
-                : '';
-        const parts = [
-            `Tool: ${message.tool.name}`,
-            message.tool.description ? `Description: ${message.tool.description}` : '',
-            result ? `Result:\n${excerpt(result, 800)}` : '',
-        ].filter(Boolean);
-        return parts.join('\n');
-    }
-    return null;
-}
-
 type CopyTargetAgent = 'claude' | 'codex';
 
 function formatCopyTargetAgent(agent: CopyTargetAgent): string {
     return agent === 'codex' ? 'Codex' : 'Claude';
-}
-
-function buildCopyToAgentPrompt(session: Session, messages: Message[], targetAgent: CopyTargetAgent): string {
-    const title = getSessionName(session);
-    const provider = session.metadata?.flavor || 'unknown';
-    const path = session.metadata?.path || '';
-    const summary = session.metadata?.summary?.text;
-    const targetProvider = formatCopyTargetAgent(targetAgent);
-    const recentMessages = messages
-        .slice(-24)
-        .map(formatMessageForCodexCopy)
-        .filter((item): item is string => Boolean(item));
-    const recentConversation = recentMessages.length > 0
-        ? recentMessages.join('\n\n---\n\n')
-        : '(No loaded message history was available in Happy AI. Continue from the session metadata and ask for missing context if needed.)';
-
-    return [
-        `You are continuing work that was copied from another Happy AI session into a new ${targetProvider} session.`,
-        'Read the context below first. Do not repeat completed work unless verification is needed. Continue naturally from the user’s latest intent.',
-        '',
-        '## Source session',
-        `- Title: ${title}`,
-        `- Happy session ID: ${session.id}`,
-        `- Provider: ${provider}`,
-        path ? `- Project path: ${path}` : '',
-        summary ? `- Summary: ${summary}` : '',
-        '',
-        '## Recent conversation',
-        recentConversation,
-    ].filter(Boolean).join('\n');
 }
 
 function mapPermissionModeForCopyTarget(
@@ -947,12 +885,15 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             includeLastUsed: false,
         });
 
-        const sendResult = await sync.sendMessage(spawnResult.sessionId, buildCopyToAgentPrompt(session, messages, targetAgent));
+        const sendResult = await sync.sendMessage(spawnResult.sessionId, buildCopyToAgentBriefPrompt({
+            sessionId: session.id,
+            projectPath: sessionPath,
+        }));
         if (!sendResult.success) {
             throw new HappyError(sendResult.error || t('duplicate.failed'), false);
         }
         router.replace(`/session/${spawnResult.sessionId}`);
-    }, [machineId, messages, permissionMode, router, session]);
+    }, [machineId, permissionMode, router, session]);
 
     const [isCopyingToCodexSession, performCopyToCodexSession] = useHappyAction(async () => {
         await copySessionToAgent('codex');
