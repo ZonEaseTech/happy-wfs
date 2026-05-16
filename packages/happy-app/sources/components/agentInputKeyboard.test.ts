@@ -34,4 +34,26 @@ describe('shouldSendOnEnter', () => {
             isSendDisabled: true,
         })).toBe(false);
     });
+
+    it('returns false when enter-to-send is disabled', () => {
+        expect(shouldSendOnEnter({
+            key: 'Enter',
+            shiftKey: false,
+            enterToSendEnabled: false,
+            textSnapshot: 'hello',
+            isSending: false,
+            isSendDisabled: false,
+        })).toBe(false);
+    });
+
+    it('returns false for blank text', () => {
+        expect(shouldSendOnEnter({
+            key: 'Enter',
+            shiftKey: false,
+            enterToSendEnabled: true,
+            textSnapshot: '   ',
+            isSending: false,
+            isSendDisabled: false,
+        })).toBe(false);
+    });
 });

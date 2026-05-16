@@ -38,6 +38,8 @@ interface MultiTextInputProps {
     lineHeight?: number;
     style?: StyleProp<ViewStyle>;
     onKeyPress?: OnKeyPressCallback;
+    onSubmitEditing?: () => void;
+    submitOnReturn?: boolean;
     onSelectionChange?: (selection: { start: number; end: number }) => void;
     onStateChange?: (state: TextInputState) => void;
 }
@@ -49,6 +51,8 @@ export const MultiTextInput = React.forwardRef<MultiTextInputHandle, MultiTextIn
         placeholder,
         maxHeight = 120,
         onKeyPress,
+        onSubmitEditing,
+        submitOnReturn = false,
         onSelectionChange,
         onStateChange
     } = props;
@@ -206,15 +210,16 @@ export const MultiTextInput = React.forwardRef<MultiTextInputHandle, MultiTextIn
                 value={value}
                 onChangeText={handleTextChange}
                 onKeyPress={handleKeyPress}
+                onSubmitEditing={onSubmitEditing}
                 onSelectionChange={handleSelectionChange}
                 multiline={true}
                 autoCapitalize="sentences"
                 autoCorrect={true}
                 keyboardType="default"
-                returnKeyType="default"
+                returnKeyType={submitOnReturn ? "send" : "default"}
                 autoComplete="off"
                 textContentType="none"
-                submitBehavior="newline"
+                submitBehavior={submitOnReturn ? "submit" : "newline"}
             />
         </View>
     );

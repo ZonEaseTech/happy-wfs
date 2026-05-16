@@ -915,6 +915,29 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         return false; // Key was not handled
     }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.showAbortButton, props.onAbort, isAborting, handleAbortPress, agentInputEnterToSend, resolveSendSnapshot, props.onSend, props.permissionMode, props.onPermissionModeChange, props.isSending, props.isSendDisabled]);
 
+    const handleSubmitEditing = React.useCallback(() => {
+        // Native mobile TextInput does not reliably deliver Enter through
+        // onKeyPress for multiline inputs. Use onSubmitEditing as the mobile
+        // equivalent of the web Enter-to-send path.
+        if (suggestions.length > 0) {
+            const indexToSelect = selected >= 0 ? selected : 0;
+            handleSuggestionSelect(indexToSelect);
+            return;
+        }
+
+        const textSnapshot = resolveSendSnapshot();
+        if (shouldSendOnEnter({
+            key: 'Enter',
+            shiftKey: false,
+            enterToSendEnabled: agentInputEnterToSend,
+            textSnapshot,
+            isSending: props.isSending,
+            isSendDisabled: props.isSendDisabled,
+        })) {
+            props.onSend(textSnapshot);
+        }
+    }, [agentInputEnterToSend, handleSuggestionSelect, props.isSendDisabled, props.isSending, props.onSend, resolveSendSnapshot, selected, suggestions.length]);
+
     const connectionStatusIndicator = props.connectionStatus ? (
         <>
             <StatusDot
@@ -1779,6 +1802,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             onChangeText={handleTextChange}
                             placeholder={props.placeholder}
                             onKeyPress={handleKeyPress}
+                            onSubmitEditing={handleSubmitEditing}
+                            submitOnReturn={agentInputEnterToSend}
                             onStateChange={handleInputStateChange}
                             maxHeight={120}
                         />

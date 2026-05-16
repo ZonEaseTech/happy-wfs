@@ -39,6 +39,8 @@ interface MultiTextInputProps {
     lineHeight?: number;
     style?: StyleProp<ViewStyle>;
     onKeyPress?: OnKeyPressCallback;
+    onSubmitEditing?: () => void;
+    submitOnReturn?: boolean;
     onSelectionChange?: (selection: { start: number; end: number }) => void;
     onStateChange?: (state: TextInputState) => void;
 }
