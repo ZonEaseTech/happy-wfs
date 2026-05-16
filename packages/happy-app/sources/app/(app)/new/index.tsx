@@ -1555,58 +1555,15 @@ function NewSessionWizard() {
 
             // Handle worktree creation
             if (sessionType === 'worktree') {
-                if (selectedRepos.length > 0 && branchMode === 'existing') {
-                    // Existing branch mode: checkout selected branches in-place, no worktree.
-                    // We DO emit workspaceRepos so the agent + webapp see the multi-repo set
-                    // (Files panel, status, etc.). The daemon does NOT create worktrees from
-                    // workspaceRepos — it just forwards the array as a HAPPY_WORKSPACE_REPOS
-                    // env var to the spawned agent. The actual worktree creation only happens
-                    // when the front-end calls createWorkspace (we don't here). The convention
-                    // path === basePath signals "checked out in place, no worktree to clean up"
-                    // for the archive flow.
-                    const allRegisteredRepos = storage.getState().registeredRepos[selectedMachineId] || [];
-                    for (const sr of selectedRepos) {
-                        if (sr.targetBranch) {
-                            await machineBash(selectedMachineId, { command: `git checkout ${sr.targetBranch}`, cwd: sr.repo.path });
-                        }
-                    }
-                    if (selectedRepos.length === 1) {
-                        const sr = selectedRepos[0];
-                        const repo = sr.repo;
-                        const registered = 'id' in repo ? allRegisteredRepos.find(rr => rr.id === repo.id) : undefined;
-                        const subdir = registered?.defaultWorkingDir;
-                        actualPath = subdir ? `${sr.repo.path}/${subdir}` : sr.repo.path;
-                        // worktreeBranchName intentionally left unset — no worktree was created.
-                    } else {
-                        actualPath = selectedRepos[0].repo.path;
-                        workspaceRepos = selectedRepos.map(sr => ({
-                            repoId: 'id' in sr.repo ? sr.repo.id : undefined,
-                            path: sr.repo.path,
-                            basePath: sr.repo.path,
-                            branchName: sr.targetBranch || '',
-                            targetBranch: sr.targetBranch,
-                            displayName: sr.repo.displayName,
-                        }));
-                        repoScripts = workspaceRepos.map(r => {
-                            const reg = r.repoId ? allRegisteredRepos.find(rr => rr.id === r.repoId) : undefined;
-                            return {
-                                repoDisplayName: r.displayName || '',
-                                worktreePath: r.path,
-                                setupScript: reg?.setupScript,
-                                parallelSetup: reg?.parallelSetup,
-                                cleanupScript: reg?.cleanupScript,
-                                archiveScript: reg?.archiveScript,
-                                devServerScript: reg?.devServerScript,
-                            };
-                        });
-                    }
-                } else if (selectedRepos.length > 0) {
-                    // New branch mode: multi-repo workspace creation
+                if (selectedRepos.length > 0) {
+                    // Multi-repo workspace creation. In existing-branch mode we
+                    // also create real worktrees from the selected branches instead
+                    // of checking the base repositories out in-place.
                     const repoInputs: WorkspaceRepoInput[] = selectedRepos.map(sr => ({
                         repo: sr.repo,
                         targetBranch: sr.targetBranch,
                     }));
-                    const wsResult = await createWorkspace(selectedMachineId, repoInputs);
+                    const wsResult = await createWorkspace(selectedMachineId, repoInputs, { mode: branchMode });
                     if (!wsResult.success) {
                         Modal.alert(t('common.error'), t('newSession.worktree.failed', { error: wsResult.error || 'Unknown error' }));
                         setIsCreating(false);
@@ -1765,7 +1722,7 @@ function NewSessionWizard() {
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);
         }
-    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, tempSessionData, selectedRepos]);
+    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, branchMode, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, tempSessionData, selectedRepos]);
 
     const screenWidth = useWindowDimensions().width;
 

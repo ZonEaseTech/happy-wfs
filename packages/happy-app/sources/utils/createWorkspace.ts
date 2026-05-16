@@ -5,6 +5,7 @@
 import { machineBash } from '@/sync/ops';
 import { generateWorktreeName } from '@/utils/generateWorktreeName';
 import { shellEscape } from '@/utils/shellEscape';
+import { buildWorktreeAddCommand, normalizeExistingWorktreeBranch, type WorktreeBranchMode } from '@/utils/createWorkspaceBranches';
 import type { RegisteredRepo, WorkspaceRepo } from '@/utils/workspaceRepos';
 import { storage } from '@/sync/storage';
 
@@ -45,8 +46,10 @@ interface CreateWorkspaceResult {
 export async function createWorkspace(
     machineId: string,
     repoInputs: WorkspaceRepoInput[],
+    options?: { mode?: WorktreeBranchMode },
 ): Promise<CreateWorkspaceResult> {
     const workspaceName = generateWorktreeName();
+    const mode = options?.mode ?? 'new';
     const prefix = getBranchPrefix();
     // Branch name keeps slashes for `git branch` namespacing (e.g. vk/ha-).
     // Directory name flattens slashes to dashes so the prefix shows up in
@@ -79,7 +82,7 @@ export async function createWorkspace(
 
         // Validate displayName as a safe path component
         if (!isSafePathComponent(repo.displayName)) {
-            await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName);
+            await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName, mode === 'new');
             return {
                 success: false, workspaceName, workspacePath: absoluteWorkspacePath, repos: [],
                 error: `Invalid repo display name: ${repo.displayName}`,
@@ -87,15 +90,33 @@ export async function createWorkspace(
         }
 
         const worktreePath = `${absoluteWorkspacePath}/${repo.displayName}`;
+        let repoBranchName = branchName;
+        try {
+            if (mode === 'existing') {
+                repoBranchName = normalizeExistingWorktreeBranch(targetBranch).branchName;
+            }
+        } catch (error) {
+            await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName, mode === 'new');
+            return {
+                success: false, workspaceName, workspacePath: absoluteWorkspacePath, repos: [],
+                error: error instanceof Error ? error.message : 'Invalid existing branch',
+            };
+        }
 
-        // Create worktree with a branch named after the workspace (prefix
-        // applied if set; the directory keeps the unprefixed name).
-        const targetArg = targetBranch ? ` ${shellEscape(targetBranch)}` : '';
-        const cmd = `git worktree add -b ${shellEscape(branchName)} ${shellEscape(worktreePath)}${targetArg}`;
+        // New branch mode creates a generated branch for the workspace.
+        // Existing branch mode creates the worktree from the selected branch
+        // itself, so the spawned session actually starts on the branch the user
+        // selected instead of silently staying on the original repo checkout.
+        const cmd = buildWorktreeAddCommand({
+            mode,
+            workspaceBranchName: branchName,
+            worktreePath,
+            targetBranch,
+        });
         const result = await machineBash(machineId, { command: cmd, cwd: repo.path });
 
         if (!result.success) {
-            await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName);
+            await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName, mode === 'new');
             return {
                 success: false, workspaceName, workspacePath: absoluteWorkspacePath, repos: [],
                 error: `Failed to create worktree for ${repo.displayName}: ${result.stderr}`,
@@ -119,7 +140,7 @@ export async function createWorkspace(
             repoId: isRegisteredRepo(repo) ? repo.id : undefined,
             path: worktreePath,
             basePath: repo.path,
-            branchName: branchName,
+            branchName: repoBranchName,
             targetBranch,
             displayName: repo.displayName,
         });
@@ -192,10 +213,14 @@ async function rollbackCreatedRepos(
     branchName: string,
     absoluteWorkspacePath: string,
     _workspaceDirName: string,
+    deleteCreatedBranch = true,
 ): Promise<void> {
     for (const created of createdRepos) {
+        const deleteBranchCommand = deleteCreatedBranch
+            ? `; git branch -D ${shellEscape(branchName)} 2>/dev/null`
+            : '';
         await machineBash(machineId, {
-            command: `git worktree remove --force ${shellEscape(created.path)} 2>/dev/null; git branch -D ${shellEscape(branchName)} 2>/dev/null`,
+            command: `git worktree remove --force ${shellEscape(created.path)} 2>/dev/null${deleteBranchCommand}`,
             cwd: created.basePath,
         });
     }
