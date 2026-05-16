@@ -976,16 +976,6 @@ export const zhHant: TranslationStructure = {
                 description: '發布前先跑完整驗證',
                 prompt: '請先執行 `happy release guard --package happy-cli --dry-run` 做發布前驗證。除非我在 dry-run 通過後明確確認，否則不要執行 `--publish` 或 `--yes`。',
             },
-            githubTakeover: {
-                title: 'GitHub 接管',
-                description: '生成 PR 或 Issue 接管清單',
-                prompt: '請接管一個 GitHub PR 或 Issue。如果我還沒提供 URL/編號和 repo，請先問我。然後執行 `happy github takeover <target> --repo <owner/name>`，並依生成的清單執行。',
-            },
-            remoteDiagnose: {
-                title: '遠端排查',
-                description: '生成唯讀遠端證據包',
-                prompt: '請準備一個唯讀遠端排查證據包。如果缺少 host/service/keyword，請先問我。然後執行 `happy diagnose remote --host <host> --service <service> --keyword <keyword>`，並總結需要收集的證據。',
-            },
             evidenceReport: {
                 title: '證據報告',
                 description: '記錄截圖或日誌並生成報告',

@@ -598,20 +598,6 @@ function NewSessionWizard() {
             icon: 'shield-checkmark-outline',
         },
         {
-            key: 'githubTakeover',
-            label: t('agentInput.quickActions.githubTakeover.title'),
-            description: t('agentInput.quickActions.githubTakeover.description'),
-            prompt: t('agentInput.quickActions.githubTakeover.prompt'),
-            icon: 'logo-github',
-        },
-        {
-            key: 'remoteDiagnose',
-            label: t('agentInput.quickActions.remoteDiagnose.title'),
-            description: t('agentInput.quickActions.remoteDiagnose.description'),
-            prompt: t('agentInput.quickActions.remoteDiagnose.prompt'),
-            icon: 'terminal-outline',
-        },
-        {
             key: 'evidenceReport',
             label: t('agentInput.quickActions.evidenceReport.title'),
             description: t('agentInput.quickActions.evidenceReport.description'),

@@ -988,16 +988,6 @@ export const en = {
                 description: 'Run verification before any publish',
                 prompt: 'Please run `happy release guard --package happy-cli --dry-run` before any release. Do not run `--publish` or `--yes` unless I explicitly confirm after the dry-run passes.',
             },
-            githubTakeover: {
-                title: 'GitHub Takeover',
-                description: 'Prepare a PR or issue takeover checklist',
-                prompt: 'Please take over a GitHub PR or issue. If I have not provided the URL/number and repo, ask me first. Then run `happy github takeover <target> --repo <owner/name>` and follow the generated checklist.',
-            },
-            remoteDiagnose: {
-                title: 'Remote Diagnose',
-                description: 'Create a read-only remote evidence pack',
-                prompt: 'Please prepare a read-only remote diagnosis evidence pack. If host/service/keyword are missing, ask me first. Then run `happy diagnose remote --host <host> --service <service> --keyword <keyword>` and summarize the evidence to collect.',
-            },
             evidenceReport: {
                 title: 'Evidence Report',
                 description: 'Record screenshots or logs and render a report',
