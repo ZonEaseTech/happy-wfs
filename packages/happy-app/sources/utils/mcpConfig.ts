@@ -25,7 +25,7 @@ function parseJsonServers(content: string, target: McpTarget): McpServer[] {
     const trimmed = content.trim();
     const root = trimmed ? JSON.parse(trimmed) : {};
     const mcp = root?.mcpServers;
-    if (!mcp || typeof mcp !== 'object') return [];
+    if (!mcp || typeof mcp !== 'object' || Array.isArray(mcp)) return [];
     return Object.entries(mcp).map(([name, raw]) =>
         jsonEntryToServer(name, (raw ?? {}) as Record<string, unknown>, target),
     );
@@ -66,5 +66,49 @@ function jsonEntryToServer(name: string, entry: Record<string, unknown>, target:
 
 // parseCodexServers defined in Task 4 — leave a stub that Task 4 replaces:
 function parseCodexServers(_content: string): McpServer[] {
+    throw new Error('not implemented');
+}
+
+export function applyMcpServers(originalContent: string, servers: McpServer[], target: McpTarget): string {
+    if (target === 'codex') return applyCodexServers(originalContent, servers);
+    return applyJsonServers(originalContent, servers, target);
+}
+
+/** Drop undefined values and empty objects/arrays from an entry. */
+function compact(entry: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(entry)) {
+        if (v === undefined) continue;
+        if (Array.isArray(v) && v.length === 0) continue;
+        if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) continue;
+        out[k] = v;
+    }
+    return out;
+}
+
+function serverToJsonEntry(s: McpServer, target: McpTarget): Record<string, unknown> {
+    const extras = s.extras ?? {};
+    if (s.transport === 'stdio') {
+        return compact({ command: s.command, args: s.args, env: s.env, ...extras });
+    }
+    if (target === 'gemini') {
+        return s.transport === 'http'
+            ? compact({ httpUrl: s.url, headers: s.headers, ...extras })
+            : compact({ url: s.url, headers: s.headers, ...extras });
+    }
+    return compact({ type: s.transport, url: s.url, headers: s.headers, ...extras });
+}
+
+function applyJsonServers(originalContent: string, servers: McpServer[], target: McpTarget): string {
+    const trimmed = originalContent.trim();
+    const root = trimmed ? JSON.parse(trimmed) : {};
+    const mcp: Record<string, unknown> = {};
+    for (const s of servers) mcp[s.name] = serverToJsonEntry(s, target);
+    root.mcpServers = mcp;
+    return JSON.stringify(root, null, 2) + '\n';
+}
+
+// applyCodexServers defined in Task 5 — temporary stub:
+function applyCodexServers(_originalContent: string, _servers: McpServer[]): string {
     throw new Error('not implemented');
 }
