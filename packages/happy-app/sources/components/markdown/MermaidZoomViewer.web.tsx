@@ -27,6 +27,7 @@ export function MermaidZoomViewer({ svgContent, onClose }: MermaidZoomViewerProp
     const [translate, setTranslate] = React.useState({ x: 0, y: 0 });
     const draggingRef = React.useRef(false);
     const lastPointerRef = React.useRef({ x: 0, y: 0 });
+    const pointerDownRef = React.useRef({ x: 0, y: 0 });
     const containerRef = React.useRef<HTMLDivElement | null>(null);
 
     React.useEffect(() => {
@@ -58,12 +59,12 @@ export function MermaidZoomViewer({ svgContent, onClose }: MermaidZoomViewerProp
         const cursorY = e.clientY - rect.top - rect.height / 2;
 
         setScale(prev => {
-            const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
-            const next = clamp(prev + delta, MIN_SCALE, MAX_SCALE);
+            const rawDelta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+            const next = clamp(prev + rawDelta, MIN_SCALE, MAX_SCALE);
             const ratio = next / prev - 1;
             setTranslate(t => ({
-                x: t.x - cursorX * ratio,
-                y: t.y - cursorY * ratio,
+                x: t.x - ratio * (cursorX - t.x),
+                y: t.y - ratio * (cursorY - t.y),
             }));
             return next;
         });
@@ -73,6 +74,7 @@ export function MermaidZoomViewer({ svgContent, onClose }: MermaidZoomViewerProp
         if (e.button !== 0) return;
         draggingRef.current = true;
         lastPointerRef.current = { x: e.clientX, y: e.clientY };
+        pointerDownRef.current = { x: e.clientX, y: e.clientY };
         (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     }, []);
 
@@ -84,9 +86,25 @@ export function MermaidZoomViewer({ svgContent, onClose }: MermaidZoomViewerProp
         setTranslate(t => ({ x: t.x + dx, y: t.y + dy }));
     }, []);
 
-    const handlePointerUp = React.useCallback(() => {
+    // Bug 3: reset drag state on pointercancel so move events can't run without a held button.
+    const handlePointerCancel = React.useCallback(() => {
         draggingRef.current = false;
     }, []);
+
+    // Bug 2: close viewer on non-drag clicks (backdrop or diagram area).
+    // Drag-to-pan is detected by total pointer travel; < 4 px means it was a click.
+    const handlePointerUp = React.useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+        if (draggingRef.current) {
+            const dx = e.clientX - pointerDownRef.current.x;
+            const dy = e.clientY - pointerDownRef.current.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 4) {
+                // Treat as a click → close the viewer (lightbox convention).
+                onClose();
+            }
+        }
+        draggingRef.current = false;
+    }, [onClose]);
 
     const handleZoomIn = React.useCallback(() => {
         setScale(prev => clamp(prev + ZOOM_STEP, MIN_SCALE, MAX_SCALE));
@@ -100,12 +118,6 @@ export function MermaidZoomViewer({ svgContent, onClose }: MermaidZoomViewerProp
         setScale(1);
         setTranslate({ x: 0, y: 0 });
     }, []);
-
-    const handleBackdropClick = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) {
-            onClose();
-        }
-    }, [onClose]);
 
     const overlayStyle: React.CSSProperties = {
         position: 'fixed',
@@ -173,7 +185,7 @@ export function MermaidZoomViewer({ svgContent, onClose }: MermaidZoomViewerProp
     /* eslint-disable @typescript-eslint/ban-ts-comment */
     const content = (
         // @ts-ignore - Web only
-        <div style={overlayStyle} onClick={handleBackdropClick}>
+        <div style={overlayStyle}>
             {/* @ts-ignore - Web only */}
             <div style={toolbarStyle}>
                 {/* @ts-ignore - Web only */}
@@ -205,6 +217,7 @@ export function MermaidZoomViewer({ svgContent, onClose }: MermaidZoomViewerProp
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerCancel}
             >
                 {/* svgContent is mermaid-generated SVG, not user HTML */}
                 {/* @ts-ignore - Web only */}
