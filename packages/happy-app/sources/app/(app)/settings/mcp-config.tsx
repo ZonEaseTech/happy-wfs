@@ -7,6 +7,7 @@ import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { FileViewerModal } from '@/components/FileViewerModal';
+import { McpServersModal } from '@/components/McpServersModal';
 import { useAllMachines } from '@/sync/storage';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { Modal } from '@/modal';
@@ -25,6 +26,7 @@ export default function MCPConfigScreen() {
     const [showViewer, setShowViewer] = React.useState(false);
     const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
     const [viewerCwd, setViewerCwd] = React.useState<string | undefined>(undefined);
+    const [mcpManagerTarget, setMcpManagerTarget] = React.useState<ConfigTarget | null>(null);
 
     const onlineMachine = React.useMemo(() => {
         return allMachines.find(isMachineOnline) ?? allMachines[0];
@@ -92,7 +94,7 @@ export default function MCPConfigScreen() {
                             title={target.title}
                             subtitle={target.subtitle}
                             icon={<Ionicons name={target.icon} size={29} color={target.color === '#111111' && theme.dark ? '#FFFFFF' : target.color} />}
-                            onPress={() => openFile(target)}
+                            onPress={() => requireOnline(() => setMcpManagerTarget(target))}
                         />
                     ))}
                 </ItemGroup>
@@ -116,6 +118,20 @@ export default function MCPConfigScreen() {
                     machineId={machineId}
                     initialFilePath={viewerPath}
                     initialCwd={viewerCwd}
+                />
+            )}
+            {machineId && mcpManagerTarget && (
+                <McpServersModal
+                    visible={!!mcpManagerTarget}
+                    onClose={() => setMcpManagerTarget(null)}
+                    machineId={machineId}
+                    target={mcpManagerTarget}
+                    filePath={`${homeDir}/${mcpManagerTarget.fileName}`}
+                    onRequestRawEdit={() => {
+                        const tgt = mcpManagerTarget;
+                        setMcpManagerTarget(null);
+                        openFile(tgt);
+                    }}
                 />
             )}
         </View>
