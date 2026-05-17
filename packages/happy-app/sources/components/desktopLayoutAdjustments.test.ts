@@ -14,7 +14,11 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('ShareHeader');
         expect(source).toContain('styles.shareHeader');
         expect(source).toContain('styles.shareOwnerInline');
+        expect(source).toContain("flexWrap: 'nowrap'");
         expect(source).not.toContain('{owner && <OwnerCard owner={owner} />}');
+
+        const layout = read('app/(app)/_layout.tsx');
+        expect(layout).toMatch(/name="share\/\[token\]"[\s\S]*?headerShown: false/);
     });
 
     it('uses a contained desktop dialog for MCP server management instead of a full-page modal', () => {

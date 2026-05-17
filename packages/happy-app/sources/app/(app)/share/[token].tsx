@@ -181,6 +181,7 @@ const styles = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 14,
+        flexWrap: 'nowrap',
     },
     shareTitle: {
         ...Typography.default('semiBold'),
@@ -193,6 +194,7 @@ const styles = StyleSheet.create((theme) => ({
         gap: 5,
         minWidth: 0,
         flexShrink: 1,
+        flexWrap: 'nowrap',
     },
     ownerCard: {
         flexDirection: 'row',
