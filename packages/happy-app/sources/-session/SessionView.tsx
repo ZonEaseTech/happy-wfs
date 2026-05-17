@@ -11,6 +11,7 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { PendingQueuePanel } from '@/components/PendingQueuePanel';
+import { buildPendingQueueBatchPrompt } from '@/components/pendingQueueBatchPrompt';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
 import { useDraft } from '@/hooks/useDraft';
@@ -1310,6 +1311,24 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const canEdit = !session.accessLevel || session.accessLevel !== 'view';
 
     const handleSendNowPending = React.useCallback(async (pendingId: string) => {
+        if (pendingMessages.length > 1) {
+            const batchPrompt = buildPendingQueueBatchPrompt(pendingMessages, pendingId);
+            const result = await sync.sendOrQueueMessage(sessionId, batchPrompt);
+            if (!result.success) {
+                Modal.alert(t('common.error'), t('status.operationFailed'));
+                return;
+            }
+
+            await Promise.all(pendingMessages.map((message) => sync.deletePendingMessage(sessionId, message.id)));
+            try {
+                await sessionAbort(sessionId);
+            } catch {
+                // If the current turn has already ended or the runtime is offline, abort can fail.
+                // The batch message is already queued; don't show a false failure.
+            }
+            return;
+        }
+
         // Pin the message so it becomes the next to dispatch (pinnedAt desc ordering),
         // then abort the current turn — the server auto-dispatches the first pending message.
         const success = await sync.pinPendingMessage(sessionId, pendingId);
@@ -1324,7 +1343,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             // If the current turn has already ended or the runtime is offline, abort can fail.
             // The send-now action already pinned the pending message; don't show a false failure.
         }
-    }, [sessionId]);
+    }, [pendingMessages, sessionId]);
 
     const handlePinPending = React.useCallback(async (pendingId: string) => {
         const success = await sync.pinPendingMessage(sessionId, pendingId);

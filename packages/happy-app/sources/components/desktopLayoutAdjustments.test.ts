@@ -73,4 +73,13 @@ describe('desktop layout adjustments', () => {
             Modal.alert`);
     });
 
+
+    it('batch-sends multiple pending messages instead of sending them one by one', () => {
+        const source = read('-session/SessionView.tsx');
+        expect(source).toContain('if (pendingMessages.length > 1)');
+        expect(source).toContain('buildPendingQueueBatchPrompt(pendingMessages, pendingId)');
+        expect(source).toContain('sync.sendOrQueueMessage(sessionId, batchPrompt)');
+        expect(source).toContain('pendingMessages.map((message) => sync.deletePendingMessage(sessionId, message.id))');
+    });
+
 });
