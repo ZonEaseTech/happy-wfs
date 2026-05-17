@@ -1898,6 +1898,30 @@ export const en: TranslationStructure = {
         permSafeYoloDesc: 'Workspace write with approval',
         permFullAccess: 'Full access, skip permissions',
     },
+    mcpManager: {
+        title: ({ target }: { target: string }) => `${target} MCP Servers`,
+        addTitle: 'Add MCP Server',
+        editTitle: 'Edit MCP Server',
+        empty: 'No MCP servers configured.',
+        addRow: '+ Add row',
+        deleteTitle: 'Delete server?',
+        deleteMessage: ({ name }: { name: string }) => `Remove "${name}" from MCP servers?`,
+        saveFailed: 'Failed to save MCP config.',
+        parseError: 'Could not parse MCP config file.',
+        openRawFile: 'Open raw file to fix',
+        fieldName: 'Server name',
+        fieldTransport: 'Transport',
+        fieldCommand: 'Command',
+        fieldArgs: 'Arguments',
+        fieldEnv: 'Environment variables',
+        fieldUrl: 'URL',
+        fieldHeaders: 'Headers',
+        errNameRequired: 'Name is required.',
+        errNameDuplicate: 'A server with this name already exists.',
+        errCommandRequired: 'Command is required.',
+        errUrlRequired: 'URL is required.',
+    },
+
 } as const;
 
 export type TranslationsEn = typeof en;
