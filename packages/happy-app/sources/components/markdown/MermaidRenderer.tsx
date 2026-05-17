@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
+import { MermaidZoomViewer } from './MermaidZoomViewer';
 
 // Style for Web platform
 const webStyle: any = {
@@ -11,6 +12,40 @@ const webStyle: any = {
     borderRadius: 8,
     padding: 16,
     overflow: 'auto',
+};
+
+// Web-only: wrapper that positions the expand button in the top-right corner
+const webExpandWrap: any = {
+    position: 'relative',
+    display: 'inline-block',
+    width: '100%',
+};
+
+// Web-only: small expand/fullscreen button overlaid on the diagram
+const webExpandBtn: any = {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    border: 'none',
+    borderRadius: 6,
+    backgroundColor: 'rgba(30, 30, 30, 0.7)',
+    backdropFilter: 'blur(4px)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    padding: 0,
+};
+
+// Web-only: the ⤢ expand icon inside the button
+const webExpandIcon: any = {
+    fontSize: 16,
+    color: '#e0e0e0',
+    lineHeight: 1,
+    userSelect: 'none',
 };
 
 // Mermaid render component that works on all platforms
@@ -29,6 +64,7 @@ export const MermaidRenderer = React.memo((props: {
     // Web platform uses direct SVG rendering for better performance and native DOM integration
     if (Platform.OS === 'web') {
         const [hasError, setHasError] = React.useState(false);
+        const [viewerOpen, setViewerOpen] = React.useState(false);
 
         React.useEffect(() => {
             let isMounted = true;
@@ -95,10 +131,28 @@ export const MermaidRenderer = React.memo((props: {
         return (
             <View style={style.container}>
                 {/* @ts-ignore - Web only */}
-                <div
-                    style={webStyle}
-                    dangerouslySetInnerHTML={{ __html: svgContent }}
-                />
+                <div style={webExpandWrap}>
+                    {/* @ts-ignore - Web only */}
+                    <div
+                        style={webStyle}
+                        dangerouslySetInnerHTML={{ __html: svgContent }}
+                    />
+                    {/* @ts-ignore - Web only */}
+                    <button
+                        style={webExpandBtn}
+                        onClick={() => setViewerOpen(true)}
+                        title="Open fullscreen viewer"
+                    >
+                        {/* @ts-ignore - Web only */}
+                        <span style={webExpandIcon}>⤢</span>
+                    </button>
+                </div>
+                {viewerOpen && (
+                    <MermaidZoomViewer
+                        svgContent={svgContent}
+                        onClose={() => setViewerOpen(false)}
+                    />
+                )}
             </View>
         );
     }
