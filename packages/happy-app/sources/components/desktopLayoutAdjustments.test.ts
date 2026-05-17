@@ -37,10 +37,10 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('visibleMultilineRows = config.multiline ? Math.min(config.multilineRows ?? 6, isLargePrompt ? 16 : 8) : 1');
     });
 
-    it('uses the root Claude .mcp.json target so shared MCP config is visible', () => {
+    it('uses the Codex-home Claude .mcp.json target so shared MCP config is visible', () => {
         const source = read('app/(app)/settings/mcpTargets.ts');
-        expect(source).toContain("fileName: '.mcp.json'");
-        expect(source).toContain("subtitle: '~/.mcp.json · mcpServers'");
+        expect(source).toContain("fileName: '.codex/.mcp.json'");
+        expect(source).toContain("subtitle: '~/.codex/.mcp.json · mcpServers'");
         expect(source).toContain('codecTarget');
     });
 });
