@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, TextInput, Platform } from 'react-native';
+import { FlatList, View, TextInput, Platform } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetFlatList, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -11,6 +11,7 @@ import { Avatar } from '@/components/Avatar';
 import { Text } from '@/components/StyledText';
 import { t } from '@/text';
 import { Typography } from '@/constants/Typography';
+import { SharingDesktopDialog, useSharingDesktopDialog } from '../SharingDesktopDialog';
 
 const SheetTextInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
 
@@ -30,6 +31,28 @@ export const FriendSelector = React.memo(React.forwardRef<BottomSheetModal, Frie
     const [searchQuery, setSearchQuery] = React.useState('');
     const [selectedUserId, setSelectedUserId] = React.useState<string | null>(null);
     const [selectedAccessLevel, setSelectedAccessLevel] = React.useState<ShareAccessLevel>('view');
+    const desktopDialog = useSharingDesktopDialog();
+    const sheetRef = React.useRef<BottomSheetModal>(null);
+    const ListComponent: React.ComponentType<any> = desktopDialog.isDesktop ? FlatList : BottomSheetFlatList;
+
+    const resetState = React.useCallback(() => {
+        setSearchQuery('');
+        setSelectedUserId(null);
+        setSelectedAccessLevel('view');
+    }, []);
+
+    const dismissDialog = React.useCallback(() => {
+        if (desktopDialog.isDesktop) desktopDialog.dismiss();
+        else sheetRef.current?.dismiss();
+    }, [desktopDialog]);
+
+    React.useImperativeHandle(ref, () => ({
+        present: () => {
+            if (desktopDialog.isDesktop) desktopDialog.present();
+            else sheetRef.current?.present();
+        },
+        dismiss: dismissDialog,
+    }) as BottomSheetModal, [desktopDialog, dismissDialog]);
 
     const filteredFriends = React.useMemo(() => {
         const excluded = new Set(excludedUserIds);
@@ -46,19 +69,15 @@ export const FriendSelector = React.memo(React.forwardRef<BottomSheetModal, Frie
     const handleSelect = React.useCallback(() => {
         if (selectedUserId) {
             onSelect(selectedUserId, selectedAccessLevel);
-            if (ref && typeof ref !== 'function' && ref.current) {
-                ref.current.dismiss();
-            }
+            dismissDialog();
         }
-    }, [selectedUserId, selectedAccessLevel, onSelect, ref]);
+    }, [selectedUserId, selectedAccessLevel, onSelect, dismissDialog]);
 
     const handleAnimate = React.useCallback((_from: number, to: number) => {
         if (to === -1) {
-            setSearchQuery('');
-            setSelectedUserId(null);
-            setSelectedAccessLevel('view');
+            resetState();
         }
-    }, []);
+    }, [resetState]);
 
     const renderBackdrop = React.useCallback(
         (props: any) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} pressBehavior="close" />,
@@ -177,9 +196,45 @@ export const FriendSelector = React.memo(React.forwardRef<BottomSheetModal, Frie
         </View>
     ), [searchQuery, theme]);
 
+    const content = (
+        <View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
+
+                <Text style={[styles.title, { color: theme.colors.text }]}>
+                    {t('session.sharing.shareWith')}
+                </Text>
+                <ListComponent
+                    data={filteredFriends}
+                    keyExtractor={keyExtractor}
+                    renderItem={renderItem}
+                    ListHeaderComponent={ListHeaderComponent}
+                    ListFooterComponent={ListFooterComponent}
+                    ListEmptyComponent={ListEmptyComponent}
+                    contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+                    keyboardShouldPersistTaps="handled"
+                />
+        </View>
+    );
+
+    if (desktopDialog.isDesktop) {
+        return (
+            <SharingDesktopDialog
+                visible={desktopDialog.visible}
+                onClose={() => {
+                    resetState();
+                    dismissDialog();
+                }}
+                maxHeight="75%"
+            >
+                <View style={{ height: 640, maxHeight: '100%' }}>
+                    {content}
+                </View>
+            </SharingDesktopDialog>
+        );
+    }
+
     return (
         <BottomSheetModal
-            ref={ref}
+            ref={sheetRef}
             snapPoints={['75%']}
             enableDynamicSizing={false}
             keyboardBehavior="interactive"
@@ -190,21 +245,7 @@ export const FriendSelector = React.memo(React.forwardRef<BottomSheetModal, Frie
             backgroundStyle={{ backgroundColor: theme.colors.groupped.background }}
             handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
         >
-            <View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
-                <Text style={[styles.title, { color: theme.colors.text }]}>
-                    {t('session.sharing.shareWith')}
-                </Text>
-                <BottomSheetFlatList
-                    data={filteredFriends}
-                    keyExtractor={keyExtractor}
-                    renderItem={renderItem}
-                    ListHeaderComponent={ListHeaderComponent}
-                    ListFooterComponent={ListFooterComponent}
-                    ListEmptyComponent={ListEmptyComponent}
-                    contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
-                    keyboardShouldPersistTaps="handled"
-                />
-            </View>
+            {content}
         </BottomSheetModal>
     );
 }));

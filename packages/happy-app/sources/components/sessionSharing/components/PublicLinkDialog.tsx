@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Switch } from 'react-native';
+import { ScrollView, View, Switch } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
@@ -13,7 +13,7 @@ import { Typography } from '@/constants/Typography';
 import { PublicSessionShare } from '@/sync/sharingTypes';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
-import { getServerUrl } from '@/sync/serverConfig';
+import { SharingDesktopDialog, useSharingDesktopDialog } from '../SharingDesktopDialog';
 
 export interface PublicLinkDialogProps {
     publicShare: PublicSessionShare | null;
@@ -37,20 +37,32 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
     const [expiresInDays, setExpiresInDays] = React.useState<number | undefined>(7);
     const [maxUses, setMaxUses] = React.useState<number | undefined>(undefined);
     const [isConsentRequired, setIsConsentRequired] = React.useState(true);
+    const desktopDialog = useSharingDesktopDialog();
+    const sheetRef = React.useRef<BottomSheetModal>(null);
+    const Scroller = desktopDialog.isDesktop ? ScrollView : BottomSheetScrollView;
+
+    const dismissDialog = React.useCallback(() => {
+        if (desktopDialog.isDesktop) desktopDialog.dismiss();
+        else sheetRef.current?.dismiss();
+    }, [desktopDialog]);
+
+    React.useImperativeHandle(ref, () => ({
+        present: () => {
+            if (desktopDialog.isDesktop) desktopDialog.present();
+            else sheetRef.current?.present();
+        },
+        dismiss: dismissDialog,
+    }) as BottomSheetModal, [desktopDialog, dismissDialog]);
 
     const handleCreate = React.useCallback(() => {
         onCreate({ expiresInDays, maxUses, isConsentRequired });
-        if (ref && typeof ref !== 'function' && ref.current) {
-            ref.current.dismiss();
-        }
-    }, [expiresInDays, maxUses, isConsentRequired, onCreate, ref]);
+        dismissDialog();
+    }, [expiresInDays, maxUses, isConsentRequired, onCreate, dismissDialog]);
 
     const handleDelete = React.useCallback(() => {
         onDelete();
-        if (ref && typeof ref !== 'function' && ref.current) {
-            ref.current.dismiss();
-        }
-    }, [onDelete, ref]);
+        dismissDialog();
+    }, [onDelete, dismissDialog]);
 
     const handleCopyLink = React.useCallback(async () => {
         if (publicShareUrl) {
@@ -67,15 +79,9 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
 
     const formatDate = (timestamp: number) => new Date(timestamp).toLocaleDateString();
 
-    return (
-        <BottomSheetModal
-            ref={ref}
-            enableDynamicSizing={true}
-            backdropComponent={renderBackdrop}
-            backgroundStyle={{ backgroundColor: theme.colors.groupped.background }}
-            handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
-        >
-            <BottomSheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
+    const content = (
+        <Scroller contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
+
                 <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>
                     {t('session.sharing.publicLink')}
@@ -234,7 +240,26 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
                     </>
                 )}
                 </View>
-            </BottomSheetScrollView>
+        </Scroller>
+    );
+
+    if (desktopDialog.isDesktop) {
+        return (
+            <SharingDesktopDialog visible={desktopDialog.visible} onClose={dismissDialog}>
+                {content}
+            </SharingDesktopDialog>
+        );
+    }
+
+    return (
+        <BottomSheetModal
+            ref={sheetRef}
+            enableDynamicSizing={true}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: theme.colors.groupped.background }}
+            handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
+        >
+            {content}
         </BottomSheetModal>
     );
 }));

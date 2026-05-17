@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -11,6 +11,7 @@ import { Text } from '@/components/StyledText';
 import { t } from '@/text';
 import { Typography } from '@/constants/Typography';
 import { SessionShare, ShareAccessLevel } from '@/sync/sharingTypes';
+import { SharingDesktopDialog, useSharingDesktopDialog } from '../SharingDesktopDialog';
 
 export interface SessionShareDialogProps {
     sessionId: string;
@@ -31,6 +32,22 @@ export const SessionShareDialog = React.memo(React.forwardRef<BottomSheetModal, 
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
     const [selectedShareId, setSelectedShareId] = React.useState<string | null>(null);
+    const desktopDialog = useSharingDesktopDialog();
+    const sheetRef = React.useRef<BottomSheetModal>(null);
+    const Scroller = desktopDialog.isDesktop ? ScrollView : BottomSheetScrollView;
+
+    const dismissDialog = React.useCallback(() => {
+        if (desktopDialog.isDesktop) desktopDialog.dismiss();
+        else sheetRef.current?.dismiss();
+    }, [desktopDialog]);
+
+    React.useImperativeHandle(ref, () => ({
+        present: () => {
+            if (desktopDialog.isDesktop) desktopDialog.present();
+            else sheetRef.current?.present();
+        },
+        dismiss: dismissDialog,
+    }) as BottomSheetModal, [desktopDialog, dismissDialog]);
 
     const handleSharePress = React.useCallback((shareId: string) => {
         if (canManage) {
@@ -49,26 +66,18 @@ export const SessionShareDialog = React.memo(React.forwardRef<BottomSheetModal, 
     }, [onRemoveShare]);
 
     const handleAddShare = React.useCallback(() => {
-        if (ref && typeof ref !== 'function' && ref.current) {
-            ref.current.dismiss();
-        }
+        dismissDialog();
         onAddShare();
-    }, [onAddShare, ref]);
+    }, [onAddShare, dismissDialog]);
 
     const renderBackdrop = React.useCallback(
         (props: any) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} pressBehavior="close" />,
         [],
     );
 
-    return (
-        <BottomSheetModal
-            ref={ref}
-            enableDynamicSizing={true}
-            backdropComponent={renderBackdrop}
-            backgroundStyle={{ backgroundColor: theme.colors.groupped.background }}
-            handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
-        >
-            <BottomSheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
+    const content = (
+        <Scroller contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
+
                 <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>
                     {t('session.sharing.title')}
@@ -108,7 +117,26 @@ export const SessionShareDialog = React.memo(React.forwardRef<BottomSheetModal, 
                     </View>
                 )}
                 </View>
-            </BottomSheetScrollView>
+        </Scroller>
+    );
+
+    if (desktopDialog.isDesktop) {
+        return (
+            <SharingDesktopDialog visible={desktopDialog.visible} onClose={dismissDialog}>
+                {content}
+            </SharingDesktopDialog>
+        );
+    }
+
+    return (
+        <BottomSheetModal
+            ref={sheetRef}
+            enableDynamicSizing={true}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: theme.colors.groupped.background }}
+            handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
+        >
+            {content}
         </BottomSheetModal>
     );
 }));
