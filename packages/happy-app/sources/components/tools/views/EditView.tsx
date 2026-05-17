@@ -65,7 +65,12 @@ const OnDemandEditDiff = React.memo<{
 
     const handlePress = React.useCallback(() => {
         if (!sessionId || !callId || !filePath) return;
-        router.push(`/session/${sessionId}/tool-diff?callId=${callId}&filePath=${encodeURIComponent(filePath)}&mode=edit`);
+        if (/\.(md|markdown)$/i.test(filePath)) {
+            const encodedPath = btoa(new TextEncoder().encode(filePath).reduce((s, b) => s + String.fromCharCode(b), ''));
+            router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}&view=preview`);
+        } else {
+            router.push(`/session/${sessionId}/tool-diff?callId=${callId}&filePath=${encodeURIComponent(filePath)}&mode=edit`);
+        }
     }, [sessionId, callId, filePath, router]);
 
     return (

@@ -28,6 +28,7 @@ import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { getExtensionFromMimeType, getImageMimeType, isPreviewableHtml, isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
+import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { Image } from 'expo-image';
 import { selectFileViewerSharePayload } from '@/utils/fileViewerShare';
 import { File, Paths } from 'expo-file-system';
@@ -209,6 +210,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const fileName = filePath.split('/').pop() || filePath;
     const isPreviewImageFile = isPreviewableImage(filePath);
     const isPreviewHtmlFile = isPreviewableHtml(filePath);
+    const isPreviewMarkdownFile = /\.(md|markdown)$/i.test(filePath);
     const canReadFromMachine = !!machineFileReaderId && isTemporaryFilePath(filePath);
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
@@ -633,25 +635,30 @@ export default function FileScreen(props?: FileScreenProps) {
 
     // Set default display mode based on diff availability
     React.useEffect(() => {
-        if (preferredView === 'preview' && isPreviewHtmlFile && fileContent && !fileContent.isBinary) {
+        if (preferredView === 'preview' && (isPreviewHtmlFile || isPreviewMarkdownFile) && fileContent && !fileContent.isBinary) {
             setDisplayMode('preview');
         } else if (preferredView === 'file' && fileContent && !fileContent.isBinary) {
             setDisplayMode('file');
         } else if (preferredView === 'diff' && diffContent) {
             setDisplayMode('diff');
-        } else if (diffContent) {
+        } else if (diffContent && !isPreviewMarkdownFile) {
             setDisplayMode('diff');
+        } else if (isPreviewMarkdownFile && fileContent && !fileContent.isBinary) {
+            setDisplayMode('preview');
         } else if (isPreviewHtmlFile && fileContent && !fileContent.isBinary) {
             setDisplayMode('preview');
+        } else if (diffContent) {
+            setDisplayMode('diff');
         } else if (fileContent) {
             setDisplayMode('file');
         }
-    }, [diffContent, fileContent, preferredView, isPreviewHtmlFile]);
+    }, [diffContent, fileContent, preferredView, isPreviewHtmlFile, isPreviewMarkdownFile]);
 
     const language = getFileLanguage(filePath);
     const editorLanguage = language || 'plaintext';
     const useReadOnlyCodeEditor = displayMode === 'file' && !!fileContent?.content;
     const useHtmlPreview = displayMode === 'preview' && isPreviewHtmlFile && !!fileContent?.content;
+    const useMarkdownPreview = displayMode === 'preview' && isPreviewMarkdownFile && !!fileContent?.content && !fileContent.isBinary;
     const handleReadOnlyEditorChange = React.useCallback(() => {
         // Viewer mode only: ignore edits.
     }, []);
@@ -927,7 +934,7 @@ export default function FileScreen(props?: FileScreenProps) {
             ) : (
                 <>
                     {/* Toggle buttons for File/Diff view */}
-                    {(diffContent || isPreviewHtmlFile) && (
+                    {(diffContent || isPreviewHtmlFile || isPreviewMarkdownFile) && (
                         <View style={{
                             flexDirection: 'row',
                             paddingHorizontal: 16,
@@ -936,7 +943,7 @@ export default function FileScreen(props?: FileScreenProps) {
                             borderBottomColor: theme.colors.divider,
                             backgroundColor: theme.colors.surface
                         }}>
-                            {diffContent && (
+                            {diffContent && !isPreviewMarkdownFile && (
                                 <Pressable
                                     onPress={() => setDisplayMode('diff')}
                                     style={{
@@ -958,7 +965,7 @@ export default function FileScreen(props?: FileScreenProps) {
                                 </Pressable>
                             )}
 
-                            {isPreviewHtmlFile && (
+                            {(isPreviewHtmlFile || isPreviewMarkdownFile) && (
                                 <Pressable
                                     onPress={() => setDisplayMode('preview')}
                                     style={{
@@ -1004,6 +1011,14 @@ export default function FileScreen(props?: FileScreenProps) {
                     {/* Content display */}
                     {useHtmlPreview ? (
                         <HtmlPreview html={fileContent?.content || ''} fileName={fileName} />
+                    ) : useMarkdownPreview ? (
+                        <ScrollView
+                            style={{ flex: 1 }}
+                            contentContainerStyle={{ padding: 16 }}
+                            showsVerticalScrollIndicator={true}
+                        >
+                            <MarkdownView markdown={fileContent?.content || ''} />
+                        </ScrollView>
                     ) : useReadOnlyCodeEditor ? (
                         <View style={{ flex: 1 }}>
                             <CodeEditor

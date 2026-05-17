@@ -25,7 +25,12 @@ export const CodexDiffView = React.memo<CodexDiffViewProps>(({ tool, metadata, s
 
     const handleFilePress = React.useCallback((filePath: string) => {
         if (!sessionId || !input?.callId) return;
-        router.push(`/session/${sessionId}/tool-diff?callId=${input.callId}&filePath=${encodeURIComponent(filePath)}&mode=unified`);
+        if (/\.(md|markdown)$/i.test(filePath)) {
+            const encodedPath = btoa(new TextEncoder().encode(filePath).reduce((s, b) => s + String.fromCharCode(b), ''));
+            router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}&view=preview`);
+        } else {
+            router.push(`/session/${sessionId}/tool-diff?callId=${input.callId}&filePath=${encodeURIComponent(filePath)}&mode=unified`);
+        }
     }, [sessionId, input?.callId, router]);
 
     if (files.length === 0) {

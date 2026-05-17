@@ -104,7 +104,12 @@ const OnDemandMultiEditDiff = React.memo<{
 
     const handlePress = React.useCallback(() => {
         if (!sessionId || !callId || !filePath) return;
-        router.push(`/session/${sessionId}/tool-diff?callId=${callId}&filePath=${encodeURIComponent(filePath)}&mode=multi-edit&editCount=${editCount}`);
+        if (/\.(md|markdown)$/i.test(filePath)) {
+            const encodedPath = btoa(new TextEncoder().encode(filePath).reduce((s, b) => s + String.fromCharCode(b), ''));
+            router.push(`/session/${sessionId}/file?path=${encodeURIComponent(encodedPath)}&view=preview`);
+        } else {
+            router.push(`/session/${sessionId}/tool-diff?callId=${callId}&filePath=${encodeURIComponent(filePath)}&mode=multi-edit&editCount=${editCount}`);
+        }
     }, [sessionId, callId, filePath, editCount, router]);
 
     return (
