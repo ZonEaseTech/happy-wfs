@@ -61,4 +61,16 @@ describe('desktop layout adjustments', () => {
         expect(api).toContain('hasMore: data.hasMore ?? false');
     });
 
+
+    it('does not show a false failure alert when pending send-now abort is already unavailable', () => {
+        const source = read('-session/SessionView.tsx');
+        expect(source).toContain('const success = await sync.pinPendingMessage(sessionId, pendingId);');
+        expect(source).toContain('await sessionAbort(sessionId);');
+        expect(source).toContain("don't show a false failure");
+        expect(source).not.toContain(`await sync.pinPendingMessage(sessionId, pendingId);
+            await sessionAbort(sessionId);
+        } catch {
+            Modal.alert`);
+    });
+
 });

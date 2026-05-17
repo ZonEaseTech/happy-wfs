@@ -1310,13 +1310,19 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const canEdit = !session.accessLevel || session.accessLevel !== 'view';
 
     const handleSendNowPending = React.useCallback(async (pendingId: string) => {
+        // Pin the message so it becomes the next to dispatch (pinnedAt desc ordering),
+        // then abort the current turn — the server auto-dispatches the first pending message.
+        const success = await sync.pinPendingMessage(sessionId, pendingId);
+        if (!success) {
+            Modal.alert(t('common.error'), t('status.operationFailed'));
+            return;
+        }
+
         try {
-            // Pin the message so it becomes the next to dispatch (pinnedAt desc ordering),
-            // then abort the current turn — the server auto-dispatches the first pending message.
-            await sync.pinPendingMessage(sessionId, pendingId);
             await sessionAbort(sessionId);
         } catch {
-            Modal.alert(t('common.error'), t('status.operationFailed'));
+            // If the current turn has already ended or the runtime is offline, abort can fail.
+            // The send-now action already pinned the pending message; don't show a false failure.
         }
     }, [sessionId]);
 
