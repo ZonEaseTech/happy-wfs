@@ -94,3 +94,43 @@ describe('parseMcpServers — TOML (codex)', () => {
         expect(() => parseMcpServers('[mcp_servers.', 'codex')).toThrow();
     });
 });
+
+describe('applyMcpServers — TOML (codex)', () => {
+    it('preserves non-MCP settings and comments, replaces mcp_servers region', () => {
+        const original = '# top comment\nmodel = "gpt-5"\n\n[mcp_servers.old]\ncommand = "x"\n';
+        const out = applyMcpServers(original, [
+            { name: 'fs', transport: 'stdio', command: 'npx', args: ['-y'], env: { K: 'V' } },
+        ], 'codex');
+        expect(out).toContain('# top comment');
+        expect(out).toContain('model = "gpt-5"');
+        expect(out).not.toContain('[mcp_servers.old]');
+        expect(out).toContain('[mcp_servers.fs]');
+        expect(out).toContain('command = "npx"');
+        expect(out).toContain('args = ["-y"]');
+        expect(out).toContain('[mcp_servers.fs.env]');
+        expect(out).toContain('K = "V"');
+    });
+
+    it('round-trips a stdio server', () => {
+        const original = '[mcp_servers.fs]\ncommand = "npx"\nargs = ["-y", "pkg"]\n';
+        const out = applyMcpServers(original, parseMcpServers(original, 'codex'), 'codex');
+        expect(parseMcpServers(out, 'codex')).toEqual(parseMcpServers(original, 'codex'));
+    });
+
+    it('writes a url server', () => {
+        const out = applyMcpServers('', [{ name: 'api', transport: 'http', url: 'https://x' }], 'codex');
+        expect(out).toContain('[mcp_servers.api]');
+        expect(out).toContain('url = "https://x"');
+    });
+
+    it('escapes quotes and backslashes in values', () => {
+        const out = applyMcpServers('', [{ name: 's', transport: 'stdio', command: 'a"b\\c' }], 'codex');
+        expect(out).toContain('command = "a\\"b\\\\c"');
+    });
+
+    it('preserves scalar extras on a server', () => {
+        const original = '[mcp_servers.fs]\ncommand = "x"\nstartup_timeout_ms = 5000\n';
+        const out = applyMcpServers(original, parseMcpServers(original, 'codex'), 'codex');
+        expect(out).toContain('startup_timeout_ms = 5000');
+    });
+});

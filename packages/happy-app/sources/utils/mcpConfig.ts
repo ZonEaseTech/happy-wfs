@@ -140,7 +140,68 @@ function applyJsonServers(originalContent: string, servers: McpServer[], target:
     return JSON.stringify(root, null, 2) + '\n';
 }
 
-// applyCodexServers defined in Task 5 — temporary stub:
-function applyCodexServers(_originalContent: string, _servers: McpServer[]): string {
-    throw new Error('not implemented');
+function tomlString(value: string): string {
+    return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+function tomlArray(values: string[]): string {
+    return '[' + values.map(tomlString).join(', ') + ']';
+}
+
+/** Emit a `[mcp_servers.<name>.<sub>]` table for a key/value map. */
+function tomlSubTable(serverName: string, sub: string, map: Record<string, string>): string {
+    const lines = [`[mcp_servers.${serverName}.${sub}]`];
+    for (const [k, v] of Object.entries(map)) lines.push(`${k} = ${tomlString(v)}`);
+    return lines.join('\n');
+}
+
+function serverToCodexBlock(s: McpServer): string {
+    const head = [`[mcp_servers.${s.name}]`];
+    const subTables: string[] = [];
+    if (s.transport === 'stdio') {
+        if (s.command) head.push(`command = ${tomlString(s.command)}`);
+        if (s.args && s.args.length) head.push(`args = ${tomlArray(s.args)}`);
+        if (s.env && Object.keys(s.env).length) subTables.push(tomlSubTable(s.name, 'env', s.env));
+    } else {
+        if (s.url) head.push(`url = ${tomlString(s.url)}`);
+        if (s.headers && Object.keys(s.headers).length) {
+            subTables.push(tomlSubTable(s.name, 'http_headers', s.headers));
+        }
+    }
+    // Re-emit scalar extras (e.g. Codex's startup_timeout_ms) so editing one
+    // server never drops another's keys. Non-scalar extras are not preserved.
+    for (const [k, v] of Object.entries(s.extras ?? {})) {
+        if (typeof v === 'string') head.push(`${k} = ${tomlString(v)}`);
+        else if (typeof v === 'number' || typeof v === 'boolean') head.push(`${k} = ${String(v)}`);
+    }
+    return [head.join('\n'), ...subTables].join('\n\n');
+}
+
+/** True for a line that opens an `[mcp_servers...]` or `[[mcp_servers...]]` table. */
+function isMcpServersHeader(line: string): boolean {
+    const m = line.match(/^\s*\[\[?\s*([^\]]+?)\s*\]\]?\s*$/);
+    if (!m) return false;
+    const name = m[1].trim();
+    return name === 'mcp_servers' || name.startsWith('mcp_servers.');
+}
+
+function isAnyTableHeader(line: string): boolean {
+    return /^\s*\[\[?\s*[^\]]+?\s*\]\]?\s*$/.test(line);
+}
+
+function applyCodexServers(originalContent: string, servers: McpServer[]): string {
+    const lines = originalContent.split('\n');
+    const kept: string[] = [];
+    let skipping = false;
+    for (const line of lines) {
+        if (isAnyTableHeader(line)) {
+            skipping = isMcpServersHeader(line);
+        }
+        if (!skipping) kept.push(line);
+    }
+    while (kept.length && kept[kept.length - 1].trim() === '') kept.pop();
+    const blocks = servers.map(serverToCodexBlock);
+    const body = kept.join('\n');
+    const parts = [body, ...blocks].filter(p => p.length > 0);
+    return parts.join('\n\n') + '\n';
 }
