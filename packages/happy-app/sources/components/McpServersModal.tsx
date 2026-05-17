@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { machineReadFile, machineWriteFile } from '@/sync/ops';
 import { parseMcpServers, applyMcpServers, type McpServer } from '@/utils/mcpConfig';
 import type { ConfigTarget } from '@/app/(app)/settings/mcpTargets';
+import { layout } from '@/components/layout';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 
@@ -99,67 +100,69 @@ export function McpServersModal(props: McpServersModalProps) {
     return (
         <RNModal visible={props.visible} animationType="slide" onRequestClose={props.onClose} transparent={false}>
             <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 }}>
-                    <Pressable onPress={view === 'form' ? () => setView('list') : props.onClose} hitSlop={10}>
-                        <Ionicons name={view === 'form' ? 'arrow-back' : 'close'} size={24} color={theme.colors.text} />
-                    </Pressable>
-                    <Text style={{ flex: 1, fontSize: 17, fontWeight: '600', color: theme.colors.text }}>
-                        {view === 'form'
-                            ? t(editingIndex === null ? 'mcpManager.addTitle' : 'mcpManager.editTitle')
-                            : t('mcpManager.title', { target: props.target.title })}
-                    </Text>
-                    {view === 'list' && loadState === 'ready' && (
-                        <Pressable onPress={() => { setEditing(null); setEditingIndex(null); setView('form'); }} hitSlop={10}>
-                            <Ionicons name="add" size={26} color={theme.colors.text} />
+                <View style={{ flex: 1, width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 }}>
+                        <Pressable onPress={view === 'form' ? () => setView('list') : props.onClose} hitSlop={10}>
+                            <Ionicons name={view === 'form' ? 'arrow-back' : 'close'} size={24} color={theme.colors.text} />
                         </Pressable>
+                        <Text style={{ flex: 1, fontSize: 17, fontWeight: '600', color: theme.colors.text }}>
+                            {view === 'form'
+                                ? t(editingIndex === null ? 'mcpManager.addTitle' : 'mcpManager.editTitle')
+                                : t('mcpManager.title', { target: props.target.title })}
+                        </Text>
+                        {view === 'list' && loadState === 'ready' && (
+                            <Pressable onPress={() => { setEditing(null); setEditingIndex(null); setView('form'); }} hitSlop={10}>
+                                <Ionicons name="add" size={26} color={theme.colors.text} />
+                            </Pressable>
+                        )}
+                    </View>
+
+                    {loadState === 'loading' && <ActivityIndicator style={{ marginTop: 40 }} />}
+
+                    {loadState === 'error' && (
+                        <View style={{ padding: 24, gap: 12 }}>
+                            <Text style={{ color: theme.colors.text }}>{t('mcpManager.parseError')}</Text>
+                            <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>{errorMessage}</Text>
+                            <Pressable onPress={props.onRequestRawEdit}>
+                                <Text style={{ color: theme.colors.radio.active }}>{t('mcpManager.openRawFile')}</Text>
+                            </Pressable>
+                        </View>
+                    )}
+
+                    {loadState === 'ready' && view === 'list' && (
+                        <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
+                            {servers.length === 0 && (
+                                <Text style={{ color: theme.colors.textSecondary, textAlign: 'center', marginTop: 24 }}>
+                                    {t('mcpManager.empty')}
+                                </Text>
+                            )}
+                            {servers.map((s, i) => (
+                                <View key={s.name + i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: theme.colors.surfaceHigh }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: theme.colors.text, fontWeight: '500' }}>{s.name}</Text>
+                                        <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>{s.transport}</Text>
+                                    </View>
+                                    <Pressable onPress={() => { setEditing(s); setEditingIndex(i); setView('form'); }} hitSlop={8}>
+                                        <Ionicons name="create-outline" size={20} color={theme.colors.textSecondary} />
+                                    </Pressable>
+                                    <Pressable onPress={() => handleDelete(i)} hitSlop={8} disabled={saving}>
+                                        <Ionicons name="trash-outline" size={20} color={theme.colors.deleteAction} />
+                                    </Pressable>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    )}
+
+                    {loadState === 'ready' && view === 'form' && (
+                        <McpServerForm
+                            initial={editing}
+                            existingNames={servers.filter((_, i) => i !== editingIndex).map(s => s.name)}
+                            saving={saving}
+                            onSubmit={handleSubmitForm}
+                            onCancel={() => setView('list')}
+                        />
                     )}
                 </View>
-
-                {loadState === 'loading' && <ActivityIndicator style={{ marginTop: 40 }} />}
-
-                {loadState === 'error' && (
-                    <View style={{ padding: 24, gap: 12 }}>
-                        <Text style={{ color: theme.colors.text }}>{t('mcpManager.parseError')}</Text>
-                        <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>{errorMessage}</Text>
-                        <Pressable onPress={props.onRequestRawEdit}>
-                            <Text style={{ color: theme.colors.radio.active }}>{t('mcpManager.openRawFile')}</Text>
-                        </Pressable>
-                    </View>
-                )}
-
-                {loadState === 'ready' && view === 'list' && (
-                    <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
-                        {servers.length === 0 && (
-                            <Text style={{ color: theme.colors.textSecondary, textAlign: 'center', marginTop: 24 }}>
-                                {t('mcpManager.empty')}
-                            </Text>
-                        )}
-                        {servers.map((s, i) => (
-                            <View key={s.name + i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: theme.colors.surfaceHigh }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: theme.colors.text, fontWeight: '500' }}>{s.name}</Text>
-                                    <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>{s.transport}</Text>
-                                </View>
-                                <Pressable onPress={() => { setEditing(s); setEditingIndex(i); setView('form'); }} hitSlop={8}>
-                                    <Ionicons name="create-outline" size={20} color={theme.colors.textSecondary} />
-                                </Pressable>
-                                <Pressable onPress={() => handleDelete(i)} hitSlop={8} disabled={saving}>
-                                    <Ionicons name="trash-outline" size={20} color={theme.colors.deleteAction} />
-                                </Pressable>
-                            </View>
-                        ))}
-                    </ScrollView>
-                )}
-
-                {loadState === 'ready' && view === 'form' && (
-                    <McpServerForm
-                        initial={editing}
-                        existingNames={servers.filter((_, i) => i !== editingIndex).map(s => s.name)}
-                        saving={saving}
-                        onSubmit={handleSubmitForm}
-                        onCancel={() => setView('list')}
-                    />
-                )}
             </View>
         </RNModal>
     );
