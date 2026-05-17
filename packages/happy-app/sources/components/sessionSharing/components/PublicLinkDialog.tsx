@@ -76,6 +76,7 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
             handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
         >
             <BottomSheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
+                <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>
                     {t('session.sharing.publicLink')}
                 </Text>
@@ -232,6 +233,7 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
                         </ItemGroup>
                     </>
                 )}
+                </View>
             </BottomSheetScrollView>
         </BottomSheetModal>
     );

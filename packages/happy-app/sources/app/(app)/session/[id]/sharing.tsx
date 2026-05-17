@@ -13,7 +13,6 @@ import { Typography } from '@/constants/Typography';
 import { FriendSelector, SessionShareDialog, PublicLinkDialog } from '@/components/sessionSharing';
 import { SessionShare, ShareAccessLevel, PublicSessionShare } from '@/sync/sharingTypes';
 import { getSessionShares, createSessionShare, updateSessionShare, deleteSessionShare, getPublicShare, createPublicShare, deletePublicShare } from '@/sync/apiSharing';
-import { DesktopModalShell } from '@/components/DesktopModalShell';
 import { sync } from '@/sync/sync';
 import { HappyError } from '@/utils/errors';
 import { getFriendsList } from '@/sync/apiFriends';
@@ -273,25 +272,23 @@ export default memo(function SharingScreen() {
 
     if (!isDataReady) {
         return (
-            <DesktopModalShell title={t('session.sharing.title')}>
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="hourglass-outline" size={48} color={theme.colors.textSecondary} />
-                    <Text style={{
-                        color: theme.colors.textSecondary,
-                        fontSize: 17,
-                        marginTop: 16,
-                        ...Typography.default('semiBold')
-                    }}>
-                        {t('common.loading')}
-                    </Text>
-                </View>
-            </DesktopModalShell>
+            <View style={{ flex: 1, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="hourglass-outline" size={48} color={theme.colors.textSecondary} />
+                <Text style={{
+                    color: theme.colors.textSecondary,
+                    fontSize: 17,
+                    marginTop: 16,
+                    ...Typography.default('semiBold')
+                }}>
+                    {t('common.loading')}
+                </Text>
+            </View>
         );
     }
 
     return (
-        <DesktopModalShell title={t('session.sharing.title')}>
+        <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
             <SharingManagementContent sessionId={id} />
-        </DesktopModalShell>
+        </View>
     );
 });

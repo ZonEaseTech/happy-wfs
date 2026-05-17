@@ -190,7 +190,7 @@ export const FriendSelector = React.memo(React.forwardRef<BottomSheetModal, Frie
             backgroundStyle={{ backgroundColor: theme.colors.groupped.background }}
             handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
         >
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>
                     {t('session.sharing.shareWith')}
                 </Text>

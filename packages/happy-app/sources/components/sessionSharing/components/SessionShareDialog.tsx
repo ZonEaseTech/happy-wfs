@@ -69,6 +69,7 @@ export const SessionShareDialog = React.memo(React.forwardRef<BottomSheetModal, 
             handleIndicatorStyle={{ backgroundColor: theme.colors.textSecondary }}
         >
             <BottomSheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
+                <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>
                     {t('session.sharing.title')}
                 </Text>
@@ -106,6 +107,7 @@ export const SessionShareDialog = React.memo(React.forwardRef<BottomSheetModal, 
                         </Text>
                     </View>
                 )}
+                </View>
             </BottomSheetScrollView>
         </BottomSheetModal>
     );
