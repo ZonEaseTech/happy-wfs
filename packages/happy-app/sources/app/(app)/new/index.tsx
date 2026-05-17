@@ -116,6 +116,12 @@ function applyQuickActionPlaceholders(prompt: string, params: { projectPath: str
     return prompt.replaceAll('{{projectPath}}', params.projectPath);
 }
 
+function isCustomTaskBriefAction(action: { label: string; prompt: string }, defaultTaskBriefAction: AgentQuickAction): boolean {
+    return action.label.trim() === defaultTaskBriefAction.label
+        || action.prompt.includes('happy task brief --recent')
+        || action.prompt.includes('happy task brief --session');
+}
+
 function joinPosixPath(basePath: string, childName: string): string {
     if (!basePath || basePath === '/') return `/${childName}`;
     return `${basePath.replace(/\/+$/, '')}/${childName}`;
@@ -616,9 +622,10 @@ function NewSessionWizard() {
             label: action.label,
             description: action.description ?? '',
             prompt: applyQuickActionPlaceholders(action.prompt, { projectPath: quickActionProjectPath }),
+            resolvePrompt: isCustomTaskBriefAction(action, defaultQuickActions[0]) ? resolveTaskBriefPrompt : undefined,
             icon: action.icon ?? 'sparkles-outline',
         }));
-    }, [customQuickActions, defaultQuickActions, quickActionProjectPath]);
+    }, [customQuickActions, defaultQuickActions, quickActionProjectPath, resolveTaskBriefPrompt]);
     const handleCustomizeQuickActions = React.useCallback(async () => {
         const editableActions = customQuickActions.length > 0
             ? customQuickActions

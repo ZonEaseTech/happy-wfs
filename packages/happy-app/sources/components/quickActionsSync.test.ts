@@ -17,4 +17,10 @@ describe('custom quick actions sync storage', () => {
             expect(source).not.toContain("const [customQuickActions, setCustomQuickActions] = useLocalSettingMutable('customQuickActions')");
         }
     });
+
+    it('keeps the session-id prompt when the task brief action is customized', () => {
+        const source = readFileSync(resolve(sourceRoot, 'app/(app)/new/index.tsx'), 'utf8');
+        expect(source).toContain('isCustomTaskBriefAction');
+        expect(source).toContain('resolvePrompt: isCustomTaskBriefAction(action, defaultQuickActions[0]) ? resolveTaskBriefPrompt : undefined');
+    });
 });

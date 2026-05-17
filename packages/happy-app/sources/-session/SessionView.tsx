@@ -133,6 +133,12 @@ function applyQuickActionPlaceholders(prompt: string, params: { projectPath: str
     return prompt.replaceAll('{{projectPath}}', params.projectPath);
 }
 
+function isCustomTaskBriefAction(action: { label: string; prompt: string }, defaultTaskBriefAction: AgentQuickAction): boolean {
+    return action.label.trim() === defaultTaskBriefAction.label
+        || action.prompt.includes('happy task brief --recent')
+        || action.prompt.includes('happy task brief --session');
+}
+
 export const SessionView = React.memo((props: { id: string }) => {
     const sessionId = props.id;
     const router = useRouter();
@@ -761,9 +767,10 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             label: action.label,
             description: action.description ?? '',
             prompt: applyQuickActionPlaceholders(action.prompt, { projectPath: sessionProjectPath }),
+            resolvePrompt: isCustomTaskBriefAction(action, defaultQuickActions[0]) ? resolveTaskBriefPrompt : undefined,
             icon: action.icon ?? 'sparkles-outline',
         }));
-    }, [customQuickActions, defaultQuickActions, sessionProjectPath]);
+    }, [customQuickActions, defaultQuickActions, sessionProjectPath, resolveTaskBriefPrompt]);
     const handleCustomizeQuickActions = React.useCallback(async () => {
         const editableActions = customQuickActions.length > 0
             ? customQuickActions
