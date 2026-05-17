@@ -11,11 +11,15 @@ import { MessageView } from '@/components/MessageView';
 import { usePublicShareSession } from '@/hooks/usePublicShareSession';
 import { Message } from '@/sync/typesMessage';
 
-function OwnerCard({ owner, floating }: { owner: { username: string | null; firstName: string | null; lastName: string | null }; floating?: boolean }) {
-    const { theme } = useUnistyles();
-    const name = owner.username
+function getOwnerDisplayName(owner: { username: string | null; firstName: string | null; lastName: string | null }): string {
+    return owner.username
         || [owner.firstName, owner.lastName].filter(Boolean).join(' ')
         || 'Unknown';
+}
+
+function OwnerCard({ owner, floating }: { owner: { username: string | null; firstName: string | null; lastName: string | null }; floating?: boolean }) {
+    const { theme } = useUnistyles();
+    const name = getOwnerDisplayName(owner);
 
     return (
         <View style={[styles.ownerCard, floating && styles.ownerCardFloating, { backgroundColor: theme.colors.groupped.background }]}>
@@ -28,6 +32,30 @@ function OwnerCard({ owner, floating }: { owner: { username: string | null; firs
                     {name}
                 </Text>
             </View>
+        </View>
+    );
+}
+
+function ShareHeader({ owner }: { owner: { username: string | null; firstName: string | null; lastName: string | null } | null }) {
+    const { theme } = useUnistyles();
+    const name = owner ? getOwnerDisplayName(owner) : null;
+
+    return (
+        <View style={[styles.shareHeader, { borderBottomColor: theme.colors.divider }]}>
+            <Text style={[styles.shareTitle, { color: theme.colors.text }]}>
+                {t('session.sharing.sharedSession')}
+            </Text>
+            {name && (
+                <View style={styles.shareOwnerInline}>
+                    <Ionicons name="person-circle-outline" size={18} color={theme.colors.textSecondary} />
+                    <Text style={[styles.ownerLabel, { color: theme.colors.textSecondary }]}>
+                        {t('session.sharing.sharedBy')}
+                    </Text>
+                    <Text style={[styles.ownerName, { color: theme.colors.text }]} numberOfLines={1}>
+                        {name}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 }
@@ -107,7 +135,7 @@ export default memo(function PublicShareScreen() {
     // Loaded
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-            {owner && <OwnerCard owner={owner} />}
+            <ShareHeader owner={owner} />
             {messages.length === 0 ? (
                 <View style={styles.center}>
                     <Ionicons name="chatbubble-outline" size={48} color={theme.colors.textSecondary} />
@@ -143,6 +171,28 @@ const styles = StyleSheet.create((theme) => ({
         fontSize: 17,
         marginTop: 16,
         textAlign: 'center',
+    },
+    shareHeader: {
+        minHeight: 48,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderBottomWidth: 0.5,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 14,
+    },
+    shareTitle: {
+        ...Typography.default('semiBold'),
+        fontSize: 16,
+        flexShrink: 0,
+    },
+    shareOwnerInline: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        minWidth: 0,
+        flexShrink: 1,
     },
     ownerCard: {
         flexDirection: 'row',

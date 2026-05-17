@@ -1,11 +1,10 @@
 import * as React from 'react';
-import { View, Text, Modal as RNModal, Pressable, ScrollView, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, Modal as RNModal, Pressable, ScrollView, ActivityIndicator, TextInput, StyleSheet } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { machineReadFile, machineWriteFile } from '@/sync/ops';
 import { parseMcpServers, applyMcpServers, type McpServer } from '@/utils/mcpConfig';
 import type { ConfigTarget } from '@/app/(app)/settings/mcpTargets';
-import { layout } from '@/components/layout';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 
@@ -98,9 +97,9 @@ export function McpServersModal(props: McpServersModalProps) {
     }, [servers, editingIndex, persist]);
 
     return (
-        <RNModal visible={props.visible} animationType="slide" onRequestClose={props.onClose} transparent={false}>
-            <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
-                <View style={{ flex: 1, width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center' }}>
+        <RNModal visible={props.visible} animationType="fade" onRequestClose={props.onClose} transparent={true}>
+            <View style={styles.backdrop}>
+                <View style={[styles.dialog, { backgroundColor: theme.colors.surface }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 }}>
                         <Pressable onPress={view === 'form' ? () => setView('list') : props.onClose} hitSlop={10}>
                             <Ionicons name={view === 'form' ? 'arrow-back' : 'close'} size={24} color={theme.colors.text} />
@@ -167,6 +166,28 @@ export function McpServersModal(props: McpServersModalProps) {
         </RNModal>
     );
 }
+
+const styles = StyleSheet.create({
+    backdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.32)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    dialog: {
+        width: '100%',
+        maxWidth: 820,
+        maxHeight: '86%',
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.22,
+        shadowRadius: 32,
+        elevation: 12,
+    },
+});
 
 const TRANSPORTS: McpServer['transport'][] = ['stdio', 'http', 'sse'];
 

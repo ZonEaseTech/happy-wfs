@@ -14,6 +14,9 @@ interface WebPromptModalProps {
     onConfirm: (value: string | null) => void;
 }
 
+const LARGE_PROMPT_MAX_WIDTH = 720;
+const LARGE_PROMPT_HEIGHT_RATIO = 0.9;
+
 export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalProps) {
     const { theme } = useUnistyles();
     const window = useWindowDimensions();
@@ -21,9 +24,9 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
     const [checkboxChecked, setCheckboxChecked] = useState(config.checkbox?.defaultValue ?? false);
     const inputRef = useRef<TextInput>(null);
     const isLargePrompt = config.size === 'large' || (config.multiline && (config.multilineRows ?? 6) >= 12);
-    const visibleMultilineRows = config.multiline ? Math.min(config.multilineRows ?? 6, isLargePrompt ? 12 : 8) : 1;
-    const modalMaxHeight = Math.max(260, Math.floor(window.height * 0.82));
-    const modalWidth = Math.min(isLargePrompt ? 560 : 270, Math.max(240, Math.floor(window.width * 0.92)));
+    const visibleMultilineRows = config.multiline ? Math.min(config.multilineRows ?? 6, isLargePrompt ? 16 : 8) : 1;
+    const modalMaxHeight = Math.max(260, Math.floor(window.height * (isLargePrompt ? LARGE_PROMPT_HEIGHT_RATIO : 0.82)));
+    const modalWidth = Math.min(isLargePrompt ? LARGE_PROMPT_MAX_WIDTH : 270, Math.max(240, Math.floor(window.width * 0.92)));
     const buttonHeight = 52;
     const contentMaxHeight = Math.max(160, modalMaxHeight - buttonHeight);
 
@@ -159,7 +162,7 @@ export function WebPromptModal({ config, onClose, onConfirm }: WebPromptModalPro
                             config.multiline && {
                                 height: 24 * visibleMultilineRows,
                                 minHeight: 24 * visibleMultilineRows,
-                                maxHeight: isLargePrompt ? 420 : undefined,
+                                maxHeight: isLargePrompt ? 520 : undefined,
                                 flexShrink: 1,
                                 textAlignVertical: 'top' as const,
                                 paddingTop: 12,
