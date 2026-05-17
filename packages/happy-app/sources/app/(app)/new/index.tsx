@@ -362,7 +362,11 @@ function NewSessionWizard() {
     const [favoriteDirectories, setFavoriteDirectories] = useSettingMutable('favoriteDirectories');
     const [favoriteMachines, setFavoriteMachines] = useSettingMutable('favoriteMachines');
     const [dismissedCLIWarnings, setDismissedCLIWarnings] = useSettingMutable('dismissedCLIWarnings');
-    const [customQuickActions, setCustomQuickActions] = useLocalSettingMutable('customQuickActions');
+    const [syncedCustomQuickActions, setCustomQuickActions] = useSettingMutable('customQuickActions');
+    const [legacyLocalCustomQuickActions, setLegacyLocalCustomQuickActions] = useLocalSettingMutable('customQuickActions');
+    const customQuickActions = syncedCustomQuickActions.length > 0
+        ? syncedCustomQuickActions
+        : legacyLocalCustomQuickActions;
 
     // Combined profiles (built-in + custom)
     const allProfiles = React.useMemo(() => {
@@ -640,6 +644,7 @@ function NewSessionWizard() {
         const trimmed = raw.trim();
         if (!trimmed || trimmed === '[]') {
             setCustomQuickActions([]);
+            setLegacyLocalCustomQuickActions([]);
             return;
         }
         try {
@@ -655,10 +660,11 @@ function NewSessionWizard() {
                 prompt: action.prompt.trim(),
                 icon: action.icon?.trim() || undefined,
             })));
+            setLegacyLocalCustomQuickActions([]);
         } catch {
             Modal.alert(t('common.error'), t('agentInput.quickActions.customizeInvalid'));
         }
-    }, [customQuickActions, defaultQuickActions, quickActionProjectPath, setCustomQuickActions]);
+    }, [customQuickActions, defaultQuickActions, quickActionProjectPath, setCustomQuickActions, setLegacyLocalCustomQuickActions]);
 
     // Image picker
     const {

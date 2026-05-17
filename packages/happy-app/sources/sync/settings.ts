@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { CustomQuickActionSchema } from './localSettings';
 
 //
 // Configuration Profile Schema (for environment variable profiles)
@@ -293,6 +294,7 @@ export const SettingsSchema = z.object({
     favoriteDirectories: z.array(z.string()).describe('User-defined favorite directories for quick access in path selection'),
     // Favorite machines for quick machine selection
     favoriteMachines: z.array(z.string()).describe('User-defined favorite machines (machine IDs) for quick access in machine selection'),
+    customQuickActions: z.array(CustomQuickActionSchema).describe('Synced AI shortcut prompts shown in the session composer'),
     // Dismissed CLI warning banners (supports both per-machine and global dismissal)
     dismissedCLIWarnings: z.object({
         perMachine: z.record(z.string(), z.object({
@@ -360,6 +362,7 @@ export const settingsDefaults: Settings = {
     favoriteDirectories: ['~/src', '~/Desktop', '~/Documents'],
     // Favorite machines (empty by default)
     favoriteMachines: [],
+    customQuickActions: [],
     // Dismissed CLI warnings (empty by default)
     dismissedCLIWarnings: { perMachine: {}, global: {} },
 };

@@ -125,6 +125,7 @@ describe('settings', () => {
                 favoriteDirectories: [],
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
+                customQuickActions: [],
             };
             const delta: Partial<Settings> = {
                 viewInline: true
@@ -161,6 +162,7 @@ describe('settings', () => {
                 favoriteDirectories: [],
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
+                customQuickActions: [],
             });
         });
 
@@ -197,6 +199,7 @@ describe('settings', () => {
                 favoriteDirectories: [],
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
+                customQuickActions: [],
             };
             const delta: Partial<Settings> = {};
             expect(applySettings(currentSettings, delta)).toEqual(currentSettings);
@@ -235,6 +238,7 @@ describe('settings', () => {
                 favoriteDirectories: [],
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
+                customQuickActions: [],
             };
             const delta: Partial<Settings> = {
                 viewInline: false
@@ -278,6 +282,7 @@ describe('settings', () => {
                 favoriteDirectories: [],
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
+                customQuickActions: [],
             };
             expect(applySettings(currentSettings, {})).toEqual(currentSettings);
         });
@@ -330,6 +335,7 @@ describe('settings', () => {
                 favoriteDirectories: [],
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
+                customQuickActions: [],
             };
             const delta: any = {
                 viewInline: false,
@@ -392,6 +398,7 @@ describe('settings', () => {
                 favoriteDirectories: ['~/src', '~/Desktop', '~/Documents'],
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
+                customQuickActions: [],
                 useEnhancedSessionWizard: false,
                 showThinkingMessages: true,
             });
