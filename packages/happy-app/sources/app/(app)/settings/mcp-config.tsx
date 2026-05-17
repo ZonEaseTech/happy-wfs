@@ -36,6 +36,7 @@ export default function MCPConfigScreen() {
     const homeDir = onlineMachine?.metadata?.homeDir || '/root';
     const machineDisplay = onlineMachine?.metadata?.displayName || onlineMachine?.metadata?.host || '';
     const isOnline = onlineMachine ? isMachineOnline(onlineMachine) : false;
+    const targetDirPath = React.useCallback((target: ConfigTarget) => (target.dirName ? `${homeDir}/${target.dirName}` : homeDir), [homeDir]);
 
     const requireOnline = React.useCallback((action: () => void) => {
         if (!machineId) {
@@ -54,7 +55,7 @@ export default function MCPConfigScreen() {
             const path = `${homeDir}/${target.fileName}`;
             if (isPC) {
                 setViewerPath(path);
-                setViewerCwd(`${homeDir}/${target.dirName}`);
+                setViewerCwd(targetDirPath(target));
                 setShowViewer(true);
                 return;
             }
@@ -62,11 +63,11 @@ export default function MCPConfigScreen() {
             const validateJson = target.validateJson ? '&validateJson=1' : '';
             router.push(`/settings/machine-edit?machineId=${machineId}&path=${encodedPath}&language=${target.language}${validateJson}`);
         });
-    }, [homeDir, isPC, machineId, requireOnline, router]);
+    }, [homeDir, isPC, machineId, requireOnline, router, targetDirPath]);
 
     const browseDir = React.useCallback((target: ConfigTarget) => {
         requireOnline(() => {
-            const path = `${homeDir}/${target.dirName}`;
+            const path = targetDirPath(target);
             if (isPC) {
                 setViewerPath(undefined);
                 setViewerCwd(path);
@@ -76,7 +77,7 @@ export default function MCPConfigScreen() {
             const encodedPath = encodeURIComponent(path);
             router.push(`/settings/machine-browser?machineId=${machineId}&path=${encodedPath}`);
         });
-    }, [homeDir, isPC, machineId, requireOnline, router]);
+    }, [isPC, machineId, requireOnline, router, targetDirPath]);
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
@@ -104,7 +105,7 @@ export default function MCPConfigScreen() {
                         <Item
                             key={target.key}
                             title={t('mcpConfig.browseTarget', { target: target.title })}
-                            subtitle={`~/${target.dirName}`}
+                            subtitle={target.dirName ? `~/${target.dirName}` : '~'}
                             icon={<Ionicons name="folder-open-outline" size={29} color={target.color === '#111111' && theme.dark ? '#FFFFFF' : target.color} />}
                             onPress={() => browseDir(target)}
                         />

@@ -47,7 +47,7 @@ export function McpServersModal(props: McpServersModalProps) {
                 content = new TextDecoder('utf-8').decode(bytes);
             }
             try {
-                setServers(parseMcpServers(content, props.target.key));
+                setServers(parseMcpServers(content, props.target.codecTarget));
                 setOriginalContent(content);
                 setLoadState('ready');
             } catch (e) {
@@ -55,14 +55,14 @@ export function McpServersModal(props: McpServersModalProps) {
                 setLoadState('error');
             }
         })();
-    }, [props.visible, props.machineId, props.filePath, props.target.key]);
+    }, [props.visible, props.machineId, props.filePath, props.target.codecTarget]);
 
     const persist = React.useCallback(async (next: McpServer[]) => {
         setSaving(true);
         try {
             let content: string;
             try {
-                content = applyMcpServers(originalContent, next, props.target.key);
+                content = applyMcpServers(originalContent, next, props.target.codecTarget);
             } catch (e) {
                 Modal.alert(t('common.error'), e instanceof Error ? e.message : String(e));
                 return false;
@@ -80,7 +80,7 @@ export function McpServersModal(props: McpServersModalProps) {
         } finally {
             setSaving(false);
         }
-    }, [originalContent, props.machineId, props.filePath, props.target.key]);
+    }, [originalContent, props.machineId, props.filePath, props.target.codecTarget]);
 
     const handleDelete = React.useCallback(async (index: number) => {
         const ok = await Modal.confirm(t('mcpManager.deleteTitle'), t('mcpManager.deleteMessage', { name: servers[index].name }), {
@@ -178,6 +178,7 @@ const styles = StyleSheet.create({
     dialog: {
         width: '100%',
         maxWidth: 820,
+        height: '72%',
         maxHeight: '86%',
         borderRadius: 16,
         overflow: 'hidden',

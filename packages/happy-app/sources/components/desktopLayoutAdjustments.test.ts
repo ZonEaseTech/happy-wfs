@@ -26,6 +26,7 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('transparent={true}');
         expect(source).toContain('styles.backdrop');
         expect(source).toContain('styles.dialog');
+        expect(source).toContain("height: '72%'");
         expect(source).not.toContain('transparent={false}');
     });
 
@@ -34,5 +35,12 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('LARGE_PROMPT_MAX_WIDTH = 720');
         expect(source).toContain('LARGE_PROMPT_HEIGHT_RATIO = 0.9');
         expect(source).toContain('visibleMultilineRows = config.multiline ? Math.min(config.multilineRows ?? 6, isLargePrompt ? 16 : 8) : 1');
+    });
+
+    it('uses the root Claude .mcp.json target so shared MCP config is visible', () => {
+        const source = read('app/(app)/settings/mcpTargets.ts');
+        expect(source).toContain("fileName: '.mcp.json'");
+        expect(source).toContain("subtitle: '~/.mcp.json · mcpServers'");
+        expect(source).toContain('codecTarget');
     });
 });
