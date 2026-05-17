@@ -114,12 +114,20 @@ export function spawnShell(opts: SpawnShellOptions): SpawnShellResult {
     const shell = process.env.SHELL || (process.platform === 'win32' ? 'powershell.exe' : 'bash');
     const cwd = opts.cwd ?? process.cwd();
 
+    // The daemon runs with NO_COLOR=1 so agent subprocesses emit plain,
+    // parseable output. The interactive terminal is the opposite — it must
+    // render colors — so drop NO_COLOR and advertise full color support so
+    // claude/git/ls/etc. emit ANSI color in the real terminal.
+    const shellEnv = { ...process.env };
+    delete shellEnv.NO_COLOR;
+    shellEnv.COLORTERM = 'truecolor';
+
     const term = mod.spawn(shell, [], {
         name: 'xterm-256color',
         cols: opts.cols,
         rows: opts.rows,
         cwd,
-        env: process.env,
+        env: shellEnv,
         // encoding: null tells node-pty to skip its built-in utf8 decode and
         // hand us raw Buffers from the master fd. The PTY byte stream isn't
         // necessarily valid UTF-8 at any given chunk boundary (claude/vim/etc
