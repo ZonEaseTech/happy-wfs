@@ -63,7 +63,7 @@ function ShareHeader({ owner }: { owner: { username: string | null; firstName: s
 export default memo(function PublicShareScreen() {
     const { token } = useLocalSearchParams<{ token: string }>();
     const { theme } = useUnistyles();
-    const { state, messages, metadata, owner, sessionId, giveConsent } = usePublicShareSession(token);
+    const { state, messages, metadata, owner, sessionId, hasMore, isLoadingMore, loadMore, giveConsent } = usePublicShareSession(token);
 
     const keyExtractor = useCallback((item: Message) => item.id, []);
     const renderItem = useCallback(({ item }: { item: Message }) => (
@@ -74,6 +74,14 @@ export default memo(function PublicShareScreen() {
             readOnly
         />
     ), [metadata, sessionId]);
+
+    const listFooter = useCallback(() => (
+        hasMore || isLoadingMore ? (
+            <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+            </View>
+        ) : null
+    ), [hasMore, isLoadingMore, theme.colors.textSecondary]);
 
     // Loading
     if (state === 'loading') {
@@ -149,7 +157,13 @@ export default memo(function PublicShareScreen() {
                     keyExtractor={keyExtractor}
                     renderItem={renderItem}
                     inverted
+                    maintainVisibleContentPosition={{
+                        minIndexForVisible: 0,
+                    }}
                     contentContainerStyle={styles.listContent}
+                    ListFooterComponent={listFooter}
+                    onEndReached={loadMore}
+                    onEndReachedThreshold={0.5}
                 />
             )}
         </View>
@@ -242,5 +256,9 @@ const styles = StyleSheet.create((theme) => ({
     },
     listContent: {
         paddingVertical: 8,
+    },
+    loadingMore: {
+        paddingVertical: 16,
+        alignItems: 'center',
     },
 }));

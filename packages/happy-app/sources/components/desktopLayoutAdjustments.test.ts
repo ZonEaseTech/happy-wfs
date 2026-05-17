@@ -43,4 +43,22 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain("subtitle: '~/.codex/.mcp.json · mcpServers'");
         expect(source).toContain('codecTarget');
     });
+
+    it('loads older public-share messages when the shared conversation is scrolled upward', () => {
+        const page = read('app/(app)/share/[token].tsx');
+        expect(page).toContain('hasMore, isLoadingMore, loadMore');
+        expect(page).toContain('ListFooterComponent={listFooter}');
+        expect(page).toContain('onEndReached={loadMore}');
+        expect(page).toContain('maintainVisibleContentPosition');
+
+        const hook = read('hooks/usePublicShareSession.ts');
+        expect(hook).toContain('oldestSeqRef');
+        expect(hook).toContain('before: oldestSeqRef.current');
+        expect(hook).toContain('setMessages((current) =>');
+
+        const api = read('sync/apiSharing.ts');
+        expect(api).toContain("url.searchParams.set('before', String(options.before))");
+        expect(api).toContain('hasMore: data.hasMore ?? false');
+    });
+
 });

@@ -323,17 +323,28 @@ export async function deletePublicShare(
     }
 }
 
+export type PublicShareMessagePage = {
+    messages: { id: string; seq: number; content: { t: string; c: string }; localId: string | null; createdAt: number; updatedAt: number }[];
+    hasMore: boolean;
+};
+
 /**
  * Fetch messages from a public share (public endpoint, no auth required)
  */
 export async function getPublicShareMessages(
     serverUrl: string,
     token: string,
-    consent?: boolean
-): Promise<{ id: string; seq: number; content: { t: string; c: string }; localId: string | null; createdAt: number; updatedAt: number }[]> {
+    options: { consent?: boolean; before?: number; limit?: number } = {}
+): Promise<PublicShareMessagePage> {
     const url = new URL(`${serverUrl}/v1/public-share/${token}/messages`);
-    if (consent) {
+    if (options.consent) {
         url.searchParams.set('consent', 'true');
+    }
+    if (options.before !== undefined) {
+        url.searchParams.set('before', String(options.before));
+    }
+    if (options.limit !== undefined) {
+        url.searchParams.set('limit', String(options.limit));
     }
 
     const response = await fetch(url.toString(), {
@@ -354,7 +365,10 @@ export async function getPublicShareMessages(
     }
 
     const data = await response.json();
-    return data.messages;
+    return {
+        messages: data.messages,
+        hasMore: data.hasMore ?? false,
+    };
 }
 
 /**

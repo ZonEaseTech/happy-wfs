@@ -426,12 +426,14 @@ export function publicShareRoutes(app: Fastify) {
                 token: z.string()
             }),
             querystring: z.object({
-                consent: z.coerce.boolean().optional()
+                consent: z.coerce.boolean().optional(),
+                before: z.coerce.number().int().optional(),
+                limit: z.coerce.number().int().min(1).max(200).default(150)
             }).optional()
         }
     }, async (request, reply) => {
         const { token } = request.params;
-        const { consent } = request.query || {};
+        const { consent, before, limit = 150 } = request.query || {};
         const tokenHash = createHash('sha256').update(token, 'utf8').digest();
 
         // Try to get user ID if authenticated
@@ -500,9 +502,12 @@ export function publicShareRoutes(app: Fastify) {
         }
 
         const messages = await db.sessionMessage.findMany({
-            where: { sessionId: publicShare.sessionId },
-            orderBy: { createdAt: 'desc' },
-            take: 150,
+            where: {
+                sessionId: publicShare.sessionId,
+                ...(before !== undefined ? { seq: { lt: before } } : {})
+            },
+            orderBy: { seq: 'desc' },
+            take: limit + 1,
             select: {
                 id: true,
                 seq: true,
@@ -513,15 +518,19 @@ export function publicShareRoutes(app: Fastify) {
             }
         });
 
+        const hasMore = messages.length > limit;
+        const result = messages.slice(0, limit);
+
         return reply.send({
-            messages: messages.map((v) => ({
+            messages: result.map((v) => ({
                 id: v.id,
                 seq: v.seq,
                 content: v.content,
                 localId: v.localId,
                 createdAt: v.createdAt.getTime(),
                 updatedAt: v.updatedAt.getTime()
-            }))
+            })),
+            hasMore
         });
     });
 
