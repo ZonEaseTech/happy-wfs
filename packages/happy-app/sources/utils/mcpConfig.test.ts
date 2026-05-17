@@ -71,3 +71,26 @@ describe('applyMcpServers — JSON', () => {
         expect(JSON.parse(out)).toEqual({ mcpServers: { s: { command: 'c' } } });
     });
 });
+
+describe('parseMcpServers — TOML (codex)', () => {
+    it('returns [] when there are no mcp_servers tables', () => {
+        expect(parseMcpServers('model = "gpt-5"\n', 'codex')).toEqual([]);
+        expect(parseMcpServers('', 'codex')).toEqual([]);
+    });
+
+    it('parses a stdio server table', () => {
+        const toml = '[mcp_servers.fs]\ncommand = "npx"\nargs = ["-y", "pkg"]\n\n[mcp_servers.fs.env]\nK = "V"\n';
+        expect(parseMcpServers(toml, 'codex')).toEqual([
+            { name: 'fs', transport: 'stdio', command: 'npx', args: ['-y', 'pkg'], env: { K: 'V' }, extras: undefined },
+        ]);
+    });
+
+    it('parses a url table as http', () => {
+        const toml = '[mcp_servers.api]\nurl = "https://x"\n';
+        expect(parseMcpServers(toml, 'codex')[0]).toMatchObject({ name: 'api', transport: 'http', url: 'https://x' });
+    });
+
+    it('throws on malformed TOML', () => {
+        expect(() => parseMcpServers('[mcp_servers.', 'codex')).toThrow();
+    });
+});

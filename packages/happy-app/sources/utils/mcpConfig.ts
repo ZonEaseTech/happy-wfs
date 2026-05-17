@@ -1,3 +1,5 @@
+import { parse as parseToml } from 'smol-toml';
+
 export type McpTarget = 'claude' | 'codex' | 'gemini';
 export type McpTransport = 'stdio' | 'http' | 'sse';
 
@@ -64,9 +66,39 @@ function jsonEntryToServer(name: string, entry: Record<string, unknown>, target:
     };
 }
 
-// parseCodexServers defined in Task 4 — leave a stub that Task 4 replaces:
-function parseCodexServers(_content: string): McpServer[] {
-    throw new Error('not implemented');
+// Codex MCP table keys the codec recognizes.
+const CODEX_KNOWN_KEYS = ['command', 'args', 'env', 'url', 'http_headers'];
+
+function parseCodexServers(content: string): McpServer[] {
+    const trimmed = content.trim();
+    const root = trimmed ? (parseToml(trimmed) as Record<string, unknown>) : {};
+    const mcp = root.mcp_servers as Record<string, unknown> | undefined;
+    if (!mcp || typeof mcp !== 'object') return [];
+    return Object.entries(mcp).map(([name, raw]) =>
+        codexTableToServer(name, (raw ?? {}) as Record<string, unknown>),
+    );
+}
+
+function codexTableToServer(name: string, table: Record<string, unknown>): McpServer {
+    const extras: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(table)) {
+        if (!CODEX_KNOWN_KEYS.includes(k)) extras[k] = v;
+    }
+    const extrasOrUndef = Object.keys(extras).length ? extras : undefined;
+    if (typeof table.url === 'string') {
+        return {
+            name, transport: 'http', url: table.url,
+            headers: table.http_headers as Record<string, string> | undefined,
+            extras: extrasOrUndef,
+        };
+    }
+    return {
+        name, transport: 'stdio',
+        command: table.command as string | undefined,
+        args: table.args as string[] | undefined,
+        env: table.env as Record<string, string> | undefined,
+        extras: extrasOrUndef,
+    };
 }
 
 export function applyMcpServers(originalContent: string, servers: McpServer[], target: McpTarget): string {
