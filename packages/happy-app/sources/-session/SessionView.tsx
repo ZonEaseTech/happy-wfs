@@ -23,7 +23,7 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
-import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -605,7 +605,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const sessionStatus = useSessionStatus(session);
     const sessionUsage = useSessionUsage(sessionId);
     const alwaysShowContextSize = useSetting('alwaysShowContextSize');
-    const [customQuickActions, setCustomQuickActions] = useLocalSettingMutable('customQuickActions');
+    const [syncedCustomQuickActions, setCustomQuickActions] = useSettingMutable('customQuickActions');
+    const [legacyLocalCustomQuickActions, setLegacyLocalCustomQuickActions] = useLocalSettingMutable('customQuickActions');
+    const customQuickActions = syncedCustomQuickActions.length > 0
+        ? syncedCustomQuickActions
+        : legacyLocalCustomQuickActions;
     const [silentRefreshTrackingKey, setSilentRefreshTrackingKey] = React.useState(0);
     const [silentRefreshPhase, setSilentRefreshPhase] = React.useState<'idle' | 'refreshing' | 'failed'>('idle');
     const latestMessageSnapshotRef = React.useRef({ isLoaded, messages, fetchVersion });
@@ -785,6 +789,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         const trimmed = raw.trim();
         if (!trimmed || trimmed === '[]') {
             setCustomQuickActions([]);
+            setLegacyLocalCustomQuickActions([]);
             return;
         }
         try {
@@ -800,10 +805,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 prompt: action.prompt.trim(),
                 icon: action.icon?.trim() || undefined,
             })));
+            setLegacyLocalCustomQuickActions([]);
         } catch {
             Modal.alert(t('common.error'), t('agentInput.quickActions.customizeInvalid'));
         }
-    }, [customQuickActions, defaultQuickActions, sessionProjectPath, setCustomQuickActions]);
+    }, [customQuickActions, defaultQuickActions, sessionProjectPath, setCustomQuickActions, setLegacyLocalCustomQuickActions]);
 
     // Pill toggle in the status row: archive when active, resume when archived.
     // Both flows confirm via Modal first, so an accidental tap is recoverable.
