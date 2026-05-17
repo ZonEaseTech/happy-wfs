@@ -133,4 +133,11 @@ describe('applyMcpServers — TOML (codex)', () => {
         const out = applyMcpServers(original, parseMcpServers(original, 'codex'), 'codex');
         expect(out).toContain('startup_timeout_ms = 5000');
     });
+
+    it('quotes a server name that is not a bare TOML key', () => {
+        const out = applyMcpServers('', [{ name: 'my.server', transport: 'stdio', command: 'x' }], 'codex');
+        expect(out).toContain('[mcp_servers."my.server"]');
+        // round-trips back to the same name
+        expect(parseMcpServers(out, 'codex')[0].name).toBe('my.server');
+    });
 });

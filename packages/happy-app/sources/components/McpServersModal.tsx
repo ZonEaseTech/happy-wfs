@@ -37,7 +37,15 @@ export function McpServersModal(props: McpServersModalProps) {
         setView('list');
         (async () => {
             const res = await machineReadFile(props.machineId, props.filePath);
-            const content = res.success ? (res.content ?? '') : '';
+            let content = '';
+            if (res.success && typeof res.content === 'string' && res.content.length > 0) {
+                const binaryString = atob(res.content);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                content = new TextDecoder('utf-8').decode(bytes);
+            }
             try {
                 setServers(parseMcpServers(content, props.target.key));
                 setOriginalContent(content);
@@ -52,8 +60,16 @@ export function McpServersModal(props: McpServersModalProps) {
     const persist = React.useCallback(async (next: McpServer[]) => {
         setSaving(true);
         try {
-            const content = applyMcpServers(originalContent, next, props.target.key);
-            const res = await machineWriteFile(props.machineId, props.filePath, content);
+            let content: string;
+            try {
+                content = applyMcpServers(originalContent, next, props.target.key);
+            } catch (e) {
+                Modal.alert(t('common.error'), e instanceof Error ? e.message : String(e));
+                return false;
+            }
+            const bytes = new TextEncoder().encode(content);
+            const base64 = btoa(bytes.reduce((s, b) => s + String.fromCharCode(b), ''));
+            const res = await machineWriteFile(props.machineId, props.filePath, base64);
             if (!res.success) {
                 Modal.alert(t('common.error'), res.error || t('mcpManager.saveFailed'));
                 return false;

@@ -144,19 +144,24 @@ function tomlString(value: string): string {
     return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
 
+/** A TOML key segment: bare if safe, otherwise a quoted string. */
+function tomlKey(name: string): string {
+    return /^[A-Za-z0-9_-]+$/.test(name) ? name : tomlString(name);
+}
+
 function tomlArray(values: string[]): string {
     return '[' + values.map(tomlString).join(', ') + ']';
 }
 
 /** Emit a `[mcp_servers.<name>.<sub>]` table for a key/value map. */
 function tomlSubTable(serverName: string, sub: string, map: Record<string, string>): string {
-    const lines = [`[mcp_servers.${serverName}.${sub}]`];
+    const lines = [`[mcp_servers.${tomlKey(serverName)}.${sub}]`];
     for (const [k, v] of Object.entries(map)) lines.push(`${k} = ${tomlString(v)}`);
     return lines.join('\n');
 }
 
 function serverToCodexBlock(s: McpServer): string {
-    const head = [`[mcp_servers.${s.name}]`];
+    const head = [`[mcp_servers.${tomlKey(s.name)}]`];
     const subTables: string[] = [];
     if (s.transport === 'stdio') {
         if (s.command) head.push(`command = ${tomlString(s.command)}`);
