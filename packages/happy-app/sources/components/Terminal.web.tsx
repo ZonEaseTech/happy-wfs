@@ -222,7 +222,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
             fontSize: 13,
             theme: {
-                background: '#000000',
+                background: '#0f1115',
                 foreground: '#e5e5e5',
                 cursor: '#e5e5e5',
                 selectionBackground: 'rgba(255,255,255,0.25)',
@@ -417,7 +417,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 flex: 1,
                 width: '100%',
                 height: '100%',
-                background: '#000',
+                background: '#0f1115',
                 padding: 8,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
@@ -789,9 +789,26 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
     );
 };
 
+
+function terminalLabelFromCwd(cwd?: string): string {
+    const trimmed = cwd?.replace(/\/+$/, '');
+    if (!trimmed) return '终端';
+    return trimmed.split('/').filter(Boolean).pop() || '终端';
+}
+
+type TerminalPanelTab = {
+    id: string;
+    title: string;
+};
+
 export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [errorClosed, setErrorClosed] = React.useState(false);
+    const tabCounterRef = React.useRef(1);
+    const [terminalTabs, setTerminalTabs] = React.useState<TerminalPanelTab[]>(() => ([
+        { id: 'terminal-1', title: terminalLabelFromCwd(cwd) },
+    ]));
+    const [activeTerminalTabId, setActiveTerminalTabId] = React.useState('terminal-1');
     const panelHeightRef = React.useRef(260);
     const [panelHeight, setPanelHeight] = React.useState<number>(() => {
         if (typeof window === 'undefined') return 260;
@@ -816,6 +833,15 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         showToast(msg);
         onClose();
     }, [errorClosed, onClose]);
+
+    const handleAddTerminalTab = React.useCallback(() => {
+        const nextIndex = tabCounterRef.current + 1;
+        tabCounterRef.current = nextIndex;
+        const baseTitle = terminalLabelFromCwd(cwd);
+        const nextTab = { id: `terminal-${nextIndex}`, title: `${baseTitle} ${nextIndex}` };
+        setTerminalTabs((current) => [...current, nextTab]);
+        setActiveTerminalTabId(nextTab.id);
+    }, [cwd]);
 
     const handlePanelResizeStart = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -848,59 +874,123 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             style={{
                 height: panelHeight,
                 minHeight: 120,
-                backgroundColor: '#000',
+                alignSelf: 'stretch',
+                width: '100%',
+                marginLeft: 0,
+                marginRight: 0,
+                backgroundColor: '#0f1115',
                 borderTopWidth: 1,
-                borderTopColor: '#2a2a2a',
-                boxShadow: '0 -8px 24px rgba(0,0,0,0.18)' as any,
+                borderTopColor: '#2d3340',
+                boxShadow: '0 -6px 18px rgba(15, 23, 42, 0.20)' as any,
             }}
         >
             <div
                 onMouseDown={handlePanelResizeStart}
                 title="拖动调整终端高度"
                 style={{
-                    height: 8,
+                    height: 28,
                     cursor: 'ns-resize',
-                    background: '#1a1a1a',
+                    background: '#171923',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    justifyContent: 'space-between',
                     userSelect: 'none',
+                    borderBottom: '1px solid #2d3340',
+                    padding: '0 8px',
+                    boxSizing: 'border-box',
+                    position: 'relative',
                 }}
             >
                 <div
+                    onMouseDown={(event) => event.stopPropagation()}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: '70%', overflow: 'hidden' }}
+                >
+                    {terminalTabs.map((tab) => {
+                        const isActive = tab.id === activeTerminalTabId;
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setActiveTerminalTabId(tab.id)}
+                                style={{
+                                    height: 22,
+                                    maxWidth: 180,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    border: isActive ? '1px solid #334155' : '1px solid transparent',
+                                    borderRadius: 6,
+                                    background: isActive ? '#0f172a' : 'transparent',
+                                    color: isActive ? '#e5e7eb' : '#94a3b8',
+                                    cursor: 'pointer',
+                                    padding: '0 8px',
+                                    fontSize: 12,
+                                    fontWeight: isActive ? 600 : 500,
+                                    minWidth: 0,
+                                }}
+                            >
+                                <Ionicons name="terminal-outline" size={13} color={isActive ? '#93c5fd' : '#94a3b8'} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title}</span>
+                            </button>
+                        );
+                    })}
+                    <button
+                        type="button"
+                        onClick={handleAddTerminalTab}
+                        aria-label="New terminal tab"
+                        title="新增终端标签"
+                        style={{
+                            width: 22,
+                            height: 22,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid transparent',
+                            borderRadius: 6,
+                            background: 'transparent',
+                            color: '#94a3b8',
+                            cursor: 'pointer',
+                            padding: 0,
+                        }}
+                    >
+                        <Ionicons name="add" size={16} color="#94a3b8" />
+                    </button>
+                </div>
+                <div
                     style={{
+                        position: 'absolute',
+                        top: 4,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
                         width: 48,
                         height: 3,
                         borderRadius: 999,
-                        background: '#4b5563',
+                        background: '#64748b',
                     }}
                 />
-            </div>
-            <View
-                style={{
-                    height: 36,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 12,
-                    backgroundColor: '#1a1a1a',
-                    borderBottomWidth: 1,
-                    borderBottomColor: '#2a2a2a',
-                }}
-            >
-                <Ionicons name="terminal-outline" size={16} color="#e5e5e5" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#e5e5e5', fontSize: 13, fontWeight: '600' }}>终端</Text>
-                <View style={{ flex: 1 }} />
-                <Pressable
-                    onPress={onClose}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel="Close terminal"
-                    style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+                <button
+                    type="button"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={onClose}
+                    aria-label="Close terminal"
+                    style={{
+                        width: 24,
+                        height: 24,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: 0,
+                        borderRadius: 6,
+                        background: 'transparent',
+                        color: '#cbd5e1',
+                        cursor: 'pointer',
+                        padding: 0,
+                    }}
                 >
-                    <Ionicons name="close" size={20} color="#e5e5e5" />
-                </Pressable>
-            </View>
-            <View style={{ flex: 1, backgroundColor: '#000' }}>
+                    <Ionicons name="close" size={16} color="#cbd5e1" />
+                </button>
+            </div>
+            <View style={{ flex: 1, backgroundColor: '#0f1115' }}>
                 <React.Suspense
                     fallback={
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -910,14 +1000,23 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 >
                     {!bundle && <LazyXtermBoot onReady={setBundle} />}
                 </React.Suspense>
-                {bundle && (
-                    <TerminalRuntime
-                        sessionId={sessionId}
-                        cwd={cwd}
-                        bundle={bundle}
-                        onError={handleError}
-                    />
-                )}
+                {bundle && terminalTabs.map((tab) => (
+                    <View
+                        key={tab.id}
+                        style={{
+                            flex: 1,
+                            backgroundColor: '#0f1115',
+                            display: tab.id === activeTerminalTabId ? 'flex' : 'none',
+                        }}
+                    >
+                        <TerminalRuntime
+                            sessionId={sessionId}
+                            cwd={cwd}
+                            bundle={bundle}
+                            onError={handleError}
+                        />
+                    </View>
+                ))}
             </View>
         </View>
     );

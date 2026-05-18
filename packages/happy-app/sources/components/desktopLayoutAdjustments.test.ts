@@ -95,6 +95,17 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain("window.localStorage?.getItem('terminal.panelHeight')");
         expect(terminalWeb).toContain('height: panelHeight');
         expect(terminalWeb).toContain('handlePanelResizeStart');
+        expect(terminalWeb).toContain("alignSelf: 'stretch'");
+        expect(terminalWeb).toContain("width: '100%'");
+        expect(terminalWeb).toContain("backgroundColor: '#0f1115'");
+        expect(terminalWeb).toContain("background: '#171923'");
+        expect(terminalWeb).toContain('height: 28');
+        expect(terminalWeb).toContain('terminalTabs');
+        expect(terminalWeb).toContain('activeTerminalTabId');
+        expect(terminalWeb).toContain('handleAddTerminalTab');
+        expect(terminalWeb).toContain('aria-label="New terminal tab"');
+        expect(terminalWeb).toContain('terminalLabelFromCwd');
+        expect(terminalWeb).not.toContain('height: 36,\n                    flexDirection');
     });
 
 });
