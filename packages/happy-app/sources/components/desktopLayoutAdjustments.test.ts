@@ -108,4 +108,12 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).not.toContain('height: 36,\n                    flexDirection');
     });
 
+
+    it('uses a dark empty editor area in the file viewer modal', () => {
+        const source = read('components/FileViewerModal.web.tsx');
+        expect(source).toContain("<View style={{ flex: 1, minWidth: 0, backgroundColor: '#1e1e1e' }}>");
+        expect(source).toContain("<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1e1e1e' }}>");
+        expect(source).toContain("color: '#8f8f8f'");
+    });
+
 });

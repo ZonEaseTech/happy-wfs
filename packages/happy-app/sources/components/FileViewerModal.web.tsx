@@ -1427,7 +1427,7 @@ export function FileViewerModal({
                             activeFilePath={activeTab?.path ?? null}
                         />
                     </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flex: 1, minWidth: 0, backgroundColor: '#1e1e1e' }}>
                         {activeTab ? (
                             activeTab.kind === 'image' ? (
                                 <View style={{
@@ -1450,7 +1450,7 @@ export function FileViewerModal({
                                 </View>
                             ) : previewTabIds.has(activeTab.id) && activeTab.language === 'markdown' ? (
                                 <ScrollView
-                                    style={{ flex: 1, backgroundColor: theme.colors.surface }}
+                                    style={{ flex: 1, backgroundColor: '#1e1e1e' }}
                                     contentContainerStyle={{ padding: 24 }}
                                 >
                                     <MarkdownView markdown={activeTab.content} />
@@ -1476,8 +1476,8 @@ export function FileViewerModal({
                                 />
                             )
                         ) : (
-                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 14, color: theme.colors.textSecondary, ...Typography.default() }}>
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1e1e1e' }}>
+                                <Text style={{ fontSize: 14, color: '#8f8f8f', ...Typography.default() }}>
                                     {tx('fileViewer.noFileOpen')}
                                 </Text>
                             </View>

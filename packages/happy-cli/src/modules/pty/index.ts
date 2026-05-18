@@ -116,11 +116,18 @@ export function spawnShell(opts: SpawnShellOptions): SpawnShellResult {
 
     // The daemon runs with NO_COLOR=1 so agent subprocesses emit plain,
     // parseable output. The interactive terminal is the opposite — it must
-    // render colors — so drop NO_COLOR and advertise full color support so
-    // claude/git/ls/etc. emit ANSI color in the real terminal.
+    // render colors — so drop color-disable flags and explicitly advertise a
+    // truecolor xterm. Some hosts inherit TERM=dumb or NODE_DISABLE_COLORS=1
+    // from the daemon environment; if those leak into the interactive shell,
+    // Claude Code / git / ls downgrade to monochrome even though xterm.js can
+    // render ANSI colors.
     const shellEnv = { ...process.env };
     delete shellEnv.NO_COLOR;
+    delete shellEnv.NODE_DISABLE_COLORS;
+    shellEnv.TERM = 'xterm-256color';
     shellEnv.COLORTERM = 'truecolor';
+    shellEnv.FORCE_COLOR = shellEnv.FORCE_COLOR || '1';
+    shellEnv.CLICOLOR = shellEnv.CLICOLOR || '1';
 
     const term = mod.spawn(shell, [], {
         name: 'xterm-256color',
