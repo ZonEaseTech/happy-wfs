@@ -82,4 +82,19 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('pendingMessages.map((message) => sync.deletePendingMessage(sessionId, message.id))');
     });
 
+
+    it('opens the session terminal as a bottom resizable panel instead of a floating modal', () => {
+        const sessionView = read('-session/SessionView.tsx');
+        expect(sessionView).toContain("import { TerminalPanel } from '@/components/Terminal';");
+        expect(sessionView).toContain('onPress={() => setShowTerminal(prev => !prev)}');
+        expect(sessionView).toContain('<TerminalPanel');
+        expect(sessionView).not.toContain(`<Terminal\n                visible={showTerminal}`);
+
+        const terminalWeb = read('components/Terminal.web.tsx');
+        expect(terminalWeb).toContain('export const TerminalPanel');
+        expect(terminalWeb).toContain("window.localStorage?.getItem('terminal.panelHeight')");
+        expect(terminalWeb).toContain('height: panelHeight');
+        expect(terminalWeb).toContain('handlePanelResizeStart');
+    });
+
 });

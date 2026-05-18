@@ -15,3 +15,7 @@ export interface TerminalProps {
 export function Terminal(_props: TerminalProps): null {
     return null;
 }
+
+export function TerminalPanel(_props: TerminalProps): null {
+    return null;
+}

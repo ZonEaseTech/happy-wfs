@@ -49,7 +49,7 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { RightPanel, RightPanelType } from '@/components/RightPanel';
 import { FileViewerModal } from '@/components/FileViewerModal';
-import { Terminal } from '@/components/Terminal';
+import { TerminalPanel } from '@/components/Terminal';
 import { buildCopyToAgentBriefPrompt } from './sessionCopyPrompt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
@@ -467,7 +467,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 {showTerminalButton && (
                                     <Pressable
                                         {...webTooltip('Terminal')}
-                                        onPress={() => setShowTerminal(true)}
+                                        onPress={() => setShowTerminal(prev => !prev)}
                                         hitSlop={15}
                                         accessibilityRole="button"
                                         accessibilityLabel="Terminal"
@@ -1369,7 +1369,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         />
     ) : null;
 
-    const input = canEdit ? (
+    const agentInput = canEdit ? (
         <AgentInput
             ref={inputRef}
             placeholder={t('session.inputPlaceholder')}
@@ -1521,6 +1521,18 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         />
     ) : null;
 
+    const input = (
+        <>
+            {agentInput}
+            <TerminalPanel
+                visible={showTerminal}
+                onClose={() => setShowTerminal(false)}
+                sessionId={sessionId}
+                cwd={session.metadata?.path}
+            />
+        </>
+    );
+
 
     return (
         <>
@@ -1640,14 +1652,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             {/* Worktree-aware archive confirmation menu (used by useArchiveSession) */}
             {archiveOverlay}
 
-            {/* PC: bt-style file viewer fired by header code-slash button. Uses
-                a portal so it covers the whole viewport including the Sidebar. */}
-            <Terminal
-                visible={showTerminal}
-                onClose={() => setShowTerminal(false)}
-                sessionId={sessionId}
-                cwd={session.metadata?.path}
-            />
             <FileViewerModal
                 visible={showFileViewer}
                 onClose={() => setShowFileViewer(false)}

@@ -788,3 +788,137 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
         document.body,
     );
 };
+
+export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd }) => {
+    const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
+    const [errorClosed, setErrorClosed] = React.useState(false);
+    const panelHeightRef = React.useRef(260);
+    const [panelHeight, setPanelHeight] = React.useState<number>(() => {
+        if (typeof window === 'undefined') return 260;
+        try {
+            const raw = window.localStorage?.getItem('terminal.panelHeight');
+            const parsed = raw ? Number(raw) : NaN;
+            if (Number.isFinite(parsed) && parsed >= 120) {
+                return Math.min(parsed, Math.round(window.innerHeight * 0.6));
+            }
+        } catch {}
+        return 260;
+    });
+
+    React.useEffect(() => { panelHeightRef.current = panelHeight; }, [panelHeight]);
+    React.useEffect(() => {
+        if (visible) setErrorClosed(false);
+    }, [visible]);
+
+    const handleError = React.useCallback((msg: string) => {
+        if (errorClosed) return;
+        setErrorClosed(true);
+        showToast(msg);
+        onClose();
+    }, [errorClosed, onClose]);
+
+    const handlePanelResizeStart = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startY = e.clientY;
+        const startHeight = panelHeightRef.current;
+        let lastHeight = startHeight;
+        const clampHeight = (value: number) => {
+            const maxHeight = typeof window === 'undefined' ? 640 : Math.round(window.innerHeight * 0.6);
+            return Math.max(120, Math.min(maxHeight, value));
+        };
+        const onMove = (ev: MouseEvent) => {
+            // The handle is on the panel's top edge: dragging upward increases height.
+            lastHeight = clampHeight(startHeight + (startY - ev.clientY));
+            setPanelHeight(lastHeight);
+        };
+        const onUp = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            try { window.localStorage?.setItem('terminal.panelHeight', String(lastHeight)); } catch {}
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    }, []);
+
+    if (!visible) return null;
+
+    return (
+        <View
+            style={{
+                height: panelHeight,
+                minHeight: 120,
+                backgroundColor: '#000',
+                borderTopWidth: 1,
+                borderTopColor: '#2a2a2a',
+                boxShadow: '0 -8px 24px rgba(0,0,0,0.18)' as any,
+            }}
+        >
+            <div
+                onMouseDown={handlePanelResizeStart}
+                title="拖动调整终端高度"
+                style={{
+                    height: 8,
+                    cursor: 'ns-resize',
+                    background: '#1a1a1a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    userSelect: 'none',
+                }}
+            >
+                <div
+                    style={{
+                        width: 48,
+                        height: 3,
+                        borderRadius: 999,
+                        background: '#4b5563',
+                    }}
+                />
+            </div>
+            <View
+                style={{
+                    height: 36,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 12,
+                    backgroundColor: '#1a1a1a',
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#2a2a2a',
+                }}
+            >
+                <Ionicons name="terminal-outline" size={16} color="#e5e5e5" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#e5e5e5', fontSize: 13, fontWeight: '600' }}>终端</Text>
+                <View style={{ flex: 1 }} />
+                <Pressable
+                    onPress={onClose}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close terminal"
+                    style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+                >
+                    <Ionicons name="close" size={20} color="#e5e5e5" />
+                </Pressable>
+            </View>
+            <View style={{ flex: 1, backgroundColor: '#000' }}>
+                <React.Suspense
+                    fallback={
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <ActivityIndicator size="small" color="#e5e5e5" />
+                        </View>
+                    }
+                >
+                    {!bundle && <LazyXtermBoot onReady={setBundle} />}
+                </React.Suspense>
+                {bundle && (
+                    <TerminalRuntime
+                        sessionId={sessionId}
+                        cwd={cwd}
+                        bundle={bundle}
+                        onError={handleError}
+                    />
+                )}
+            </View>
+        </View>
+    );
+};
