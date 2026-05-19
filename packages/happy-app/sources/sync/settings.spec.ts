@@ -58,6 +58,15 @@ describe('settings', () => {
             });
         });
 
+        it('should migrate the legacy shared enter-to-send setting to platform-specific settings', () => {
+            expect(settingsParse({ agentInputEnterToSend: false })).toEqual({
+                ...settingsDefaults,
+                agentInputEnterToSend: false,
+                agentInputEnterToSendWeb: false,
+                agentInputEnterToSendMobile: false,
+            });
+        });
+
         it('should handle settings with null/undefined values', () => {
             const settingsWithNull = {
                 viewInline: null,
@@ -106,6 +115,8 @@ describe('settings', () => {
                 useEnhancedSessionWizard: false,
                 alwaysShowContextSize: false,
                 agentInputEnterToSend: true,
+                agentInputEnterToSendWeb: true,
+                agentInputEnterToSendMobile: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
                 showSidebarGroupAvatar: true,
@@ -143,6 +154,8 @@ describe('settings', () => {
                 useEnhancedSessionWizard: false,
                 alwaysShowContextSize: false,
                 agentInputEnterToSend: true,
+                agentInputEnterToSendWeb: true,
+                agentInputEnterToSendMobile: true,
                 avatarStyle: 'gradient', // This should be preserved from currentSettings
                 showFlavorIcons: false,
                 showSidebarGroupAvatar: true,
@@ -180,6 +193,8 @@ describe('settings', () => {
                 useEnhancedSessionWizard: false,
                 alwaysShowContextSize: false,
                 agentInputEnterToSend: true,
+                agentInputEnterToSendWeb: true,
+                agentInputEnterToSendMobile: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
                 showSidebarGroupAvatar: true,
@@ -219,6 +234,8 @@ describe('settings', () => {
                 useEnhancedSessionWizard: false,
                 alwaysShowContextSize: false,
                 agentInputEnterToSend: true,
+                agentInputEnterToSendWeb: true,
+                agentInputEnterToSendMobile: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
                 showSidebarGroupAvatar: true,
@@ -263,6 +280,8 @@ describe('settings', () => {
                 useEnhancedSessionWizard: false,
                 alwaysShowContextSize: false,
                 agentInputEnterToSend: true,
+                agentInputEnterToSendWeb: true,
+                agentInputEnterToSendMobile: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
                 showSidebarGroupAvatar: true,
@@ -316,6 +335,8 @@ describe('settings', () => {
                 useEnhancedSessionWizard: false,
                 alwaysShowContextSize: false,
                 agentInputEnterToSend: true,
+                agentInputEnterToSendWeb: true,
+                agentInputEnterToSendMobile: true,
                 avatarStyle: 'gradient',
                 showFlavorIcons: false,
                 showSidebarGroupAvatar: true,
@@ -385,6 +406,8 @@ describe('settings', () => {
                 mergeWorktreeGroups: false,
                 compactSessionView: false,
                 agentInputEnterToSend: true,
+                agentInputEnterToSendWeb: true,
+                agentInputEnterToSendMobile: true,
 
                 reviewPromptAnswered: false,
                 reviewPromptLikedApp: null,

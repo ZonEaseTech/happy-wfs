@@ -222,29 +222,29 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
             fontSize: 13,
             theme: {
-                background: '#0f1115',
-                foreground: '#e5e5e5',
-                cursor: '#e5e5e5',
-                selectionBackground: 'rgba(255,255,255,0.25)',
-                // ANSI 16-color palette (VS Code dark). Without these keys the
+                background: '#ffffff',
+                foreground: '#111827',
+                cursor: '#111827',
+                selectionBackground: 'rgba(37,99,235,0.18)',
+                // ANSI 16-color palette. Without these keys the
                 // theme has no color slots, so colored program output (the
                 // claude TUI, ls, git, etc.) renders monochrome.
-                black: '#000000',
+                black: '#111827',
                 red: '#cd3131',
                 green: '#0dbc79',
-                yellow: '#e5e510',
+                yellow: '#949800',
                 blue: '#2472c8',
                 magenta: '#bc3fbc',
                 cyan: '#11a8cd',
-                white: '#e5e5e5',
+                white: '#d1d5db',
                 brightBlack: '#666666',
                 brightRed: '#f14c4c',
-                brightGreen: '#23d18b',
-                brightYellow: '#f5f543',
+                brightGreen: '#12805c',
+                brightYellow: '#9a6700',
                 brightBlue: '#3b8eea',
                 brightMagenta: '#d670d6',
-                brightCyan: '#29b8db',
-                brightWhite: '#ffffff',
+                brightCyan: '#087990',
+                brightWhite: '#111827',
             },
             convertEol: true,
             allowProposedApi: true,
@@ -417,7 +417,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 flex: 1,
                 width: '100%',
                 height: '100%',
-                background: '#0f1115',
+                background: '#ffffff',
                 padding: 8,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
@@ -843,6 +843,22 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         setActiveTerminalTabId(nextTab.id);
     }, [cwd]);
 
+    const handleCloseTerminalTab = React.useCallback((tabId: string) => {
+        if (terminalTabs.length <= 1) {
+            onClose();
+            return;
+        }
+        const closingIndex = terminalTabs.findIndex((tab) => tab.id === tabId);
+        const nextTabs = terminalTabs.filter((tab) => tab.id !== tabId);
+        setTerminalTabs(nextTabs);
+        if (activeTerminalTabId === tabId) {
+            const fallbackTab = nextTabs[closingIndex] ?? nextTabs[closingIndex - 1] ?? nextTabs[0];
+            if (fallbackTab) {
+                setActiveTerminalTabId(fallbackTab.id);
+            }
+        }
+    }, [activeTerminalTabId, onClose, terminalTabs]);
+
     const handlePanelResizeStart = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
@@ -878,10 +894,10 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 width: '100%',
                 marginLeft: 0,
                 marginRight: 0,
-                backgroundColor: '#0f1115',
+                backgroundColor: '#ffffff',
                 borderTopWidth: 1,
-                borderTopColor: '#2d3340',
-                boxShadow: '0 -6px 18px rgba(15, 23, 42, 0.20)' as any,
+                borderTopColor: '#e5e7eb',
+                boxShadow: '0 -6px 18px rgba(15, 23, 42, 0.08)' as any,
             }}
         >
             <div
@@ -890,12 +906,12 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 style={{
                     height: 28,
                     cursor: 'ns-resize',
-                    background: '#171923',
+                    background: '#f8fafc',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     userSelect: 'none',
-                    borderBottom: '1px solid #2d3340',
+                    borderBottom: '1px solid #e5e7eb',
                     padding: '0 8px',
                     boxSizing: 'border-box',
                     position: 'relative',
@@ -908,30 +924,63 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     {terminalTabs.map((tab) => {
                         const isActive = tab.id === activeTerminalTabId;
                         return (
-                            <button
+                            <div
                                 key={tab.id}
-                                type="button"
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setActiveTerminalTabId(tab.id)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        setActiveTerminalTabId(tab.id);
+                                    }
+                                }}
                                 style={{
                                     height: 22,
                                     maxWidth: 180,
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 6,
-                                    border: isActive ? '1px solid #334155' : '1px solid transparent',
+                                    border: isActive ? '1px solid #d1d5db' : '1px solid transparent',
                                     borderRadius: 6,
-                                    background: isActive ? '#0f172a' : 'transparent',
-                                    color: isActive ? '#e5e7eb' : '#94a3b8',
+                                    background: isActive ? '#ffffff' : 'transparent',
+                                    color: isActive ? '#111827' : '#6b7280',
                                     cursor: 'pointer',
-                                    padding: '0 8px',
+                                    padding: '0 4px 0 8px',
                                     fontSize: 12,
                                     fontWeight: isActive ? 600 : 500,
                                     minWidth: 0,
                                 }}
                             >
-                                <Ionicons name="terminal-outline" size={13} color={isActive ? '#93c5fd' : '#94a3b8'} />
+                                <Ionicons name="terminal-outline" size={13} color={isActive ? '#374151' : '#6b7280'} />
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title}</span>
-                            </button>
+                                <button
+                                    type="button"
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleCloseTerminalTab(tab.id);
+                                    }}
+                                    aria-label="Close terminal tab"
+                                    title="删除终端标签"
+                                    style={{
+                                        width: 16,
+                                        height: 16,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: 0,
+                                        borderRadius: 999,
+                                        background: 'transparent',
+                                        color: '#6b7280',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <Ionicons name="close-circle" size={14} color="#6b7280" />
+                                </button>
+                            </div>
                         );
                     })}
                     <button
@@ -948,12 +997,12 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                             border: '1px solid transparent',
                             borderRadius: 6,
                             background: 'transparent',
-                            color: '#94a3b8',
+                            color: '#6b7280',
                             cursor: 'pointer',
                             padding: 0,
                         }}
                     >
-                        <Ionicons name="add" size={16} color="#94a3b8" />
+                        <Ionicons name="add" size={16} color="#6b7280" />
                     </button>
                 </div>
                 <div
@@ -965,7 +1014,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         width: 48,
                         height: 3,
                         borderRadius: 999,
-                        background: '#64748b',
+                        background: '#94a3b8',
                     }}
                 />
                 <button
@@ -982,19 +1031,19 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         border: 0,
                         borderRadius: 6,
                         background: 'transparent',
-                        color: '#cbd5e1',
+                        color: '#6b7280',
                         cursor: 'pointer',
                         padding: 0,
                     }}
                 >
-                    <Ionicons name="close" size={16} color="#cbd5e1" />
+                    <Ionicons name="close" size={16} color="#6b7280" />
                 </button>
             </div>
-            <View style={{ flex: 1, backgroundColor: '#0f1115' }}>
+            <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
                 <React.Suspense
                     fallback={
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                            <ActivityIndicator size="small" color="#e5e5e5" />
+                            <ActivityIndicator size="small" color="#111827" />
                         </View>
                     }
                 >
@@ -1005,7 +1054,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         key={tab.id}
                         style={{
                             flex: 1,
-                            backgroundColor: '#0f1115',
+                            backgroundColor: '#ffffff',
                             display: tab.id === activeTerminalTabId ? 'flex' : 'none',
                         }}
                     >

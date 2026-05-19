@@ -1521,17 +1521,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         />
     ) : null;
 
-    const input = (
-        <>
-            {agentInput}
-            <TerminalPanel
-                visible={showTerminal}
-                onClose={() => setShowTerminal(false)}
-                sessionId={sessionId}
-                cwd={session.metadata?.path}
-            />
-        </>
-    );
+    const input = agentInput;
 
 
     return (
@@ -1584,12 +1574,18 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             )}
 
             {/* Main content area - no padding since header is overlay */}
-            <View style={{ flexBasis: 0, flexGrow: 1, paddingBottom: safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
+            <View style={{ flexBasis: 0, flexGrow: 1, paddingBottom: showTerminal ? 0 : safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
                 <AgentContentView
                     content={content}
                     input={input}
                     placeholder={placeholder}
                     betweenContentAndInput={pendingQueuePanel}
+                />
+                <TerminalPanel
+                    visible={showTerminal}
+                    onClose={() => setShowTerminal(false)}
+                    sessionId={sessionId}
+                    cwd={session.metadata?.path}
                 />
             </View >
 

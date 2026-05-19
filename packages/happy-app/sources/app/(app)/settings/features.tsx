@@ -9,7 +9,8 @@ import { t } from '@/text';
 
 export default function FeaturesSettingsScreen() {
     const [experiments, setExperiments] = useSettingMutable('experiments');
-    const [agentInputEnterToSend, setAgentInputEnterToSend] = useSettingMutable('agentInputEnterToSend');
+    const [agentInputEnterToSendWeb, setAgentInputEnterToSendWeb] = useSettingMutable('agentInputEnterToSendWeb');
+    const [agentInputEnterToSendMobile, setAgentInputEnterToSendMobile] = useSettingMutable('agentInputEnterToSendMobile');
     const [commandPaletteEnabled, setCommandPaletteEnabled] = useLocalSettingMutable('commandPaletteEnabled');
     const [markdownCopyV2, setMarkdownCopyV2] = useLocalSettingMutable('markdownCopyV2');
     const [useEnhancedSessionWizard, setUseEnhancedSessionWizard] = useSettingMutable('useEnhancedSessionWizard');
@@ -61,24 +62,43 @@ export default function FeaturesSettingsScreen() {
                 />
             </ItemGroup>
 
+            {/* Input Features */}
+            <ItemGroup
+                title={t('settingsFeatures.inputFeatures')}
+                footer={t('settingsFeatures.inputFeaturesDescription')}
+            >
+                <Item
+                    title={t('settingsFeatures.enterToSendWeb')}
+                    subtitle={agentInputEnterToSendWeb ? t('settingsFeatures.enterToSendWebEnabled') : t('settingsFeatures.enterToSendWebDisabled')}
+                    icon={<Ionicons name="return-down-forward-outline" size={29} color="#007AFF" />}
+                    rightElement={
+                        <Switch
+                            value={agentInputEnterToSendWeb}
+                            onValueChange={setAgentInputEnterToSendWeb}
+                        />
+                    }
+                    showChevron={false}
+                />
+                <Item
+                    title={t('settingsFeatures.enterToSendMobile')}
+                    subtitle={agentInputEnterToSendMobile ? t('settingsFeatures.enterToSendMobileEnabled') : t('settingsFeatures.enterToSendMobileDisabled')}
+                    icon={<Ionicons name="phone-portrait-outline" size={29} color="#34C759" />}
+                    rightElement={
+                        <Switch
+                            value={agentInputEnterToSendMobile}
+                            onValueChange={setAgentInputEnterToSendMobile}
+                        />
+                    }
+                    showChevron={false}
+                />
+            </ItemGroup>
+
             {/* Web-only Features */}
             {Platform.OS === 'web' && (
                 <ItemGroup 
                     title={t('settingsFeatures.webFeatures')}
                     footer={t('settingsFeatures.webFeaturesDescription')}
                 >
-                    <Item
-                        title={t('settingsFeatures.enterToSend')}
-                        subtitle={agentInputEnterToSend ? t('settingsFeatures.enterToSendEnabled') : t('settingsFeatures.enterToSendDisabled')}
-                        icon={<Ionicons name="return-down-forward-outline" size={29} color="#007AFF" />}
-                        rightElement={
-                            <Switch
-                                value={agentInputEnterToSend}
-                                onValueChange={setAgentInputEnterToSend}
-                            />
-                        }
-                        showChevron={false}
-                    />
                     <Item
                         title={t('settingsFeatures.commandPalette')}
                         subtitle={commandPaletteEnabled ? t('settingsFeatures.commandPaletteEnabled') : t('settingsFeatures.commandPaletteDisabled')}

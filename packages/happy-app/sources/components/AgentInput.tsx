@@ -576,7 +576,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         ? getContextWarning(props.usageData.contextSize, maxContextSize, props.alwaysShowContextSize ?? false, theme)
         : null;
 
-    const agentInputEnterToSend = useSetting('agentInputEnterToSend');
+    const agentInputEnterToSendWeb = useSetting('agentInputEnterToSendWeb');
+    const agentInputEnterToSendMobile = useSetting('agentInputEnterToSendMobile');
+    const agentInputEnterToSend = Platform.OS === 'web' ? agentInputEnterToSendWeb : agentInputEnterToSendMobile;
 
 
     // Abort button state

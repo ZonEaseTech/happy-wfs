@@ -88,6 +88,7 @@ describe('desktop layout adjustments', () => {
         expect(sessionView).toContain("import { TerminalPanel } from '@/components/Terminal';");
         expect(sessionView).toContain('onPress={() => setShowTerminal(prev => !prev)}');
         expect(sessionView).toContain('<TerminalPanel');
+        expect(sessionView).toContain('paddingBottom: showTerminal ? 0 : safeArea.bottom');
         expect(sessionView).not.toContain(`<Terminal\n                visible={showTerminal}`);
 
         const terminalWeb = read('components/Terminal.web.tsx');
@@ -97,13 +98,15 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain('handlePanelResizeStart');
         expect(terminalWeb).toContain("alignSelf: 'stretch'");
         expect(terminalWeb).toContain("width: '100%'");
-        expect(terminalWeb).toContain("backgroundColor: '#0f1115'");
-        expect(terminalWeb).toContain("background: '#171923'");
+        expect(terminalWeb).toContain("backgroundColor: '#ffffff'");
+        expect(terminalWeb).toContain("background: '#f8fafc'");
         expect(terminalWeb).toContain('height: 28');
         expect(terminalWeb).toContain('terminalTabs');
         expect(terminalWeb).toContain('activeTerminalTabId');
         expect(terminalWeb).toContain('handleAddTerminalTab');
+        expect(terminalWeb).toContain('handleCloseTerminalTab');
         expect(terminalWeb).toContain('aria-label="New terminal tab"');
+        expect(terminalWeb).toContain('aria-label="Close terminal tab"');
         expect(terminalWeb).toContain('terminalLabelFromCwd');
         expect(terminalWeb).not.toContain('height: 36,\n                    flexDirection');
     });
@@ -114,6 +117,23 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain("<View style={{ flex: 1, minWidth: 0, backgroundColor: '#1e1e1e' }}>");
         expect(source).toContain("<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1e1e1e' }}>");
         expect(source).toContain("color: '#8f8f8f'");
+    });
+
+    it('manages enter-to-send separately for web/desktop and mobile', () => {
+        const features = read('app/(app)/settings/features.tsx');
+        expect(features).toContain("useSettingMutable('agentInputEnterToSendWeb')");
+        expect(features).toContain("useSettingMutable('agentInputEnterToSendMobile')");
+        expect(features).toContain("t('settingsFeatures.enterToSendWeb')");
+        expect(features).toContain("t('settingsFeatures.enterToSendMobile')");
+
+        const input = read('components/AgentInput.tsx');
+        expect(input).toContain("Platform.OS === 'web' ? agentInputEnterToSendWeb : agentInputEnterToSendMobile");
+
+        const settings = read('sync/settings.ts');
+        expect(settings).toContain('agentInputEnterToSendWeb: z.boolean()');
+        expect(settings).toContain('agentInputEnterToSendMobile: z.boolean()');
+        expect(settings).toContain('parsed.data.agentInputEnterToSendWeb ??= parsed.data.agentInputEnterToSend');
+        expect(settings).toContain('parsed.data.agentInputEnterToSendMobile ??= parsed.data.agentInputEnterToSend');
     });
 
 });

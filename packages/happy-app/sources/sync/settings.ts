@@ -267,6 +267,8 @@ export const SettingsSchema = z.object({
     useEnhancedSessionWizard: z.boolean().describe('A/B test flag: Use enhanced profile-based session wizard UI'),
     alwaysShowContextSize: z.boolean().describe('Always show context size in agent input'),
     agentInputEnterToSend: z.boolean().describe('Whether pressing Enter submits/sends in the agent input (web)'),
+    agentInputEnterToSendWeb: z.boolean().describe('Whether pressing Enter submits/sends in the agent input on web/desktop'),
+    agentInputEnterToSendMobile: z.boolean().describe('Whether pressing Return submits/sends in the agent input on mobile'),
     avatarStyle: z.string().describe('Avatar display style'),
     showFlavorIcons: z.boolean().describe('Whether to show AI provider icons in avatars'),
     showSidebarGroupAvatar: z.boolean().describe('Whether to render the workspace/machine avatar in the sidebar group header'),
@@ -342,6 +344,8 @@ export const settingsDefaults: Settings = {
     useEnhancedSessionWizard: false,
     alwaysShowContextSize: false,
     agentInputEnterToSend: true,
+    agentInputEnterToSendWeb: true,
+    agentInputEnterToSendMobile: true,
     avatarStyle: 'brutalist',
     showFlavorIcons: false,
     showSidebarGroupAvatar: true,
@@ -392,6 +396,13 @@ export function settingsParse(settings: unknown): Settings {
     if (parsed.data.preferredLanguage === 'zh') {
         console.log('[Settings Migration] Converting language code from "zh" to "zh-Hans"');
         parsed.data.preferredLanguage = 'zh-Hans';
+    }
+
+    // Migration: split the legacy shared Enter-to-send setting into
+    // platform-specific settings while preserving the user's existing choice.
+    if (typeof parsed.data.agentInputEnterToSend === 'boolean') {
+        parsed.data.agentInputEnterToSendWeb ??= parsed.data.agentInputEnterToSend;
+        parsed.data.agentInputEnterToSendMobile ??= parsed.data.agentInputEnterToSend;
     }
 
     // Merge defaults, parsed settings, and preserve unknown fields
