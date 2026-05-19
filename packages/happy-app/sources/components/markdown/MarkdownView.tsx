@@ -1,5 +1,5 @@
 import { MarkdownSpan, OptionItem as OptionItemData, parseMarkdown } from './parseMarkdown';
-import { resolveMarkdownLink, splitTextByLocalFileReferences } from './markdownLinkUtils';
+import { resolveMarkdownLink, resolveMarkdownLocalFileReference, splitTextByLocalFileReferences } from './markdownLinkUtils';
 import { useWebHorizontalScroll } from '@/hooks/useWebHorizontalScroll';
 import { Link } from 'expo-router';
 import * as React from 'react';
@@ -216,7 +216,18 @@ function RenderNumberedListBlock(props: { items: { number: number, spans: Markdo
 
 function RenderCodeBlock(props: { content: string, language: string | null, first: boolean, last: boolean, selectable: boolean }) {
     const [isHovered, setIsHovered] = React.useState(false);
+    const linkContext = React.useContext(MarkdownLinkContext);
     const { scrollViewProps, wheelProps } = useWebHorizontalScroll();
+
+    const resolveCodeBlockLocalFileReference = React.useCallback((rawText: string) => {
+        return resolveMarkdownLocalFileReference({
+            rawText,
+            sessionId: linkContext.sessionId,
+            machineId: linkContext.machineId,
+            sessionWorkingDirectory: linkContext.sessionWorkingDirectory,
+            sessionHomeDirectory: linkContext.sessionHomeDirectory,
+        });
+    }, [linkContext.sessionId, linkContext.machineId, linkContext.sessionWorkingDirectory, linkContext.sessionHomeDirectory]);
 
     const copyCode = React.useCallback(async () => {
         try {
@@ -249,6 +260,7 @@ function RenderCodeBlock(props: { content: string, language: string | null, firs
                     code={props.content}
                     language={props.language}
                     selectable={props.selectable}
+                    resolveLocalFileReference={resolveCodeBlockLocalFileReference}
                 />
             </ScrollView>
             <View

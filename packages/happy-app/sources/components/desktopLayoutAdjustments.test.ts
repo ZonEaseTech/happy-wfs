@@ -183,4 +183,16 @@ describe('desktop layout adjustments', () => {
         expect(localSettings).toContain('Device-local cached GitHub issue inbox results keyed by filters');
     });
 
+
+    it('linkifies local file paths inside markdown code blocks', () => {
+        const markdown = read('components/markdown/MarkdownView.tsx');
+        expect(markdown).toContain('resolveCodeBlockLocalFileReference');
+        expect(markdown).toContain('resolveLocalFileReference={resolveCodeBlockLocalFileReference}');
+
+        const highlighter = read('components/SimpleSyntaxHighlighter.tsx');
+        expect(highlighter).toContain('localFileReference');
+        expect(highlighter).toContain('resolveLocalFileReference');
+        expect(highlighter).toContain('<Link');
+    });
+
 });

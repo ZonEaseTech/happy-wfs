@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
+import { Link } from 'expo-router';
 import { useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 
@@ -7,6 +8,33 @@ interface SimpleSyntaxHighlighterProps {
   code: string;
   language: string | null;
   selectable: boolean;
+  resolveLocalFileReference?: (rawText: string) => { href: string; target?: '_blank' } | null;
+}
+
+type SyntaxToken = { text: string; type: string; nestLevel?: number };
+
+const LOCAL_FILE_REFERENCE_PATTERN = /(?:file:\/\/)?(?:\/[^\s`"'<>()[\]{}]+|(?:\.{1,2}\/|[A-Za-z0-9_.-]+\/)[^\s`"'<>()[\]{}]+)\.[A-Za-z0-9][A-Za-z0-9_-]{0,15}(?:#[Ll]\d+(?:[Cc]\d+)?|:\d+(?::\d+)?)?/g;
+
+function tokenizePlainCodeWithFileReferences(code: string): SyntaxToken[] {
+  const tokens: SyntaxToken[] = [];
+  let lastIndex = 0;
+
+  LOCAL_FILE_REFERENCE_PATTERN.lastIndex = 0;
+  for (const match of code.matchAll(LOCAL_FILE_REFERENCE_PATTERN)) {
+    const rawText = match[0];
+    const index = match.index ?? 0;
+    if (index > lastIndex) {
+      tokens.push({ text: code.slice(lastIndex, index), type: 'default' });
+    }
+    tokens.push({ text: rawText, type: 'localFileReference' });
+    lastIndex = index + rawText.length;
+  }
+
+  if (lastIndex < code.length) {
+    tokens.push({ text: code.slice(lastIndex), type: 'default' });
+  }
+
+  return tokens.length > 0 ? tokens : [{ text: code, type: 'default' }];
 }
 
 // Get theme-aware colors
@@ -61,11 +89,11 @@ const openBrackets = Object.keys(bracketPairs);
 const closeBrackets = Object.values(bracketPairs);
 
 // Enhanced tokenizer with comprehensive token types
-const tokenizeCode = (code: string, language: string | null) => {
-  const tokens: Array<{ text: string; type: string; nestLevel?: number }> = [];
+const tokenizeCode = (code: string, language: string | null): SyntaxToken[] => {
+  const tokens: SyntaxToken[] = [];
   
   if (!language) {
-    return [{ text: code, type: 'default' }];
+    return tokenizePlainCodeWithFileReferences(code);
   }
 
   const lang = language.toLowerCase();
@@ -94,7 +122,10 @@ const tokenizeCode = (code: string, language: string | null) => {
 
   // Enhanced regex patterns for comprehensive tokenization
   const patterns = [
-    // Comments (highest priority)
+    // Local file references (highest priority so /tmp/foo.md is not split by operator/punctuation rules)
+    { regex: LOCAL_FILE_REFERENCE_PATTERN, type: 'localFileReference' },
+
+    // Comments
     { regex: /(\/\*[\s\S]*?\*\/)/g, type: 'comment' },
     { regex: /(\/\/.*$)/gm, type: 'comment' },
     { regex: /(#.*$)/gm, type: 'comment' },
@@ -250,7 +281,8 @@ const tokenizeCode = (code: string, language: string | null) => {
 export const SimpleSyntaxHighlighter: React.FC<SimpleSyntaxHighlighterProps> = ({
   code,
   language,
-  selectable
+  selectable,
+  resolveLocalFileReference
 }) => {
   const { theme } = useUnistyles();
   const colors = getColors(theme);
@@ -258,6 +290,7 @@ export const SimpleSyntaxHighlighter: React.FC<SimpleSyntaxHighlighterProps> = (
 
   const getColorForType = (type: string, nestLevel?: number): string => {
     switch (type) {
+      case 'localFileReference': return colors.default;
       case 'keyword': return colors.keyword;
       case 'controlFlow': return colors.controlFlow;
       case 'type': return colors.type;
@@ -294,8 +327,8 @@ export const SimpleSyntaxHighlighter: React.FC<SimpleSyntaxHighlighterProps> = (
   };
 
   // Split tokens into lines for proper line-by-line rendering
-  const lines: Array<Array<{ text: string; type: string; nestLevel?: number }>> = [];
-  let currentLine: Array<{ text: string; type: string; nestLevel?: number }> = [];
+  const lines: SyntaxToken[][] = [];
+  let currentLine: SyntaxToken[] = [];
 
   tokens.forEach(token => {
     if (token.text === '\n') {
@@ -332,19 +365,38 @@ export const SimpleSyntaxHighlighter: React.FC<SimpleSyntaxHighlighterProps> = (
             lineHeight: 20,
           }}
         >
-          {lineTokens.map((token, index) => (
-            <Text
-              key={index}
-              selectable={selectable}
-              style={{
-                color: getColorForType(token.type, token.nestLevel),
-                fontFamily: Typography.mono().fontFamily,
-                fontWeight: ['keyword', 'controlFlow', 'type', 'function'].includes(token.type) ? '600' : '400',
-              }}
-            >
-              {token.text}
-            </Text>
-          ))}
+          {lineTokens.map((token, index) => {
+            const localFileLink = token.type === 'localFileReference' ? resolveLocalFileReference?.(token.text) : null;
+            const tokenStyle = {
+              color: localFileLink ? colors.function : getColorForType(token.type, token.nestLevel),
+              fontFamily: Typography.mono().fontFamily,
+              fontWeight: ['keyword', 'controlFlow', 'type', 'function'].includes(token.type) ? '600' as const : '400' as const,
+              textDecorationLine: localFileLink ? 'underline' as const : 'none' as const,
+            };
+
+            if (localFileLink) {
+              return (
+                <Link
+                  key={index}
+                  href={localFileLink.href as any}
+                  target={localFileLink.target}
+                  style={tokenStyle}
+                >
+                  {token.text}
+                </Link>
+              );
+            }
+
+            return (
+              <Text
+                key={index}
+                selectable={selectable}
+                style={tokenStyle}
+              >
+                {token.text}
+              </Text>
+            );
+          })}
           {lineTokens.length === 0 && ' '}
         </Text>
       ))}
