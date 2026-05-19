@@ -169,4 +169,18 @@ describe('desktop layout adjustments', () => {
         expect(zhHans).toContain('是，允许本次会话的所有工具');
     });
 
+
+    it('shows cached GitHub issue inbox results while refreshing in the background', () => {
+        const source = read('components/SessionsList.tsx');
+        expect(source).toContain('buildGitHubIssueInboxCacheKey');
+        expect(source).toContain("useLocalSettingMutable('githubIssueInboxCache')");
+        expect(source).toContain('setPendingIssues(cached.issues)');
+        expect(source).toContain('void loadPendingIssues(!cached)');
+        expect(source).toContain('withGitHubIssueInboxCacheEntry');
+
+        const localSettings = read('sync/localSettings.ts');
+        expect(localSettings).toContain('githubIssueInboxCache');
+        expect(localSettings).toContain('Device-local cached GitHub issue inbox results keyed by filters');
+    });
+
 });

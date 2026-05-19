@@ -41,6 +41,10 @@ export const LocalSettingsSchema = z.object({
         projects: z.string().optional(),
     }).describe('Device-local filters for the GitHub issue inbox'),
     githubIssueInboxSearchText: z.string().describe('Device-local search text for the GitHub issue inbox'),
+    githubIssueInboxCache: z.record(z.string(), z.object({
+        issues: z.array(z.any()),
+        updatedAt: z.number(),
+    })).describe('Device-local cached GitHub issue inbox results keyed by filters'),
 });
 
 //
@@ -69,6 +73,7 @@ export const localSettingsDefaults: LocalSettings = {
     customQuickActions: [],
     githubIssueInboxFilters: { keywords: '', projects: '' },
     githubIssueInboxSearchText: '',
+    githubIssueInboxCache: {},
 };
 Object.freeze(localSettingsDefaults);
 
