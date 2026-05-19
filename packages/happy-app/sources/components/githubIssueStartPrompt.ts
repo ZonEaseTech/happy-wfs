@@ -8,6 +8,6 @@ export function buildGitHubIssueStartPrompt(issue: Pick<GitHubIssue, 'repository
         `- Issue：#${issue.number} ${issue.title}`,
         `- 链接：${issue.htmlUrl}`,
         '',
-        '请使用 brainstorming skill 和我一起梳理需求，然后用 pma 进行规划和开发。',
+        '请使用 brainstorming skill 和我一起梳理需求，然后 brainstorming 进行规划和开发。',
     ].join('\n');
 }

@@ -204,14 +204,50 @@ interface TerminalRuntimeProps {
     cwd?: string;
     bundle: XtermBundle;
     onError: (msg: string) => void;
+    /** Whether this runtime is currently visible inside the tabbed panel. */
+    active?: boolean;
 }
 
-const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError }) => {
+const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true }) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const termRef = React.useRef<InstanceType<XtermModule['Terminal']> | null>(null);
     const fitRef = React.useRef<InstanceType<FitAddonModule['FitAddon']> | null>(null);
     const ptyIdRef = React.useRef<string | null>(null);
     const closedRef = React.useRef(false);
+    const activeRef = React.useRef(active);
+    const [isActivating, setIsActivating] = React.useState(false);
+
+    React.useLayoutEffect(() => { activeRef.current = active; }, [active]);
+
+    const fitAndResize = React.useCallback(() => {
+        if (!fitRef.current || !termRef.current) return;
+        try {
+            fitRef.current.fit();
+            const ptyId = ptyIdRef.current;
+            if (!ptyId) return;
+            const cols = termRef.current.cols;
+            const rows = termRef.current.rows;
+            apiSocket.sessionRPC(sessionId, 'pty-resize', { ptyId, cols, rows }).catch(() => {});
+        } catch { /* container detached */ }
+    }, [sessionId]);
+
+    React.useLayoutEffect(() => {
+        if (!active) return;
+        setIsActivating(true);
+        let frame1 = 0;
+        let frame2 = 0;
+        frame1 = requestAnimationFrame(() => {
+            fitAndResize();
+            frame2 = requestAnimationFrame(() => {
+                fitAndResize();
+                setIsActivating(false);
+            });
+        });
+        return () => {
+            cancelAnimationFrame(frame1);
+            cancelAnimationFrame(frame2);
+        };
+    }, [active, fitAndResize]);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -373,17 +409,10 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
 
         // ---- forward layout changes to the PTY --------------------------
         const ro = new ResizeObserver(() => {
-            if (!fitRef.current || !termRef.current) return;
-            try {
-                fitRef.current.fit();
-                const cols = termRef.current.cols;
-                const rows = termRef.current.rows;
-                const ptyId = ptyIdRef.current;
-                if (!ptyId) return;
-                // Fire-and-forget; resize is idempotent and rate-limited by
-                // ResizeObserver itself.
-                apiSocket.sessionRPC(sessionId, 'pty-resize', { ptyId, cols, rows }).catch(() => {});
-            } catch { /* container detached */ }
+            if (!activeRef.current) return;
+            // Fire-and-forget; resize is idempotent and rate-limited by
+            // ResizeObserver itself.
+            fitAndResize();
         });
         if (containerRef.current) ro.observe(containerRef.current);
 
@@ -421,6 +450,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 padding: 8,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
+                opacity: isActivating ? 0 : 1,
             }}
         />
     );
@@ -1063,6 +1093,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                             cwd={cwd}
                             bundle={bundle}
                             onError={handleError}
+                            active={tab.id === activeTerminalTabId}
                         />
                     </View>
                 ))}

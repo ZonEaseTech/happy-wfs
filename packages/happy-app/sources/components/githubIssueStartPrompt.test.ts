@@ -17,7 +17,7 @@ describe('buildGitHubIssueStartPrompt', () => {
             '- Issue：#306 支付手续费管理 — 配置 + 订单冻结 + 报表扣费口径',
             '- 链接：https://github.com/ZonEaseTech/ttpos-flutter/issues/306',
             '',
-            '请使用 brainstorming skill 和我一起梳理需求，然后用 pma 进行规划和开发。',
+            '请使用 brainstorming skill 和我一起梳理需求，然后 brainstorming 进行规划和开发。',
         ].join('\n'));
         expect(prompt).not.toContain('Issue 内容');
         expect(prompt).not.toContain('执行要求');

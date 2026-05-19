@@ -723,17 +723,14 @@ export function SessionsList() {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
         setPendingIssuesError(null);
-        const hasProjectFilter = !!githubIssueInboxFilters.projects?.trim();
-        const isIssueNumberSearch = /^#?\s*\d+$/.test(pendingIssueSearchText.trim());
         const requestOptions = {
             limit: 100,
-            // When reading a GitHub Project inbox, let the server query ProjectV2
-            // items directly. Sending the default "assignee:@me" search query
-            // makes the backend fall back to GitHub issue search first, so the
-            // project list only shows issues assigned to the current user.
-            // Exception: exact issue-number searches should use the backend fast
-            // issue lookup path instead of scanning ProjectV2 items.
-            query: hasProjectFilter && !isIssueNumberSearch ? undefined : pendingIssueServerQuery,
+            // Always send the search text. When project filters are present,
+            // the backend still queries ProjectV2 as the source of truth and
+            // uses this query only as in-project search terms. That keeps
+            // exact-number searches like #306 scoped to the selected project
+            // instead of falling back to global GitHub issue-number search.
+            query: pendingIssueServerQuery,
             projects: githubIssueInboxFilters.projects,
             statuses: githubIssueInboxFilters.keywords,
         };

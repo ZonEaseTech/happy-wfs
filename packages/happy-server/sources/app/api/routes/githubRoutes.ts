@@ -757,6 +757,7 @@ async function fetchGitHubProjectIssues(args: {
     token: string;
     projectFilters: string[];
     statusFilters: string[];
+    searchTerms: string[];
     limit: number;
 }): Promise<{ ok: true; issues: GitHubIssue[] } | { ok: false; status?: number; error: string }> {
     const projectsById = new Map<string, { id: string; title: string }>();
@@ -814,13 +815,16 @@ async function fetchGitHubProjectIssues(args: {
                 const statusValues = projectStatuses.length > 0 ? projectStatuses : ['No Status'];
                 if (!matchesAny(statusValues, args.statusFilters)) continue;
 
+                const nextIssue = mapIssueNode(issue, [project.title], projectStatuses);
+                if (!issueMatchesSearchTerms(nextIssue, args.searchTerms)) continue;
+
                 const key = `${issue.repository.nameWithOwner}#${issue.number}`;
                 const existing = issuesByKey.get(key);
                 if (existing) {
                     existing.projectTitles = uniqueStrings([...existing.projectTitles, project.title]);
                     existing.projectStatuses = uniqueStrings([...existing.projectStatuses, ...projectStatuses]);
                 } else {
-                    issuesByKey.set(key, mapIssueNode(issue, [project.title], projectStatuses));
+                    issuesByKey.set(key, nextIssue);
                 }
             }
 
@@ -877,7 +881,7 @@ export function githubRoutes(app: Fastify) {
         const statusFilters = splitFilterValues(request.query.statuses);
         const issueNumber = extractExactIssueNumber(request.query.query);
 
-        if (issueNumber !== null) {
+        if (issueNumber !== null && projectFilters.length === 0) {
             const repoQualifier = extractRepoQualifier(request.query.query);
             let issuesResult: { ok: true; issues: GitHubIssue[] } | { ok: false; status?: number; error: string };
 
@@ -915,11 +919,10 @@ export function githubRoutes(app: Fastify) {
         }
 
         if (projectFilters.length > 0) {
-            const result = await fetchGitHubProjectIssues({ token, projectFilters, statusFilters, limit });
+            const searchTerms = extractIssueSearchTerms(request.query.query);
+            const result = await fetchGitHubProjectIssues({ token, projectFilters, statusFilters, searchTerms, limit });
             if (result.ok) {
-                const searchTerms = extractIssueSearchTerms(request.query.query);
-                const issues = result.issues.filter((issue) => issueMatchesSearchTerms(issue, searchTerms));
-                return reply.send({ issues });
+                return reply.send({ issues: result.issues });
             }
             log({ module: 'github-issues', level: 'warn' }, `GitHub project issues unavailable: ${result.error}`);
             return reply.send({

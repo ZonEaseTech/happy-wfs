@@ -103,6 +103,10 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain('height: 28');
         expect(terminalWeb).toContain('terminalTabs');
         expect(terminalWeb).toContain('activeTerminalTabId');
+        expect(terminalWeb).toContain('active={tab.id === activeTerminalTabId}');
+        expect(terminalWeb).toContain('React.useLayoutEffect(() => {');
+        expect(terminalWeb).toContain('fitAndResize');
+        expect(terminalWeb).toContain('opacity: isActivating ? 0 : 1');
         expect(terminalWeb).toContain('handleAddTerminalTab');
         expect(terminalWeb).toContain('handleCloseTerminalTab');
         expect(terminalWeb).toContain('aria-label="New terminal tab"');
