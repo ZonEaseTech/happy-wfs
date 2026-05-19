@@ -34,6 +34,7 @@ import { listGitHubIssues, saveGitHubToken, updateGitHubIssueProjectStatus, type
 import { storeTempData } from '@/utils/tempDataStore';
 import { ActionMenuModal } from './ActionMenuModal';
 import { ActionMenuItem } from './ActionMenu';
+import { buildGitHubIssueStartPrompt } from './githubIssueStartPrompt';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -947,22 +948,7 @@ export function SessionsList() {
 
 
     const handleStartIssue = React.useCallback((issue: GitHubIssue) => {
-        const body = issue.body?.trim();
-        const bodyForPrompt = body && body.length > 4000 ? `${body.slice(0, 4000)}\n…` : body;
-        const prompt = [
-            `请开始处理这个 GitHub Issue：`,
-            ``,
-            `- 仓库：${issue.repository}`,
-            `- Issue：#${issue.number} ${issue.title}`,
-            `- 链接：${issue.htmlUrl}`,
-            bodyForPrompt ? `\nIssue 内容：\n${bodyForPrompt}` : '',
-            ``,
-            `执行要求：`,
-            `1. 先用 gh / GitHub 工具读取 issue 最新描述、评论和相关上下文。`,
-            `2. 基于本地仓库完成修复或实现。`,
-            `3. 保留已有用户改动，完成后运行必要验证。`,
-            `4. 汇报改动、验证结果和后续发布建议。`,
-        ].filter(Boolean).join('\n');
+        const prompt = buildGitHubIssueStartPrompt(issue);
         const dataId = storeTempData({
             prompt,
             agentType: 'codex',
