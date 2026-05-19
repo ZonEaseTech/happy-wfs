@@ -1660,6 +1660,7 @@ export const en = {
     codex: {
         // Codex permission dialog buttons
         permissions: {
+            yesAllowAllTools: 'Yes, allow all tools during this session',
             yesForSession: "Yes, and don't ask for a session",
             stopAndExplain: 'Stop, and explain what to do',
         }
@@ -1668,6 +1669,7 @@ export const en = {
     claude: {
         // Claude permission dialog buttons
         permissions: {
+            yesAllowAllTools: 'Yes, allow all tools during this session',
             yesAllowAllEdits: 'Yes, allow all edits during this session',
             yesForTool: "Yes, don't ask again for this tool",
             noTellClaude: 'No, and provide feedback',

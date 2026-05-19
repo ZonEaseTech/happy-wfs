@@ -155,4 +155,18 @@ describe('desktop layout adjustments', () => {
         expect(source).not.toContain('borderRightWidth: 16');
     });
 
+
+    it('offers a session-scoped allow all tools action in permission prompts', () => {
+        const source = read('components/tools/PermissionFooter.tsx');
+        expect(source).toContain('handleCodexApproveAllTools');
+        expect(source).toContain("updateSessionPermissionMode(sessionId, 'yolo')");
+        expect(source).toContain('handleApproveAllTools');
+        expect(source).toContain("sessionAllow(sessionId, permission.id, 'bypassPermissions')");
+        expect(source).toContain("t('codex.permissions.yesAllowAllTools')");
+        expect(source).toContain("t('claude.permissions.yesAllowAllTools')");
+
+        const zhHans = read('text/translations/zh-Hans.ts');
+        expect(zhHans).toContain('是，允许本次会话的所有工具');
+    });
+
 });

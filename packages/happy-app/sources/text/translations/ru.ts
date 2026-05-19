@@ -1639,6 +1639,7 @@ export const ru: TranslationStructure = {
     codex: {
         // Codex permission dialog buttons
         permissions: {
+            yesAllowAllTools: 'Да, разрешить все инструменты в этой сессии',
             yesForSession: 'Да, и не спрашивать для этой сессии',
             stopAndExplain: 'Остановить и объяснить, что делать',
         }
@@ -1647,6 +1648,7 @@ export const ru: TranslationStructure = {
     claude: {
         // Claude permission dialog buttons
         permissions: {
+            yesAllowAllTools: 'Да, разрешить все инструменты в этой сессии',
             yesAllowAllEdits: 'Да, разрешить все правки в этой сессии',
             yesForTool: 'Да, больше не спрашивать для этого инструмента',
             noTellClaude: 'Нет, дать обратную связь',

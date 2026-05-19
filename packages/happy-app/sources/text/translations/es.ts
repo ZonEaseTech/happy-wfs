@@ -1640,6 +1640,7 @@ export const es: TranslationStructure = {
     codex: {
         // Codex permission dialog buttons
         permissions: {
+            yesAllowAllTools: 'Sí, permitir todas las herramientas durante esta sesión',
             yesForSession: 'Sí, y no preguntar por esta sesión',
             stopAndExplain: 'Detener, y explicar qué hacer',
         }
@@ -1648,6 +1649,7 @@ export const es: TranslationStructure = {
     claude: {
         // Claude permission dialog buttons
         permissions: {
+            yesAllowAllTools: 'Sí, permitir todas las herramientas durante esta sesión',
             yesAllowAllEdits: 'Sí, permitir todas las ediciones durante esta sesión',
             yesForTool: 'Sí, no volver a preguntar para esta herramienta',
             noTellClaude: 'No, proporcionar comentarios',

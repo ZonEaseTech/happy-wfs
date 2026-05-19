@@ -1642,6 +1642,7 @@ export const zhHans: TranslationStructure = {
     codex: {
         // Codex permission dialog buttons
         permissions: {
+            yesAllowAllTools: '是，允许本次会话的所有工具',
             yesForSession: '是，并且本次会话不再询问',
             stopAndExplain: '停止，并说明该做什么',
         }
@@ -1650,6 +1651,7 @@ export const zhHans: TranslationStructure = {
     claude: {
         // Claude permission dialog buttons
         permissions: {
+            yesAllowAllTools: '是，允许本次会话的所有工具',
             yesAllowAllEdits: '是，允许本次会话的所有编辑',
             yesForTool: '是，不再询问此工具',
             noTellClaude: '否，提供反馈',
