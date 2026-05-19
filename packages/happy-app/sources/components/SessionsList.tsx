@@ -685,6 +685,27 @@ function mergeGitHubIssuesForLocalSearch(...issueLists: GitHubIssue[][]): GitHub
     return Array.from(merged.values());
 }
 
+function extractGitHubIssueSearchNumber(searchText: string): number | null {
+    const trimmed = searchText.trim();
+    const value = trimmed.match(/^#\s*(\d+)$/)?.[1] ?? trimmed.match(/^(\d+)$/)?.[1];
+    return value ? Number(value) : null;
+}
+
+function getGitHubIssueExactSearchRepositories(projects?: string): string[] {
+    const projectFilters = splitGitHubIssueFilterValues(projects);
+    if (projectFilters.length === 0) return [];
+    const repositories = new Set<string>();
+    if (projectFilters.some((project) => project.includes('ttpos'))) {
+        repositories.add('ZonEaseTech/ttpos-flutter');
+        repositories.add('ZonEaseTech/ttpos-server-go');
+    }
+    return Array.from(repositories);
+}
+
+function buildGitHubExactIssueQuery(repository: string, issueNumber: number): string {
+    return `repo:${repository} is:issue ${issueNumber}`;
+}
+
 function buildGitHubIssueSearchQuery(searchText: string): string {
     const clauses = ['is:issue', 'is:open', 'assignee:@me', 'archived:false'];
     const search = searchText.trim();
@@ -780,6 +801,29 @@ export function SessionsList() {
             githubTokenPromptOpenRef.current = false;
         }
     }, [auth.credentials]);
+    const startExactGitHubIssueSearch = React.useCallback((args: { issueNumber: number; requestKey: string }) => {
+        if (!auth.credentials) return;
+        const repositories = getGitHubIssueExactSearchRepositories(githubIssueInboxFilters.projects);
+        if (repositories.length === 0) return;
+
+        void Promise.allSettled(repositories.map(async (repository) => {
+            const result = await listGitHubIssues(auth.credentials!, {
+                query: buildGitHubExactIssueQuery(repository, args.issueNumber),
+                limit: 10,
+            });
+            return result.issues.filter((issue) => (
+                issue.repository === repository && issue.number === args.issueNumber
+            ));
+        })).then((results) => {
+            if (lastPendingIssuesLoadKeyRef.current !== args.requestKey) return;
+            const exactIssues = results.flatMap((result) => (
+                result.status === 'fulfilled' ? result.value : []
+            ));
+            if (exactIssues.length === 0) return;
+            setPendingIssues((current) => mergeGitHubIssuesForLocalSearch(exactIssues, current));
+            setPendingIssueBaselineIssues((current) => mergeGitHubIssuesForLocalSearch(exactIssues, current));
+        });
+    }, [auth.credentials, githubIssueInboxFilters.projects]);
     const loadPendingIssues = React.useCallback(async (showSpinner: boolean = true) => {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
@@ -796,6 +840,10 @@ export function SessionsList() {
             projects: githubIssueInboxFilters.projects,
             statuses: githubIssueInboxFilters.keywords,
         };
+        const exactIssueNumber = extractGitHubIssueSearchNumber(pendingIssueSearchText);
+        if (exactIssueNumber !== null) {
+            startExactGitHubIssueSearch({ issueNumber: exactIssueNumber, requestKey: pendingIssueCacheKey });
+        }
         try {
             let result = await listGitHubIssues(auth.credentials, requestOptions);
             if (isGitHubBadCredentialsMessage(result.warning)) {
@@ -805,7 +853,9 @@ export function SessionsList() {
                     result = await listGitHubIssues(auth.credentials, requestOptions);
                 }
             }
-            setPendingIssues(result.issues);
+            setPendingIssues((current) => exactIssueNumber !== null
+                ? mergeGitHubIssuesForLocalSearch(result.issues, current)
+                : result.issues);
             if (isBaselineRequest) {
                 setPendingIssueBaselineIssues(result.issues);
             }
@@ -820,7 +870,9 @@ export function SessionsList() {
                 const saved = await promptForGitHubToken();
                 if (saved) {
                     const result = await listGitHubIssues(auth.credentials, requestOptions);
-                    setPendingIssues(result.issues);
+                    setPendingIssues((current) => exactIssueNumber !== null
+                        ? mergeGitHubIssuesForLocalSearch(result.issues, current)
+                        : result.issues);
                     if (isBaselineRequest) {
                         setPendingIssueBaselineIssues(result.issues);
                     }
@@ -831,7 +883,7 @@ export function SessionsList() {
         } finally {
             setPendingIssuesLoading(false);
         }
-    }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueCacheKey, pendingIssueSearchText, pendingIssueServerQuery, promptForGitHubToken, setGithubIssueInboxCache]);
+    }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueCacheKey, pendingIssueSearchText, pendingIssueServerQuery, promptForGitHubToken, setGithubIssueInboxCache, startExactGitHubIssueSearch]);
     const loadPendingIssueBaseline = React.useCallback(async (showSpinner: boolean = false) => {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
@@ -897,11 +949,7 @@ export function SessionsList() {
     const pendingIssueProjectFilters = React.useMemo(() => {
         return splitGitHubIssueFilterValues(githubIssueInboxFilters.projects);
     }, [githubIssueInboxFilters.projects]);
-    const pendingIssueSearchNumber = React.useMemo(() => {
-        const trimmed = pendingIssueSearchText.trim();
-        const value = trimmed.match(/^#\s*(\d+)$/)?.[1] ?? trimmed.match(/^(\d+)$/)?.[1];
-        return value ? Number(value) : null;
-    }, [pendingIssueSearchText]);
+    const pendingIssueSearchNumber = React.useMemo(() => extractGitHubIssueSearchNumber(pendingIssueSearchText), [pendingIssueSearchText]);
     const pendingIssueSearchKeyword = React.useMemo(() => pendingIssueSearchText.trim().replace(/^#\s*/, '').toLowerCase(), [pendingIssueSearchText]);
     const pendingIssueLocalSearchSource = React.useMemo(() => {
         if (!pendingIssueSearchText.trim()) return pendingIssues;

@@ -207,4 +207,15 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('const isBaselineRequest = !pendingIssueSearchText.trim();');
     });
 
+
+    it('runs exact repository issue lookup in parallel for numeric GitHub issue searches', () => {
+        const source = read('components/SessionsList.tsx');
+        expect(source).toContain('extractGitHubIssueSearchNumber');
+        expect(source).toContain('getGitHubIssueExactSearchRepositories');
+        expect(source).toContain("'ZonEaseTech/ttpos-flutter'");
+        expect(source).toContain("'ZonEaseTech/ttpos-server-go'");
+        expect(source).toContain('startExactGitHubIssueSearch');
+        expect(source).toContain('repo:${repository} is:issue ${issueNumber}');
+    });
+
 });
