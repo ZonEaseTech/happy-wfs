@@ -145,4 +145,10 @@ describe('desktop layout adjustments', () => {
         expect(settings).toContain('parsed.data.agentInputEnterToSendMobile ??= parsed.data.agentInputEnterToSend');
     });
 
+    it('does not create a wide blank strip between the permanent sidebar and main content', () => {
+        const source = read('components/SidebarNavigator.tsx');
+        expect(source).toContain('borderRightWidth: 1');
+        expect(source).not.toContain('borderRightWidth: 16');
+    });
+
 });

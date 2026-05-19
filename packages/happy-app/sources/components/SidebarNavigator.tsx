@@ -43,12 +43,11 @@ export const SidebarNavigator = React.memo(() => {
             drawerType: 'permanent' as const,
             drawerStyle: {
                 backgroundColor: 'white',
-                // 16px visual gap between the sidebar and the main column.
-                // Drawer keeps its full sidebarWidth; the gap sits OUTSIDE
-                // that width on the right edge. Color = white so the gap
-                // blends with the surrounding surface (per user request).
-                borderRightWidth: 16,
-                borderRightColor: '#FFFFFF',
+                // Keep the drawer edge as a thin divider only. A wide border
+                // becomes real layout width and creates a blank strip between
+                // the sidebar and the main content/terminal.
+                borderRightWidth: 1,
+                borderRightColor: '#E5E7EB',
                 width: sidebarWidth,
             },
             swipeEnabled: false,
