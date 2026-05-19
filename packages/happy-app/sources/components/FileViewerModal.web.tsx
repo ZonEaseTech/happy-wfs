@@ -108,6 +108,14 @@ const Modal = {
 // keep this file independent of the translation files for now.
 const tx = t as unknown as (key: string, ...args: any[]) => string;
 
+function isAbsoluteLocalPath(path: string): boolean {
+    return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path);
+}
+
+function isOutsideWorkingDirectoryError(error?: string): boolean {
+    return typeof error === 'string' && error.includes('outside the working directory');
+}
+
 export interface FileViewerModalProps {
     visible: boolean;
     onClose: () => void;
@@ -411,14 +419,32 @@ export function FileViewerModal({
     // sessionId wins if both are provided; machine mode is the fallback.
     const isMachineMode = !sessionId && !!machineId;
     const session = sessionId ? getSession(sessionId) : undefined;
+    const machineReadFallbackId = machineId ?? session?.metadata?.machineId;
     const baseRoot = initialCwd ?? session?.metadata?.path ?? '';
     const [rootPath, setRootPath] = React.useState<string>(baseRoot);
 
     // Bind RPCs to the active mode once. Each closure dispatches to the right
     // implementation; the rest of the component stays mode-agnostic.
-    const readFile = React.useCallback((p: string) => (
-        isMachineMode ? machineReadFile(machineId!, p) : sessionReadFile(sessionId!, p)
-    ), [isMachineMode, machineId, sessionId]);
+    const readFile = React.useCallback(async (p: string) => {
+        if (isMachineMode) {
+            return machineReadFile(machineId!, p);
+        }
+        const response = await sessionReadFile(sessionId!, p);
+        if (
+            response.success
+            || !machineReadFallbackId
+            || !isPreviewableImage(p)
+            || !isAbsoluteLocalPath(p)
+            || !isOutsideWorkingDirectoryError(response.error)
+        ) {
+            return response;
+        }
+        // Image previews are read-only. If an absolute screenshot/evidence path
+        // is outside the session working directory, fall back to machine-scope
+        // read so local image evidence can be viewed without widening session
+        // write/list/delete permissions.
+        return machineReadFile(machineReadFallbackId, p);
+    }, [isMachineMode, machineId, machineReadFallbackId, sessionId]);
     const writeFile = React.useCallback((p: string, content: string) => (
         isMachineMode ? machineWriteFile(machineId!, p, content) : sessionWriteFile(sessionId!, p, content)
     ), [isMachineMode, machineId, sessionId]);

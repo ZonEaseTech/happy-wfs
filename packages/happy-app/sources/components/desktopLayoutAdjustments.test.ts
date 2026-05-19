@@ -119,6 +119,15 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain("color: '#8f8f8f'");
     });
 
+    it('falls back to machine read only for absolute image previews outside the session working directory', () => {
+        const source = read('components/FileViewerModal.web.tsx');
+        expect(source).toContain('const machineReadFallbackId = machineId ?? session?.metadata?.machineId;');
+        expect(source).toContain('isPreviewableImage(p)');
+        expect(source).toContain('isAbsoluteLocalPath(p)');
+        expect(source).toContain('isOutsideWorkingDirectoryError(response.error)');
+        expect(source).toContain('return machineReadFile(machineReadFallbackId, p);');
+    });
+
     it('manages enter-to-send separately for web/desktop and mobile', () => {
         const features = read('app/(app)/settings/features.tsx');
         expect(features).toContain("useSettingMutable('agentInputEnterToSendWeb')");
