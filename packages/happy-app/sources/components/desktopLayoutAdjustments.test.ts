@@ -175,7 +175,7 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('buildGitHubIssueInboxCacheKey');
         expect(source).toContain("useLocalSettingMutable('githubIssueInboxCache')");
         expect(source).toContain('setPendingIssues(cached.issues)');
-        expect(source).toContain('void loadPendingIssues(!cached)');
+        expect(source).toContain('void loadPendingIssues(!cached && !baselineCached)');
         expect(source).toContain('withGitHubIssueInboxCacheEntry');
 
         const localSettings = read('sync/localSettings.ts');
@@ -193,6 +193,18 @@ describe('desktop layout adjustments', () => {
         expect(highlighter).toContain('localFileReference');
         expect(highlighter).toContain('resolveLocalFileReference');
         expect(highlighter).toContain('<Link');
+    });
+
+
+    it('keeps a baseline GitHub issue list for instant local inbox search while refreshing remotely', () => {
+        const source = read('components/SessionsList.tsx');
+        expect(source).toContain('pendingIssueBaselineIssues');
+        expect(source).toContain('pendingIssueBaselineCacheKey');
+        expect(source).toContain('mergeGitHubIssuesForLocalSearch');
+        expect(source).toContain('pendingIssueLocalSearchSource');
+        expect(source).toContain('loadPendingIssueBaseline');
+        expect(source).toContain('void loadPendingIssueBaseline(false)');
+        expect(source).toContain('const isBaselineRequest = !pendingIssueSearchText.trim();');
     });
 
 });

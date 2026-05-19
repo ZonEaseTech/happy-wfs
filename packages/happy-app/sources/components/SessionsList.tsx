@@ -675,6 +675,16 @@ function withGitHubIssueInboxCacheEntry(cache: GitHubIssueInboxCache, key: strin
     return Object.fromEntries(entries.slice(0, GITHUB_ISSUE_INBOX_CACHE_LIMIT));
 }
 
+function mergeGitHubIssuesForLocalSearch(...issueLists: GitHubIssue[][]): GitHubIssue[] {
+    const merged = new Map<string, GitHubIssue>();
+    for (const issues of issueLists) {
+        for (const issue of issues) {
+            merged.set(`${issue.repository}#${issue.number}`, issue);
+        }
+    }
+    return Array.from(merged.values());
+}
+
 function buildGitHubIssueSearchQuery(searchText: string): string {
     const clauses = ['is:issue', 'is:open', 'assignee:@me', 'archived:false'];
     const search = searchText.trim();
@@ -711,12 +721,14 @@ export function SessionsList() {
     }, []);
     const auth = useAuth();
     const [pendingIssues, setPendingIssues] = React.useState<GitHubIssue[]>([]);
+    const [pendingIssueBaselineIssues, setPendingIssueBaselineIssues] = React.useState<GitHubIssue[]>([]);
     const [pendingIssuesLoading, setPendingIssuesLoading] = React.useState(false);
     const [pendingIssuesError, setPendingIssuesError] = React.useState<string | null>(null);
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
     const [pendingIssueSearchText, setPendingIssueSearchText] = useLocalSettingMutable('githubIssueInboxSearchText');
     const [githubIssueInboxCache, setGithubIssueInboxCache] = useLocalSettingMutable('githubIssueInboxCache');
     const lastPendingIssuesLoadKeyRef = React.useRef<string | null>(null);
+    const lastPendingIssueBaselineKeyRef = React.useRef<string | null>(null);
     const githubTokenPromptOpenRef = React.useRef(false);
     const pathname = usePathname();
     const isTablet = useIsTablet();
@@ -732,6 +744,12 @@ export function SessionsList() {
         projects: githubIssueInboxFilters.projects,
         statuses: githubIssueInboxFilters.keywords,
     }), [auth.credentials?.token, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueServerQuery]);
+    const pendingIssueBaselineCacheKey = React.useMemo(() => buildGitHubIssueInboxCacheKey({
+        token: auth.credentials?.token ?? '',
+        query: buildGitHubIssueSearchQuery(''),
+        projects: githubIssueInboxFilters.projects,
+        statuses: githubIssueInboxFilters.keywords,
+    }), [auth.credentials?.token, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects]);
     const promptForGitHubToken = React.useCallback(async (): Promise<boolean> => {
         if (!auth.credentials || githubTokenPromptOpenRef.current) return false;
         githubTokenPromptOpenRef.current = true;
@@ -766,6 +784,7 @@ export function SessionsList() {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
         setPendingIssuesError(null);
+        const isBaselineRequest = !pendingIssueSearchText.trim();
         const requestOptions = {
             limit: 100,
             // Always send the search text. When project filters are present,
@@ -787,6 +806,9 @@ export function SessionsList() {
                 }
             }
             setPendingIssues(result.issues);
+            if (isBaselineRequest) {
+                setPendingIssueBaselineIssues(result.issues);
+            }
             setGithubIssueInboxCache(withGitHubIssueInboxCacheEntry(githubIssueInboxCache as GitHubIssueInboxCache, pendingIssueCacheKey, result.issues));
             if (result.warning) {
                 setPendingIssuesError(result.warning);
@@ -799,6 +821,9 @@ export function SessionsList() {
                 if (saved) {
                     const result = await listGitHubIssues(auth.credentials, requestOptions);
                     setPendingIssues(result.issues);
+                    if (isBaselineRequest) {
+                        setPendingIssueBaselineIssues(result.issues);
+                    }
                     setGithubIssueInboxCache(withGitHubIssueInboxCacheEntry(githubIssueInboxCache as GitHubIssueInboxCache, pendingIssueCacheKey, result.issues));
                     setPendingIssuesError(result.warning ?? null);
                 }
@@ -806,7 +831,27 @@ export function SessionsList() {
         } finally {
             setPendingIssuesLoading(false);
         }
-    }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueCacheKey, pendingIssueServerQuery, promptForGitHubToken, setGithubIssueInboxCache]);
+    }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueCacheKey, pendingIssueSearchText, pendingIssueServerQuery, promptForGitHubToken, setGithubIssueInboxCache]);
+    const loadPendingIssueBaseline = React.useCallback(async (showSpinner: boolean = false) => {
+        if (!auth.credentials) return;
+        if (showSpinner) setPendingIssuesLoading(true);
+        const requestOptions = {
+            limit: 100,
+            query: buildGitHubIssueSearchQuery(''),
+            projects: githubIssueInboxFilters.projects,
+            statuses: githubIssueInboxFilters.keywords,
+        };
+        try {
+            const result = await listGitHubIssues(auth.credentials, requestOptions);
+            setPendingIssueBaselineIssues(result.issues);
+            setGithubIssueInboxCache(withGitHubIssueInboxCacheEntry(githubIssueInboxCache as GitHubIssueInboxCache, pendingIssueBaselineCacheKey, result.issues));
+        } catch {
+            // Baseline search is a best-effort cache warmup for instant local filtering.
+            // Keep the foreground search/result path authoritative.
+        } finally {
+            if (showSpinner) setPendingIssuesLoading(false);
+        }
+    }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueBaselineCacheKey, setGithubIssueInboxCache]);
     const handleRefresh = React.useCallback(async () => {
         setRefreshing(true);
         try {
@@ -825,16 +870,27 @@ export function SessionsList() {
         const loadKey = pendingIssueCacheKey;
         if (lastPendingIssuesLoadKeyRef.current === loadKey) return;
         lastPendingIssuesLoadKeyRef.current = loadKey;
-        const cached = (githubIssueInboxCache as GitHubIssueInboxCache)[pendingIssueCacheKey];
+        const cache = githubIssueInboxCache as GitHubIssueInboxCache;
+        const cached = cache[pendingIssueCacheKey];
+        const baselineCached = cache[pendingIssueBaselineCacheKey];
+        if (lastPendingIssueBaselineKeyRef.current !== pendingIssueBaselineCacheKey) {
+            lastPendingIssueBaselineKeyRef.current = pendingIssueBaselineCacheKey;
+            setPendingIssueBaselineIssues(baselineCached?.issues ?? []);
+        } else if (baselineCached) {
+            setPendingIssueBaselineIssues(baselineCached.issues);
+        }
         if (cached) {
             setPendingIssues(cached.issues);
             setPendingIssuesError(null);
         }
+        if (pendingIssueSearchText.trim() && !baselineCached) {
+            void loadPendingIssueBaseline(false);
+        }
         const timeout = setTimeout(() => {
-            void loadPendingIssues(!cached);
+            void loadPendingIssues(!cached && !baselineCached);
         }, pendingIssueSearchText.trim() ? 350 : 0);
         return () => clearTimeout(timeout);
-    }, [activeTab, githubIssueInboxCache, pendingIssueCacheKey, pendingIssueSearchText, loadPendingIssues]);
+    }, [activeTab, githubIssueInboxCache, pendingIssueBaselineCacheKey, pendingIssueCacheKey, pendingIssueSearchText, loadPendingIssueBaseline, loadPendingIssues]);
     const pendingIssueFilterKeywords = React.useMemo(() => {
         return splitGitHubIssueFilterValues(githubIssueInboxFilters.keywords);
     }, [githubIssueInboxFilters.keywords]);
@@ -847,8 +903,12 @@ export function SessionsList() {
         return value ? Number(value) : null;
     }, [pendingIssueSearchText]);
     const pendingIssueSearchKeyword = React.useMemo(() => pendingIssueSearchText.trim().replace(/^#\s*/, '').toLowerCase(), [pendingIssueSearchText]);
+    const pendingIssueLocalSearchSource = React.useMemo(() => {
+        if (!pendingIssueSearchText.trim()) return pendingIssues;
+        return mergeGitHubIssuesForLocalSearch(pendingIssueBaselineIssues, pendingIssues);
+    }, [pendingIssueBaselineIssues, pendingIssues, pendingIssueSearchText]);
     const filteredPendingIssues = React.useMemo(() => {
-        return pendingIssues.filter((issue) => {
+        return pendingIssueLocalSearchSource.filter((issue) => {
             const haystack = [
                 issue.repository,
                 `#${issue.number}`,
@@ -876,7 +936,7 @@ export function SessionsList() {
             }
             return true;
         });
-    }, [pendingIssues, pendingIssueFilterKeywords, pendingIssueProjectFilters, pendingIssueSearchKeyword, pendingIssueSearchNumber]);
+    }, [pendingIssueFilterKeywords, pendingIssueLocalSearchSource, pendingIssueProjectFilters, pendingIssueSearchKeyword, pendingIssueSearchNumber]);
     // Reset to 'active' tab if current tab's data becomes empty.
     // Closure tab is exempt — it's an affordance (the user needs to see
     // *where* to mark sessions for closure), so it stays visible and
@@ -1033,6 +1093,11 @@ export function SessionsList() {
                 onStart: () => handleStartIssue(issue),
                 onIssueUpdated: (updatedIssue: GitHubIssue) => {
                     setPendingIssues((current) => current.map((item) => (
+                        item.repository === updatedIssue.repository && item.number === updatedIssue.number
+                            ? updatedIssue
+                            : item
+                    )));
+                    setPendingIssueBaselineIssues((current) => current.map((item) => (
                         item.repository === updatedIssue.repository && item.number === updatedIssue.number
                             ? updatedIssue
                             : item
