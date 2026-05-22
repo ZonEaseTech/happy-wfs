@@ -1574,13 +1574,15 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             )}
 
             {/* Main content area - no padding since header is overlay */}
-            <View style={{ flexBasis: 0, flexGrow: 1, paddingBottom: showTerminal ? 0 : safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
-                <AgentContentView
-                    content={content}
-                    input={input}
-                    placeholder={placeholder}
-                    betweenContentAndInput={pendingQueuePanel}
-                />
+            <View style={{ flexBasis: 0, flexGrow: 1, flexDirection: 'row', minWidth: 0 }}>
+                <View style={{ flex: 1, minWidth: 0, paddingBottom: safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
+                    <AgentContentView
+                        content={content}
+                        input={input}
+                        placeholder={placeholder}
+                        betweenContentAndInput={pendingQueuePanel}
+                    />
+                </View>
                 <TerminalPanel
                     visible={showTerminal}
                     onClose={() => setShowTerminal(false)}

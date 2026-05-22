@@ -137,6 +137,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                terminalQuickCommands: [],
             };
             const delta: Partial<Settings> = {
                 viewInline: true
@@ -176,6 +177,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                terminalQuickCommands: [],
             });
         });
 
@@ -215,6 +217,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                terminalQuickCommands: [],
             };
             const delta: Partial<Settings> = {};
             expect(applySettings(currentSettings, delta)).toEqual(currentSettings);
@@ -256,6 +259,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                terminalQuickCommands: [],
             };
             const delta: Partial<Settings> = {
                 viewInline: false
@@ -302,6 +306,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                terminalQuickCommands: [],
             };
             expect(applySettings(currentSettings, {})).toEqual(currentSettings);
         });
@@ -357,6 +362,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                terminalQuickCommands: [],
             };
             const delta: any = {
                 viewInline: false,
@@ -422,6 +428,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                terminalQuickCommands: [],
                 useEnhancedSessionWizard: false,
                 showThinkingMessages: true,
             });

@@ -83,36 +83,41 @@ describe('desktop layout adjustments', () => {
     });
 
 
-    it('opens the session terminal as a bottom resizable panel instead of a floating modal', () => {
+    it('opens the session terminal as a right resizable panel with user-level quick commands', () => {
         const sessionView = read('-session/SessionView.tsx');
         expect(sessionView).toContain("import { TerminalPanel } from '@/components/Terminal';");
         expect(sessionView).toContain('onPress={() => setShowTerminal(prev => !prev)}');
         expect(sessionView).toContain('<TerminalPanel');
-        expect(sessionView).toContain('paddingBottom: showTerminal ? 0 : safeArea.bottom');
-        expect(sessionView).not.toContain(`<Terminal\n                visible={showTerminal}`);
+        expect(sessionView).toContain("flexDirection: 'row'");
+        expect(sessionView).not.toContain(`<Terminal
+                visible={showTerminal}`);
 
         const terminalWeb = read('components/Terminal.web.tsx');
         expect(terminalWeb).toContain('export const TerminalPanel');
-        expect(terminalWeb).toContain("window.localStorage?.getItem('terminal.panelHeight')");
-        expect(terminalWeb).toContain('height: panelHeight');
+        expect(terminalWeb).toContain("window.localStorage?.getItem('terminal.panelWidth')");
+        expect(terminalWeb).toContain('width: panelWidth');
         expect(terminalWeb).toContain('handlePanelResizeStart');
-        expect(terminalWeb).toContain("alignSelf: 'stretch'");
-        expect(terminalWeb).toContain("width: '100%'");
-        expect(terminalWeb).toContain("backgroundColor: '#ffffff'");
-        expect(terminalWeb).toContain("background: '#f8fafc'");
-        expect(terminalWeb).toContain('height: 28');
+        expect(terminalWeb).toContain("borderLeftWidth: 1");
+        expect(terminalWeb).toContain("cursor: 'ew-resize'");
+        expect(terminalWeb).toContain("useSettingMutable('terminalQuickCommands')");
+        expect(terminalWeb).toContain('quickCommandsOpen');
+        expect(terminalWeb).toContain('saveQuickCommand');
+        expect(terminalWeb).toContain('deleteQuickCommand');
+        expect(terminalWeb).toContain('handleRunQuickCommand');
+        expect(terminalWeb).toContain('sender(`${command}\\r`);');
         expect(terminalWeb).toContain('terminalTabs');
         expect(terminalWeb).toContain('activeTerminalTabId');
         expect(terminalWeb).toContain('active={tab.id === activeTerminalTabId}');
-        expect(terminalWeb).toContain('React.useLayoutEffect(() => {');
-        expect(terminalWeb).toContain('fitAndResize');
-        expect(terminalWeb).toContain('opacity: isActivating ? 0 : 1');
         expect(terminalWeb).toContain('handleAddTerminalTab');
         expect(terminalWeb).toContain('handleCloseTerminalTab');
         expect(terminalWeb).toContain('aria-label="New terminal tab"');
         expect(terminalWeb).toContain('aria-label="Close terminal tab"');
         expect(terminalWeb).toContain('terminalLabelFromCwd');
-        expect(terminalWeb).not.toContain('height: 36,\n                    flexDirection');
+
+        const settings = read('sync/settings.ts');
+        expect(settings).toContain('TerminalQuickCommandSchema');
+        expect(settings).toContain('terminalQuickCommands: z.array(TerminalQuickCommandSchema)');
+        expect(settings).toContain('terminalQuickCommands: []');
     });
 
 

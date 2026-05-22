@@ -34,6 +34,11 @@ import { createPortal } from 'react-dom';
 import { Ionicons } from '@expo/vector-icons';
 import { apiSocket } from '@/sync/apiSocket';
 import { showToast } from '@/components/Toast';
+import { Modal } from '@/modal';
+import { t } from '@/text';
+import { useSettingMutable } from '@/sync/storage';
+import type { TerminalQuickCommand } from '@/sync/settings';
+import { randomUUID } from 'expo-crypto';
 
 export interface TerminalProps {
     visible: boolean;
@@ -206,9 +211,10 @@ interface TerminalRuntimeProps {
     onError: (msg: string) => void;
     /** Whether this runtime is currently visible inside the tabbed panel. */
     active?: boolean;
+    onInputSenderChange?: (sender: ((data: string) => void) | null) => void;
 }
 
-const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true }) => {
+const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true, onInputSenderChange }) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const termRef = React.useRef<InstanceType<XtermModule['Terminal']> | null>(null);
     const fitRef = React.useRef<InstanceType<FitAddonModule['FitAddon']> | null>(null);
@@ -216,8 +222,10 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
     const closedRef = React.useRef(false);
     const activeRef = React.useRef(active);
     const [isActivating, setIsActivating] = React.useState(false);
+    const onInputSenderChangeRef = React.useRef(onInputSenderChange);
 
     React.useLayoutEffect(() => { activeRef.current = active; }, [active]);
+    React.useLayoutEffect(() => { onInputSenderChangeRef.current = onInputSenderChange; }, [onInputSenderChange]);
 
     const fitAndResize = React.useCallback(() => {
         if (!fitRef.current || !termRef.current) return;
@@ -229,6 +237,19 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             const rows = termRef.current.rows;
             apiSocket.sessionRPC(sessionId, 'pty-resize', { ptyId, cols, rows }).catch(() => {});
         } catch { /* container detached */ }
+    }, [sessionId]);
+
+    const sendPtyInput = React.useCallback(async (data: string) => {
+        if (!ptyIdRef.current || closedRef.current) return;
+        try {
+            const encryptedData = await encryptData(sessionId, data);
+            if (encryptedData == null) return;
+            apiSocket.send('pty-input', {
+                sessionId,
+                ptyId: ptyIdRef.current,
+                data: encryptedData,
+            });
+        } catch { /* drop frame on encrypt error; user will retry */ }
     }, [sessionId]);
 
     React.useLayoutEffect(() => {
@@ -359,17 +380,9 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 try { term.focus(); } catch { /* ignore */ }
 
                 // ---- forward keystrokes ----
-                const onDataDisposable = term.onData(async (data: string) => {
-                    if (!ptyIdRef.current || closedRef.current) return;
-                    try {
-                        const encryptedData = await encryptData(sessionId, data);
-                        if (encryptedData == null) return;
-                        apiSocket.send('pty-input', {
-                            sessionId,
-                            ptyId: ptyIdRef.current,
-                            data: encryptedData,
-                        });
-                    } catch { /* drop frame on encrypt error; user will retry */ }
+                onInputSenderChangeRef.current?.(sendPtyInput);
+                const onDataDisposable = term.onData((data: string) => {
+                    void sendPtyInput(data);
                 });
                 dataDisposers.push(() => onDataDisposable.dispose());
             } catch (err) {
@@ -425,6 +438,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             for (const d of dataDisposers) {
                 try { d(); } catch { /* ignore */ }
             }
+            onInputSenderChangeRef.current?.(null);
             const ptyId = ptyIdRef.current;
             ptyIdRef.current = null;
             if (ptyId) {
@@ -437,7 +451,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             fitRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sessionId, cwd, bundle]);
+    }, [sessionId, cwd, bundle, sendPtyInput]);
 
     return (
         <div
@@ -835,24 +849,27 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [errorClosed, setErrorClosed] = React.useState(false);
     const tabCounterRef = React.useRef(1);
+    const inputSendersRef = React.useRef<Record<string, ((data: string) => void) | undefined>>({});
+    const [terminalQuickCommands, setTerminalQuickCommands] = useSettingMutable('terminalQuickCommands');
+    const [quickCommandsOpen, setQuickCommandsOpen] = React.useState(false);
     const [terminalTabs, setTerminalTabs] = React.useState<TerminalPanelTab[]>(() => ([
         { id: 'terminal-1', title: terminalLabelFromCwd(cwd) },
     ]));
     const [activeTerminalTabId, setActiveTerminalTabId] = React.useState('terminal-1');
-    const panelHeightRef = React.useRef(260);
-    const [panelHeight, setPanelHeight] = React.useState<number>(() => {
-        if (typeof window === 'undefined') return 260;
+    const panelWidthRef = React.useRef(420);
+    const [panelWidth, setPanelWidth] = React.useState<number>(() => {
+        if (typeof window === 'undefined') return 420;
         try {
-            const raw = window.localStorage?.getItem('terminal.panelHeight');
+            const raw = window.localStorage?.getItem('terminal.panelWidth');
             const parsed = raw ? Number(raw) : NaN;
-            if (Number.isFinite(parsed) && parsed >= 120) {
-                return Math.min(parsed, Math.round(window.innerHeight * 0.6));
+            if (Number.isFinite(parsed) && parsed >= 320) {
+                return Math.min(parsed, Math.round(window.innerWidth * 0.55));
             }
         } catch {}
-        return 260;
+        return 420;
     });
 
-    React.useEffect(() => { panelHeightRef.current = panelHeight; }, [panelHeight]);
+    React.useEffect(() => { panelWidthRef.current = panelWidth; }, [panelWidth]);
     React.useEffect(() => {
         if (visible) setErrorClosed(false);
     }, [visible]);
@@ -863,6 +880,73 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         showToast(msg);
         onClose();
     }, [errorClosed, onClose]);
+
+    const handleInputSenderChange = React.useCallback((tabId: string, sender: ((data: string) => void) | null) => {
+        if (sender) inputSendersRef.current[tabId] = sender;
+        else delete inputSendersRef.current[tabId];
+    }, []);
+
+    const activeInputSender = React.useCallback(() => inputSendersRef.current[activeTerminalTabId], [activeTerminalTabId]);
+
+    const handleRunQuickCommand = React.useCallback((command: string) => {
+        const sender = activeInputSender();
+        if (!sender) {
+            showToast(t('terminal.quickCommandsTerminalNotReady'));
+            return;
+        }
+        sender(`${command}\r`);
+        setQuickCommandsOpen(false);
+    }, [activeInputSender]);
+
+    const saveQuickCommand = React.useCallback(async (existing?: TerminalQuickCommand) => {
+        const title = await Modal.prompt(
+            existing ? t('terminal.quickCommandsEditTitle') : t('terminal.quickCommandsAddTitle'),
+            t('terminal.quickCommandsNamePrompt'),
+            {
+                defaultValue: existing?.title ?? '',
+                placeholder: t('terminal.quickCommandsNamePlaceholder'),
+                confirmText: t('common.save'),
+                cancelText: t('common.cancel'),
+            },
+        );
+        const trimmedTitle = title?.trim();
+        if (!trimmedTitle) return;
+        const command = await Modal.prompt(
+            existing ? t('terminal.quickCommandsEditTitle') : t('terminal.quickCommandsAddTitle'),
+            t('terminal.quickCommandsCommandPrompt'),
+            {
+                defaultValue: existing?.command ?? '',
+                placeholder: 'git status',
+                confirmText: t('common.save'),
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 4,
+            },
+        );
+        const trimmedCommand = command?.trim();
+        if (!trimmedCommand) return;
+        const now = Date.now();
+        if (existing) {
+            setTerminalQuickCommands(terminalQuickCommands.map((item) => item.id === existing.id
+                ? { ...item, title: trimmedTitle, command: trimmedCommand, updatedAt: now }
+                : item));
+        } else {
+            setTerminalQuickCommands([
+                ...terminalQuickCommands,
+                { id: randomUUID(), title: trimmedTitle, command: trimmedCommand, createdAt: now, updatedAt: now },
+            ]);
+        }
+    }, [setTerminalQuickCommands, terminalQuickCommands]);
+
+    const deleteQuickCommand = React.useCallback(async (command: TerminalQuickCommand) => {
+        const ok = await Modal.confirm(
+            t('terminal.quickCommandsDeleteTitle'),
+            t('terminal.quickCommandsDeleteMessage', { title: command.title }),
+            { confirmText: t('common.delete'), cancelText: t('common.cancel'), destructive: true },
+        );
+        if (!ok) return;
+        setTerminalQuickCommands(terminalQuickCommands.filter((item) => item.id !== command.id));
+    }, [setTerminalQuickCommands, terminalQuickCommands]);
 
     const handleAddTerminalTab = React.useCallback(() => {
         const nextIndex = tabCounterRef.current + 1;
@@ -881,6 +965,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         const closingIndex = terminalTabs.findIndex((tab) => tab.id === tabId);
         const nextTabs = terminalTabs.filter((tab) => tab.id !== tabId);
         setTerminalTabs(nextTabs);
+        delete inputSendersRef.current[tabId];
         if (activeTerminalTabId === tabId) {
             const fallbackTab = nextTabs[closingIndex] ?? nextTabs[closingIndex - 1] ?? nextTabs[0];
             if (fallbackTab) {
@@ -892,22 +977,22 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     const handlePanelResizeStart = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
-        const startY = e.clientY;
-        const startHeight = panelHeightRef.current;
-        let lastHeight = startHeight;
-        const clampHeight = (value: number) => {
-            const maxHeight = typeof window === 'undefined' ? 640 : Math.round(window.innerHeight * 0.6);
-            return Math.max(120, Math.min(maxHeight, value));
+        const startX = e.clientX;
+        const startWidth = panelWidthRef.current;
+        let lastWidth = startWidth;
+        const clampWidth = (value: number) => {
+            const maxWidth = typeof window === 'undefined' ? 720 : Math.round(window.innerWidth * 0.65);
+            return Math.max(320, Math.min(maxWidth, value));
         };
         const onMove = (ev: MouseEvent) => {
-            // The handle is on the panel's top edge: dragging upward increases height.
-            lastHeight = clampHeight(startHeight + (startY - ev.clientY));
-            setPanelHeight(lastHeight);
+            // The handle is on the panel's left edge: dragging left increases width.
+            lastWidth = clampWidth(startWidth + (startX - ev.clientX));
+            setPanelWidth(lastWidth);
         };
         const onUp = () => {
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onUp);
-            try { window.localStorage?.setItem('terminal.panelHeight', String(lastHeight)); } catch {}
+            try { window.localStorage?.setItem('terminal.panelWidth', String(lastWidth)); } catch {}
         };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
@@ -918,38 +1003,46 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     return (
         <View
             style={{
-                height: panelHeight,
-                minHeight: 120,
+                width: panelWidth,
+                minWidth: 320,
                 alignSelf: 'stretch',
-                width: '100%',
-                marginLeft: 0,
-                marginRight: 0,
+                height: '100%',
                 backgroundColor: '#ffffff',
-                borderTopWidth: 1,
-                borderTopColor: '#e5e7eb',
-                boxShadow: '0 -6px 18px rgba(15, 23, 42, 0.08)' as any,
+                borderLeftWidth: 1,
+                borderLeftColor: '#e5e7eb',
+                boxShadow: '-6px 0 18px rgba(15, 23, 42, 0.08)' as any,
+                position: 'relative',
             }}
         >
             <div
                 onMouseDown={handlePanelResizeStart}
-                title="拖动调整终端高度"
+                title={t('terminal.dragToResizeWidth')}
                 style={{
-                    height: 28,
-                    cursor: 'ns-resize',
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: 6,
+                    cursor: 'ew-resize',
+                    zIndex: 12,
+                }}
+            />
+            <div
+                style={{
+                    height: 32,
                     background: '#f8fafc',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     userSelect: 'none',
                     borderBottom: '1px solid #e5e7eb',
-                    padding: '0 8px',
+                    padding: '0 8px 0 10px',
                     boxSizing: 'border-box',
                     position: 'relative',
                 }}
             >
                 <div
-                    onMouseDown={(event) => event.stopPropagation()}
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: '70%', overflow: 'hidden' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flex: 1, overflow: 'hidden' }}
                 >
                     {terminalTabs.map((tab) => {
                         const isActive = tab.id === activeTerminalTabId;
@@ -966,8 +1059,8 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                     }
                                 }}
                                 style={{
-                                    height: 22,
-                                    maxWidth: 180,
+                                    height: 24,
+                                    maxWidth: 160,
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 6,
@@ -992,7 +1085,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                         handleCloseTerminalTab(tab.id);
                                     }}
                                     aria-label="Close terminal tab"
-                                    title="删除终端标签"
+                                    title={t('terminal.closeTerminalTab')}
                                     style={{
                                         width: 16,
                                         height: 16,
@@ -1017,10 +1110,10 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         type="button"
                         onClick={handleAddTerminalTab}
                         aria-label="New terminal tab"
-                        title="新增终端标签"
+                        title={t('terminal.newTerminalTab')}
                         style={{
-                            width: 22,
-                            height: 22,
+                            width: 24,
+                            height: 24,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -1030,31 +1123,41 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                             color: '#6b7280',
                             cursor: 'pointer',
                             padding: 0,
+                            flexShrink: 0,
                         }}
                     >
                         <Ionicons name="add" size={16} color="#6b7280" />
                     </button>
                 </div>
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: 4,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: 48,
-                        height: 3,
-                        borderRadius: 999,
-                        background: '#94a3b8',
-                    }}
-                />
                 <button
                     type="button"
-                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={() => setQuickCommandsOpen((value) => !value)}
+                    aria-label="Terminal quick commands"
+                    title={t('terminal.quickCommands')}
+                    style={{
+                        width: 28,
+                        height: 28,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: quickCommandsOpen ? '1px solid #bfdbfe' : 0,
+                        borderRadius: 6,
+                        background: quickCommandsOpen ? '#eff6ff' : 'transparent',
+                        cursor: 'pointer',
+                        padding: 0,
+                        marginLeft: 4,
+                    }}
+                >
+                    <Ionicons name="flash-outline" size={16} color={quickCommandsOpen ? '#2563eb' : '#6b7280'} />
+                </button>
+                <button
+                    type="button"
                     onClick={onClose}
                     aria-label="Close terminal"
+                    title={t('terminal.closeTerminal')}
                     style={{
-                        width: 24,
-                        height: 24,
+                        width: 28,
+                        height: 28,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1064,11 +1167,62 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         color: '#6b7280',
                         cursor: 'pointer',
                         padding: 0,
+                        marginLeft: 2,
                     }}
                 >
                     <Ionicons name="close" size={16} color="#6b7280" />
                 </button>
             </div>
+            {quickCommandsOpen && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 38,
+                        right: 8,
+                        width: Math.min(340, panelWidth - 24),
+                        maxHeight: 360,
+                        overflow: 'auto',
+                        zIndex: 20,
+                        background: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 10,
+                        boxShadow: '0 12px 30px rgba(15,23,42,0.18)',
+                        padding: 8,
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <strong style={{ fontSize: 13, color: '#111827' }}>{t('terminal.quickCommands')}</strong>
+                        <button
+                            type="button"
+                            onClick={() => void saveQuickCommand()}
+                            style={{ border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }}
+                        >
+                            {t('common.create')}
+                        </button>
+                    </div>
+                    {terminalQuickCommands.length === 0 ? (
+                        <div style={{ color: '#6b7280', fontSize: 12, padding: '14px 4px' }}>{t('terminal.quickCommandsEmpty')}</div>
+                    ) : terminalQuickCommands.map((command) => (
+                        <div key={command.id} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 4px', borderTop: '1px solid #f3f4f6' }}>
+                            <button
+                                type="button"
+                                onClick={() => handleRunQuickCommand(command.command)}
+                                title={command.command}
+                                style={{ flex: 1, minWidth: 0, border: 0, background: 'transparent', textAlign: 'left', cursor: 'pointer', padding: 4 }}
+                            >
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{command.title}</div>
+                                <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{command.command}</div>
+                            </button>
+                            <button type="button" onClick={() => void saveQuickCommand(command)} title={t('terminal.quickCommandsEditAction')} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 4 }}>
+                                <Ionicons name="create-outline" size={16} color="#6b7280" />
+                            </button>
+                            <button type="button" onClick={() => void deleteQuickCommand(command)} title={t('common.delete')} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 4 }}>
+                                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
             <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
                 <React.Suspense
                     fallback={
@@ -1094,6 +1248,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                             bundle={bundle}
                             onError={handleError}
                             active={tab.id === activeTerminalTabId}
+                            onInputSenderChange={(sender) => handleInputSenderChange(tab.id, sender)}
                         />
                     </View>
                 ))}

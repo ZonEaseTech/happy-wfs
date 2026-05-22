@@ -1,6 +1,16 @@
 import * as z from 'zod';
 import { CustomQuickActionSchema } from './localSettings';
 
+export const TerminalQuickCommandSchema = z.object({
+    id: z.string().min(1),
+    title: z.string().trim().min(1),
+    command: z.string().trim().min(1),
+    createdAt: z.number(),
+    updatedAt: z.number(),
+});
+
+export type TerminalQuickCommand = z.infer<typeof TerminalQuickCommandSchema>;
+
 //
 // Configuration Profile Schema (for environment variable profiles)
 //
@@ -297,6 +307,7 @@ export const SettingsSchema = z.object({
     // Favorite machines for quick machine selection
     favoriteMachines: z.array(z.string()).describe('User-defined favorite machines (machine IDs) for quick access in machine selection'),
     customQuickActions: z.array(CustomQuickActionSchema).describe('Synced AI shortcut prompts shown in the session composer'),
+    terminalQuickCommands: z.array(TerminalQuickCommandSchema).describe('User-level terminal quick commands stored in synced account settings'),
     // Dismissed CLI warning banners (supports both per-machine and global dismissal)
     dismissedCLIWarnings: z.object({
         perMachine: z.record(z.string(), z.object({
@@ -367,6 +378,7 @@ export const settingsDefaults: Settings = {
     // Favorite machines (empty by default)
     favoriteMachines: [],
     customQuickActions: [],
+    terminalQuickCommands: [],
     // Dismissed CLI warnings (empty by default)
     dismissedCLIWarnings: { perMachine: {}, global: {} },
 };
