@@ -258,4 +258,12 @@ describe('desktop layout adjustments', () => {
         expect(source).not.toContain('props.onChangeText(prompt);');
     });
 
+
+    it('does not add desktop-only bottom padding on mobile web session view', () => {
+        const source = read('-session/SessionView.tsx');
+        expect(source).toContain("const sessionContentBottomPadding = safeArea.bottom + (isRunningOnMac() || (Platform.OS === 'web' && deviceType !== 'phone') ? 32 : 0);");
+        expect(source).toContain('paddingBottom: sessionContentBottomPadding');
+        expect(source).not.toContain("safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0)");
+    });
+
 });

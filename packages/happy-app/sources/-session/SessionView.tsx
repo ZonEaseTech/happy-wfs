@@ -1537,6 +1537,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const input = agentInput;
 
 
+    const sessionContentBottomPadding = safeArea.bottom + (isRunningOnMac() || (Platform.OS === 'web' && deviceType !== 'phone') ? 32 : 0);
+
     return (
         <>
             {/* Hidden file input for web image upload */}
@@ -1587,7 +1589,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             )}
 
             {/* Main content area - no padding since header is overlay */}
-            <View style={{ flexBasis: 0, flexGrow: 1, minWidth: 0, paddingBottom: safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
+            <View style={{ flexBasis: 0, flexGrow: 1, minWidth: 0, paddingBottom: sessionContentBottomPadding }}>
                 <AgentContentView
                     content={content}
                     input={input}
