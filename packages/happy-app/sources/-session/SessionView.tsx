@@ -287,7 +287,7 @@ export const SessionView = React.memo((props: { id: string }) => {
 
     return (
         <View style={{ flex: 1, flexDirection: 'row' }}>
-            <View style={{ flex: 1, position: 'relative' }}>
+            <View style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             {/* Status bar shadow for landscape mode */}
             {isLandscape && deviceType === 'phone' && (
                 <View style={{
@@ -548,12 +548,18 @@ export const SessionView = React.memo((props: { id: string }) => {
                         setRightPanelType={setRightPanelType}
                         showFileViewer={showFileViewer}
                         setShowFileViewer={setShowFileViewer}
-                        showTerminal={showTerminal}
-                        setShowTerminal={setShowTerminal}
                     />
                 ) : null}
             </View>
             </View>
+            {showTerminalButton && (
+                <TerminalPanel
+                    visible={showTerminal}
+                    onClose={() => setShowTerminal(false)}
+                    sessionId={sessionId}
+                    cwd={session?.metadata?.path}
+                />
+            )}
             {isDesktopPanelMode && rightPanelType && (
                 <RightPanel
                     sessionId={sessionId}
@@ -574,7 +580,7 @@ export const SessionView = React.memo((props: { id: string }) => {
 });
 
 
-function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelType, setRightPanelType, showFileViewer, setShowFileViewer, showTerminal, setShowTerminal }: {
+function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelType, setRightPanelType, showFileViewer, setShowFileViewer }: {
     sessionId: string;
     session: Session;
     isDesktopPanelMode: boolean;
@@ -582,8 +588,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     setRightPanelType: React.Dispatch<React.SetStateAction<RightPanelType | null>>;
     showFileViewer: boolean;
     setShowFileViewer: React.Dispatch<React.SetStateAction<boolean>>;
-    showTerminal: boolean;
-    setShowTerminal: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     const { theme } = useUnistyles();
     const router = useRouter();
@@ -1574,20 +1578,12 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             )}
 
             {/* Main content area - no padding since header is overlay */}
-            <View style={{ flexBasis: 0, flexGrow: 1, flexDirection: 'row', minWidth: 0 }}>
-                <View style={{ flex: 1, minWidth: 0, paddingBottom: safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
-                    <AgentContentView
-                        content={content}
-                        input={input}
-                        placeholder={placeholder}
-                        betweenContentAndInput={pendingQueuePanel}
-                    />
-                </View>
-                <TerminalPanel
-                    visible={showTerminal}
-                    onClose={() => setShowTerminal(false)}
-                    sessionId={sessionId}
-                    cwd={session.metadata?.path}
+            <View style={{ flexBasis: 0, flexGrow: 1, minWidth: 0, paddingBottom: safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
+                <AgentContentView
+                    content={content}
+                    input={input}
+                    placeholder={placeholder}
+                    betweenContentAndInput={pendingQueuePanel}
                 />
             </View >
 

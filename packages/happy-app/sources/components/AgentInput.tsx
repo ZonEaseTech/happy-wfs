@@ -814,11 +814,14 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         setShowQuickActions(false);
         const prompt = action.resolvePrompt ? await action.resolvePrompt() : action.prompt;
         if (prompt === null) return;
-        setInputState({ text: prompt, selection: { start: prompt.length, end: prompt.length } });
-        latestTextRef.current = prompt;
-        props.onChangeText(prompt);
+        const current = latestTextRef.current ?? props.value ?? '';
+        const separator = current.trim().length > 0 ? '\n\n' : '';
+        const nextText = `${current}${separator}${prompt}`;
+        setInputState({ text: nextText, selection: { start: nextText.length, end: nextText.length } });
+        latestTextRef.current = nextText;
+        props.onChangeText(nextText);
         setTimeout(() => inputRef.current?.focus(), 30);
-    }, [props.onChangeText]);
+    }, [props.onChangeText, props.value]);
 
     // Handle settings selection
     const handleSettingsSelect = React.useCallback((mode: PermissionMode) => {

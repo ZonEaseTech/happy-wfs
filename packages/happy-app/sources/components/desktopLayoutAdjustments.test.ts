@@ -88,7 +88,12 @@ describe('desktop layout adjustments', () => {
         expect(sessionView).toContain("import { TerminalPanel } from '@/components/Terminal';");
         expect(sessionView).toContain('onPress={() => setShowTerminal(prev => !prev)}');
         expect(sessionView).toContain('<TerminalPanel');
+        expect(sessionView).toContain("<View style={{ flex: 1, minWidth: 0, position: 'relative' }}>");
         expect(sessionView).toContain("flexDirection: 'row'");
+        expect(sessionView).not.toContain('showTerminal={showTerminal}');
+        expect(sessionView).not.toContain('setShowTerminal={setShowTerminal}');
+        const loadedSource = sessionView.slice(sessionView.indexOf('function SessionViewLoaded'));
+        expect(loadedSource).not.toContain('<TerminalPanel');
         expect(sessionView).not.toContain(`<Terminal
                 visible={showTerminal}`);
 
@@ -107,12 +112,18 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain('sender(`${command}\\r`);');
         expect(terminalWeb).toContain('terminalTabs');
         expect(terminalWeb).toContain('activeTerminalTabId');
-        expect(terminalWeb).toContain('active={tab.id === activeTerminalTabId}');
+        expect(terminalWeb).toContain('active={isActive}');
         expect(terminalWeb).toContain('handleAddTerminalTab');
         expect(terminalWeb).toContain('handleCloseTerminalTab');
         expect(terminalWeb).toContain('aria-label="New terminal tab"');
         expect(terminalWeb).toContain('aria-label="Close terminal tab"');
         expect(terminalWeb).toContain('terminalLabelFromCwd');
+        expect(terminalWeb).toContain('const [hasOpened, setHasOpened] = React.useState(visible);');
+        expect(terminalWeb).toContain("display: visible ? 'flex' : 'none'");
+        expect(terminalWeb).toContain('type TerminalWorkspace');
+        expect(terminalWeb).toContain('createTerminalWorkspace(sessionId, cwd)');
+        expect(terminalWeb).toContain('managerOpen');
+        expect(terminalWeb).toContain('handleCloseWorkspace');
 
         const settings = read('sync/settings.ts');
         expect(settings).toContain('TerminalQuickCommandSchema');
@@ -221,6 +232,16 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain("'ZonEaseTech/ttpos-server-go'");
         expect(source).toContain('startExactGitHubIssueSearch');
         expect(source).toContain('repo:${repository} is:issue ${issueNumber}');
+    });
+
+
+    it('appends quick actions to the existing agent input instead of replacing it', () => {
+        const source = read('components/AgentInput.tsx');
+        expect(source).toContain("const current = latestTextRef.current ?? props.value ?? '';");
+        expect(source).toContain("const separator = current.trim().length > 0 ? '\\n\\n' : '';");
+        expect(source).toContain('const nextText = `${current}${separator}${prompt}`;');
+        expect(source).toContain('props.onChangeText(nextText);');
+        expect(source).not.toContain('props.onChangeText(prompt);');
     });
 
 });

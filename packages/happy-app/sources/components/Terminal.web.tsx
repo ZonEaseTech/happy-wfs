@@ -843,19 +843,42 @@ function terminalLabelFromCwd(cwd?: string): string {
 type TerminalPanelTab = {
     id: string;
     title: string;
+    sessionId: string;
+    cwd?: string;
 };
+
+type TerminalWorkspace = {
+    key: string;
+    sessionId: string;
+    cwd?: string;
+    tabs: TerminalPanelTab[];
+    activeTabId: string;
+    tabCounter: number;
+};
+
+function createTerminalWorkspace(sessionId: string, cwd?: string): TerminalWorkspace {
+    const title = terminalLabelFromCwd(cwd);
+    return {
+        key: sessionId,
+        sessionId,
+        cwd,
+        tabCounter: 1,
+        activeTabId: `${sessionId}:terminal-1`,
+        tabs: [{ id: `${sessionId}:terminal-1`, title, sessionId, cwd }],
+    };
+}
 
 export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [errorClosed, setErrorClosed] = React.useState(false);
-    const tabCounterRef = React.useRef(1);
     const inputSendersRef = React.useRef<Record<string, ((data: string) => void) | undefined>>({});
     const [terminalQuickCommands, setTerminalQuickCommands] = useSettingMutable('terminalQuickCommands');
     const [quickCommandsOpen, setQuickCommandsOpen] = React.useState(false);
-    const [terminalTabs, setTerminalTabs] = React.useState<TerminalPanelTab[]>(() => ([
-        { id: 'terminal-1', title: terminalLabelFromCwd(cwd) },
-    ]));
-    const [activeTerminalTabId, setActiveTerminalTabId] = React.useState('terminal-1');
+    const [managerOpen, setManagerOpen] = React.useState(false);
+    const [hasOpened, setHasOpened] = React.useState(visible);
+    const [workspaces, setWorkspaces] = React.useState<Record<string, TerminalWorkspace>>(() => ({
+        [sessionId]: createTerminalWorkspace(sessionId, cwd),
+    }));
     const panelWidthRef = React.useRef(420);
     const [panelWidth, setPanelWidth] = React.useState<number>(() => {
         if (typeof window === 'undefined') return 420;
@@ -871,8 +894,18 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
 
     React.useEffect(() => { panelWidthRef.current = panelWidth; }, [panelWidth]);
     React.useEffect(() => {
-        if (visible) setErrorClosed(false);
-    }, [visible]);
+        if (!visible) return;
+        setHasOpened(true);
+        setErrorClosed(false);
+        setWorkspaces((current) => {
+            if (current[sessionId]) return current;
+            return { ...current, [sessionId]: createTerminalWorkspace(sessionId, cwd) };
+        });
+    }, [cwd, sessionId, visible]);
+
+    const activeWorkspace = workspaces[sessionId];
+    const activeTerminalTabId = activeWorkspace?.activeTabId ?? '';
+    const terminalTabs = activeWorkspace?.tabs ?? [];
 
     const handleError = React.useCallback((msg: string) => {
         if (errorClosed) return;
@@ -949,30 +982,72 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     }, [setTerminalQuickCommands, terminalQuickCommands]);
 
     const handleAddTerminalTab = React.useCallback(() => {
-        const nextIndex = tabCounterRef.current + 1;
-        tabCounterRef.current = nextIndex;
-        const baseTitle = terminalLabelFromCwd(cwd);
-        const nextTab = { id: `terminal-${nextIndex}`, title: `${baseTitle} ${nextIndex}` };
-        setTerminalTabs((current) => [...current, nextTab]);
-        setActiveTerminalTabId(nextTab.id);
-    }, [cwd]);
+        setWorkspaces((current) => {
+            const workspace = current[sessionId] ?? createTerminalWorkspace(sessionId, cwd);
+            const nextIndex = workspace.tabCounter + 1;
+            const baseTitle = terminalLabelFromCwd(workspace.cwd ?? cwd);
+            const nextTab = {
+                id: `${sessionId}:terminal-${nextIndex}`,
+                title: `${baseTitle} ${nextIndex}`,
+                sessionId,
+                cwd: workspace.cwd ?? cwd,
+            };
+            return {
+                ...current,
+                [sessionId]: {
+                    ...workspace,
+                    tabCounter: nextIndex,
+                    activeTabId: nextTab.id,
+                    tabs: [...workspace.tabs, nextTab],
+                },
+            };
+        });
+    }, [cwd, sessionId]);
 
-    const handleCloseTerminalTab = React.useCallback((tabId: string) => {
-        if (terminalTabs.length <= 1) {
-            onClose();
-            return;
-        }
-        const closingIndex = terminalTabs.findIndex((tab) => tab.id === tabId);
-        const nextTabs = terminalTabs.filter((tab) => tab.id !== tabId);
-        setTerminalTabs(nextTabs);
-        delete inputSendersRef.current[tabId];
-        if (activeTerminalTabId === tabId) {
-            const fallbackTab = nextTabs[closingIndex] ?? nextTabs[closingIndex - 1] ?? nextTabs[0];
-            if (fallbackTab) {
-                setActiveTerminalTabId(fallbackTab.id);
+    const handleSelectTerminalTab = React.useCallback((tabId: string) => {
+        setWorkspaces((current) => {
+            const workspace = current[sessionId];
+            if (!workspace) return current;
+            return { ...current, [sessionId]: { ...workspace, activeTabId: tabId } };
+        });
+    }, [sessionId]);
+
+    const handleCloseTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
+        setWorkspaces((current) => {
+            const workspace = current[workspaceKey];
+            if (!workspace) return current;
+            const closingIndex = workspace.tabs.findIndex((tab) => tab.id === tabId);
+            const nextTabs = workspace.tabs.filter((tab) => tab.id !== tabId);
+            const next = { ...current };
+            delete inputSendersRef.current[tabId];
+            if (nextTabs.length === 0) {
+                delete next[workspaceKey];
+                if (workspaceKey === sessionId) onClose();
+                return next;
             }
-        }
-    }, [activeTerminalTabId, onClose, terminalTabs]);
+            const fallbackTab = workspace.activeTabId === tabId
+                ? (nextTabs[closingIndex] ?? nextTabs[closingIndex - 1] ?? nextTabs[0])
+                : nextTabs.find((tab) => tab.id === workspace.activeTabId);
+            next[workspaceKey] = {
+                ...workspace,
+                tabs: nextTabs,
+                activeTabId: fallbackTab?.id ?? nextTabs[0].id,
+            };
+            return next;
+        });
+    }, [onClose, sessionId]);
+
+    const handleCloseWorkspace = React.useCallback((workspaceKey: string) => {
+        setWorkspaces((current) => {
+            const workspace = current[workspaceKey];
+            if (!workspace) return current;
+            for (const tab of workspace.tabs) delete inputSendersRef.current[tab.id];
+            const next = { ...current };
+            delete next[workspaceKey];
+            if (workspaceKey === sessionId) onClose();
+            return next;
+        });
+    }, [onClose, sessionId]);
 
     const handlePanelResizeStart = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -998,7 +1073,9 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         window.addEventListener('mouseup', onUp);
     }, []);
 
-    if (!visible) return null;
+    const allWorkspaces = Object.values(workspaces);
+
+    if (!visible && !hasOpened) return null;
 
     return (
         <View
@@ -1012,6 +1089,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 borderLeftColor: '#e5e7eb',
                 boxShadow: '-6px 0 18px rgba(15, 23, 42, 0.08)' as any,
                 position: 'relative',
+                display: visible ? 'flex' : 'none',
             }}
         >
             <div
@@ -1051,11 +1129,11 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                 key={tab.id}
                                 role="button"
                                 tabIndex={0}
-                                onClick={() => setActiveTerminalTabId(tab.id)}
+                                onClick={() => handleSelectTerminalTab(tab.id)}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' || event.key === ' ') {
                                         event.preventDefault();
-                                        setActiveTerminalTabId(tab.id);
+                                        handleSelectTerminalTab(tab.id);
                                     }
                                 }}
                                 style={{
@@ -1082,7 +1160,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                     onMouseDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                         event.stopPropagation();
-                                        handleCloseTerminalTab(tab.id);
+                                        handleCloseTerminalTab(sessionId, tab.id);
                                     }}
                                     aria-label="Close terminal tab"
                                     title={t('terminal.closeTerminalTab')}
@@ -1131,6 +1209,27 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 </div>
                 <button
                     type="button"
+                    onClick={() => setManagerOpen((value) => !value)}
+                    aria-label={t('terminal.manageTerminals')}
+                    title={t('terminal.manageTerminals')}
+                    style={{
+                        width: 28,
+                        height: 28,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: managerOpen ? '1px solid #bfdbfe' : 0,
+                        borderRadius: 6,
+                        background: managerOpen ? '#eff6ff' : 'transparent',
+                        cursor: 'pointer',
+                        padding: 0,
+                        marginLeft: 4,
+                    }}
+                >
+                    <Ionicons name="albums-outline" size={16} color={managerOpen ? '#2563eb' : '#6b7280'} />
+                </button>
+                <button
+                    type="button"
                     onClick={() => setQuickCommandsOpen((value) => !value)}
                     aria-label="Terminal quick commands"
                     title={t('terminal.quickCommands')}
@@ -1173,6 +1272,58 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     <Ionicons name="close" size={16} color="#6b7280" />
                 </button>
             </div>
+            {managerOpen && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 38,
+                        right: 8,
+                        width: Math.min(360, panelWidth - 24),
+                        maxHeight: 380,
+                        overflow: 'auto',
+                        zIndex: 21,
+                        background: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 10,
+                        boxShadow: '0 12px 30px rgba(15,23,42,0.18)',
+                        padding: 8,
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <strong style={{ fontSize: 13, color: '#111827' }}>{t('terminal.terminalManager')}</strong>
+                        <button type="button" onClick={() => setManagerOpen(false)} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 4 }}>
+                            <Ionicons name="close" size={16} color="#6b7280" />
+                        </button>
+                    </div>
+                    {allWorkspaces.length === 0 ? (
+                        <div style={{ color: '#6b7280', fontSize: 12, padding: '14px 4px' }}>{t('terminal.noBackgroundTerminals')}</div>
+                    ) : allWorkspaces.map((workspace) => (
+                        <div key={workspace.key} style={{ borderTop: '1px solid #f3f4f6', padding: '8px 4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: workspace.key === sessionId ? '#2563eb' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {terminalLabelFromCwd(workspace.cwd)}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {t('terminal.terminalCount', { count: workspace.tabs.length })} · {workspace.cwd ?? workspace.sessionId}
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => handleCloseWorkspace(workspace.key)} title={t('terminal.closeTerminalWorkspace')} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 4 }}>
+                                    <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                                </button>
+                            </div>
+                            {workspace.tabs.map((tab) => (
+                                <div key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 0 14px' }}>
+                                    <span style={{ flex: 1, minWidth: 0, color: '#374151', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title}</span>
+                                    <button type="button" onClick={() => handleCloseTerminalTab(workspace.key, tab.id)} title={t('terminal.closeTerminalTab')} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 3 }}>
+                                        <Ionicons name="close-circle" size={14} color="#6b7280" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
             {quickCommandsOpen && (
                 <div
                     style={{
@@ -1233,25 +1384,28 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 >
                     {!bundle && <LazyXtermBoot onReady={setBundle} />}
                 </React.Suspense>
-                {bundle && terminalTabs.map((tab) => (
-                    <View
-                        key={tab.id}
-                        style={{
-                            flex: 1,
-                            backgroundColor: '#ffffff',
-                            display: tab.id === activeTerminalTabId ? 'flex' : 'none',
-                        }}
-                    >
-                        <TerminalRuntime
-                            sessionId={sessionId}
-                            cwd={cwd}
-                            bundle={bundle}
-                            onError={handleError}
-                            active={tab.id === activeTerminalTabId}
-                            onInputSenderChange={(sender) => handleInputSenderChange(tab.id, sender)}
-                        />
-                    </View>
-                ))}
+                {bundle && allWorkspaces.flatMap((workspace) => workspace.tabs.map((tab) => {
+                    const isActive = visible && workspace.key === sessionId && tab.id === workspace.activeTabId;
+                    return (
+                        <View
+                            key={tab.id}
+                            style={{
+                                flex: 1,
+                                backgroundColor: '#ffffff',
+                                display: isActive ? 'flex' : 'none',
+                            }}
+                        >
+                            <TerminalRuntime
+                                sessionId={tab.sessionId}
+                                cwd={tab.cwd}
+                                bundle={bundle}
+                                onError={handleError}
+                                active={isActive}
+                                onInputSenderChange={(sender) => handleInputSenderChange(tab.id, sender)}
+                            />
+                        </View>
+                    );
+                }))}
             </View>
         </View>
     );
