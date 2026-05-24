@@ -523,6 +523,13 @@ export const it: TranslationStructure = {
             gradient: 'Gradiente',
             brutalist: 'Brutalista',
         },
+        terminalTheme: 'Terminal Theme',
+        terminalThemeDarkDescription: 'Use a black background with high-contrast terminal colors',
+        terminalThemeLightDescription: 'Use a white-background terminal theme',
+        terminalThemeOptions: {
+            light: 'White',
+            dark: 'Black',
+        },
         showFlavorIcons: 'Mostra icone provider IA',
         showFlavorIconsDescription: 'Mostra le icone del provider IA sugli avatar di sessione',
         compactSessionView: 'Vista sessioni compatta',

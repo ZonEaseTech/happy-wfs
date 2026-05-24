@@ -494,6 +494,13 @@ export const pt: TranslationStructure = {
             gradient: 'Gradiente',
             brutalist: 'Brutalista',
         },
+        terminalTheme: 'Terminal Theme',
+        terminalThemeDarkDescription: 'Use a black background with high-contrast terminal colors',
+        terminalThemeLightDescription: 'Use a white-background terminal theme',
+        terminalThemeOptions: {
+            light: 'White',
+            dark: 'Black',
+        },
         showFlavorIcons: 'Mostrar ícones de provedores de IA',
         showFlavorIconsDescription: 'Exibir ícones do provedor de IA nos avatares de sessão',
         compactSessionView: 'Visualização compacta de sessões',

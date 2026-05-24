@@ -36,6 +36,7 @@ export default function AppearanceSettingsScreen() {
     const [mergeWorktreeGroups, setMergeWorktreeGroups] = useSettingMutable('mergeWorktreeGroups');
     const [showThinkingMessages, setShowThinkingMessages] = useSettingMutable('showThinkingMessages');
     const [compactSessionView, setCompactSessionView] = useSettingMutable('compactSessionView');
+    const [terminalTheme, setTerminalTheme] = useSettingMutable('terminalTheme');
     const [themePreference, setThemePreference] = useLocalSettingMutable('themePreference');
     const [preferredLanguage] = useSettingMutable('preferredLanguage');
     
@@ -91,6 +92,14 @@ export default function AppearanceSettingsScreen() {
                             SystemUI.setBackgroundColorAsync(color);
                         }
                     }}
+                />
+
+                <Item
+                    title={t('settingsAppearance.terminalTheme')}
+                    subtitle={terminalTheme === 'dark' ? t('settingsAppearance.terminalThemeDarkDescription') : t('settingsAppearance.terminalThemeLightDescription')}
+                    icon={<Ionicons name="terminal-outline" size={29} color="#111827" />}
+                    detail={terminalTheme === 'dark' ? t('settingsAppearance.terminalThemeOptions.dark') : t('settingsAppearance.terminalThemeOptions.light')}
+                    onPress={() => setTerminalTheme(terminalTheme === 'dark' ? 'light' : 'dark')}
                 />
             </ItemGroup>
 

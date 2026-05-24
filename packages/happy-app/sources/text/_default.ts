@@ -504,6 +504,13 @@ export const en = {
             gradient: 'Gradient',
             brutalist: 'Brutalist',
         },
+        terminalTheme: 'Terminal Theme',
+        terminalThemeDarkDescription: 'Use a black background with high-contrast terminal colors',
+        terminalThemeLightDescription: 'Use a white-background terminal theme',
+        terminalThemeOptions: {
+            light: 'White',
+            dark: 'Black',
+        },
         showFlavorIcons: 'Show AI Provider Icons',
         showFlavorIconsDescription: 'Display AI provider icons on session avatars',
         compactSessionView: 'Compact Session View',

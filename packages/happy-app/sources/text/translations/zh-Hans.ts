@@ -496,6 +496,13 @@ export const zhHans: TranslationStructure = {
             gradient: '渐变',
             brutalist: '粗糙风格',
         },
+        terminalTheme: '终端主题',
+        terminalThemeDarkDescription: '使用黑色背景和高对比度终端颜色',
+        terminalThemeLightDescription: '使用白色背景终端颜色',
+        terminalThemeOptions: {
+            light: '白色',
+            dark: '黑色',
+        },
         showFlavorIcons: '显示 AI 提供商图标',
         showFlavorIconsDescription: '在会话头像上显示 AI 提供商图标',
         compactSessionView: '紧凑会话视图',

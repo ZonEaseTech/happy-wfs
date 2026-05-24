@@ -106,6 +106,10 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain("borderLeftWidth: 1");
         expect(terminalWeb).toContain("cursor: 'ew-resize'");
         expect(terminalWeb).toContain("useSettingMutable('terminalQuickCommands')");
+        expect(terminalWeb).toContain("useSettingMutable('terminalTheme')");
+        expect(terminalWeb).toContain('TERMINAL_THEME_COLORS');
+        expect(terminalWeb).toContain("terminalTheme={resolvedTerminalTheme}");
+        expect(terminalWeb).toContain("background: '#0b0f14'");
         expect(terminalWeb).toContain('quickCommandsOpen');
         expect(terminalWeb).toContain('onClick={() => setQuickCommandsOpen(false)}');
         expect(terminalWeb).toContain('saveQuickCommand');
@@ -132,7 +136,13 @@ describe('desktop layout adjustments', () => {
         const settings = read('sync/settings.ts');
         expect(settings).toContain('TerminalQuickCommandSchema');
         expect(settings).toContain('terminalQuickCommands: z.array(TerminalQuickCommandSchema)');
+        expect(settings).toContain('terminalTheme: TerminalThemeSchema');
+        expect(settings).toContain("terminalTheme: 'dark'");
         expect(settings).toContain('terminalQuickCommands: []');
+
+        const appearance = read('app/(app)/settings/appearance.tsx');
+        expect(appearance).toContain("useSettingMutable('terminalTheme')");
+        expect(appearance).toContain("t('settingsAppearance.terminalTheme')");
     });
 
 

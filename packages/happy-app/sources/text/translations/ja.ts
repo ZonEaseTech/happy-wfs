@@ -526,6 +526,13 @@ export const ja: TranslationStructure = {
             gradient: 'グラデーション',
             brutalist: 'ブルータリスト',
         },
+        terminalTheme: 'Terminal Theme',
+        terminalThemeDarkDescription: 'Use a black background with high-contrast terminal colors',
+        terminalThemeLightDescription: 'Use a white-background terminal theme',
+        terminalThemeOptions: {
+            light: 'White',
+            dark: 'Black',
+        },
         showFlavorIcons: 'AIプロバイダーアイコンを表示',
         showFlavorIconsDescription: 'セッションアバターにAIプロバイダーアイコンを表示',
         compactSessionView: 'コンパクトセッション表示',

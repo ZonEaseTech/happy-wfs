@@ -138,6 +138,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 terminalQuickCommands: [],
+                terminalTheme: 'dark',
             };
             const delta: Partial<Settings> = {
                 viewInline: true
@@ -178,6 +179,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 terminalQuickCommands: [],
+                terminalTheme: 'dark',
             });
         });
 
@@ -218,6 +220,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 terminalQuickCommands: [],
+                terminalTheme: 'dark',
             };
             const delta: Partial<Settings> = {};
             expect(applySettings(currentSettings, delta)).toEqual(currentSettings);
@@ -260,6 +263,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 terminalQuickCommands: [],
+                terminalTheme: 'dark',
             };
             const delta: Partial<Settings> = {
                 viewInline: false
@@ -307,6 +311,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 terminalQuickCommands: [],
+                terminalTheme: 'dark',
             };
             expect(applySettings(currentSettings, {})).toEqual(currentSettings);
         });
@@ -363,6 +368,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 terminalQuickCommands: [],
+                terminalTheme: 'dark',
             };
             const delta: any = {
                 viewInline: false,
@@ -429,6 +435,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 terminalQuickCommands: [],
+                terminalTheme: 'dark',
                 useEnhancedSessionWizard: false,
                 showThinkingMessages: true,
             });

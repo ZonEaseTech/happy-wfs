@@ -10,6 +10,8 @@ export const TerminalQuickCommandSchema = z.object({
 });
 
 export type TerminalQuickCommand = z.infer<typeof TerminalQuickCommandSchema>;
+export const TerminalThemeSchema = z.enum(['light', 'dark']);
+export type TerminalTheme = z.infer<typeof TerminalThemeSchema>;
 
 //
 // Configuration Profile Schema (for environment variable profiles)
@@ -308,6 +310,7 @@ export const SettingsSchema = z.object({
     favoriteMachines: z.array(z.string()).describe('User-defined favorite machines (machine IDs) for quick access in machine selection'),
     customQuickActions: z.array(CustomQuickActionSchema).describe('Synced AI shortcut prompts shown in the session composer'),
     terminalQuickCommands: z.array(TerminalQuickCommandSchema).describe('User-level terminal quick commands stored in synced account settings'),
+    terminalTheme: TerminalThemeSchema.describe('Terminal panel and xterm color theme'),
     // Dismissed CLI warning banners (supports both per-machine and global dismissal)
     dismissedCLIWarnings: z.object({
         perMachine: z.record(z.string(), z.object({
@@ -379,6 +382,7 @@ export const settingsDefaults: Settings = {
     favoriteMachines: [],
     customQuickActions: [],
     terminalQuickCommands: [],
+    terminalTheme: 'dark',
     // Dismissed CLI warnings (empty by default)
     dismissedCLIWarnings: { perMachine: {}, global: {} },
 };

@@ -37,7 +37,7 @@ import { showToast } from '@/components/Toast';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useSettingMutable } from '@/sync/storage';
-import type { TerminalQuickCommand } from '@/sync/settings';
+import type { TerminalQuickCommand, TerminalTheme } from '@/sync/settings';
 import { randomUUID } from 'expo-crypto';
 
 export interface TerminalProps {
@@ -117,6 +117,86 @@ const XTERM_CSS = `
 .xterm-decoration-top{z-index:2;position:relative}
 `;
 let xtermCssInjected = false;
+
+type TerminalResolvedTheme = Extract<TerminalTheme, 'light' | 'dark'>;
+
+const TERMINAL_THEME_COLORS = {
+    light: {
+        panelBackground: '#ffffff',
+        headerBackground: '#f8fafc',
+        border: '#e5e7eb',
+        tabBackground: '#ffffff',
+        tabInactiveBackground: 'transparent',
+        text: '#111827',
+        mutedText: '#6b7280',
+        activeBorder: '#d1d5db',
+        activeControlBackground: '#eff6ff',
+        activeControlBorder: '#bfdbfe',
+        activeControlText: '#2563eb',
+        xterm: {
+            background: '#ffffff',
+            foreground: '#111827',
+            cursor: '#111827',
+            selectionBackground: 'rgba(37,99,235,0.18)',
+            black: '#111827',
+            red: '#cd3131',
+            green: '#0dbc79',
+            yellow: '#949800',
+            blue: '#2472c8',
+            magenta: '#bc3fbc',
+            cyan: '#11a8cd',
+            white: '#d1d5db',
+            brightBlack: '#666666',
+            brightRed: '#f14c4c',
+            brightGreen: '#12805c',
+            brightYellow: '#9a6700',
+            brightBlue: '#3b8eea',
+            brightMagenta: '#d670d6',
+            brightCyan: '#087990',
+            brightWhite: '#111827',
+        },
+    },
+    dark: {
+        panelBackground: '#0b0f14',
+        headerBackground: '#111827',
+        border: '#1f2937',
+        tabBackground: '#0b0f14',
+        tabInactiveBackground: 'transparent',
+        text: '#f9fafb',
+        mutedText: '#9ca3af',
+        activeBorder: '#374151',
+        activeControlBackground: '#1e3a8a',
+        activeControlBorder: '#2563eb',
+        activeControlText: '#93c5fd',
+        xterm: {
+            background: '#0b0f14',
+            foreground: '#f9fafb',
+            cursor: '#f9fafb',
+            selectionBackground: 'rgba(96,165,250,0.32)',
+            black: '#111827',
+            red: '#f87171',
+            green: '#34d399',
+            yellow: '#fbbf24',
+            blue: '#60a5fa',
+            magenta: '#c084fc',
+            cyan: '#22d3ee',
+            white: '#d1d5db',
+            brightBlack: '#6b7280',
+            brightRed: '#fca5a5',
+            brightGreen: '#86efac',
+            brightYellow: '#fde68a',
+            brightBlue: '#93c5fd',
+            brightMagenta: '#d8b4fe',
+            brightCyan: '#67e8f9',
+            brightWhite: '#ffffff',
+        },
+    },
+} as const;
+
+function resolveTerminalTheme(value: TerminalTheme | undefined): TerminalResolvedTheme {
+    return value === 'light' ? 'light' : 'dark';
+}
+
 function injectXtermCssOnce(): void {
     if (xtermCssInjected || typeof document === 'undefined') return;
     if (document.querySelector('style[data-xterm-css]')) {
@@ -212,9 +292,10 @@ interface TerminalRuntimeProps {
     /** Whether this runtime is currently visible inside the tabbed panel. */
     active?: boolean;
     onInputSenderChange?: (sender: ((data: string) => void) | null) => void;
+    terminalTheme: TerminalResolvedTheme;
 }
 
-const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true, onInputSenderChange }) => {
+const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true, onInputSenderChange, terminalTheme }) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const termRef = React.useRef<InstanceType<XtermModule['Terminal']> | null>(null);
     const fitRef = React.useRef<InstanceType<FitAddonModule['FitAddon']> | null>(null);
@@ -223,9 +304,15 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
     const activeRef = React.useRef(active);
     const [isActivating, setIsActivating] = React.useState(false);
     const onInputSenderChangeRef = React.useRef(onInputSenderChange);
+    const themeColors = TERMINAL_THEME_COLORS[terminalTheme];
 
     React.useLayoutEffect(() => { activeRef.current = active; }, [active]);
     React.useLayoutEffect(() => { onInputSenderChangeRef.current = onInputSenderChange; }, [onInputSenderChange]);
+
+    React.useEffect(() => {
+        if (!termRef.current) return;
+        termRef.current.options.theme = themeColors.xterm;
+    }, [themeColors.xterm]);
 
     const fitAndResize = React.useCallback(() => {
         if (!fitRef.current || !termRef.current) return;
@@ -278,31 +365,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             cursorBlink: true,
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
             fontSize: 13,
-            theme: {
-                background: '#ffffff',
-                foreground: '#111827',
-                cursor: '#111827',
-                selectionBackground: 'rgba(37,99,235,0.18)',
-                // ANSI 16-color palette. Without these keys the
-                // theme has no color slots, so colored program output (the
-                // claude TUI, ls, git, etc.) renders monochrome.
-                black: '#111827',
-                red: '#cd3131',
-                green: '#0dbc79',
-                yellow: '#949800',
-                blue: '#2472c8',
-                magenta: '#bc3fbc',
-                cyan: '#11a8cd',
-                white: '#d1d5db',
-                brightBlack: '#666666',
-                brightRed: '#f14c4c',
-                brightGreen: '#12805c',
-                brightYellow: '#9a6700',
-                brightBlue: '#3b8eea',
-                brightMagenta: '#d670d6',
-                brightCyan: '#087990',
-                brightWhite: '#111827',
-            },
+            theme: themeColors.xterm,
             convertEol: true,
             allowProposedApi: true,
         });
@@ -460,7 +523,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 flex: 1,
                 width: '100%',
                 height: '100%',
-                background: '#ffffff',
+                background: themeColors.xterm.background,
                 padding: 8,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
@@ -476,6 +539,8 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
 
 export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
+    const [terminalThemeSetting] = useSettingMutable('terminalTheme');
+    const resolvedTerminalTheme = resolveTerminalTheme(terminalThemeSetting);
     const [errorClosed, setErrorClosed] = React.useState(false);
 
     // Reset error-close flag when the modal is re-opened.
@@ -824,6 +889,7 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                             cwd={cwd}
                             bundle={bundle}
                             onError={handleError}
+                            terminalTheme={resolvedTerminalTheme}
                         />
                     )}
                 </View>
@@ -873,6 +939,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     const [errorClosed, setErrorClosed] = React.useState(false);
     const inputSendersRef = React.useRef<Record<string, ((data: string) => void) | undefined>>({});
     const [terminalQuickCommands, setTerminalQuickCommands] = useSettingMutable('terminalQuickCommands');
+    const [terminalThemeSetting] = useSettingMutable('terminalTheme');
     const [quickCommandsOpen, setQuickCommandsOpen] = React.useState(false);
     const [managerOpen, setManagerOpen] = React.useState(false);
     const [hasOpened, setHasOpened] = React.useState(visible);
@@ -902,6 +969,9 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             return { ...current, [sessionId]: createTerminalWorkspace(sessionId, cwd) };
         });
     }, [cwd, sessionId, visible]);
+
+    const resolvedTerminalTheme = resolveTerminalTheme(terminalThemeSetting);
+    const panelTheme = TERMINAL_THEME_COLORS[resolvedTerminalTheme];
 
     const activeWorkspace = workspaces[sessionId];
     const activeTerminalTabId = activeWorkspace?.activeTabId ?? '';
@@ -1084,9 +1154,9 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 minWidth: 320,
                 alignSelf: 'stretch',
                 height: '100%',
-                backgroundColor: '#ffffff',
+                backgroundColor: panelTheme.panelBackground,
                 borderLeftWidth: 1,
-                borderLeftColor: '#e5e7eb',
+                borderLeftColor: panelTheme.border,
                 boxShadow: '-6px 0 18px rgba(15, 23, 42, 0.08)' as any,
                 position: 'relative',
                 display: visible ? 'flex' : 'none',
@@ -1108,12 +1178,12 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             <div
                 style={{
                     height: 44,
-                    background: '#f8fafc',
+                    background: panelTheme.headerBackground,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     userSelect: 'none',
-                    borderBottom: '1px solid #e5e7eb',
+                    borderBottom: `1px solid ${panelTheme.border}`,
                     padding: '0 8px 0 10px',
                     boxSizing: 'border-box',
                     position: 'relative',
@@ -1142,10 +1212,10 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 6,
-                                    border: isActive ? '1px solid #d1d5db' : '1px solid transparent',
+                                    border: isActive ? `1px solid ${panelTheme.activeBorder}` : '1px solid transparent',
                                     borderRadius: 6,
-                                    background: isActive ? '#ffffff' : 'transparent',
-                                    color: isActive ? '#111827' : '#6b7280',
+                                    background: isActive ? panelTheme.tabBackground : panelTheme.tabInactiveBackground,
+                                    color: isActive ? panelTheme.text : panelTheme.mutedText,
                                     cursor: 'pointer',
                                     padding: '0 4px 0 8px',
                                     fontSize: 12,
@@ -1153,7 +1223,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                     minWidth: 0,
                                 }}
                             >
-                                <Ionicons name="terminal-outline" size={13} color={isActive ? '#374151' : '#6b7280'} />
+                                <Ionicons name="terminal-outline" size={13} color={isActive ? panelTheme.text : panelTheme.mutedText} />
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title}</span>
                                 <button
                                     type="button"
@@ -1173,13 +1243,13 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                         border: 0,
                                         borderRadius: 999,
                                         background: 'transparent',
-                                        color: '#6b7280',
+                                        color: panelTheme.mutedText,
                                         cursor: 'pointer',
                                         padding: 0,
                                         flexShrink: 0,
                                     }}
                                 >
-                                    <Ionicons name="close-circle" size={16} color="#6b7280" />
+                                    <Ionicons name="close-circle" size={16} color={panelTheme.mutedText} />
                                 </button>
                             </div>
                         );
@@ -1198,13 +1268,13 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                             border: '1px solid transparent',
                             borderRadius: 6,
                             background: 'transparent',
-                            color: '#6b7280',
+                            color: panelTheme.mutedText,
                             cursor: 'pointer',
                             padding: 0,
                             flexShrink: 0,
                         }}
                     >
-                        <Ionicons name="add" size={18} color="#6b7280" />
+                        <Ionicons name="add" size={18} color={panelTheme.mutedText} />
                     </button>
                 </div>
                 <button
@@ -1218,15 +1288,15 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        border: managerOpen ? '1px solid #bfdbfe' : 0,
+                        border: managerOpen ? `1px solid ${panelTheme.activeControlBorder}` : 0,
                         borderRadius: 6,
-                        background: managerOpen ? '#eff6ff' : 'transparent',
+                        background: managerOpen ? panelTheme.activeControlBackground : 'transparent',
                         cursor: 'pointer',
                         padding: 0,
                         marginLeft: 4,
                     }}
                 >
-                    <Ionicons name="albums-outline" size={18} color={managerOpen ? '#2563eb' : '#6b7280'} />
+                    <Ionicons name="albums-outline" size={18} color={managerOpen ? panelTheme.activeControlText : panelTheme.mutedText} />
                 </button>
                 <button
                     type="button"
@@ -1239,15 +1309,15 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        border: quickCommandsOpen ? '1px solid #bfdbfe' : 0,
+                        border: quickCommandsOpen ? `1px solid ${panelTheme.activeControlBorder}` : 0,
                         borderRadius: 6,
-                        background: quickCommandsOpen ? '#eff6ff' : 'transparent',
+                        background: quickCommandsOpen ? panelTheme.activeControlBackground : 'transparent',
                         cursor: 'pointer',
                         padding: 0,
                         marginLeft: 4,
                     }}
                 >
-                    <Ionicons name="flash-outline" size={18} color={quickCommandsOpen ? '#2563eb' : '#6b7280'} />
+                    <Ionicons name="flash-outline" size={18} color={quickCommandsOpen ? panelTheme.activeControlText : panelTheme.mutedText} />
                 </button>
                 <button
                     type="button"
@@ -1263,13 +1333,13 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         border: 0,
                         borderRadius: 6,
                         background: 'transparent',
-                        color: '#6b7280',
+                        color: panelTheme.mutedText,
                         cursor: 'pointer',
                         padding: 0,
                         marginLeft: 2,
                     }}
                 >
-                    <Ionicons name="close" size={18} color="#6b7280" />
+                    <Ionicons name="close" size={18} color={panelTheme.mutedText} />
                 </button>
             </div>
             {managerOpen && (
@@ -1396,11 +1466,11 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     ))}
                 </div>
             )}
-            <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
+            <View style={{ flex: 1, backgroundColor: panelTheme.panelBackground }}>
                 <React.Suspense
                     fallback={
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                            <ActivityIndicator size="small" color="#111827" />
+                            <ActivityIndicator size="small" color={panelTheme.text} />
                         </View>
                     }
                 >
@@ -1413,7 +1483,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                             key={tab.id}
                             style={{
                                 flex: 1,
-                                backgroundColor: '#ffffff',
+                                backgroundColor: panelTheme.panelBackground,
                                 display: isActive ? 'flex' : 'none',
                             }}
                         >
@@ -1424,6 +1494,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                 onError={handleError}
                                 active={isActive}
                                 onInputSenderChange={(sender) => handleInputSenderChange(tab.id, sender)}
+                                terminalTheme={resolvedTerminalTheme}
                             />
                         </View>
                     );

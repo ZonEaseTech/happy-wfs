@@ -495,6 +495,13 @@ export const zhHant: TranslationStructure = {
             gradient: '漸層',
             brutalist: '粗獷風格',
         },
+        terminalTheme: '終端主題',
+        terminalThemeDarkDescription: '使用黑色背景和高對比終端顏色',
+        terminalThemeLightDescription: '使用白色背景終端顏色',
+        terminalThemeOptions: {
+            light: '白色',
+            dark: '黑色',
+        },
         showFlavorIcons: '顯示 AI 提供者圖示',
         showFlavorIconsDescription: '在工作階段頭像上顯示 AI 提供者圖示',
         compactSessionView: '緊湊工作階段檢視',
