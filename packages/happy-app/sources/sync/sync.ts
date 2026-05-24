@@ -602,7 +602,8 @@ class Sync {
         text: string,
         displayText?: string,
         images?: LocalImage[],
-        existingLocalId?: string
+        existingLocalId?: string,
+        uploadedImages?: ImageContent[]
     ): Promise<PreparedOutgoingMessage | { error: string; localId: string }> {
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) {
@@ -636,20 +637,26 @@ class Sync {
         const fallbackModel: string | null = null;
 
         let messageContent: { type: 'text'; text: string } | { type: 'mixed'; text: string; images: ImageContent[] };
-        if (images && images.length > 0) {
-            const uploadedImages: ImageContent[] = [];
+        if (uploadedImages && uploadedImages.length > 0) {
+            messageContent = {
+                type: 'mixed',
+                text,
+                images: uploadedImages,
+            };
+        } else if (images && images.length > 0) {
+            const newlyUploadedImages: ImageContent[] = [];
             const apiUrl = getServerUrl();
             const token = this.credentials.token;
 
             for (const img of images) {
                 const uploaded = await uploadChatImage(sessionId, img, token, apiUrl);
-                uploadedImages.push(uploaded);
+                newlyUploadedImages.push(uploaded);
             }
 
             messageContent = {
                 type: 'mixed',
                 text,
-                images: uploadedImages,
+                images: newlyUploadedImages,
             };
         } else {
             messageContent = {
@@ -777,9 +784,10 @@ class Sync {
         displayText?: string,
         images?: LocalImage[],
         existingLocalId?: string,
-        onBeforeApply?: () => void
+        onBeforeApply?: () => void,
+        uploadedImages?: ImageContent[]
     ): Promise<SendOrQueueResult> {
-        const prepared = await this.prepareOutgoingMessage(sessionId, text, displayText, images, existingLocalId);
+        const prepared = await this.prepareOutgoingMessage(sessionId, text, displayText, images, existingLocalId, uploadedImages);
         if ('error' in prepared) {
             return { success: false, error: prepared.error, localId: prepared.localId };
         }

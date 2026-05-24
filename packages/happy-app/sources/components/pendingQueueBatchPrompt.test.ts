@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PendingMessage } from '@/sync/storageTypes';
-import { buildPendingQueueBatchPrompt } from './pendingQueueBatchPrompt';
+import { buildPendingQueueBatchPrompt, extractPendingUploadedImages } from './pendingQueueBatchPrompt';
 
 function pending(partial: Partial<PendingMessage>): PendingMessage {
     return {
@@ -37,5 +37,16 @@ describe('buildPendingQueueBatchPrompt', () => {
         ], 'img');
 
         expect(text).toContain('1. [包含 1 张图片]');
+    });
+
+    it('extracts uploaded images from queued mixed messages in batch order', () => {
+        const imageA = { type: 'image' as const, url: 'https://example.com/a.png', width: 10, height: 10, mimeType: 'image/png' };
+        const imageB = { type: 'image' as const, url: 'https://example.com/b.jpg', width: 20, height: 20, mimeType: 'image/jpeg' };
+        const images = extractPendingUploadedImages([
+            pending({ id: 'a', content: { role: 'user', content: { type: 'mixed', text: 'first', images: [imageA] } }, imageCount: 1 }),
+            pending({ id: 'b', content: { role: 'user', content: { type: 'mixed', text: 'second', images: [imageB] } }, imageCount: 1 }),
+        ], 'b');
+
+        expect(images).toEqual([imageB, imageA]);
     });
 });

@@ -78,7 +78,8 @@ describe('desktop layout adjustments', () => {
         const source = read('-session/SessionView.tsx');
         expect(source).toContain('if (pendingMessages.length > 1)');
         expect(source).toContain('buildPendingQueueBatchPrompt(pendingMessages, pendingId)');
-        expect(source).toContain('sync.sendOrQueueMessage(sessionId, batchPrompt)');
+        expect(source).toContain('extractPendingUploadedImages(pendingMessages, pendingId)');
+        expect(source).toContain('batchImages.length > 0 ? batchImages : undefined');
         expect(source).toContain('pendingMessages.map((message) => sync.deletePendingMessage(sessionId, message.id))');
     });
 
@@ -106,6 +107,7 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain("cursor: 'ew-resize'");
         expect(terminalWeb).toContain("useSettingMutable('terminalQuickCommands')");
         expect(terminalWeb).toContain('quickCommandsOpen');
+        expect(terminalWeb).toContain('onClick={() => setQuickCommandsOpen(false)}');
         expect(terminalWeb).toContain('saveQuickCommand');
         expect(terminalWeb).toContain('deleteQuickCommand');
         expect(terminalWeb).toContain('handleRunQuickCommand');
@@ -118,6 +120,8 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain('aria-label="New terminal tab"');
         expect(terminalWeb).toContain('aria-label="Close terminal tab"');
         expect(terminalWeb).toContain('terminalLabelFromCwd');
+        expect(terminalWeb).toContain('height: 44');
+        expect(terminalWeb).toContain('width: 34');
         expect(terminalWeb).toContain('const [hasOpened, setHasOpened] = React.useState(visible);');
         expect(terminalWeb).toContain("display: visible ? 'flex' : 'none'");
         expect(terminalWeb).toContain('type TerminalWorkspace');

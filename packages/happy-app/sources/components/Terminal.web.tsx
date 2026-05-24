@@ -1107,7 +1107,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             />
             <div
                 style={{
-                    height: 32,
+                    height: 44,
                     background: '#f8fafc',
                     display: 'flex',
                     alignItems: 'center',
@@ -1137,8 +1137,8 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                     }
                                 }}
                                 style={{
-                                    height: 24,
-                                    maxWidth: 160,
+                                    height: 30,
+                                    maxWidth: 180,
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 6,
@@ -1165,8 +1165,8 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                     aria-label="Close terminal tab"
                                     title={t('terminal.closeTerminalTab')}
                                     style={{
-                                        width: 16,
-                                        height: 16,
+                                        width: 20,
+                                        height: 20,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -1179,7 +1179,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                         flexShrink: 0,
                                     }}
                                 >
-                                    <Ionicons name="close-circle" size={14} color="#6b7280" />
+                                    <Ionicons name="close-circle" size={16} color="#6b7280" />
                                 </button>
                             </div>
                         );
@@ -1190,8 +1190,8 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         aria-label="New terminal tab"
                         title={t('terminal.newTerminalTab')}
                         style={{
-                            width: 24,
-                            height: 24,
+                            width: 30,
+                            height: 30,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -1204,7 +1204,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                             flexShrink: 0,
                         }}
                     >
-                        <Ionicons name="add" size={16} color="#6b7280" />
+                        <Ionicons name="add" size={18} color="#6b7280" />
                     </button>
                 </div>
                 <button
@@ -1213,8 +1213,8 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     aria-label={t('terminal.manageTerminals')}
                     title={t('terminal.manageTerminals')}
                     style={{
-                        width: 28,
-                        height: 28,
+                        width: 34,
+                        height: 34,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1226,7 +1226,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         marginLeft: 4,
                     }}
                 >
-                    <Ionicons name="albums-outline" size={16} color={managerOpen ? '#2563eb' : '#6b7280'} />
+                    <Ionicons name="albums-outline" size={18} color={managerOpen ? '#2563eb' : '#6b7280'} />
                 </button>
                 <button
                     type="button"
@@ -1234,8 +1234,8 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     aria-label="Terminal quick commands"
                     title={t('terminal.quickCommands')}
                     style={{
-                        width: 28,
-                        height: 28,
+                        width: 34,
+                        height: 34,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1247,7 +1247,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         marginLeft: 4,
                     }}
                 >
-                    <Ionicons name="flash-outline" size={16} color={quickCommandsOpen ? '#2563eb' : '#6b7280'} />
+                    <Ionicons name="flash-outline" size={18} color={quickCommandsOpen ? '#2563eb' : '#6b7280'} />
                 </button>
                 <button
                     type="button"
@@ -1255,8 +1255,8 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     aria-label="Close terminal"
                     title={t('terminal.closeTerminal')}
                     style={{
-                        width: 28,
-                        height: 28,
+                        width: 34,
+                        height: 34,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1269,14 +1269,14 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         marginLeft: 2,
                     }}
                 >
-                    <Ionicons name="close" size={16} color="#6b7280" />
+                    <Ionicons name="close" size={18} color="#6b7280" />
                 </button>
             </div>
             {managerOpen && (
                 <div
                     style={{
                         position: 'absolute',
-                        top: 38,
+                        top: 50,
                         right: 8,
                         width: Math.min(360, panelWidth - 24),
                         maxHeight: 380,
@@ -1328,7 +1328,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 <div
                     style={{
                         position: 'absolute',
-                        top: 38,
+                        top: 50,
                         right: 8,
                         width: Math.min(340, panelWidth - 24),
                         maxHeight: 360,
@@ -1341,15 +1341,37 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         padding: 8,
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
                         <strong style={{ fontSize: 13, color: '#111827' }}>{t('terminal.quickCommands')}</strong>
-                        <button
-                            type="button"
-                            onClick={() => void saveQuickCommand()}
-                            style={{ border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }}
-                        >
-                            {t('common.create')}
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <button
+                                type="button"
+                                onClick={() => void saveQuickCommand()}
+                                style={{ border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }}
+                            >
+                                {t('common.create')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setQuickCommandsOpen(false)}
+                                aria-label={t('terminal.closeTerminal')}
+                                title={t('terminal.closeTerminal')}
+                                style={{
+                                    width: 24,
+                                    height: 24,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: 0,
+                                    borderRadius: 6,
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                }}
+                            >
+                                <Ionicons name="close" size={16} color="#6b7280" />
+                            </button>
+                        </div>
                     </div>
                     {terminalQuickCommands.length === 0 ? (
                         <div style={{ color: '#6b7280', fontSize: 12, padding: '14px 4px' }}>{t('terminal.quickCommandsEmpty')}</div>

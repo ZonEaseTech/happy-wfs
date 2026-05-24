@@ -11,7 +11,7 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { PendingQueuePanel } from '@/components/PendingQueuePanel';
-import { buildPendingQueueBatchPrompt } from '@/components/pendingQueueBatchPrompt';
+import { buildPendingQueueBatchPrompt, extractPendingUploadedImages } from '@/components/pendingQueueBatchPrompt';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
 import { useDraft } from '@/hooks/useDraft';
@@ -1317,7 +1317,16 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const handleSendNowPending = React.useCallback(async (pendingId: string) => {
         if (pendingMessages.length > 1) {
             const batchPrompt = buildPendingQueueBatchPrompt(pendingMessages, pendingId);
-            const result = await sync.sendOrQueueMessage(sessionId, batchPrompt);
+            const batchImages = extractPendingUploadedImages(pendingMessages, pendingId);
+            const result = await sync.sendOrQueueMessage(
+                sessionId,
+                batchPrompt,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                batchImages.length > 0 ? batchImages : undefined,
+            );
             if (!result.success) {
                 Modal.alert(t('common.error'), t('status.operationFailed'));
                 return;
