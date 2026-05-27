@@ -54,6 +54,7 @@ import { buildCopyToAgentBriefPrompt } from './sessionCopyPrompt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
+import { toggleAutoReviewGuard, useAutoReviewGuard } from '@/sync/autoReviewGuard';
 
 const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
@@ -170,6 +171,12 @@ export const SessionView = React.memo((props: { id: string }) => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
+    const autoReviewGuard = useAutoReviewGuard(sessionId);
+    const autoReviewEnabled = autoReviewGuard?.enabled === true;
+    const autoReviewStatus = autoReviewGuard?.status ?? 'idle';
+    const handleToggleAutoReviewGuard = React.useCallback(() => {
+        void toggleAutoReviewGuard(sessionId);
+    }, [sessionId]);
 
     // Header memory chip — count of memories actually injected into THIS session's
     // system prompt (not total user memories). Tap opens the same modal as the
@@ -348,11 +355,11 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 </Pressable>
                                 {linkedGitHubIssue && (
                                     <Pressable
-                                        {...webTooltip('查看任务内容')}
+                                        {...webTooltip(t('sessionInfo.relatedTask'))}
                                         onPress={handleOpenLinkedGitHubIssue}
                                         hitSlop={15}
                                         accessibilityRole="button"
-                                        accessibilityLabel="查看任务内容"
+                                        accessibilityLabel={t('sessionInfo.relatedTask')}
                                         style={{
                                             width: 38,
                                             height: 38,
@@ -364,6 +371,37 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         <Ionicons name="ticket-outline" size={21} color={theme.colors.header.tint} />
                                     </Pressable>
                                 )}
+                                <Pressable
+                                    {...webTooltip(autoReviewEnabled ? t('sessionInfo.autoReviewGuardDisable') : t('sessionInfo.autoReviewGuardEnable'))}
+                                    onPress={handleToggleAutoReviewGuard}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('sessionInfo.autoReviewGuard')}
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 2,
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={autoReviewStatus === 'passed' ? 'shield-checkmark-outline' : 'shield-outline'}
+                                        size={21}
+                                        color={autoReviewEnabled ? theme.colors.button.primary.background : theme.colors.header.tint}
+                                    />
+                                    {autoReviewStatus === 'needs_follow_up' && (
+                                        <View style={{
+                                            position: 'absolute',
+                                            top: 5,
+                                            right: 5,
+                                            width: 8,
+                                            height: 8,
+                                            borderRadius: 4,
+                                            backgroundColor: '#FF3B30',
+                                        }} />
+                                    )}
+                                </Pressable>
                                 {/* Injected-memories badge — count = memories actually merged into
                                     THIS session's system prompt. Tap opens the same modal as the
                                     Info-panel chip (mute toggles + manage-all link). */}

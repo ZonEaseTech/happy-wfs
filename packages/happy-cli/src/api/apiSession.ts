@@ -12,10 +12,36 @@ import { InvalidateSync } from '@/utils/sync';
 import axios from 'axios';
 import { trimToolUseResult, trimToolResultContent, trimToolUseInput } from './trimToolUseResult';
 import { RpcHandlerManager } from './rpc/RpcHandlerManager';
+import { AutoReviewGuard } from '@/autoReview/AutoReviewGuard';
+import { buildReviewContext, type ReviewMessage } from '@/autoReview/context';
+import { normalizeReviewableAgentText } from '@/autoReview/completionSemantics';
+import { buildReviewerPrompt, runReviewer } from '@/autoReview/reviewer';
 
 import { registerCommonHandlers } from '../modules/common/registerCommonHandlers';
 import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
+
+
+function extractPlainTextForAutoReview(value: unknown): string {
+    const parts: string[] = [];
+    const visit = (item: unknown) => {
+        if (typeof item === 'string') {
+            parts.push(item);
+            return;
+        }
+        if (Array.isArray(item)) {
+            item.forEach(visit);
+            return;
+        }
+        if (!item || typeof item !== 'object') return;
+        for (const [key, child] of Object.entries(item as Record<string, unknown>)) {
+            if (key === 'text' || key === 'message' || key === 'displayText') visit(child);
+            if (key === 'content' || key === 'data' || key === 'item') visit(child);
+        }
+    };
+    visit(value);
+    return [...new Set(parts.map((part) => part.trim()).filter(Boolean))].join('\n').slice(0, 20_000);
+}
 
 /** Tools whose tool_use.input should be trimmed and saved to diffStore */
 const INPUT_TRIMMABLE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
@@ -125,6 +151,7 @@ export class ApiSessionClient extends EventEmitter {
     private pendingOutbox: Array<{ content: string; localId: string }> = [];
     /** Coalescing sync that flushes the HTTP outbox */
     private sendSync: InvalidateSync;
+    private autoReviewGuard: AutoReviewGuard;
     /** Whether the "first user message → title" seeding has already fired (idempotent guard). */
     private initialTitleSet = false;
 
@@ -148,6 +175,7 @@ export class ApiSessionClient extends EventEmitter {
             logger: (msg, data) => logger.debug(msg, data)
         });
         registerCommonHandlers(this.rpcHandlerManager, this.metadata.path, this.sessionId);
+        this.autoReviewGuard = this.createAutoReviewGuard();
 
         // Initialize HTTP outbox sync for reliable message delivery
         this.sendSync = new InvalidateSync(() => this.flushOutbox());
@@ -415,6 +443,39 @@ export class ApiSessionClient extends EventEmitter {
         return response.data;
     }
 
+    private createAutoReviewGuard(): AutoReviewGuard {
+        return new AutoReviewGuard({
+            getMetadata: () => this.metadata,
+            updateGuard: async (guard) => {
+                await this.updateMetadataAsync((metadata) => ({
+                    ...metadata,
+                    autoReviewGuard: guard,
+                }));
+            },
+            collectAndReview: async (completionClaim) => {
+                const cwd = this.metadata?.path || process.cwd();
+                const messages = await this.fetchRecentReviewMessages(250);
+                const context = await buildReviewContext({
+                    cwd,
+                    messages,
+                    issueText: JSON.stringify(this.metadata?.externalContext ?? null, null, 2),
+                    completionClaim,
+                });
+                return runReviewer({
+                    cwd,
+                    prompt: buildReviewerPrompt(context),
+                });
+            },
+            sendFollowUp: async (text, fingerprint) => {
+                await this.sendSyntheticUserMessage(text, `auto-review-${fingerprint.slice(0, 32)}-${Date.now()}`);
+            },
+            sendSimplifyCheck: async () => {
+                await this.sendSyntheticUserMessage('/simplify', `auto-review-simplify-${Date.now()}`);
+            },
+            delayMs: Number(process.env.HAPPY_AUTO_REVIEW_DELAY_MS || '') || undefined,
+        });
+    }
+
     onUserMessage(callback: (data: UserMessage) => void) {
         this.pendingMessageCallback = callback;
         while (this.pendingMessages.length > 0) {
@@ -671,6 +732,66 @@ export class ApiSessionClient extends EventEmitter {
         this.sendSync.invalidate();
     }
 
+    async sendSyntheticUserMessage(text: string, localId: string = randomUUID()): Promise<void> {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+
+        const content = {
+            role: 'user' as const,
+            content: { type: 'text' as const, text: trimmed },
+            meta: {
+                sentFrom: 'auto-review',
+                displayText: trimmed,
+            },
+        };
+        const encrypted = encodeBase64(encrypt(this.encryptionKey, this.encryptionVariant, content));
+
+        await axios.post(
+            `${configuration.serverUrl}/v3/sessions/${encodeURIComponent(this.sessionId)}/send`,
+            {
+                content: encrypted,
+                localId,
+                trackCliDelivery: true,
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json',
+                },
+                timeout: 60_000,
+            },
+        );
+    }
+
+    async fetchRecentReviewMessages(limit = 200): Promise<ReviewMessage[]> {
+        const response = await axios.get(
+            `${configuration.serverUrl}/v3/sessions/${encodeURIComponent(this.sessionId)}/messages`,
+            {
+                params: { limit },
+                headers: { 'Authorization': `Bearer ${this.token}` },
+                timeout: 60_000,
+            },
+        );
+
+        const rows = Array.isArray(response.data?.messages) ? [...response.data.messages].reverse() : [];
+        const result: ReviewMessage[] = [];
+        for (const row of rows) {
+            const encrypted = row?.content?.t === 'encrypted' ? row.content.c : null;
+            if (!encrypted) continue;
+
+            try {
+                const decrypted = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(encrypted));
+                const role = decrypted?.role === 'user' ? 'user' : decrypted?.role === 'agent' ? 'agent' : 'system';
+                const text = extractPlainTextForAutoReview(decrypted);
+                if (text) result.push({ role, text });
+            } catch (error) {
+                logger.debug('[AUTO_REVIEW] Failed to decrypt review history message:', error);
+            }
+        }
+
+        return result;
+    }
+
     private postSendProcessing(body: RawJSONLines) {
         // Track usage from assistant messages
         if (body.type === 'assistant' && body.message?.usage) {
@@ -727,6 +848,9 @@ export class ApiSessionClient extends EventEmitter {
      */
     sendClaudeSessionMessage(body: RawJSONLines) {
         const content = this.buildMessageContent(body);
+        if (content.role === 'agent') {
+            this.autoReviewGuard.onAgentText(extractPlainTextForAutoReview(content), String((body as any).uuid || randomUUID()));
+        }
 
         logger.debugLargeJson('[SOCKET] Sending message through socket:', content)
 
@@ -778,6 +902,8 @@ export class ApiSessionClient extends EventEmitter {
             }
         };
 
+        this.autoReviewGuard.onAgentText(normalizeReviewableAgentText(body), body?.id ?? randomUUID());
+
         // Deliver via v3 HTTP outbox (sole delivery path — no socket emit to avoid duplicates)
         this.enqueueMessage(content);
     }
@@ -807,6 +933,7 @@ export class ApiSessionClient extends EventEmitter {
         };
 
         logger.debug(`[SOCKET] Sending ACP message from ${provider}:`, { type: body.type, hasMessage: 'message' in body });
+        this.autoReviewGuard.onAgentText(normalizeReviewableAgentText(body), `${provider}-${Date.now()}`);
 
         // Deliver via v3 HTTP outbox (sole delivery path — no socket emit to avoid duplicates)
         this.enqueueMessage(content);
@@ -1006,7 +1133,11 @@ export class ApiSessionClient extends EventEmitter {
      * @param handler - Handler function that returns the updated metadata
      */
     updateMetadata(handler: (metadata: Metadata) => Metadata) {
-        this.metadataLock.inLock(async () => {
+        void this.updateMetadataAsync(handler);
+    }
+
+    private async updateMetadataAsync(handler: (metadata: Metadata) => Metadata): Promise<void> {
+        await this.metadataLock.inLock(async () => {
             await backoff(async () => {
                 let updated = handler(this.metadata!); // Weird state if metadata is null - should never happen but here we are
                 const answer = await this.socket.emitWithAck('update-metadata', { sid: this.sessionId, expectedVersion: this.metadataVersion, metadata: encodeBase64(encrypt(this.encryptionKey, this.encryptionVariant, updated)) });

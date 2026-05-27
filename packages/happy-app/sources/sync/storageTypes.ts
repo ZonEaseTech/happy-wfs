@@ -54,6 +54,16 @@ export const MetadataSchema = z.object({
     reviewPending: z.object({
         markedAt: z.number(),
     }).optional(),
+    autoReviewGuard: z.object({
+        enabled: z.boolean(),
+        status: z.enum(['idle', 'waiting', 'reviewing', 'needs_follow_up', 'passed', 'uncertain']).optional(),
+        updatedAt: z.number().optional(),
+        lastTriggeredMessageId: z.string().optional(),
+        lastReviewFingerprint: z.string().optional(),
+        lastSummary: z.string().optional(),
+        simplifyPending: z.boolean().optional(),
+        lastSimplifySourceMessageId: z.string().optional(),
+    }).optional(),
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
     codexSessionId: z.string().optional(), // Codex CLI conversation ID

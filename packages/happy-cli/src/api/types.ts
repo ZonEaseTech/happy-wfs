@@ -371,6 +371,16 @@ export type Metadata = {
   worktreeBranchName?: string,
   worktreePrUrl?: string,
   reviewOfSessionId?: string,
+  autoReviewGuard?: {
+    enabled: boolean,
+    status?: 'waiting' | 'reviewing' | 'needs_follow_up' | 'passed' | 'uncertain' | string,
+    updatedAt?: number,
+    lastTriggeredMessageId?: string,
+    lastReviewFingerprint?: string,
+    lastSummary?: string,
+    simplifyPending?: boolean,
+    lastSimplifySourceMessageId?: string,
+  },
   workspaceRepos?: Array<{
     repoId?: string;
     path: string;
@@ -381,6 +391,15 @@ export type Metadata = {
     displayName?: string;
   }>;
   workspacePath?: string,
+  externalContext?: {
+    source: string,
+    sourceUrl?: string,
+    resourceType: string,
+    resourceId: string,
+    title?: string,
+    deepLink?: string,
+    extra?: Record<string, unknown>,
+  },
   // Memory IDs that were injected into the system prompt at session start.
   // Surfaced in happy-app session info so users see what context Claude has.
   injectedMemoryIds?: string[],
