@@ -44,11 +44,13 @@ describe('port proxy HTTP helpers', () => {
             'Transfer-Encoding': 'chunked',
             'Content-Length': '456',
             'Set-Cookie': ['a=1', 'b=2'],
+            'X-Multi': ['one', 'two'],
             'Content-Type': 'text/plain',
         });
 
         expect(filtered).toEqual({
             'set-cookie': ['a=1', 'b=2'],
+            'x-multi': ['one', 'two'],
             'content-type': 'text/plain',
         });
     });

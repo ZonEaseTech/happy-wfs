@@ -86,7 +86,7 @@ function filterResponseHeaders(headers: HeadersLike, blockedHeaders: Set<string>
             continue;
         }
 
-        if (normalizedName === 'set-cookie' && Array.isArray(value)) {
+        if (Array.isArray(value)) {
             filtered[normalizedName] = value;
             continue;
         }
