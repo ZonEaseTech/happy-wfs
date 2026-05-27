@@ -63,6 +63,7 @@ model Account {
   UserFeedItem        UserFeedItem[]
   UserKVStore         UserKVStore[]
   OpenClawMachine     OpenClawMachine[]
+  portProxies         PortProxy[]
   sharedBySessions    SessionShare[]           @relation("SharedBySessions")
   sharedWithSessions  SessionShare[]           @relation("SharedWithSessions")
   publicSessionShares PublicSessionShare[]     @relation("PublicSessionShares")
@@ -512,6 +513,31 @@ model UserKVStore {
 
   @@unique([accountId, key])
   @@index([accountId])
+}
+
+//
+// Port Proxies
+//
+
+model PortProxy {
+  id             String   @id @default(cuid())
+  accountId      String
+  account        Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  machineId      String
+  name           String
+  localHost      String   @default("127.0.0.1")
+  localPort      Int
+  protocol       String   @default("http")
+  slug           String   @unique
+  enabled        Boolean  @default(true)
+  accessMode     String   @default("private")
+  lastAccessedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([accountId, updatedAt(sort: Desc)])
+  @@index([machineId, enabled])
+  @@index([slug])
 }
 
 //
