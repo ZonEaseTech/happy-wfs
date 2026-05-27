@@ -11,6 +11,7 @@ import { isDebug } from '@/utils/env';
 import { MachineMetadata, DaemonState, Machine, Update, UpdateMachineBody } from './types';
 import { registerCommonHandlers, SpawnSessionOptions, SpawnSessionResult } from '../modules/common/registerCommonHandlers';
 import { registerOpenClawHandlers, openClawTunnelManager } from '../modules/openclaw';
+import { registerPortProxyHandlers } from '../modules/portProxy/registerPortProxyHandlers';
 import { listClaudeSessionsFromIndex, getClaudeSessionPreview, findClaudeProjectId, getClaudeSessionUserMessages, saveClaudeSessionCacheStats } from '@/claude/utils/claudeSessionIndex';
 import { forkAndTruncateSession, forkSession } from '@/claude/utils/claudeSessionFork';
 import { readGeminiSessionLog, listGeminiSessions, getGeminiSessionPreview, saveGeminiSessionCacheStats } from '@/gemini/utils/sessionReader';
@@ -199,6 +200,7 @@ export class ApiMachineClient {
         // to a tighter directory (e.g. ~/projects) if you want directory
         // traversal protection back.
         registerCommonHandlers(this.rpcHandlerManager, process.env.HAPPY_DAEMON_ROOT || '/');
+        registerPortProxyHandlers(this.rpcHandlerManager);
         registerOpenClawHandlers(this.rpcHandlerManager, {
             key: this.machine.encryptionKey
         });
