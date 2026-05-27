@@ -489,18 +489,27 @@ export default function RootLayout() {
                     headerBackTitle: t('common.back'),
                 }}
             />
-<Stack.Screen
-                name="openclaw/index"
+            <Stack.Screen
+                name="port-proxy/index"
                 options={{
                     headerShown: true,
-                    headerTitle: t('tabs.openclaw'),
+                    headerTitle: t('tabs.portProxy'),
                     headerBackTitle: t('common.back'),
                 }}
             />
             <Stack.Screen
-                name="openclaw/add"
+                name="port-proxy/add"
                 options={{
-                    headerTitle: t('openclaw.addMachine'),
+                    headerShown: true,
+                    headerTitle: t('portProxy.addProxy'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="port-proxy/[id]"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('portProxy.editProxy'),
                     headerBackTitle: t('common.back'),
                 }}
             />
@@ -517,30 +526,6 @@ export default function RootLayout() {
                 options={{
                     headerShown: true,
                     headerTitle: '',
-                    headerBackTitle: t('common.back'),
-                }}
-            />
-            <Stack.Screen
-                name="openclaw/machine/[id]"
-                options={{
-                    headerShown: true,
-                    headerTitle: '',
-                    headerBackTitle: t('common.back'),
-                }}
-            />
-            <Stack.Screen
-                name="openclaw/chat"
-                options={{
-                    headerShown: true,
-                    headerTitle: '',
-                    headerBackTitle: t('common.back'),
-                }}
-            />
-            <Stack.Screen
-                name="openclaw/new"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('openclaw.newSession'),
                     headerBackTitle: t('common.back'),
                 }}
             />

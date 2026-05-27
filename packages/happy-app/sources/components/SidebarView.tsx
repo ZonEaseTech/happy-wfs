@@ -258,7 +258,7 @@ export const SidebarView = React.memo(() => {
                             )}
                         </Pressable>
                         <Pressable
-                            onPress={() => router.push('/(app)/openclaw')}
+                            onPress={() => router.push('/(app)/port-proxy')}
                             hitSlop={15}
                         >
                             <Image
