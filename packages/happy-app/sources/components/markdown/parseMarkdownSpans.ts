@@ -3,7 +3,17 @@ import type { MarkdownSpan } from "./parseMarkdown";
 // Supports bold/italic/code and markdown links.
 // Link URL pattern allows balanced single-level parentheses inside URLs
 // so paths like /(app)/session/[id]/file.tsx are parsed correctly.
-const patternSource = /(\*\*(.*?)(?:\*\*|$))|(\*(.*?)(?:\*|$))|(\[([^\]]+)\](?:\(((?:[^()]+|\([^()]*\))*)\))?)|(`(.*?)(?:`|$))/g.source;
+const patternSource = /(\*\*(.*?)(?:\*\*|$))|(\*(.*?)(?:\*|$))|(\[([^\]]+)\](?:\(((?:[^()]+|\([^()]*\))*)\))?)|(`(.*?)(?:`|$))|(https?:\/\/[^\s<>{}\[\]\"']+)/g.source;
+
+const bareUrlTrailingPunctuationPattern = /[.,;:!?，。；：！？、]+$/;
+
+function splitBareUrlTrailingPunctuation(rawUrl: string): { url: string; trailing: string } {
+    const trailing = rawUrl.match(bareUrlTrailingPunctuationPattern)?.[0] ?? '';
+    return {
+        url: trailing ? rawUrl.slice(0, -trailing.length) : rawUrl,
+        trailing,
+    };
+}
 
 function normalizeMarkdownLinkUrl(rawUrl: string): string {
     const trimmed = rawUrl.trim();
@@ -61,6 +71,13 @@ function parseMarkdownSpansWithInheritedStyles(markdown: string, header: boolean
         } else if (match[8]) {
             // Inline code
             spans.push({ styles: [...inheritedStyles, 'code'], text: match[9], url: null });
+        } else if (match[10]) {
+            // Bare URL
+            const { url, trailing } = splitBareUrlTrailingPunctuation(match[10]);
+            spans.push({ styles: [...inheritedStyles], text: url, url });
+            if (trailing) {
+                spans.push({ styles: [...inheritedStyles], text: trailing, url: null });
+            }
         }
 
         lastIndex = pattern.lastIndex;

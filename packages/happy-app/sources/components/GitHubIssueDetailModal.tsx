@@ -9,6 +9,7 @@ import { Typography } from '@/constants/Typography';
 import { Modal } from '@/modal';
 import { useAuth } from '@/auth/AuthContext';
 import { listGitHubIssues, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
+import { parseMarkdownSpans } from '@/components/markdown/parseMarkdownSpans';
 
 const COMMON_GITHUB_PROJECT_STATUSES = ['No Status', 'Triage', 'Backlog', 'Todo', 'In Progress', 'In Review', 'Done'];
 
@@ -99,6 +100,9 @@ const styles = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.groupped.background,
         color: theme.colors.text,
     },
+    issueMarkdownItalic: {
+        fontStyle: 'italic',
+    },
     issueMarkdownLink: {
         color: theme.colors.button.primary.background,
         textDecorationLine: 'underline',
@@ -143,49 +147,38 @@ const styles = StyleSheet.create((theme) => ({
     },
 }));
 
+function getGitHubIssueInlineSpanStyle(spanStyles: Array<'italic' | 'bold' | 'semibold' | 'code'>) {
+    return spanStyles.map((styleName) => {
+        if (styleName === 'code') return styles.issueMarkdownInlineCode;
+        if (styleName === 'italic') return styles.issueMarkdownItalic;
+        if (styleName === 'bold' || styleName === 'semibold') return Typography.default('semiBold');
+        return undefined;
+    }).filter(Boolean);
+}
+
 function renderGitHubIssueInlineMarkdown(text: string, keyPrefix: string) {
-    const parts: React.ReactNode[] = [];
-    const pattern = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*)/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
-        if (match.index > lastIndex) {
-            parts.push(text.slice(lastIndex, match.index));
-        }
-        const token = match[0];
-        const key = `${keyPrefix}-${match.index}`;
-        const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (link) {
-            const label = link[1] ?? '';
-            const url = link[2] ?? '';
-            parts.push(
+    const spans = parseMarkdownSpans(text, false);
+    if (spans.length === 0) return text;
+
+    return spans.map((span, index) => {
+        const spanStyle = getGitHubIssueInlineSpanStyle(span.styles);
+        if (span.url) {
+            return (
                 <Text
-                    key={key}
-                    style={styles.issueMarkdownLink}
-                    onPress={() => { void Linking.openURL(url); }}
+                    key={`${keyPrefix}-${index}`}
+                    style={[styles.issueMarkdownLink, ...spanStyle]}
+                    onPress={() => { void Linking.openURL(span.url!); }}
                 >
-                    {label}
-                </Text>,
-            );
-        } else if (token.startsWith('`') && token.endsWith('`')) {
-            parts.push(
-                <Text key={key} style={styles.issueMarkdownInlineCode}>
-                    {token.slice(1, -1)}
-                </Text>,
-            );
-        } else if (token.startsWith('**') && token.endsWith('**')) {
-            parts.push(
-                <Text key={key} style={Typography.default('semiBold')}>
-                    {token.slice(2, -2)}
-                </Text>,
+                    {span.text}
+                </Text>
             );
         }
-        lastIndex = match.index + token.length;
-    }
-    if (lastIndex < text.length) {
-        parts.push(text.slice(lastIndex));
-    }
-    return parts.length > 0 ? parts : text;
+        return (
+            <Text key={`${keyPrefix}-${index}`} style={spanStyle}>
+                {span.text}
+            </Text>
+        );
+    });
 }
 
 const GitHubIssueMarkdown = React.memo(({ body }: { body: string }) => {

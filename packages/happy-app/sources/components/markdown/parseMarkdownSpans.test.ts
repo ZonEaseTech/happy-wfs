@@ -57,3 +57,40 @@ describe('parseMarkdownSpans links', () => {
         ]);
     });
 });
+
+describe('parseMarkdownSpans bare URLs', () => {
+    it('turns bare https URLs into link spans', () => {
+        const input = '部署 https://8008--main--sg--qiuxiang.coder.tbc.5ok.co/supervisor/20260521-1508/ 原型';
+        const spans = parseMarkdownSpans(input, false);
+
+        expect(spans).toEqual([
+            { styles: [], text: '部署 ', url: null },
+            {
+                styles: [],
+                text: 'https://8008--main--sg--qiuxiang.coder.tbc.5ok.co/supervisor/20260521-1508/',
+                url: 'https://8008--main--sg--qiuxiang.coder.tbc.5ok.co/supervisor/20260521-1508/',
+            },
+            { styles: [], text: ' 原型', url: null },
+        ]);
+    });
+
+    it('keeps trailing punctuation outside bare URL links', () => {
+        const input = '看 https://example.com/path。';
+        const spans = parseMarkdownSpans(input, false);
+
+        expect(spans).toEqual([
+            { styles: [], text: '看 ', url: null },
+            { styles: [], text: 'https://example.com/path', url: 'https://example.com/path' },
+            { styles: [], text: '。', url: null },
+        ]);
+    });
+
+    it('does not linkify bare URLs inside inline code', () => {
+        const input = '`https://example.com/path`';
+        const spans = parseMarkdownSpans(input, false);
+
+        expect(spans).toEqual([
+            { styles: ['code'], text: 'https://example.com/path', url: null },
+        ]);
+    });
+});

@@ -120,14 +120,15 @@ export class PermissionHandler {
             } else {
                 pending.resolve({ behavior: 'deny', message: response.reason || 'Plan rejected' });
             }
+        } else if (pending.toolName === 'AskUserQuestion' && response.approved && response.answers) {
+            // AskUserQuestion is itself the user-interaction tool. Returning the
+            // user's selections as a synthetic tool result keeps the answer on
+            // the structured permission channel instead of relying on a separate
+            // chat message or on the downstream tool reading mutated input.
+            pending.resolve({ behavior: 'deny', message: formatAskUserQuestionAnswers(response.answers) });
         } else {
             // Handle default case for all other tools
-            let updatedInput = (pending.input as Record<string, unknown>) || {};
-
-            // For AskUserQuestion, merge user answers into updatedInput
-            if (pending.toolName === 'AskUserQuestion' && response.answers) {
-                updatedInput = { ...updatedInput, answers: response.answers };
-            }
+            const updatedInput = (pending.input as Record<string, unknown>) || {};
 
             const result: PermissionResult = response.approved
                 ? { behavior: 'allow', updatedInput }
@@ -514,4 +515,12 @@ export class PermissionHandler {
     getResponses(): Map<string, PermissionResponse> {
         return this.responses;
     }
+}
+
+
+function formatAskUserQuestionAnswers(answers: Record<string, string>): string {
+    const lines = Object.entries(answers)
+        .map(([header, value]) => `- ${header}: ${value}`)
+        .join('\n');
+    return `User answered AskUserQuestion:\n${lines}\n\nContinue using these answers.`;
 }
