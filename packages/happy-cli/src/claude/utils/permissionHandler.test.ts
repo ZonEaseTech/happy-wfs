@@ -83,7 +83,7 @@ describe('PermissionHandler AskUserQuestion', () => {
 
     await expect(pending).resolves.toEqual({
       behavior: 'deny',
-      message: 'User answered AskUserQuestion:\n- Scope: 先跟我说说 当前任务要做什么事\n\nContinue using these answers.',
+      message: '我的选择是：\n- Scope：先跟我说说 当前任务要做什么事\n\n请根据以上选择继续。',
     });
     expect(agentState.completedRequests?.['tool-ask-1']).toMatchObject({
       status: 'approved',

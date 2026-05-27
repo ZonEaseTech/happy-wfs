@@ -9,5 +9,7 @@ export function buildGitHubIssueStartPrompt(issue: Pick<GitHubIssue, 'repository
         `- 链接：${issue.htmlUrl}`,
         '',
         '请使用 brainstorming skill 和我一起梳理需求，然后 brainstorming 进行规划和开发。',
+        '请认真阅读里面提供的原型地址和原型代码，保证前端样式一致。',
+        '请勿提交任何代码，让我检查通过再说。',
     ].join('\n');
 }

@@ -520,7 +520,7 @@ export class PermissionHandler {
 
 function formatAskUserQuestionAnswers(answers: Record<string, string>): string {
     const lines = Object.entries(answers)
-        .map(([header, value]) => `- ${header}: ${value}`)
+        .map(([header, value]) => `- ${header}：${value}`)
         .join('\n');
-    return `User answered AskUserQuestion:\n${lines}\n\nContinue using these answers.`;
+    return `我的选择是：\n${lines}\n\n请根据以上选择继续。`;
 }

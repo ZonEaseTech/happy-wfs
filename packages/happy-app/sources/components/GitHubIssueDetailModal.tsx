@@ -9,7 +9,7 @@ import { Typography } from '@/constants/Typography';
 import { Modal } from '@/modal';
 import { useAuth } from '@/auth/AuthContext';
 import { listGitHubIssues, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
-import { parseMarkdownSpans } from '@/components/markdown/parseMarkdownSpans';
+import { buildGitHubIssueInlineMarkdownParts } from '@/components/githubIssueInlineMarkdownParts';
 
 const COMMON_GITHUB_PROJECT_STATUSES = ['No Status', 'Triage', 'Backlog', 'Todo', 'In Progress', 'In Review', 'Done'];
 
@@ -157,25 +157,27 @@ function getGitHubIssueInlineSpanStyle(spanStyles: Array<'italic' | 'bold' | 'se
 }
 
 function renderGitHubIssueInlineMarkdown(text: string, keyPrefix: string) {
-    const spans = parseMarkdownSpans(text, false);
-    if (spans.length === 0) return text;
+    const parts = buildGitHubIssueInlineMarkdownParts(text);
 
-    return spans.map((span, index) => {
-        const spanStyle = getGitHubIssueInlineSpanStyle(span.styles);
-        if (span.url) {
+    return parts.map((part, index) => {
+        if (typeof part === 'string') {
+            return part;
+        }
+        const spanStyle = getGitHubIssueInlineSpanStyle(part.styles);
+        if (part.type === 'link') {
             return (
                 <Text
                     key={`${keyPrefix}-${index}`}
                     style={[styles.issueMarkdownLink, ...spanStyle]}
-                    onPress={() => { void Linking.openURL(span.url!); }}
+                    onPress={() => { void Linking.openURL(part.url); }}
                 >
-                    {span.text}
+                    {part.text}
                 </Text>
             );
         }
         return (
             <Text key={`${keyPrefix}-${index}`} style={spanStyle}>
-                {span.text}
+                {part.text}
             </Text>
         );
     });

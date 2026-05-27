@@ -8,8 +8,8 @@ describe('buildOptionReplyText', () => {
 });
 
 describe('buildAnswersReplyText', () => {
-    it('formats a single answer like a plain option reply', () => {
-        expect(buildAnswersReplyText({ '意图': '梳理现有实现' })).toBe('我的选择是：梳理现有实现');
+    it('keeps the question header even for a single structured answer', () => {
+        expect(buildAnswersReplyText({ '意图': '梳理现有实现' })).toBe('我的选择是：\n- 意图：梳理现有实现');
     });
 
     it('lists each question header with its answer for multiple questions', () => {
