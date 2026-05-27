@@ -830,6 +830,8 @@ export const zhHant: TranslationStructure = {
         autoReviewGuard: '守護審查',
         autoReviewGuardEnable: '開啟完成度審查',
         autoReviewGuardDisable: '關閉完成度審查',
+        autoReviewGuardEnabledToast: '已開啟守護審查',
+        autoReviewGuardDisabledToast: '已關閉守護審查',
         autoReviewGuardReviewing: '正在審查完成度',
         autoReviewGuardNeedsFollowUp: '審查發現漏項',
         autoReviewGuardPassed: '審查通過',

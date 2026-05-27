@@ -711,6 +711,8 @@ export const ru: TranslationStructure = {
         autoReviewGuard: 'Auto Review Guard',
         autoReviewGuardEnable: 'Enable completion review',
         autoReviewGuardDisable: 'Disable completion review',
+        autoReviewGuardEnabledToast: 'Completion review enabled',
+        autoReviewGuardDisabledToast: 'Completion review disabled',
         autoReviewGuardReviewing: 'Reviewing completion',
         autoReviewGuardNeedsFollowUp: 'Review found follow-up',
         autoReviewGuardPassed: 'Review passed',

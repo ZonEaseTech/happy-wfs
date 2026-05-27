@@ -26,9 +26,9 @@ export function useAutoReviewGuard(sessionId: string): AutoReviewGuard | undefin
     return useSession(sessionId)?.metadata?.autoReviewGuard;
 }
 
-export async function toggleAutoReviewGuard(sessionId: string): Promise<void> {
+export async function toggleAutoReviewGuard(sessionId: string): Promise<AutoReviewGuard | undefined> {
     const session = getSession(sessionId);
-    if (!session?.metadata) return;
+    if (!session?.metadata) return undefined;
 
     const next = buildNextAutoReviewGuard(session.metadata.autoReviewGuard);
     await sessionUpdateMetadataFields(
@@ -37,4 +37,5 @@ export async function toggleAutoReviewGuard(sessionId: string): Promise<void> {
         { autoReviewGuard: next },
         session.metadataVersion,
     );
+    return next;
 }

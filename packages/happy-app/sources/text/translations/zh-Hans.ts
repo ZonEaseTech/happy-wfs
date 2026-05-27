@@ -830,6 +830,8 @@ export const zhHans: TranslationStructure = {
         autoReviewGuard: '守护审查',
         autoReviewGuardEnable: '开启完成度审查',
         autoReviewGuardDisable: '关闭完成度审查',
+        autoReviewGuardEnabledToast: '已开启守护审查',
+        autoReviewGuardDisabledToast: '已关闭守护审查',
         autoReviewGuardReviewing: '正在审查完成度',
         autoReviewGuardNeedsFollowUp: '审查发现漏项',
         autoReviewGuardPassed: '审查通过',

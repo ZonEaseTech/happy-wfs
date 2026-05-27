@@ -31,7 +31,7 @@ import { sync } from '@/sync/sync';
 import { InjectedMemoriesModal } from '@/components/InjectedMemoriesModal';
 import * as Clipboard from 'expo-clipboard';
 import { hapticsLight } from '@/components/haptics';
-import { showCopiedToast } from '@/components/Toast';
+import { showCopiedToast, showToast } from '@/components/Toast';
 import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -175,7 +175,14 @@ export const SessionView = React.memo((props: { id: string }) => {
     const autoReviewEnabled = autoReviewGuard?.enabled === true;
     const autoReviewStatus = autoReviewGuard?.status ?? 'idle';
     const handleToggleAutoReviewGuard = React.useCallback(() => {
-        void toggleAutoReviewGuard(sessionId);
+        hapticsLight();
+        void toggleAutoReviewGuard(sessionId).then((next) => {
+            if (!next) return;
+            showToast(t(next.enabled ? 'sessionInfo.autoReviewGuardEnabledToast' : 'sessionInfo.autoReviewGuardDisabledToast'));
+        }).catch((error) => {
+            log.log(`Failed to toggle auto review guard: ${error instanceof Error ? error.message : String(error)}`);
+            showToast(t('sessionInfo.autoReviewGuardUncertain'));
+        });
     }, [sessionId]);
 
     // Header memory chip — count of memories actually injected into THIS session's
@@ -383,10 +390,12 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         marginRight: 2,
+                                        borderRadius: 19,
+                                        backgroundColor: autoReviewEnabled ? `${theme.colors.button.primary.background}18` : 'transparent',
                                     }}
                                 >
                                     <Ionicons
-                                        name={autoReviewStatus === 'passed' ? 'shield-checkmark-outline' : 'shield-outline'}
+                                        name={autoReviewEnabled || autoReviewStatus === 'passed' ? 'shield-checkmark-outline' : 'shield-outline'}
                                         size={21}
                                         color={autoReviewEnabled ? theme.colors.button.primary.background : theme.colors.header.tint}
                                     />
