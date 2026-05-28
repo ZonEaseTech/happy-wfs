@@ -49,9 +49,11 @@ export function normalizeReviewableAgentText(payload: unknown): string {
   return [...new Set(parts.map((part) => part.trim()).filter(Boolean))].join('\n').trim()
 }
 
-export function hasCompletionSemantics(text: string): boolean {
+export function hasCompletionSemantics(text: string, customPhrases?: string[]): boolean {
   const normalized = text.trim()
   if (!normalized) return false
   if (NON_COMPLETION_PATTERNS.some((pattern) => pattern.test(normalized))) return false
+  const phrases = customPhrases?.map((phrase) => phrase.trim()).filter(Boolean) ?? []
+  if (phrases.some((phrase) => normalized.toLocaleLowerCase().includes(phrase.toLocaleLowerCase()))) return true
   return COMPLETION_PATTERNS.some((pattern) => pattern.test(normalized))
 }

@@ -13,6 +13,38 @@ export type TerminalQuickCommand = z.infer<typeof TerminalQuickCommandSchema>;
 export const TerminalThemeSchema = z.enum(['light', 'dark']);
 export type TerminalTheme = z.infer<typeof TerminalThemeSchema>;
 
+
+export const AutoReviewGuardSettingsSchema = z.object({
+    enabled: z.boolean().default(false),
+    delayMs: z.number().min(0).max(300_000).default(5_000),
+    triggerPhrases: z.array(z.string().trim().min(1)).default([
+        '已完成',
+        '完成',
+        '完成了',
+        '修复完成',
+        '验证通过',
+        '已验证',
+        '请确认',
+        '可以提交',
+        '可以归档',
+        '待确认',
+        'done',
+        'completed',
+        'fixed',
+        'verified',
+        'ready for review',
+        'ready to merge',
+        'please confirm',
+    ]),
+    reviewPrompt: z.string().default('你是代码完成度审查 AI。只审查代码完成度：是否对标明确需求、GitHub Issue、用户补充要求、brainstorming/pma/writing-plans 计划、git diff 与验证证据。不要提出无关重构、泛泛优化、性能/安全深挖，除非任务明确要求。如果上下文包含原型图、原型代码、prototype、supervisor、design、Figma 等引用，只在代码层面额外审查 UI 是否对齐原型：结构、布局、文案、状态、交互和样式 token 是否有明显漏项；不要做截图/浏览器/视觉像素比对。'),
+    followUpTemplate: z.string().default('自动完成度审查发现以下漏项，请继续处理：\n\n{{missing}}\n\n请补齐后重新验证。\n审查范围：仅对标本任务明确需求、计划和当前代码完成度。'),
+    sendSimplifyOnPass: z.boolean().default(true),
+});
+
+export type AutoReviewGuardSettings = z.infer<typeof AutoReviewGuardSettingsSchema>;
+
+export const autoReviewGuardSettingsDefaults: AutoReviewGuardSettings = AutoReviewGuardSettingsSchema.parse({});
+
 //
 // Configuration Profile Schema (for environment variable profiles)
 //
@@ -311,6 +343,7 @@ export const SettingsSchema = z.object({
     customQuickActions: z.array(CustomQuickActionSchema).describe('Synced AI shortcut prompts shown in the session composer'),
     terminalQuickCommands: z.array(TerminalQuickCommandSchema).describe('User-level terminal quick commands stored in synced account settings'),
     terminalTheme: TerminalThemeSchema.describe('Terminal panel and xterm color theme'),
+    autoReviewGuardDefaults: AutoReviewGuardSettingsSchema.describe('Default Auto Review Guard settings applied to sessions'),
     // Dismissed CLI warning banners (supports both per-machine and global dismissal)
     dismissedCLIWarnings: z.object({
         perMachine: z.record(z.string(), z.object({
@@ -383,6 +416,7 @@ export const settingsDefaults: Settings = {
     customQuickActions: [],
     terminalQuickCommands: [],
     terminalTheme: 'dark',
+    autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
     // Dismissed CLI warnings (empty by default)
     dismissedCLIWarnings: { perMachine: {}, global: {} },
 };

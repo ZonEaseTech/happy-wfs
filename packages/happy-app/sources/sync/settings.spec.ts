@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { settingsParse, applySettings, settingsDefaults, type Settings, AIBackendProfileSchema } from './settings';
+import { settingsParse, applySettings, settingsDefaults, type Settings, AIBackendProfileSchema, autoReviewGuardSettingsDefaults } from './settings';
 import { getBuiltInProfile } from './profileUtils';
 
 describe('settings', () => {
@@ -139,6 +139,7 @@ describe('settings', () => {
                 customQuickActions: [],
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
+                autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
             };
             const delta: Partial<Settings> = {
                 viewInline: true
@@ -180,6 +181,7 @@ describe('settings', () => {
                 customQuickActions: [],
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
+                autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
             });
         });
 
@@ -221,6 +223,7 @@ describe('settings', () => {
                 customQuickActions: [],
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
+                autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
             };
             const delta: Partial<Settings> = {};
             expect(applySettings(currentSettings, delta)).toEqual(currentSettings);
@@ -264,6 +267,7 @@ describe('settings', () => {
                 customQuickActions: [],
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
+                autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
             };
             const delta: Partial<Settings> = {
                 viewInline: false
@@ -312,6 +316,7 @@ describe('settings', () => {
                 customQuickActions: [],
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
+                autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
             };
             expect(applySettings(currentSettings, {})).toEqual(currentSettings);
         });
@@ -369,6 +374,7 @@ describe('settings', () => {
                 customQuickActions: [],
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
+                autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
             };
             const delta: any = {
                 viewInline: false,
@@ -436,6 +442,7 @@ describe('settings', () => {
                 customQuickActions: [],
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
+                autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
                 useEnhancedSessionWizard: false,
                 showThinkingMessages: true,
             });

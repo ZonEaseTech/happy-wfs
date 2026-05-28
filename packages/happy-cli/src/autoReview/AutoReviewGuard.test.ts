@@ -47,7 +47,7 @@ describe('AutoReviewGuard', () => {
 
 
 
-  it('sends /simplify before reviewing the first completion claim', async () => {
+  it('reviews first, then sends /simplify after a passing review', async () => {
     const sendSimplifyCheck = vi.fn(async () => {})
     const collectAndReview = vi.fn(async () => ({ status: 'pass' as const, summary: 'ok', missing: [], evidence: [], confidence: 'high' as const }))
     const updateGuard = vi.fn()
@@ -63,32 +63,31 @@ describe('AutoReviewGuard', () => {
     guard.onAgentText('已完成，请确认', 'm1')
     await guard.runNowForTests()
 
+    expect(collectAndReview).toHaveBeenCalledOnce()
     expect(sendSimplifyCheck).toHaveBeenCalledOnce()
-    expect(collectAndReview).not.toHaveBeenCalled()
     expect(updateGuard).toHaveBeenLastCalledWith(expect.objectContaining({
-      status: 'waiting',
+      status: 'passed',
       simplifyPending: true,
       lastSimplifySourceMessageId: 'm1',
     }))
   })
 
-  it('reviews the next completion claim after /simplify is pending', async () => {
-    const sendSimplifyCheck = vi.fn(async () => {})
+  it('does not re-review the first agent response after an auto /simplify', () => {
+    const updateGuard = vi.fn()
     const collectAndReview = vi.fn(async () => ({ status: 'pass' as const, summary: 'ok', missing: [], evidence: [], confidence: 'high' as const }))
     const guard = new AutoReviewGuard({
-      getMetadata: () => ({ ...enabledMetadata(), autoReviewGuard: { enabled: true, simplifyPending: true } }),
-      updateGuard: vi.fn(),
+      getMetadata: () => ({ ...enabledMetadata(), autoReviewGuard: { enabled: true, simplifyPending: true, status: 'passed' } }),
+      updateGuard,
       collectAndReview,
       sendFollowUp: vi.fn(),
-      sendSimplifyCheck,
+      sendSimplifyCheck: vi.fn(),
       delayMs: 1,
     })
 
     guard.onAgentText('simplify 检查完成，验证通过', 'm2')
-    await guard.runNowForTests()
 
-    expect(sendSimplifyCheck).not.toHaveBeenCalled()
-    expect(collectAndReview).toHaveBeenCalledOnce()
+    expect(collectAndReview).not.toHaveBeenCalled()
+    expect(updateGuard).toHaveBeenCalledWith(expect.objectContaining({ simplifyPending: false, status: 'passed' }))
   })
 
   it('sends follow-up only for new actionable review fingerprint', async () => {

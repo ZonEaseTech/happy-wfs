@@ -373,13 +373,18 @@ export type Metadata = {
   reviewOfSessionId?: string,
   autoReviewGuard?: {
     enabled: boolean,
-    status?: 'waiting' | 'reviewing' | 'needs_follow_up' | 'passed' | 'uncertain' | string,
+    status?: 'idle' | 'waiting' | 'reviewing' | 'needs_follow_up' | 'passed' | 'uncertain' | string,
     updatedAt?: number,
     lastTriggeredMessageId?: string,
     lastReviewFingerprint?: string,
     lastSummary?: string,
     simplifyPending?: boolean,
     lastSimplifySourceMessageId?: string,
+    delayMs?: number,
+    triggerPhrases?: string[],
+    reviewPrompt?: string,
+    followUpTemplate?: string,
+    sendSimplifyOnPass?: boolean,
   },
   workspaceRepos?: Array<{
     repoId?: string;

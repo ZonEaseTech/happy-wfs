@@ -173,6 +173,8 @@ function UserTextBlock(props: {
     setImageViewerVisible(true);
   }, []);
 
+  const isAiSentUserMessage = typeof props.message.localId === 'string' && props.message.localId.startsWith('auto-review-');
+
   const senderLabel = React.useMemo(() => {
     if (!props.isSharedSession || !props.showSenderName || !props.message.sentBy) return null;
     if (props.message.sentBy === props.currentUserId) return t('message.you');
@@ -185,6 +187,11 @@ function UserTextBlock(props: {
     <View style={styles.userMessageContainer}>
       {senderLabel && (
         <Text style={styles.senderLabel}>{senderLabel}</Text>
+      )}
+      {isAiSentUserMessage && (
+        <View style={styles.aiUserMessageBadge}>
+          <Text style={styles.aiUserMessageBadgeText}>AI</Text>
+        </View>
       )}
       {actionsOverlay}
       <Pressable
@@ -417,6 +424,21 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 12,
     marginBottom: 2,
     paddingRight: 4,
+  },
+  aiUserMessageBadge: {
+    alignSelf: 'flex-end',
+    backgroundColor: theme.colors.surfaceHigh,
+    borderColor: theme.colors.divider,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 4,
+  },
+  aiUserMessageBadgeText: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   deliveryErrorText: {
     color: theme.colors.textDestructive,

@@ -63,6 +63,11 @@ export const MetadataSchema = z.object({
         lastSummary: z.string().optional(),
         simplifyPending: z.boolean().optional(),
         lastSimplifySourceMessageId: z.string().optional(),
+        delayMs: z.number().optional(),
+        triggerPhrases: z.array(z.string()).optional(),
+        reviewPrompt: z.string().optional(),
+        followUpTemplate: z.string().optional(),
+        sendSimplifyOnPass: z.boolean().optional(),
     }).optional(),
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID

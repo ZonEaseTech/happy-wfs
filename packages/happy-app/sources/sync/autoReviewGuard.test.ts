@@ -10,11 +10,22 @@ vi.mock('@/sync/storage', () => ({
 }));
 
 import { buildNextAutoReviewGuard } from './autoReviewGuard';
+import { autoReviewGuardSettingsDefaults } from './settings';
 
 describe('buildNextAutoReviewGuard', () => {
     it('enables an empty guard as idle', () => {
         const next = buildNextAutoReviewGuard(undefined, 1000);
-        expect(next).toEqual({ enabled: true, status: 'idle', updatedAt: 1000 });
+        expect(next).toEqual({
+            enabled: true,
+            status: 'idle',
+            updatedAt: 1000,
+            delayMs: autoReviewGuardSettingsDefaults.delayMs,
+            triggerPhrases: autoReviewGuardSettingsDefaults.triggerPhrases,
+            reviewPrompt: autoReviewGuardSettingsDefaults.reviewPrompt,
+            followUpTemplate: autoReviewGuardSettingsDefaults.followUpTemplate,
+            sendSimplifyOnPass: autoReviewGuardSettingsDefaults.sendSimplifyOnPass,
+            simplifyPending: false,
+        });
     });
 
     it('disables an enabled guard while preserving last review details', () => {

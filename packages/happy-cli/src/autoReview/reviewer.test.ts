@@ -27,6 +27,19 @@ describe('formatFollowUpMessage', () => {
     expect(text).toContain('自动完成度审查发现以下漏项')
     expect(text).toContain('1. 补测试')
   })
+
+  it('uses a custom follow-up template', () => {
+    const text = formatFollowUpMessage({
+      status: 'needs_follow_up',
+      summary: 'miss',
+      missing: ['补测试'],
+      evidence: ['diff'],
+      confidence: 'high',
+    }, '漏项:\n{{missing}}\n摘要:{{summary}}')
+    expect(text).toContain('漏项:')
+    expect(text).toContain('1. 补测试')
+    expect(text).toContain('摘要:miss')
+  })
 })
 
 describe('shouldSendFollowUp', () => {
@@ -44,6 +57,12 @@ describe('buildReviewerPrompt', () => {
     expect(prompt).toContain('JSON')
     expect(prompt).toContain('代码层面')
     expect(prompt).toContain('supervisor/1')
+  })
+
+  it('accepts custom review prompt while preserving JSON contract', () => {
+    const prompt = buildReviewerPrompt({ issue: 'issue', requirements: 'req', plans: 'plan', transcript: 'chat', git: 'diff', completionClaim: 'done', uiPrototypeReferences: '' }, '只检查测试')
+    expect(prompt).toContain('只检查测试')
+    expect(prompt).toContain('只输出 JSON')
   })
 })
 

@@ -463,7 +463,7 @@ export class ApiSessionClient extends EventEmitter {
                 });
                 return runReviewer({
                     cwd,
-                    prompt: buildReviewerPrompt(context),
+                    prompt: buildReviewerPrompt(context, this.metadata?.autoReviewGuard?.reviewPrompt),
                 });
             },
             sendFollowUp: async (text, fingerprint) => {

@@ -13,6 +13,10 @@ describe('hasCompletionSemantics', () => {
   it('does not match planning text', () => {
     expect(hasCompletionSemantics('我准备开始修复，先看一下文件。')).toBe(false)
   })
+
+  it('matches custom trigger phrases', () => {
+    expect(hasCompletionSemantics('我处理好了', ['处理好了'])).toBe(true)
+  })
 })
 
 describe('normalizeReviewableAgentText', () => {

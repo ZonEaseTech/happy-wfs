@@ -28,7 +28,17 @@ export class AutoReviewGuard {
   onAgentText(text: string, messageId: string): void {
     const metadata = this.deps.getMetadata()
     if (!metadata?.autoReviewGuard?.enabled) return
-    if (!hasCompletionSemantics(text)) return
+    if (metadata.autoReviewGuard.simplifyPending) {
+      void this.deps.updateGuard({
+        ...metadata.autoReviewGuard,
+        enabled: true,
+        status: metadata.autoReviewGuard.status ?? 'passed',
+        updatedAt: Date.now(),
+        simplifyPending: false,
+      })
+      return
+    }
+    if (!hasCompletionSemantics(text, metadata.autoReviewGuard.triggerPhrases)) return
     if (metadata.autoReviewGuard.lastTriggeredMessageId === messageId) return
     if (this.inFlight) return
 
@@ -42,7 +52,7 @@ export class AutoReviewGuard {
       updatedAt: Date.now(),
       lastTriggeredMessageId: messageId,
     })
-    this.timer = setTimeout(() => void this.run(), this.deps.delayMs ?? 60_000)
+    this.timer = setTimeout(() => void this.run(), metadata.autoReviewGuard.delayMs ?? this.deps.delayMs ?? 5_000)
   }
 
   async runNowForTests(): Promise<void> {
@@ -60,27 +70,6 @@ export class AutoReviewGuard {
     this.inFlight = true
     try {
       await this.deps.updateGuard({ ...metadata.autoReviewGuard, status: 'reviewing', updatedAt: Date.now() })
-      const activeGuard = this.deps.getMetadata()?.autoReviewGuard ?? metadata.autoReviewGuard
-
-      if (this.deps.sendSimplifyCheck && !activeGuard.simplifyPending) {
-        try {
-          await this.deps.sendSimplifyCheck()
-          await this.deps.updateGuard({
-            ...activeGuard,
-            enabled: true,
-            status: 'waiting',
-            updatedAt: Date.now(),
-            simplifyPending: true,
-            lastSimplifySourceMessageId: this.lastMessageId || activeGuard.lastTriggeredMessageId,
-            lastTriggeredMessageId: this.lastMessageId || activeGuard.lastTriggeredMessageId,
-            lastSummary: 'Sent /simplify before auto review.',
-          })
-        } catch (error) {
-          await this.markUncertainAfterFailure(activeGuard, error, activeGuard.lastReviewFingerprint ?? '')
-        }
-        return
-      }
-
       let result: ReviewResult
       try {
         result = await this.deps.collectAndReview(this.lastClaim)
@@ -99,7 +88,7 @@ export class AutoReviewGuard {
 
       if (shouldSendFollowUp(result) && currentGuard.lastReviewFingerprint !== fingerprint) {
         try {
-          await this.deps.sendFollowUp(formatFollowUpMessage(result), fingerprint)
+          await this.deps.sendFollowUp(formatFollowUpMessage(result, currentGuard.followUpTemplate), fingerprint)
           await this.deps.updateGuard({
             ...currentGuard,
             enabled: true,
@@ -117,18 +106,25 @@ export class AutoReviewGuard {
       }
 
       try {
+        const passed = result.status === 'pass'
+        let simplifyPending = false
+        if (passed && currentGuard.sendSimplifyOnPass !== false && this.deps.sendSimplifyCheck) {
+          await this.deps.sendSimplifyCheck()
+          simplifyPending = true
+        }
         await this.deps.updateGuard({
           ...currentGuard,
           enabled: true,
-          status: result.status === 'pass' ? 'passed' : 'uncertain',
+          status: passed ? 'passed' : 'uncertain',
           updatedAt: Date.now(),
           lastReviewFingerprint: fingerprint || currentGuard.lastReviewFingerprint,
           lastSummary: result.summary,
           lastTriggeredMessageId: this.lastMessageId || currentGuard.lastTriggeredMessageId,
-          simplifyPending: false,
+          simplifyPending,
+          lastSimplifySourceMessageId: simplifyPending ? (this.lastMessageId || currentGuard.lastTriggeredMessageId) : currentGuard.lastSimplifySourceMessageId,
         })
-      } catch {
-        // Nothing else can safely persist this state. Keep the in-memory guard healthy.
+      } catch (error) {
+        await this.markUncertainAfterFailure(currentGuard, error, fingerprint)
       }
     } finally {
       this.inFlight = false

@@ -54,7 +54,8 @@ import { buildCopyToAgentBriefPrompt } from './sessionCopyPrompt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
-import { toggleAutoReviewGuard, useAutoReviewGuard } from '@/sync/autoReviewGuard';
+import { useAutoReviewGuard } from '@/sync/autoReviewGuard';
+import { AutoReviewGuardSettingsModal } from '@/components/AutoReviewGuardSettingsModal';
 
 const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
@@ -172,18 +173,14 @@ export const SessionView = React.memo((props: { id: string }) => {
     }, [isDesktopPanelMode, rightPanelType]);
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
     const autoReviewGuard = useAutoReviewGuard(sessionId);
+    const autoReviewDefaults = useSetting('autoReviewGuardDefaults');
     const autoReviewEnabled = autoReviewGuard?.enabled === true;
     const autoReviewStatus = autoReviewGuard?.status ?? 'idle';
-    const handleToggleAutoReviewGuard = React.useCallback(() => {
+    const [autoReviewSettingsOpen, setAutoReviewSettingsOpen] = React.useState(false);
+    const handleOpenAutoReviewSettings = React.useCallback(() => {
         hapticsLight();
-        void toggleAutoReviewGuard(sessionId).then((next) => {
-            if (!next) return;
-            showToast(t(next.enabled ? 'sessionInfo.autoReviewGuardEnabledToast' : 'sessionInfo.autoReviewGuardDisabledToast'));
-        }).catch((error) => {
-            log.log(`Failed to toggle auto review guard: ${error instanceof Error ? error.message : String(error)}`);
-            showToast(t('sessionInfo.autoReviewGuardUncertain'));
-        });
-    }, [sessionId]);
+        setAutoReviewSettingsOpen(true);
+    }, []);
 
     // Header memory chip — count of memories actually injected into THIS session's
     // system prompt (not total user memories). Tap opens the same modal as the
@@ -380,7 +377,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 )}
                                 <Pressable
                                     {...webTooltip(autoReviewEnabled ? t('sessionInfo.autoReviewGuardDisable') : t('sessionInfo.autoReviewGuardEnable'))}
-                                    onPress={handleToggleAutoReviewGuard}
+                                    onPress={handleOpenAutoReviewSettings}
                                     hitSlop={15}
                                     accessibilityRole="button"
                                     accessibilityLabel={t('sessionInfo.autoReviewGuard')}
@@ -621,6 +618,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                 onClose={() => setInjectedMemoriesOpen(false)}
                 sessionId={sessionId}
                 injectedMemoryIds={injectedMemoryIds}
+            />
+            <AutoReviewGuardSettingsModal
+                visible={autoReviewSettingsOpen}
+                onClose={() => setAutoReviewSettingsOpen(false)}
+                sessionId={sessionId}
+                guard={autoReviewGuard}
+                defaults={autoReviewDefaults}
             />
         </View>
     );
