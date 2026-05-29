@@ -1224,6 +1224,8 @@ export const zhHans: TranslationStructure = {
         copyRelativePath: '复制相对路径',
         copyFileName: '复制文件名',
         share: '分享…',
+        shareLinkCreated: '分享链接已生成',
+        shareLinkManualCopy: '浏览器拦截了自动复制，请手动复制这个链接。',
         fileHistory: '历史记录',
         editFile: '编辑文件',
         downloadFile: '下载',

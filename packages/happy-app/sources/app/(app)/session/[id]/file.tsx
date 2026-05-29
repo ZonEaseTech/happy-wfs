@@ -158,6 +158,67 @@ function stripTrailingSlash(value: string): string {
     return value.replace(/\/+$/, '');
 }
 
+async function copyTextToClipboardVerified(text: string): Promise<boolean> {
+    if (Platform.OS === 'web') {
+        const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+        const doc = typeof document !== 'undefined' ? document : undefined;
+
+        if (nav?.clipboard?.writeText) {
+            try {
+                await nav.clipboard.writeText(text);
+                if (nav.clipboard.readText) {
+                    try {
+                        return (await nav.clipboard.readText()) === text;
+                    } catch {
+                        // Browsers often deny readText() without permission. Fall through
+                        // to the legacy copy path instead of showing a false success toast.
+                    }
+                }
+            } catch {
+                // Async uploads can outlive the original click activation, causing
+                // navigator.clipboard.writeText() to be rejected on web.
+            }
+        }
+
+        if (doc?.body) {
+            const textarea = doc.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            textarea.style.opacity = '0';
+            doc.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                return doc.execCommand('copy');
+            } catch {
+                return false;
+            } finally {
+                doc.body.removeChild(textarea);
+            }
+        }
+
+        return false;
+    }
+
+    try {
+        await Clipboard.setStringAsync(text);
+        const getStringAsync = (Clipboard as typeof Clipboard & { getStringAsync?: () => Promise<string> }).getStringAsync;
+        if (typeof getStringAsync === 'function') {
+            try {
+                return (await getStringAsync()) === text;
+            } catch {
+                // Older native clipboard implementations may not support reading.
+            }
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 // Diff display component
 const DiffDisplay: React.FC<{ diffContent: string }> = ({ diffContent }) => {
     const { theme } = useUnistyles();
@@ -417,9 +478,21 @@ export default function FileScreen(props?: FileScreenProps) {
                 token: credentials.token,
                 apiUrl: getServerUrl(),
             });
-            await Clipboard.setStringAsync(uploaded.url);
+            const copied = await copyTextToClipboardVerified(uploaded.url);
             hapticsLight();
-            showCopiedToast();
+            if (copied) {
+                showCopiedToast();
+                return;
+            }
+
+            await Modal.prompt(t('files.shareLinkCreated'), t('files.shareLinkManualCopy'), {
+                defaultValue: uploaded.url,
+                confirmText: t('common.ok'),
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 3,
+                size: 'large',
+            });
         } catch (shareError) {
             console.error('Failed to create public file share:', shareError);
             Modal.alert(t('common.error'), shareError instanceof Error ? shareError.message : 'Failed to create share link');

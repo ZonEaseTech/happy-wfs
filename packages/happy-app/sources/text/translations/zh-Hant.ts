@@ -1224,6 +1224,8 @@ export const zhHant: TranslationStructure = {
         copyRelativePath: '複製相對路徑',
         copyFileName: '複製檔案名稱',
         share: '分享…',
+        shareLinkCreated: '分享連結已產生',
+        shareLinkManualCopy: '瀏覽器阻擋了自動複製，請手動複製這個連結。',
         fileHistory: '歷史記錄',
         editFile: '編輯檔案',
         downloadFile: '下載',

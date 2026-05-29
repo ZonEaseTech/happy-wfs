@@ -1222,6 +1222,8 @@ export const ca: TranslationStructure = {
         copyRelativePath: 'Copia la ruta relativa',
         copyFileName: "Copia el nom de l'arxiu",
         share: 'Comparteix…',
+        shareLinkCreated: 'Share link created',
+        shareLinkManualCopy: 'Clipboard copy was blocked. Please copy this link manually.',
         fileHistory: 'Historial',
         editFile: "Edita l'arxiu",
         downloadFile: 'Descarrega',

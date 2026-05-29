@@ -1254,6 +1254,8 @@ export const ja: TranslationStructure = {
         copyRelativePath: '相対パスをコピー',
         copyFileName: 'ファイル名をコピー',
         share: '共有…',
+        shareLinkCreated: 'Share link created',
+        shareLinkManualCopy: 'Clipboard copy was blocked. Please copy this link manually.',
         fileHistory: '履歴',
         editFile: 'ファイルを編集',
         downloadFile: 'ダウンロード',
