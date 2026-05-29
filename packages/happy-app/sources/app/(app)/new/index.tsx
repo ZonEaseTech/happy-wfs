@@ -46,6 +46,7 @@ import { useImagePicker } from '@/hooks/useImagePicker';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
+import { getInitialNewSessionModelMode } from '@/utils/newSessionDefaults';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -476,11 +477,7 @@ function NewSessionWizard() {
     // A duplicate unconditional reset here was removed to prevent race conditions.
 
     const [modelMode, setModelMode] = React.useState<ModelMode>(() => {
-        const mode = lastUsedSessionMode?.modelMode;
-        if (mode && isModelModeForAgent(agentType, mode)) {
-            return mode as ModelMode;
-        }
-        return MODEL_MODE_DEFAULT;
+        return getInitialNewSessionModelMode(agentType, lastUsedSessionMode?.modelMode);
     });
     const [fastMode, setFastMode] = React.useState(() => lastUsedSessionMode?.fastMode ?? false);
     const applyManualPermissionMode = React.useCallback((mode: PermissionMode) => {
@@ -1264,12 +1261,8 @@ function NewSessionWizard() {
             return;
         }
 
-        const savedMode = lastUsedSessionMode?.modelMode;
-        if (savedMode && isModelModeForAgent(agentType, savedMode)) {
-            setModelMode((prev) => (prev === savedMode ? prev : (savedMode as ModelMode)));
-        } else {
-            setModelMode((prev) => (prev === MODEL_MODE_DEFAULT ? prev : MODEL_MODE_DEFAULT));
-        }
+        const nextMode = getInitialNewSessionModelMode(agentType, lastUsedSessionMode?.modelMode);
+        setModelMode((prev) => (prev === nextMode ? prev : nextMode));
     }, [agentType, lastUsedSessionMode?.modelMode]);
 
     // Restore saved fast mode when agent type changes

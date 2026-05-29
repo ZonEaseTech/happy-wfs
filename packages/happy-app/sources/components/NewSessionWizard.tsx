@@ -15,6 +15,7 @@ import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { profileSyncService } from '@/sync/profileSync';
 import { CLAUDE_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
+import { getInitialNewSessionModelMode } from '@/utils/newSessionDefaults';
 
 /**
  * @deprecated Legacy wizard implementation.
@@ -566,11 +567,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
         return 'default';
     });
     const [modelMode, setModelMode] = useState<ModelMode>(() => {
-        const mode = lastUsedSessionMode?.modelMode;
-        if (mode && isModelModeForAgent(agentType, mode)) {
-            return mode as ModelMode;
-        }
-        return MODEL_MODE_DEFAULT;
+        return getInitialNewSessionModelMode(agentType, lastUsedSessionMode?.modelMode);
     });
     const applyManualPermissionMode = React.useCallback((mode: PermissionMode) => {
         manualPermissionModeByAgentRef.current[agentType] = mode;
@@ -626,12 +623,8 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             return;
         }
 
-        const savedMode = lastUsedSessionMode?.modelMode;
-        if (savedMode && isModelModeForAgent(agentType, savedMode)) {
-            setModelMode((prev) => (prev === savedMode ? prev : (savedMode as ModelMode)));
-        } else {
-            setModelMode((prev) => (prev === MODEL_MODE_DEFAULT ? prev : MODEL_MODE_DEFAULT));
-        }
+        const nextMode = getInitialNewSessionModelMode(agentType, lastUsedSessionMode?.modelMode);
+        setModelMode((prev) => (prev === nextMode ? prev : nextMode));
     }, [agentType, lastUsedSessionMode?.modelMode]);
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(() => {
         return lastUsedProfile;

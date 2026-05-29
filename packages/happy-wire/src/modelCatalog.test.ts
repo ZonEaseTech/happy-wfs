@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildClaudeModelMode,
     buildCodexModelMode,
+    CLAUDE_MODEL_FAMILY_OPTIONS,
     CODEX_MODEL_MODES,
+    getClaudeReasoningOptions,
     getCodexReasoningOptions,
     getMaxContextSize,
     isModelMode,
     isModelModeForAgent,
     MODEL_MODE_DEFAULT,
+    parseClaudeModelMode,
     parseCodexModelMode,
     resolveModelSelectionForFlavor,
 } from './modelCatalog';
@@ -19,6 +23,26 @@ describe('modelCatalog', () => {
         expect(isModelModeForAgent('codex', 'gpt-5.3-codex-xhigh')).toBe(true);
         expect(isModelModeForAgent('gemini', 'gpt-5.3-codex-xhigh')).toBe(false);
         expect(isModelModeForAgent('claude', 'claude-opus-4-6')).toBe(true);
+        expect(isModelModeForAgent('claude', 'claude-opus-4-8[1m]')).toBe(true);
+    });
+
+
+    it('supports Claude Opus 4.8 1M model modes', () => {
+        expect(isModelMode('claude-opus-4-8[1m]-max')).toBe(true);
+        expect(isModelModeForAgent('claude', 'claude-opus-4-8[1m]-max')).toBe(true);
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.find(option => option.value === 'claude-opus-4-8[1m]')?.label).toBe('Claude Opus 4.8 (1M)');
+        expect(parseClaudeModelMode('claude-opus-4-8[1m]-max')).toEqual({
+            family: 'claude-opus-4-8[1m]',
+            effort: 'max',
+        });
+        expect(buildClaudeModelMode('claude-opus-4-8[1m]', 'high')).toBe('claude-opus-4-8[1m]-high');
+        expect(getClaudeReasoningOptions('claude-opus-4-8[1m]')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+        expect(resolveModelSelectionForFlavor('claude', 'claude-opus-4-8[1m]-max')).toEqual({
+            model: 'claude-opus-4-8[1m]',
+            reasoningEffort: 'max',
+        });
+        expect(getMaxContextSize('claude-opus-4-8[1m]', 'claude')).toBe(1_000_000);
+        expect(getMaxContextSize('claude-opus-4-8[1m]-high', 'claude')).toBe(1_000_000);
     });
 
     it('parses codex model mode into family and effort', () => {
