@@ -881,8 +881,32 @@ export default function FileScreen(props?: FileScreenProps) {
         );
     }
 
+    const desktopHeaderActions = !embedded ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Pressable
+                onPress={handleShare}
+                hitSlop={8}
+                style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    backgroundColor: theme.colors.input.background,
+                    opacity: pressed ? 0.65 : 1,
+                })}
+            >
+                <Ionicons name="share-outline" size={16} color={theme.colors.textLink} />
+                <Text style={{ fontSize: 14, color: theme.colors.textLink, ...Typography.default('semiBold') }}>
+                    {t('files.share')}
+                </Text>
+            </Pressable>
+        </View>
+    ) : null;
+
     return (
-    <DesktopModalShell title={shellTitle} disabled={embedded}>
+    <DesktopModalShell title={shellTitle} disabled={embedded} headerRight={desktopHeaderActions}>
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             {!embedded && (
                 <Stack.Screen
@@ -1118,26 +1142,46 @@ export default function FileScreen(props?: FileScreenProps) {
                                 {fileName}
                             </Text>
                             {!ref && sessionId ? (
-                                <Pressable
-                                    onPress={handleDownload}
-                                    style={({ pressed }) => ({
-                                        marginTop: 20,
-                                        paddingHorizontal: 18,
-                                        paddingVertical: 10,
-                                        borderRadius: 999,
-                                        backgroundColor: theme.colors.textLink,
-                                        opacity: pressed ? 0.7 : 1,
-                                    })}
-                                >
-                                    <Text style={{
-                                        color: 'white',
-                                        fontSize: 16,
-                                        fontWeight: '600',
-                                        ...Typography.default('semiBold'),
-                                    }}>
-                                        {t('files.downloadFile')}
-                                    </Text>
-                                </Pressable>
+                                <View style={{ flexDirection: 'row', gap: 12, marginTop: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    <Pressable
+                                        onPress={handleShare}
+                                        style={({ pressed }) => ({
+                                            paddingHorizontal: 18,
+                                            paddingVertical: 10,
+                                            borderRadius: 999,
+                                            backgroundColor: theme.colors.input.background,
+                                            opacity: pressed ? 0.7 : 1,
+                                        })}
+                                    >
+                                        <Text style={{
+                                            color: theme.colors.textLink,
+                                            fontSize: 16,
+                                            fontWeight: '600',
+                                            ...Typography.default('semiBold'),
+                                        }}>
+                                            {t('files.share')}
+                                        </Text>
+                                    </Pressable>
+                                    <Pressable
+                                        onPress={handleDownload}
+                                        style={({ pressed }) => ({
+                                            paddingHorizontal: 18,
+                                            paddingVertical: 10,
+                                            borderRadius: 999,
+                                            backgroundColor: theme.colors.textLink,
+                                            opacity: pressed ? 0.7 : 1,
+                                        })}
+                                    >
+                                        <Text style={{
+                                            color: 'white',
+                                            fontSize: 16,
+                                            fontWeight: '600',
+                                            ...Typography.default('semiBold'),
+                                        }}>
+                                            {t('files.downloadFile')}
+                                        </Text>
+                                    </Pressable>
+                                </View>
                             ) : null}
                         </View>
                     ) : useHtmlPreview ? (

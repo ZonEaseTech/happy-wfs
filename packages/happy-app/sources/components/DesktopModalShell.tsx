@@ -14,6 +14,8 @@ interface DesktopModalShellProps {
     /** When true, the screen renders as a route push instead of a modal even
      *  on PC. Use this to opt the screen out (e.g. when embedded or busy). */
     disabled?: boolean;
+    /** Optional header actions rendered before the close button in desktop modal mode. */
+    headerRight?: React.ReactNode;
     children: React.ReactNode;
 }
 
@@ -27,7 +29,7 @@ interface DesktopModalShellProps {
  * their existing per-route headerTitle / headerBackTitle settings — those just
  * become no-ops in modal mode.
  */
-export function DesktopModalShell({ title, onClose, disabled, children }: DesktopModalShellProps) {
+export function DesktopModalShell({ title, onClose, disabled, headerRight, children }: DesktopModalShellProps) {
     const { width } = useWindowDimensions();
     const router = useRouter();
     const { theme } = useUnistyles();
@@ -80,6 +82,7 @@ export function DesktopModalShell({ title, onClose, disabled, children }: Deskto
                         >
                             {title ?? ''}
                         </Text>
+                        {headerRight}
                         <Pressable onPress={handleClose} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                             <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
                         </Pressable>
