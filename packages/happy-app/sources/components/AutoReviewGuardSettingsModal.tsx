@@ -6,6 +6,7 @@ import { Typography } from '@/constants/Typography';
 import { showToast } from '@/components/Toast';
 import { t } from '@/text';
 import { sync } from '@/sync/sync';
+import { sessionRunAutoReviewGuardNow } from '@/sync/ops';
 import type { AutoReviewGuard } from '@/sync/autoReviewGuard';
 import { normalizeAutoReviewGuardSettings, saveAutoReviewGuard } from '@/sync/autoReviewGuard';
 import type { AutoReviewGuardSettings } from '@/sync/settings';
@@ -35,6 +36,7 @@ export function AutoReviewGuardSettingsModal({ visible, onClose, sessionId, guar
     const [reviewPrompt, setReviewPrompt] = React.useState('');
     const [followUpTemplate, setFollowUpTemplate] = React.useState('');
     const [sendSimplifyOnPass, setSendSimplifyOnPass] = React.useState(true);
+    const [isReviewingNow, setIsReviewingNow] = React.useState(false);
 
     React.useEffect(() => {
         if (!visible) return;
@@ -92,6 +94,28 @@ export function AutoReviewGuardSettingsModal({ visible, onClose, sessionId, guar
         setSendSimplifyOnPass(autoReviewGuardSettingsDefaults.sendSimplifyOnPass);
     }, []);
 
+    const handleRunNow = React.useCallback(async () => {
+        if (isReviewingNow) return;
+        setIsReviewingNow(true);
+        try {
+            const settings = buildSettings();
+            const result = await sessionRunAutoReviewGuardNow(sessionId, {
+                enabled,
+                settings,
+                completionClaim: 'Manual auto review requested from settings',
+            });
+            if (!result.success) {
+                showToast(result.error || t('sessionInfo.autoReviewGuardRunNowFailed'));
+                return;
+            }
+            showToast(t('sessionInfo.autoReviewGuardRunNowStarted'));
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : t('sessionInfo.autoReviewGuardRunNowFailed'));
+        } finally {
+            setIsReviewingNow(false);
+        }
+    }, [buildSettings, enabled, isReviewingNow, sessionId]);
+
     if (!visible) return null;
 
     const inputBase = {
@@ -124,6 +148,23 @@ export function AutoReviewGuardSettingsModal({ visible, onClose, sessionId, guar
                     <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: theme.colors.divider }}>
                         <Ionicons name="shield-checkmark-outline" size={22} color={theme.colors.text} style={{ marginRight: 8 }} />
                         <Text style={{ flex: 1, fontSize: 17, color: theme.colors.text, ...Typography.default('semiBold') }}>{t('sessionInfo.autoReviewGuardSettings')}</Text>
+                        <Pressable
+                            onPress={handleRunNow}
+                            disabled={isReviewingNow}
+                            hitSlop={8}
+                            style={{
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 999,
+                                backgroundColor: isReviewingNow ? theme.colors.surfaceHighest : theme.colors.button.primary.background,
+                                marginRight: 10,
+                                opacity: isReviewingNow ? 0.72 : 1,
+                            }}
+                        >
+                            <Text style={{ color: theme.colors.button.primary.tint, fontSize: 13, ...Typography.default('semiBold') }}>
+                                {isReviewingNow ? t('sessionInfo.autoReviewGuardReviewing') : t('sessionInfo.autoReviewGuardRunNow')}
+                            </Text>
+                        </Pressable>
                         <Pressable onPress={onClose} hitSlop={12}><Ionicons name="close" size={24} color={theme.colors.textSecondary} /></Pressable>
                     </View>
 

@@ -29,6 +29,7 @@ import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { getExtensionFromMimeType, getImageMimeType, isPreviewableHtml, isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
+import { isMachineScopedSpreadsheetPath } from '@/components/markdown/markdownLinkUtils';
 import { Image } from 'expo-image';
 import { selectFileViewerSharePayload } from '@/utils/fileViewerShare';
 import { File, Paths } from 'expo-file-system';
@@ -211,7 +212,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const isPreviewImageFile = isPreviewableImage(filePath);
     const isPreviewHtmlFile = isPreviewableHtml(filePath);
     const isPreviewMarkdownFile = /\.(md|markdown)$/i.test(filePath);
-    const canReadFromMachine = !!machineFileReaderId && isTemporaryFilePath(filePath);
+    const canReadFromMachine = !!machineFileReaderId && (isTemporaryFilePath(filePath) || isMachineScopedSpreadsheetPath(filePath));
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
 

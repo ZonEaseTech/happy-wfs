@@ -220,7 +220,6 @@ export const CLAUDE_MODEL_OPTIONS = [
     { value: 'claude-opus-4-8[1m]', label: 'Claude Opus 4.8 (1M)', shortLabel: 'Opus 4.8', description: 'Latest Opus, 1M context' },
     { value: 'claude-opus-4-8', label: 'Claude Opus 4.8', shortLabel: 'Opus 4.8', description: 'Latest Opus' },
     { value: 'claude-opus-4-7', label: 'Claude Opus 4.7', shortLabel: 'Opus 4.7', description: 'Most capable' },
-    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', shortLabel: 'Opus 4.6', description: 'Previous generation Opus' },
 ] as const;
 
 export const CLAUDE_MODEL_FAMILY_OPTIONS = [
@@ -229,8 +228,6 @@ export const CLAUDE_MODEL_FAMILY_OPTIONS = [
     { value: 'claude-opus-4-8[1m]', label: 'Claude Opus 4.8 (1M)', shortLabel: 'Opus 4.8', description: 'Latest Opus, 1M context' },
     { value: 'claude-opus-4-7', label: 'Claude Opus 4.7', shortLabel: 'Opus 4.7', description: 'Most capable' },
     { value: 'claude-opus-4-7[1m]', label: 'Claude Opus 4.7 (1M)', shortLabel: 'Opus 4.7', description: 'Most capable, 1M context' },
-    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', shortLabel: 'Opus 4.6', description: 'Previous generation Opus' },
-    { value: 'claude-opus-4-6[1m]', label: 'Claude Opus 4.6 (1M)', shortLabel: 'Opus 4.6', description: 'Previous Opus, 1M context' },
 ] as const satisfies readonly { value: ClaudeModelFamily; label: string; shortLabel: string; description: string }[];
 
 const CLAUDE_MODE_TO_SELECTION: Partial<Record<ModelMode, { family: ClaudeModelFamily; effort: ClaudeReasoningEffort }>> = {

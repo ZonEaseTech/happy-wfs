@@ -176,6 +176,22 @@ export class ApiSessionClient extends EventEmitter {
         });
         registerCommonHandlers(this.rpcHandlerManager, this.metadata.path, this.sessionId);
         this.autoReviewGuard = this.createAutoReviewGuard();
+        this.rpcHandlerManager.registerHandler<{
+            enabled?: boolean;
+            settings?: NonNullable<Metadata['autoReviewGuard']>;
+            completionClaim?: string;
+        }, { success: boolean; error?: string }>('autoReviewGuard.runNow', async (request) => {
+            try {
+                await this.autoReviewGuard.runManual({
+                    enabled: request?.enabled,
+                    settings: request?.settings,
+                    completionClaim: request?.completionClaim,
+                });
+                return { success: true };
+            } catch (error) {
+                return { success: false, error: error instanceof Error ? error.message : String(error) };
+            }
+        });
 
         // Initialize HTTP outbox sync for reliable message delivery
         this.sendSync = new InvalidateSync(() => this.flushOutbox());

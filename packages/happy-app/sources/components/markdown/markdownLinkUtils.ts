@@ -115,6 +115,18 @@ export function isLikelyAbsoluteFilePath(path: string, context: {
     return false;
 }
 
+export function isMachineScopedSpreadsheetPath(path: string): boolean {
+    const normalizedPath = path.startsWith('file://') ? path.slice('file://'.length) : path;
+    if (!normalizedPath.startsWith('/') || normalizedPath.startsWith('//')) return false;
+
+    // Only allow the shared workspace/export area through machine-scoped reads.
+    // Session/home paths are handled by the regular session file route above.
+    if (normalizedPath !== '/workspace' && !normalizedPath.startsWith('/workspace/')) return false;
+
+    const ext = normalizedPath.split('/').pop()?.split('.').pop()?.toLowerCase();
+    return ext === 'xlsx' || ext === 'xls' || ext === 'csv';
+}
+
 export function joinPosixPath(basePath: string, relativePath: string): string {
     const baseParts = basePath.split('/').filter(Boolean);
     const relativeParts = relativePath.split('/');
@@ -200,6 +212,18 @@ function resolveParsedLocalFileReference(args: {
         }
 
         if (args.machineId && isTemporaryFilePath(parsed.filePath)) {
+            return {
+                href: buildSessionFileHref({
+                    sessionId: args.sessionId,
+                    filePath: parsed.filePath,
+                    line: parsed.line,
+                    column: parsed.column,
+                    machineId: args.machineId,
+                }),
+            };
+        }
+
+        if (args.machineId && isMachineScopedSpreadsheetPath(parsed.filePath)) {
             return {
                 href: buildSessionFileHref({
                     sessionId: args.sessionId,

@@ -32,6 +32,10 @@ describe('modelCatalog', () => {
         expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-sonnet-4-6');
         expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-sonnet-4-6[1m]');
         expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-haiku-4-5');
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-opus-4-6');
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-opus-4-6[1m]');
+        expect(isModelModeForAgent('claude', 'claude-opus-4-6')).toBe(true);
+        expect(isModelModeForAgent('claude', 'claude-opus-4-6[1m]')).toBe(true);
         expect(isModelModeForAgent('claude', 'claude-sonnet-4-6')).toBe(true);
         expect(isModelModeForAgent('claude', 'claude-haiku-4-5')).toBe(true);
     });

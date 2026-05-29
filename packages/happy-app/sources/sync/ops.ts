@@ -7,6 +7,7 @@ import { apiSocket } from './apiSocket';
 import { sync } from './sync';
 import { MetadataSchema, type MachineMetadata, type Metadata } from './storageTypes';
 import { normalizeSessionMetadataForWrite } from './metadataNormalization';
+import type { AutoReviewGuardSettings } from './settings';
 
 // Strict type definitions for all operations
 
@@ -24,6 +25,12 @@ interface SessionPermissionRequest {
 // Mode change operation types
 interface SessionModeChangeRequest {
     to: 'remote' | 'local';
+}
+
+interface SessionAutoReviewGuardRunNowRequest {
+    enabled?: boolean;
+    settings?: Partial<AutoReviewGuardSettings>;
+    completionClaim?: string;
 }
 
 function normalizeSessionMetadataForSummaryWrite(metadata: Metadata, newSummaryText: string, pinned?: boolean): Metadata {
@@ -1122,6 +1129,18 @@ export async function sessionAllow(sessionId: string, id: string, mode?: 'defaul
 export async function sessionDeny(sessionId: string, id: string, mode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan', allowedTools?: string[], decision?: 'denied' | 'abort'): Promise<void> {
     const request: SessionPermissionRequest = { id, approved: false, mode, allowTools: allowedTools, decision };
     await apiSocket.sessionRPC(sessionId, 'permission', request);
+}
+
+export async function sessionRunAutoReviewGuardNow(
+    sessionId: string,
+    request: SessionAutoReviewGuardRunNowRequest,
+): Promise<{ success: boolean; error?: string }> {
+    return apiSocket.sessionRPC<{ success: boolean; error?: string }, SessionAutoReviewGuardRunNowRequest>(
+        sessionId,
+        'autoReviewGuard.runNow',
+        request,
+        180_000,
+    );
 }
 
 /**

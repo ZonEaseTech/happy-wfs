@@ -13,6 +13,13 @@ type AutoReviewGuardDeps = {
   delayMs?: number,
 }
 
+export type ManualAutoReviewGuardRunOptions = {
+  enabled?: boolean,
+  settings?: Partial<Pick<GuardMetadata, 'delayMs' | 'triggerPhrases' | 'reviewPrompt' | 'followUpTemplate' | 'sendSimplifyOnPass'>>,
+  completionClaim?: string,
+  messageId?: string,
+}
+
 function fingerprintFor(result: ReviewResult): string {
   return result.missing.map((item) => item.trim()).filter(Boolean).join('\n').slice(0, 4000)
 }
@@ -63,13 +70,38 @@ export class AutoReviewGuard {
     await this.run()
   }
 
-  private async run(): Promise<void> {
+  async runManual(options: ManualAutoReviewGuardRunOptions = {}): Promise<void> {
+    if (this.timer) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+
     const metadata = this.deps.getMetadata()
-    if (!metadata?.autoReviewGuard?.enabled || this.inFlight) return
+    const currentGuard = metadata?.autoReviewGuard ?? { enabled: options.enabled ?? false }
+    const messageId = options.messageId || `manual-${Date.now()}`
+    const nextGuard: GuardMetadata = {
+      ...currentGuard,
+      ...options.settings,
+      enabled: options.enabled ?? currentGuard.enabled ?? false,
+      status: 'waiting',
+      updatedAt: Date.now(),
+      lastTriggeredMessageId: messageId,
+      simplifyPending: false,
+    }
+
+    this.lastClaim = options.completionClaim || 'Manual auto review requested'
+    this.lastMessageId = messageId
+    await this.run({ force: true, guardOverride: nextGuard })
+  }
+
+  private async run(options: { force?: boolean; guardOverride?: GuardMetadata } = {}): Promise<void> {
+    const metadata = this.deps.getMetadata()
+    const guard = options.guardOverride ?? metadata?.autoReviewGuard
+    if ((!guard?.enabled && !options.force) || !guard || this.inFlight) return
 
     this.inFlight = true
     try {
-      await this.deps.updateGuard({ ...metadata.autoReviewGuard, status: 'reviewing', updatedAt: Date.now() })
+      await this.deps.updateGuard({ ...guard, status: 'reviewing', updatedAt: Date.now() })
       let result: ReviewResult
       try {
         result = await this.deps.collectAndReview(this.lastClaim)
@@ -84,14 +116,14 @@ export class AutoReviewGuard {
       }
       const fingerprint = fingerprintFor(result)
       const latestMetadata = this.deps.getMetadata()
-      const currentGuard = latestMetadata?.autoReviewGuard ?? metadata.autoReviewGuard
+      const currentGuard = options.guardOverride ?? latestMetadata?.autoReviewGuard ?? guard
 
       if (shouldSendFollowUp(result) && currentGuard.lastReviewFingerprint !== fingerprint) {
         try {
           await this.deps.sendFollowUp(formatFollowUpMessage(result, currentGuard.followUpTemplate), fingerprint)
           await this.deps.updateGuard({
             ...currentGuard,
-            enabled: true,
+            enabled: currentGuard.enabled,
             status: 'needs_follow_up',
             updatedAt: Date.now(),
             lastReviewFingerprint: fingerprint,
@@ -114,7 +146,7 @@ export class AutoReviewGuard {
         }
         await this.deps.updateGuard({
           ...currentGuard,
-          enabled: true,
+          enabled: currentGuard.enabled,
           status: passed ? 'passed' : 'uncertain',
           updatedAt: Date.now(),
           lastReviewFingerprint: fingerprint || currentGuard.lastReviewFingerprint,
@@ -136,7 +168,7 @@ export class AutoReviewGuard {
     try {
       await this.deps.updateGuard({
         ...currentGuard,
-        enabled: true,
+        enabled: currentGuard.enabled,
         status: 'uncertain',
         updatedAt: Date.now(),
         lastReviewFingerprint: fingerprint || currentGuard.lastReviewFingerprint,

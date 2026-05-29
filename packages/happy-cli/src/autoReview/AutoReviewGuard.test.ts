@@ -27,6 +27,43 @@ describe('AutoReviewGuard', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
+  it('can be manually triggered even when automatic listening is disabled', async () => {
+    const collectAndReview = vi.fn(async () => ({ status: 'pass' as const, summary: 'ok', missing: [], evidence: [], confidence: 'high' as const }))
+    const updateGuard = vi.fn()
+    const guard = new AutoReviewGuard({
+      getMetadata: () => ({ ...enabledMetadata(), autoReviewGuard: { enabled: false } }),
+      updateGuard,
+      collectAndReview,
+      sendFollowUp: vi.fn(),
+      delayMs: 1,
+    })
+
+    await guard.runManual({
+      enabled: false,
+      settings: {
+        reviewPrompt: 'manual prompt',
+        followUpTemplate: 'manual follow up',
+        sendSimplifyOnPass: false,
+      },
+      completionClaim: 'manual review requested',
+      messageId: 'manual-1',
+    })
+
+    expect(collectAndReview).toHaveBeenCalledWith('manual review requested')
+    expect(updateGuard).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: false,
+      status: 'reviewing',
+      reviewPrompt: 'manual prompt',
+      followUpTemplate: 'manual follow up',
+      sendSimplifyOnPass: false,
+    }))
+    expect(updateGuard).toHaveBeenLastCalledWith(expect.objectContaining({
+      enabled: false,
+      status: 'passed',
+      lastTriggeredMessageId: 'manual-1',
+    }))
+  })
+
   it('schedules when enabled and text has completion semantics', async () => {
     vi.useFakeTimers()
     const run = vi.fn(async () => ({ status: 'pass' as const, summary: 'ok', missing: [], evidence: [], confidence: 'high' as const }))

@@ -487,6 +487,21 @@ describe('splitTextByImageReferences', () => {
 });
 
 describe('splitTextByLocalFileReferences', () => {
+    it('links machine-scoped spreadsheet references outside the session directory', () => {
+        const parts = splitTextByLocalFileReferences({
+            text: '样例 .xlsx 已生成: /workspace/workspace/sample-product-config-export.xlsx',
+            sessionId: 'session-123',
+            machineId: 'machine-123',
+            sessionWorkingDirectory: '/home/coder/project',
+            sessionHomeDirectory: '/home/coder',
+        });
+        const linked = parts.find(part => part.href);
+        expect(linked?.text).toBe('/workspace/workspace/sample-product-config-export.xlsx');
+        expect(linked?.href).toContain('/session/session-123/file?');
+        expect(linked?.href).toContain('view=file');
+        expect(linked?.href).toContain('machineId=machine-123');
+    });
+
     it('links html file references to preview mode', () => {
         const parts = splitTextByLocalFileReferences({
             text: '已提供 HTML 版设计稿: /home/coder/project/shop-approval-flow-design.html',
