@@ -52,15 +52,17 @@ describe('shouldSendFollowUp', () => {
 
 describe('buildReviewerPrompt', () => {
   it('contains strict scope instructions', () => {
-    const prompt = buildReviewerPrompt({ issue: 'issue', requirements: 'req', plans: 'plan', transcript: 'chat', git: 'diff', completionClaim: 'done', uiPrototypeReferences: '原型 https://example.com/supervisor/1' })
+    const prompt = buildReviewerPrompt({ issue: 'issue', requirements: 'req', plans: 'plan', transcript: 'chat', git: 'diff', completionClaim: 'done', uiPrototypeReferences: '原型 https://example.com/supervisor/1', reviewRoots: ['/repo'] })
     expect(prompt).toContain('只审查代码完成度')
     expect(prompt).toContain('JSON')
+    expect(prompt).toContain('不要把隔离目录')
+    expect(prompt).toContain('不要要求读取 it-note MCP')
     expect(prompt).toContain('代码层面')
     expect(prompt).toContain('supervisor/1')
   })
 
   it('accepts custom review prompt while preserving JSON contract', () => {
-    const prompt = buildReviewerPrompt({ issue: 'issue', requirements: 'req', plans: 'plan', transcript: 'chat', git: 'diff', completionClaim: 'done', uiPrototypeReferences: '' }, '只检查测试')
+    const prompt = buildReviewerPrompt({ issue: 'issue', requirements: 'req', plans: 'plan', transcript: 'chat', git: 'diff', completionClaim: 'done', uiPrototypeReferences: '', reviewRoots: ['/repo'] }, '只检查测试')
     expect(prompt).toContain('只检查测试')
     expect(prompt).toContain('只输出 JSON')
   })

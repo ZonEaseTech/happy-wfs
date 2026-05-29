@@ -18,7 +18,7 @@ export type ReviewResult = z.infer<typeof ReviewResultSchema>
 
 export const DEFAULT_REVIEW_PROMPT = '你是代码完成度审查 AI。只审查代码完成度：是否对标明确需求、GitHub Issue、用户补充要求、brainstorming/pma/writing-plans 计划、git diff 与验证证据。不要提出无关重构、泛泛优化、性能/安全深挖，除非任务明确要求。如果上下文包含原型图、原型代码、prototype、supervisor、design、Figma 等引用，只在代码层面额外审查 UI 是否对齐原型：结构、布局、文案、状态、交互和样式 token 是否有明显漏项；不要做截图/浏览器/视觉像素比对。'
 
-const REVIEW_OUTPUT_CONTRACT = '你必须保持只读：不要修改文件，不要执行会改变工作区/系统状态的命令，不要提交、推送或安装依赖。请只输出 JSON，不要输出 Markdown。格式：{"status":"pass|needs_follow_up|uncertain","summary":"...","missing":["..."],"evidence":["..."],"confidence":"high|medium|low"}'
+const REVIEW_OUTPUT_CONTRACT = '你必须保持只读：不要修改文件，不要执行会改变工作区/系统状态的命令，不要提交、推送或安装依赖。你运行在隔离目录中；不要把隔离目录（例如 /tmp）不是 git 仓库当作漏项。代码证据已经在下方预采集，请只基于下方 GitHub Issue、用户要求、计划、会话摘要和代码证据审查。不要要求读取 it-note MCP、AGENTS.md、CLAUDE.md 或其他外部规则；这些不属于本次自动完成度审查范围。请只输出 JSON，不要输出 Markdown。格式：{"status":"pass|needs_follow_up|uncertain","summary":"...","missing":["..."],"evidence":["..."],"confidence":"high|medium|low"}'
 
 export function buildReviewerPrompt(context: ReviewContext, reviewPrompt = DEFAULT_REVIEW_PROMPT): string {
   const instructions = reviewPrompt.trim() || DEFAULT_REVIEW_PROMPT

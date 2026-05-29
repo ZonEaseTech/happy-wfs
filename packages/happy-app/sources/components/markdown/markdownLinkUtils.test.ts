@@ -502,18 +502,18 @@ describe('splitTextByLocalFileReferences', () => {
         expect(linked?.href).toContain('machineId=machine-123');
     });
 
-    it('links temporary video references through machine-scoped file preview', () => {
+    it('links temporary video references through machine-scoped video preview', () => {
         const parts = splitTextByLocalFileReferences({
-            text: '录屏视频: /tmp/ttpos-pos-order-record.webm',
+            text: '录屏视频: /tmp/ttpos-pos-order-record.mp4',
             sessionId: 'session-123',
             machineId: 'machine-123',
             sessionWorkingDirectory: '/home/coder/project',
             sessionHomeDirectory: '/home/coder',
         });
         const linked = parts.find(part => part.href);
-        expect(linked?.text).toBe('/tmp/ttpos-pos-order-record.webm');
+        expect(linked?.text).toBe('/tmp/ttpos-pos-order-record.mp4');
         expect(linked?.href).toContain('/session/session-123/file?');
-        expect(linked?.href).toContain('view=file');
+        expect(linked?.href).toContain('view=preview');
         expect(linked?.href).toContain('machineId=machine-123');
     });
 

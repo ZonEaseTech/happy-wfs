@@ -478,6 +478,7 @@ export class ApiSessionClient extends EventEmitter {
                 const messages = await this.fetchRecentReviewMessages(250);
                 const context = await buildReviewContext({
                     cwd,
+                    repoPaths: this.metadata?.workspaceRepos?.map((repo) => repo.path) ?? [],
                     messages,
                     issueText: JSON.stringify(this.metadata?.externalContext ?? null, null, 2),
                     completionClaim,

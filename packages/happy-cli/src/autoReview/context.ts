@@ -21,6 +21,7 @@ export type ReviewContext = {
   git: string,
   completionClaim: string,
   uiPrototypeReferences: string,
+  reviewRoots: string[],
 }
 
 function truncate(value: string, max: number): string {
@@ -152,6 +153,67 @@ async function readUntrackedFiles(cwd: string, gitStatus: string): Promise<strin
   return chunks.join('\n\n')
 }
 
+
+async function resolveGitRoot(cwd: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], { cwd, timeout: 10_000, maxBuffer: 200_000 })
+    const root = stdout.trim()
+    return root || null
+  } catch {
+    return null
+  }
+}
+
+async function resolveReviewRoots(cwd: string, repoPaths: string[] = []): Promise<string[]> {
+  const candidates = [...repoPaths, cwd]
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const roots: string[] = []
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue
+    const root = await resolveGitRoot(candidate)
+    if (root && !roots.includes(root)) roots.push(root)
+  }
+  return roots
+}
+
+async function collectGitEvidenceForRoot(cwd: string): Promise<string> {
+  const gitStatus = await runGit(cwd, ['status', '--short'])
+  const gitStat = await runGit(cwd, ['diff', '--stat'])
+  const gitNames = await runGit(cwd, ['diff', '--name-only'])
+  const gitDiff = truncate(await runGit(cwd, ['diff', '--', '.']), MAX_DIFF)
+  const stagedStat = await runGit(cwd, ['diff', '--cached', '--stat'])
+  const stagedNames = await runGit(cwd, ['diff', '--cached', '--name-only'])
+  const stagedDiff = truncate(await runGit(cwd, ['diff', '--cached', '--', '.']), MAX_DIFF)
+  const untrackedFiles = await readUntrackedFiles(cwd, gitStatus)
+
+  return `# Repository: ${cwd}
+
+## git status --short
+${gitStatus}
+
+## git diff --stat
+${gitStat}
+
+## git diff --name-only
+${gitNames}
+
+## git diff
+${gitDiff}
+
+## git diff --cached --stat
+${stagedStat}
+
+## git diff --cached --name-only
+${stagedNames}
+
+## git diff --cached
+${stagedDiff}
+
+## untracked source files
+${untrackedFiles || '(none)'}`
+}
+
 async function readPlanFiles(cwd: string, paths: string[]): Promise<string> {
   const root = path.resolve(cwd)
   const chunks: string[] = []
@@ -172,6 +234,7 @@ export async function buildReviewContext(args: {
   messages: ReviewMessage[],
   issueText: string,
   completionClaim: string,
+  repoPaths?: string[],
 }): Promise<ReviewContext> {
   const transcript = summarizeMessagesForReview(args.messages)
   const requirements = args.messages
@@ -182,14 +245,10 @@ export async function buildReviewContext(args: {
   const uiPrototypeReferences = extractUiPrototypeReferences([args.issueText, transcript].filter(Boolean).join('\n'))
   const planPaths = extractMarkdownPlanPaths(transcript)
   const planFiles = await readPlanFiles(args.cwd, planPaths)
-  const gitStatus = await runGit(args.cwd, ['status', '--short'])
-  const gitStat = await runGit(args.cwd, ['diff', '--stat'])
-  const gitNames = await runGit(args.cwd, ['diff', '--name-only'])
-  const gitDiff = truncate(await runGit(args.cwd, ['diff', '--', '.']), MAX_DIFF)
-  const stagedStat = await runGit(args.cwd, ['diff', '--cached', '--stat'])
-  const stagedNames = await runGit(args.cwd, ['diff', '--cached', '--name-only'])
-  const stagedDiff = truncate(await runGit(args.cwd, ['diff', '--cached', '--', '.']), MAX_DIFF)
-  const untrackedFiles = await readUntrackedFiles(args.cwd, gitStatus)
+  const reviewRoots = await resolveReviewRoots(args.cwd, args.repoPaths)
+  const gitEvidence = reviewRoots.length > 0
+    ? (await Promise.all(reviewRoots.map((root) => collectGitEvidenceForRoot(root)))).join('\n\n---\n\n')
+    : `# Repository discovery failed\n\nNo git repository was found from session cwd or workspace repo metadata. Session cwd: ${args.cwd}`
   const planExcerpt = transcript.match(/(?:brainstorming|pma|writing-plans|实施计划|设计草案)[\s\S]{0,20000}/i)?.[0] ?? ''
 
   return {
@@ -197,8 +256,9 @@ export async function buildReviewContext(args: {
     requirements: truncate(requirements, MAX_TEXT),
     plans: truncate([planFiles, planExcerpt].filter(Boolean).join('\n\n'), MAX_TEXT),
     transcript,
-    git: `## git status --short\n${gitStatus}\n\n## git diff --stat\n${gitStat}\n\n## git diff --name-only\n${gitNames}\n\n## git diff\n${gitDiff}\n\n## git diff --cached --stat\n${stagedStat}\n\n## git diff --cached --name-only\n${stagedNames}\n\n## git diff --cached\n${stagedDiff}\n\n## untracked source files\n${untrackedFiles || '(none)'}`,
+    git: gitEvidence,
     completionClaim: args.completionClaim,
     uiPrototypeReferences,
+    reviewRoots,
   }
 }

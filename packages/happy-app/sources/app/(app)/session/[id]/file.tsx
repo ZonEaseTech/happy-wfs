@@ -535,6 +535,8 @@ export default function FileScreen(props?: FileScreenProps) {
             try {
                 setIsLoading(true);
                 setError(null);
+                setFileContent(null);
+                setDiffContent(null);
                 setImageBase64(null);
                 setVideoBase64(null);
                 setImageViewerVisible(false);
@@ -842,7 +844,7 @@ export default function FileScreen(props?: FileScreenProps) {
         );
     }
 
-    if (fileContent?.isBinary) {
+    if (fileContent?.isBinary && !isPreviewVideoFile) {
         return (
             <DesktopModalShell title={shellTitle} disabled={embedded}>
                 <View style={{

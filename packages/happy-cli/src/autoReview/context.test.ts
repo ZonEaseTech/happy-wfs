@@ -85,6 +85,30 @@ describe('buildReviewContext', () => {
 
 
 
+
+  it('uses workspace repo metadata when session cwd is not a git repository', async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), 'happy-auto-review-non-git-cwd-'))
+    const repo = await mkdtemp(path.join(os.tmpdir(), 'happy-auto-review-workspace-repo-'))
+    try {
+      await execFileAsync('git', ['init'], { cwd: repo })
+      await writeFile(path.join(repo, 'changed.ts'), 'export const changed = true\n')
+      const context = await buildReviewContext({
+        cwd,
+        repoPaths: [repo],
+        messages: [],
+        issueText: '',
+        completionClaim: 'done',
+      })
+      expect(context.reviewRoots).toEqual([repo])
+      expect(context.git).toContain(`# Repository: ${repo}`)
+      expect(context.git).toContain('changed.ts')
+      expect(context.git).not.toContain('Repository discovery failed')
+    } finally {
+      await rm(cwd, { recursive: true, force: true })
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
   it('includes staged diff evidence', async () => {
     const cwd = await mkdtemp(path.join(os.tmpdir(), 'happy-auto-review-git-'))
     try {
