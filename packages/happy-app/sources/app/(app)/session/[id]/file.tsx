@@ -27,11 +27,10 @@ import { showCopiedToast } from '@/components/Toast';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
-import { getExtensionFromMimeType, getImageMimeType, getVideoMimeType, isPreviewableHtml, isPreviewableImage, isPreviewableVideo, isTemporaryFilePath } from '@/utils/fileViewer';
+import { getImageMimeType, getVideoMimeType, isPreviewableHtml, isPreviewableImage, isPreviewableVideo, isTemporaryFilePath } from '@/utils/fileViewer';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { isMachineScopedSpreadsheetPath } from '@/components/markdown/markdownLinkUtils';
 import { Image } from 'expo-image';
-import { selectFileViewerSharePayload } from '@/utils/fileViewerShare';
 import { base64ToUint8Array, getDownloadMimeType, sanitizeDownloadFileName } from '@/utils/fileViewerDownload';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -143,6 +142,17 @@ function parsePositiveInt(value: string | string[] | undefined): number | undefi
     if (typeof value !== 'string') return undefined;
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function getShareOrigin(): string {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin;
+    }
+    return 'https://happy.weifashi.cn';
+}
+
+function stripTrailingSlash(value: string): string {
+    return value.replace(/\/+$/, '');
 }
 
 // Diff display component
@@ -288,31 +298,6 @@ export default function FileScreen(props?: FileScreenProps) {
         return filePath;
     }, [filePath, gitCwd, sessionPath]);
 
-    const shareImage = React.useCallback(async (base64: string, mimeType: string) => {
-        const ext = getExtensionFromMimeType(mimeType);
-        const outputFileName = fileName.includes('.') ? fileName : `${fileName}.${ext}`;
-        const tempFile = new File(Paths.cache, `shared-${Date.now()}-${sanitizeDownloadFileName(outputFileName)}`);
-        tempFile.create({ overwrite: true, intermediates: true });
-        tempFile.write(base64, { encoding: 'base64' });
-
-        try {
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(tempFile.uri, {
-                    mimeType,
-                    dialogTitle: fileName,
-                });
-                return;
-            }
-            await Share.share({ title: fileName, message: fileName });
-        } finally {
-            try {
-                tempFile.delete();
-            } catch {
-                // ignore cleanup errors
-            }
-        }
-    }, [fileName]);
-
     const readCurrentFileBase64 = React.useCallback(async (): Promise<string | null> => {
         if (!sessionId || ref) {
             Modal.alert(t('common.error'), 'Cannot download this file version');
@@ -377,30 +362,32 @@ export default function FileScreen(props?: FileScreenProps) {
         }
     }, [fileName, filePath, readCurrentFileBase64]);
 
+    const buildShareLink = React.useCallback((): string => {
+        const pathParam = encodedPath
+            ? encodeURIComponent(encodedPath)
+            : encodeURIComponent(btoa(new TextEncoder().encode(filePath).reduce((text, byte) => text + String.fromCharCode(byte), '')));
+        const queryParams = [
+            `path=${pathParam}`,
+            `view=${encodeURIComponent(preferredView || displayMode)}`,
+        ];
+        if (ref) queryParams.push(`ref=${encodeURIComponent(ref)}`);
+        if (isStaged) queryParams.push('staged=1');
+        if (requestedLine) queryParams.push(`line=${requestedLine}`);
+        if (requestedColumn) queryParams.push(`column=${requestedColumn}`);
+        if (machineFileReaderId) queryParams.push(`machineId=${encodeURIComponent(machineFileReaderId)}`);
+        return `${stripTrailingSlash(getShareOrigin())}/session/${encodeURIComponent(sessionId!)}/file?${queryParams.join('&')}`;
+    }, [displayMode, encodedPath, filePath, isStaged, machineFileReaderId, preferredView, ref, requestedColumn, requestedLine, sessionId]);
+
     const handleShare = React.useCallback(async () => {
-        const payload = selectFileViewerSharePayload({
-            platform: Platform.OS,
-            imageBase64,
-            imageMimeType,
-            fileContent,
-            diffContent,
-        });
-
-        if (payload.kind === 'none') {
-            return;
-        }
-
         try {
-            if (payload.kind === 'image') {
-                await shareImage(payload.base64, payload.mimeType);
-                return;
-            }
-            await Share.share({ title: fileName, message: payload.text });
+            await Clipboard.setStringAsync(buildShareLink());
+            hapticsLight();
+            showCopiedToast();
         } catch (shareError) {
-            console.error('Failed to share content:', shareError);
-            Modal.alert(t('common.error'), 'Failed to share file');
+            console.error('Failed to copy share link:', shareError);
+            Modal.alert(t('common.error'), 'Failed to copy link');
         }
-    }, [imageBase64, imageMimeType, fileContent, diffContent, fileName, shareImage]);
+    }, [buildShareLink]);
 
     // Menu items
     const menuItems: ActionMenuItem[] = React.useMemo(() => {
