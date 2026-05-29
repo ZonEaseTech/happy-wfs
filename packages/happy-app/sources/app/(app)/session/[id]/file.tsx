@@ -32,6 +32,7 @@ import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { isMachineScopedSpreadsheetPath } from '@/components/markdown/markdownLinkUtils';
 import { Image } from 'expo-image';
 import { selectFileViewerSharePayload } from '@/utils/fileViewerShare';
+import { base64ToUint8Array, getDownloadMimeType, sanitizeDownloadFileName } from '@/utils/fileViewerDownload';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { ImageViewer } from '@/components/ImageViewer';
@@ -290,7 +291,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const shareImage = React.useCallback(async (base64: string, mimeType: string) => {
         const ext = getExtensionFromMimeType(mimeType);
         const outputFileName = fileName.includes('.') ? fileName : `${fileName}.${ext}`;
-        const tempFile = new File(Paths.cache, `shared-${Date.now()}-${outputFileName}`);
+        const tempFile = new File(Paths.cache, `shared-${Date.now()}-${sanitizeDownloadFileName(outputFileName)}`);
         tempFile.create({ overwrite: true, intermediates: true });
         tempFile.write(base64, { encoding: 'base64' });
 
@@ -311,6 +312,70 @@ export default function FileScreen(props?: FileScreenProps) {
             }
         }
     }, [fileName]);
+
+    const readCurrentFileBase64 = React.useCallback(async (): Promise<string | null> => {
+        if (!sessionId || ref) {
+            Modal.alert(t('common.error'), 'Cannot download this file version');
+            return null;
+        }
+        const response = canReadFromMachine
+            ? await machineReadFile(machineFileReaderId!, filePath)
+            : await sessionReadFile(sessionId, filePath);
+        if (!response.success || !response.content) {
+            Modal.alert(t('common.error'), response.error || 'Failed to download file');
+            return null;
+        }
+        return response.content;
+    }, [canReadFromMachine, filePath, machineFileReaderId, ref, sessionId]);
+
+    const handleDownload = React.useCallback(async () => {
+        try {
+            const base64 = await readCurrentFileBase64();
+            if (!base64) return;
+
+            const mimeType = getDownloadMimeType(filePath);
+            const downloadName = sanitizeDownloadFileName(fileName);
+
+            if (Platform.OS === 'web') {
+                const bytes = base64ToUint8Array(base64);
+                const arrayBuffer = new ArrayBuffer(bytes.byteLength);
+                new Uint8Array(arrayBuffer).set(bytes);
+                const blob = new Blob([arrayBuffer], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = downloadName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                return;
+            }
+
+            const tempFile = new File(Paths.cache, `download-${Date.now()}-${downloadName}`);
+            tempFile.create({ overwrite: true, intermediates: true });
+            tempFile.write(base64, { encoding: 'base64' });
+
+            try {
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(tempFile.uri, {
+                        mimeType,
+                        dialogTitle: fileName,
+                    });
+                    return;
+                }
+                await Share.share({ title: fileName, message: fileName });
+            } finally {
+                try {
+                    tempFile.delete();
+                } catch {
+                    // ignore cleanup errors
+                }
+            }
+        } catch (e) {
+            Modal.alert(t('common.error'), e instanceof Error ? e.message : 'Failed to download file');
+        }
+    }, [fileName, filePath, readCurrentFileBase64]);
 
     const handleShare = React.useCallback(async () => {
         const payload = selectFileViewerSharePayload({
@@ -388,38 +453,12 @@ export default function FileScreen(props?: FileScreenProps) {
             });
         }
 
-        // Download: web-only (uses Blob + anchor.click). On native we'd need
-        // expo-file-system + expo-sharing. Skip on native rather than expose a
-        // button that does nothing.
-        if (Platform.OS === 'web' && sessionId) {
+        // Download/share original bytes. Web uses a Blob download; native writes a
+        // temporary cache file and opens the platform share/save sheet.
+        if (!ref && sessionId) {
             items.push({
                 label: t('files.downloadFile'),
-                onPress: async () => {
-                    try {
-                        const response = canReadFromMachine
-                            ? await machineReadFile(machineFileReaderId!, filePath)
-                            : await sessionReadFile(sessionId, filePath);
-                        if (!response.success || !response.content) {
-                            Modal.alert(t('common.error'), response.error || 'Failed to download file');
-                            return;
-                        }
-                        // content is base64 — decode to bytes then Blob.
-                        const binary = atob(response.content);
-                        const bytes = new Uint8Array(binary.length);
-                        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                        const blob = new Blob([bytes]);
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = fileName;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    } catch (e) {
-                        Modal.alert(t('common.error'), e instanceof Error ? e.message : 'Failed to download file');
-                    }
-                },
+                onPress: handleDownload,
             });
         }
 
@@ -452,7 +491,7 @@ export default function FileScreen(props?: FileScreenProps) {
         }
 
         return items;
-    }, [relativePath, fileName, fileContent, diffContent, ref, sessionPath, gitCwd, sessionId, filePath, router, isPreviewImageFile, handleShare, canReadFromMachine, machineFileReaderId]);
+    }, [relativePath, fileName, fileContent, ref, sessionPath, gitCwd, sessionId, filePath, router, isPreviewImageFile, handleShare, handleDownload, canReadFromMachine]);
 
     // Determine file language from extension
     const getFileLanguage = React.useCallback((path: string): string | null => {
@@ -844,47 +883,6 @@ export default function FileScreen(props?: FileScreenProps) {
         );
     }
 
-    if (fileContent?.isBinary && !isPreviewVideoFile) {
-        return (
-            <DesktopModalShell title={shellTitle} disabled={embedded}>
-                <View style={{
-                    flex: 1,
-                    backgroundColor: theme.colors.surface,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: 20
-                }}>
-                    <Text style={{
-                        fontSize: 18,
-                        fontWeight: 'bold',
-                        color: theme.colors.textSecondary,
-                        marginBottom: 8,
-                        ...Typography.default('semiBold')
-                    }}>
-                        {t('files.binaryFile')}
-                    </Text>
-                    <Text style={{
-                        fontSize: 16,
-                        color: theme.colors.textSecondary,
-                        textAlign: 'center',
-                        ...Typography.default()
-                    }}>
-                        {t('files.cannotDisplayBinary')}
-                    </Text>
-                    <Text style={{
-                        fontSize: 14,
-                        color: '#999',
-                        textAlign: 'center',
-                        marginTop: 8,
-                        ...Typography.default()
-                    }}>
-                        {fileName}
-                    </Text>
-                </View>
-            </DesktopModalShell>
-        );
-    }
-
     if (editMode && embedded) {
         return (
             <EditScreen
@@ -1099,7 +1097,63 @@ export default function FileScreen(props?: FileScreenProps) {
                     )}
 
                     {/* Content display */}
-                    {useHtmlPreview ? (
+                    {fileContent?.isBinary && !isPreviewVideoFile ? (
+                        <View style={{
+                            flex: 1,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            padding: 20,
+                        }}>
+                            <Text style={{
+                                fontSize: 18,
+                                fontWeight: 'bold',
+                                color: theme.colors.textSecondary,
+                                marginBottom: 8,
+                                ...Typography.default('semiBold')
+                            }}>
+                                {t('files.binaryFile')}
+                            </Text>
+                            <Text style={{
+                                fontSize: 16,
+                                color: theme.colors.textSecondary,
+                                textAlign: 'center',
+                                ...Typography.default()
+                            }}>
+                                {t('files.cannotDisplayBinary')}
+                            </Text>
+                            <Text style={{
+                                fontSize: 14,
+                                color: '#999',
+                                textAlign: 'center',
+                                marginTop: 8,
+                                ...Typography.default()
+                            }}>
+                                {fileName}
+                            </Text>
+                            {!ref && sessionId ? (
+                                <Pressable
+                                    onPress={handleDownload}
+                                    style={({ pressed }) => ({
+                                        marginTop: 20,
+                                        paddingHorizontal: 18,
+                                        paddingVertical: 10,
+                                        borderRadius: 999,
+                                        backgroundColor: theme.colors.textLink,
+                                        opacity: pressed ? 0.7 : 1,
+                                    })}
+                                >
+                                    <Text style={{
+                                        color: 'white',
+                                        fontSize: 16,
+                                        fontWeight: '600',
+                                        ...Typography.default('semiBold'),
+                                    }}>
+                                        {t('files.downloadFile')}
+                                    </Text>
+                                </Pressable>
+                            ) : null}
+                        </View>
+                    ) : useHtmlPreview ? (
                         <HtmlPreview html={fileContent?.content || ''} fileName={fileName} />
                     ) : useMarkdownPreview ? (
                         <ScrollView
