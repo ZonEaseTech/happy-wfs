@@ -221,8 +221,6 @@ export const CLAUDE_MODEL_OPTIONS = [
     { value: 'claude-opus-4-8', label: 'Claude Opus 4.8', shortLabel: 'Opus 4.8', description: 'Latest Opus' },
     { value: 'claude-opus-4-7', label: 'Claude Opus 4.7', shortLabel: 'Opus 4.7', description: 'Most capable' },
     { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', shortLabel: 'Opus 4.6', description: 'Previous generation Opus' },
-    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', shortLabel: 'Sonnet 4.6', description: 'Balanced speed and quality' },
-    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', shortLabel: 'Haiku 4.5', description: 'Fastest' },
 ] as const;
 
 export const CLAUDE_MODEL_FAMILY_OPTIONS = [
@@ -233,9 +231,6 @@ export const CLAUDE_MODEL_FAMILY_OPTIONS = [
     { value: 'claude-opus-4-7[1m]', label: 'Claude Opus 4.7 (1M)', shortLabel: 'Opus 4.7', description: 'Most capable, 1M context' },
     { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', shortLabel: 'Opus 4.6', description: 'Previous generation Opus' },
     { value: 'claude-opus-4-6[1m]', label: 'Claude Opus 4.6 (1M)', shortLabel: 'Opus 4.6', description: 'Previous Opus, 1M context' },
-    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', shortLabel: 'Sonnet 4.6', description: 'Balanced speed and quality' },
-    { value: 'claude-sonnet-4-6[1m]', label: 'Claude Sonnet 4.6 (1M)', shortLabel: 'Sonnet 4.6', description: 'Balanced, 1M context' },
-    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', shortLabel: 'Haiku 4.5', description: 'Fastest' },
 ] as const satisfies readonly { value: ClaudeModelFamily; label: string; shortLabel: string; description: string }[];
 
 const CLAUDE_MODE_TO_SELECTION: Partial<Record<ModelMode, { family: ClaudeModelFamily; effort: ClaudeReasoningEffort }>> = {
@@ -289,11 +284,6 @@ export const CODEX_MODEL_FAMILY_OPTIONS = [
     { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
     { value: 'gpt-5.5', label: 'GPT-5.5', shortLabel: '5.5', description: 'Latest, most capable' },
     { value: 'gpt-5.4', label: 'GPT-5.4', shortLabel: '5.4', description: 'General-purpose model' },
-    { value: 'gpt-5.3-codex', label: 'GPT-5.3-Codex', shortLabel: '5.3-Codex', description: 'Code-optimized model' },
-    { value: 'gpt-5.2-codex', label: 'GPT-5.2-Codex', shortLabel: '5.2-Codex', description: 'Code-optimized model' },
-    { value: 'gpt-5.2', label: 'GPT-5.2', shortLabel: '5.2', description: 'General-purpose model' },
-    { value: 'gpt-5.1-codex-max', label: 'GPT-5.1-Codex-Max', shortLabel: '5.1-Max', description: 'Code-optimized model' },
-    { value: 'gpt-5.1-codex-mini', label: 'GPT-5.1-Codex-Mini', shortLabel: '5.1-Mini', description: 'Fast code-focused model' },
 ] as const satisfies readonly { value: CodexModelFamily; label: string; shortLabel: string; description: string }[];
 
 export const CODEX_MODEL_OPTIONS = [

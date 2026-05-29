@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildClaudeModelMode,
     buildCodexModelMode,
+    CODEX_MODEL_FAMILY_OPTIONS,
     CLAUDE_MODEL_FAMILY_OPTIONS,
     CODEX_MODEL_MODES,
     getClaudeReasoningOptions,
@@ -26,6 +27,14 @@ describe('modelCatalog', () => {
         expect(isModelModeForAgent('claude', 'claude-opus-4-8[1m]')).toBe(true);
     });
 
+
+    it('hides lower-tier Claude families from the picker while preserving mode compatibility', () => {
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-sonnet-4-6');
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-sonnet-4-6[1m]');
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value)).not.toContain('claude-haiku-4-5');
+        expect(isModelModeForAgent('claude', 'claude-sonnet-4-6')).toBe(true);
+        expect(isModelModeForAgent('claude', 'claude-haiku-4-5')).toBe(true);
+    });
 
     it('supports Claude Opus 4.8 1M model modes', () => {
         expect(isModelMode('claude-opus-4-8[1m]-max')).toBe(true);
@@ -89,6 +98,14 @@ describe('modelCatalog', () => {
             model: 'custom-model-id',
             reasoningEffort: null,
         });
+    });
+
+    it('hides older Codex families from the picker while preserving mode compatibility', () => {
+        const values = CODEX_MODEL_FAMILY_OPTIONS.map(option => option.value);
+        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-5.5', 'gpt-5.4']);
+        expect(isModelModeForAgent('codex', 'gpt-5.3-codex-xhigh')).toBe(true);
+        expect(isModelModeForAgent('codex', 'gpt-5.2-high')).toBe(true);
+        expect(isModelModeForAgent('codex', 'gpt-5.1-codex-mini-high')).toBe(true);
     });
 
     it('keeps codex model list in catalog shape', () => {
