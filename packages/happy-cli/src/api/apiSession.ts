@@ -43,6 +43,10 @@ function extractPlainTextForAutoReview(value: unknown): string {
     return [...new Set(parts.map((part) => part.trim()).filter(Boolean))].join('\n').slice(0, 20_000);
 }
 
+function normalizeAutoReviewTextForDedupe(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+}
+
 /** Tools whose tool_use.input should be trimmed and saved to diffStore */
 const INPUT_TRIMMABLE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
 
@@ -149,6 +153,7 @@ export class ApiSessionClient extends EventEmitter {
     private toolIdToName = new Map<string, string>();
     /** Outbox of encrypted messages awaiting reliable HTTP delivery via v3 API */
     private pendingOutbox: Array<{ content: string; localId: string }> = [];
+    private readonly recentSyntheticAutoReviewTexts = new Map<string, string>();
     /** Coalescing sync that flushes the HTTP outbox */
     private sendSync: InvalidateSync;
     private autoReviewGuard: AutoReviewGuard;
@@ -485,6 +490,7 @@ export class ApiSessionClient extends EventEmitter {
             sendFollowUp: async (text, fingerprint) => {
                 await this.sendSyntheticUserMessage(text, `auto-review-${fingerprint.slice(0, 32)}-${Date.now()}`);
             },
+            isDuplicateFollowUp: async (text) => this.hasExistingAutoReviewFollowUp(text),
             sendSimplifyCheck: async () => {
                 await this.sendSyntheticUserMessage('/simplify', `auto-review-simplify-${Date.now()}`);
             },
@@ -748,9 +754,31 @@ export class ApiSessionClient extends EventEmitter {
         this.sendSync.invalidate();
     }
 
+    private async hasExistingAutoReviewFollowUp(text: string): Promise<boolean> {
+        const normalized = normalizeAutoReviewTextForDedupe(text);
+        if (!normalized) return false;
+        for (const existing of this.recentSyntheticAutoReviewTexts.values()) {
+            if (normalizeAutoReviewTextForDedupe(existing) === normalized) return true;
+        }
+        try {
+            const messages = await this.fetchRecentReviewMessages(80);
+            return messages.some((message) => message.role === 'user' && normalizeAutoReviewTextForDedupe(message.text) === normalized);
+        } catch (error) {
+            logger.debug('[AUTO_REVIEW] Failed to check duplicate follow-up messages:', error);
+            return false;
+        }
+    }
+
     async sendSyntheticUserMessage(text: string, localId: string = randomUUID()): Promise<void> {
         const trimmed = text.trim();
         if (!trimmed) return;
+        if (localId.startsWith('auto-review-')) {
+            this.recentSyntheticAutoReviewTexts.set(localId, trimmed);
+            if (this.recentSyntheticAutoReviewTexts.size > 50) {
+                const oldest = this.recentSyntheticAutoReviewTexts.keys().next().value;
+                if (oldest) this.recentSyntheticAutoReviewTexts.delete(oldest);
+            }
+        }
 
         const content = {
             role: 'user' as const,

@@ -145,6 +145,43 @@ describe('AutoReviewGuard', () => {
   })
 
 
+  it('does not send duplicate follow-up for the same actionable fingerprint in one guard lifecycle', async () => {
+    const sendFollowUp = vi.fn(async (_text: string, _fingerprint: string) => {})
+    const guard = new AutoReviewGuard({
+      getMetadata: enabledMetadata,
+      updateGuard: vi.fn(),
+      collectAndReview: vi.fn(async () => ({ status: 'needs_follow_up' as const, summary: 'miss', missing: ['补测试'], evidence: [], confidence: 'high' as const })),
+      sendFollowUp,
+      delayMs: 1,
+    })
+
+    guard.onAgentText('已完成', 'm1')
+    await guard.runNowForTests()
+    guard.onAgentText('再次完成', 'm2')
+    await guard.runNowForTests()
+
+    expect(sendFollowUp).toHaveBeenCalledOnce()
+  })
+
+
+  it('does not send follow-up when an equivalent auto-review message already exists remotely', async () => {
+    const sendFollowUp = vi.fn(async (_text: string, _fingerprint: string) => {})
+    const guard = new AutoReviewGuard({
+      getMetadata: enabledMetadata,
+      updateGuard: vi.fn(),
+      collectAndReview: vi.fn(async () => ({ status: 'needs_follow_up' as const, summary: 'miss', missing: ['补测试'], evidence: [], confidence: 'high' as const })),
+      sendFollowUp,
+      isDuplicateFollowUp: vi.fn(async () => true),
+      delayMs: 1,
+    })
+
+    guard.onAgentText('已完成', 'm1')
+    await guard.runNowForTests()
+
+    expect(sendFollowUp).not.toHaveBeenCalled()
+  })
+
+
 
   it('marks uncertain when follow-up send fails', async () => {
     const updateGuard = vi.fn()

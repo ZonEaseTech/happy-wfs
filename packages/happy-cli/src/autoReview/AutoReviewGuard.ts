@@ -9,6 +9,7 @@ type AutoReviewGuardDeps = {
   updateGuard: (patch: GuardMetadata) => Promise<void> | void,
   collectAndReview: (completionClaim: string) => Promise<ReviewResult>,
   sendFollowUp: (text: string, fingerprint: string) => Promise<void>,
+  isDuplicateFollowUp?: (text: string, fingerprint: string) => Promise<boolean> | boolean,
   sendSimplifyCheck?: () => Promise<void>,
   delayMs?: number,
 }
@@ -29,6 +30,7 @@ export class AutoReviewGuard {
   private inFlight = false
   private lastClaim = ''
   private lastMessageId = ''
+  private readonly sentFollowUpFingerprints = new Set<string>()
 
   constructor(private readonly deps: AutoReviewGuardDeps) {}
 
@@ -118,9 +120,8 @@ export class AutoReviewGuard {
       const latestMetadata = this.deps.getMetadata()
       const currentGuard = options.guardOverride ?? latestMetadata?.autoReviewGuard ?? guard
 
-      if (shouldSendFollowUp(result) && currentGuard.lastReviewFingerprint !== fingerprint) {
-        try {
-          await this.deps.sendFollowUp(formatFollowUpMessage(result, currentGuard.followUpTemplate), fingerprint)
+      if (shouldSendFollowUp(result) && fingerprint && currentGuard.lastReviewFingerprint !== fingerprint) {
+        if (this.sentFollowUpFingerprints.has(fingerprint)) {
           await this.deps.updateGuard({
             ...currentGuard,
             enabled: currentGuard.enabled,
@@ -131,7 +132,33 @@ export class AutoReviewGuard {
             lastTriggeredMessageId: this.lastMessageId || currentGuard.lastTriggeredMessageId,
             simplifyPending: false,
           })
+          return
+        }
+
+        const followUpText = formatFollowUpMessage(result, currentGuard.followUpTemplate)
+        const nextGuard = {
+          ...currentGuard,
+          enabled: currentGuard.enabled,
+          status: 'needs_follow_up' as const,
+          updatedAt: Date.now(),
+          lastReviewFingerprint: fingerprint,
+          lastSummary: result.summary,
+          lastTriggeredMessageId: this.lastMessageId || currentGuard.lastTriggeredMessageId,
+          simplifyPending: false,
+        }
+        try {
+          this.sentFollowUpFingerprints.add(fingerprint)
+          await this.deps.updateGuard(nextGuard)
+          if (await this.deps.isDuplicateFollowUp?.(followUpText, fingerprint)) {
+            return
+          }
+          await this.deps.sendFollowUp(followUpText, fingerprint)
+          await this.deps.updateGuard({
+            ...nextGuard,
+            updatedAt: Date.now(),
+          })
         } catch (error) {
+          this.sentFollowUpFingerprints.delete(fingerprint)
           await this.markUncertainAfterFailure(currentGuard, error, fingerprint)
         }
         return
