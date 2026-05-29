@@ -502,6 +502,21 @@ describe('splitTextByLocalFileReferences', () => {
         expect(linked?.href).toContain('machineId=machine-123');
     });
 
+    it('links temporary video references through machine-scoped file preview', () => {
+        const parts = splitTextByLocalFileReferences({
+            text: '录屏视频: /tmp/ttpos-pos-order-record.webm',
+            sessionId: 'session-123',
+            machineId: 'machine-123',
+            sessionWorkingDirectory: '/home/coder/project',
+            sessionHomeDirectory: '/home/coder',
+        });
+        const linked = parts.find(part => part.href);
+        expect(linked?.text).toBe('/tmp/ttpos-pos-order-record.webm');
+        expect(linked?.href).toContain('/session/session-123/file?');
+        expect(linked?.href).toContain('view=file');
+        expect(linked?.href).toContain('machineId=machine-123');
+    });
+
     it('links html file references to preview mode', () => {
         const parts = splitTextByLocalFileReferences({
             text: '已提供 HTML 版设计稿: /home/coder/project/shop-approval-flow-design.html',

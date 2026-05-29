@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getExtensionFromMimeType, getImageMimeType, isPreviewableImage } from './fileViewer';
+import { getExtensionFromMimeType, getImageMimeType, getVideoMimeType, isPreviewableImage, isPreviewableVideo } from './fileViewer';
 
 describe('fileViewer utils', () => {
     it('recognizes supported preview image extensions', () => {
@@ -20,6 +20,23 @@ describe('fileViewer utils', () => {
         expect(isPreviewableImage('/tmp/a.pdf')).toBe(false);
         expect(isPreviewableImage('/tmp/a')).toBe(false);
         expect(isPreviewableImage('')).toBe(false);
+    });
+
+
+    it('recognizes supported preview video extensions', () => {
+        expect(isPreviewableVideo('/tmp/a.mp4')).toBe(true);
+        expect(isPreviewableVideo('/tmp/a.webm')).toBe(true);
+        expect(isPreviewableVideo('/tmp/a.mov')).toBe(true);
+        expect(isPreviewableVideo('/tmp/a.m4v')).toBe(true);
+        expect(isPreviewableVideo('/tmp/A.WEBM')).toBe(true);
+    });
+
+    it('returns correct video MIME type for supported extensions', () => {
+        expect(getVideoMimeType('/tmp/a.mp4')).toBe('video/mp4');
+        expect(getVideoMimeType('/tmp/a.webm')).toBe('video/webm');
+        expect(getVideoMimeType('/tmp/a.mov')).toBe('video/quicktime');
+        expect(getVideoMimeType('/tmp/a.m4v')).toBe('video/x-m4v');
+        expect(getVideoMimeType('/tmp/a.txt')).toBeNull();
     });
 
     it('returns correct image MIME type for supported extensions', () => {

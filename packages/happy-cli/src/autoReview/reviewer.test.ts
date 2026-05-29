@@ -68,10 +68,14 @@ describe('buildReviewerPrompt', () => {
 
 
 describe('buildReviewerSpawnArgs', () => {
-  it('uses a read-only sandbox instead of dangerous bypass', () => {
-    const args = buildReviewerSpawnArgs('/repo')
+  it('uses an isolated read-only reviewer command and captures the final message', () => {
+    const args = buildReviewerSpawnArgs('/repo', '/tmp/reviewer-output.txt')
+    expect(args).toContain('--ignore-user-config')
     expect(args).toContain('read-only')
-    expect(args).toContain('/repo')
+    expect(args).toContain('--skip-git-repo-check')
+    expect(args).toContain('--output-last-message')
+    expect(args).toContain('/tmp/reviewer-output.txt')
+    expect(args).not.toContain('/repo')
     expect(args).not.toContain('--dangerously-bypass-approvals-and-sandbox')
   })
 })

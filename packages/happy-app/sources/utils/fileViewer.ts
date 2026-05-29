@@ -6,6 +6,13 @@ const PREVIEW_IMAGE_MIME_BY_EXT: Record<string, string> = {
     webp: 'image/webp',
 };
 
+const PREVIEW_VIDEO_MIME_BY_EXT: Record<string, string> = {
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mov: 'video/quicktime',
+    m4v: 'video/x-m4v',
+};
+
 function getFileExtension(path: string): string | null {
     const fileName = path.split('/').pop() || '';
     const ext = fileName.split('.').pop()?.toLowerCase();
@@ -25,6 +32,11 @@ export function isPreviewableHtml(path: string): boolean {
     return ext === 'html' || ext === 'htm';
 }
 
+export function isPreviewableVideo(path: string): boolean {
+    const ext = getFileExtension(path);
+    return !!ext && ext in PREVIEW_VIDEO_MIME_BY_EXT;
+}
+
 export function isTemporaryFilePath(path: string): boolean {
     const normalizedPath = path.startsWith('file://') ? path.slice('file://'.length) : path;
     return normalizedPath.startsWith('/tmp/')
@@ -41,6 +53,12 @@ export function getImageMimeType(path: string): string | null {
     const ext = getFileExtension(path);
     if (!ext) return null;
     return PREVIEW_IMAGE_MIME_BY_EXT[ext] ?? null;
+}
+
+export function getVideoMimeType(path: string): string | null {
+    const ext = getFileExtension(path);
+    if (!ext) return null;
+    return PREVIEW_VIDEO_MIME_BY_EXT[ext] ?? null;
 }
 
 export function getExtensionFromMimeType(mimeType: string): string {

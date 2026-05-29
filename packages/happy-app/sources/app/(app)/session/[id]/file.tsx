@@ -27,7 +27,7 @@ import { showCopiedToast } from '@/components/Toast';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
-import { getExtensionFromMimeType, getImageMimeType, isPreviewableHtml, isPreviewableImage, isTemporaryFilePath } from '@/utils/fileViewer';
+import { getExtensionFromMimeType, getImageMimeType, getVideoMimeType, isPreviewableHtml, isPreviewableImage, isPreviewableVideo, isTemporaryFilePath } from '@/utils/fileViewer';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { isMachineScopedSpreadsheetPath } from '@/components/markdown/markdownLinkUtils';
 import { Image } from 'expo-image';
@@ -78,6 +78,62 @@ function HtmlPreview(props: { html: string; fileName: string }) {
             originWhitelist={['*']}
             javaScriptEnabled={true}
             scrollEnabled={true}
+        />
+    );
+}
+
+
+function VideoPreview(props: { uri: string; fileName: string }) {
+    if (Platform.OS === 'web') {
+        return (
+            <View style={styles.videoPreviewContainer}>
+                {React.createElement('video', {
+                    controls: true,
+                    playsInline: true,
+                    src: props.uri,
+                    style: {
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'black',
+                    },
+                } as any)}
+            </View>
+        );
+    }
+
+    const escapedTitle = props.fileName.replace(/[&<>'"]/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;',
+    }[char] || char));
+    const html = `<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+body { display: flex; align-items: center; justify-content: center; }
+video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+</style>
+<title>${escapedTitle}</title>
+</head>
+<body>
+<video controls playsinline webkit-playsinline preload="metadata" src="${props.uri}"></video>
+</body>
+</html>`;
+
+    return (
+        <WebView
+            source={{ html }}
+            style={styles.videoPreviewWebView}
+            originWhitelist={['*']}
+            javaScriptEnabled={true}
+            allowsFullscreenVideo={true}
+            mediaPlaybackRequiresUserAction={false}
         />
     );
 }
@@ -195,6 +251,8 @@ export default function FileScreen(props?: FileScreenProps) {
     const [displayMode, setDisplayMode] = React.useState<'file' | 'diff' | 'preview'>('diff');
     const [imageBase64, setImageBase64] = React.useState<string | null>(null);
     const [imageMimeType, setImageMimeType] = React.useState('image/png');
+    const [videoBase64, setVideoBase64] = React.useState<string | null>(null);
+    const [videoMimeType, setVideoMimeType] = React.useState('video/mp4');
     const [imageViewerVisible, setImageViewerVisible] = React.useState(false);
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
@@ -211,9 +269,11 @@ export default function FileScreen(props?: FileScreenProps) {
     const fileName = filePath.split('/').pop() || filePath;
     const isPreviewImageFile = isPreviewableImage(filePath);
     const isPreviewHtmlFile = isPreviewableHtml(filePath);
+    const isPreviewVideoFile = isPreviewableVideo(filePath);
     const isPreviewMarkdownFile = /\.(md|markdown)$/i.test(filePath);
     const canReadFromMachine = !!machineFileReaderId && (isTemporaryFilePath(filePath) || isMachineScopedSpreadsheetPath(filePath));
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
+    const videoPreviewUri = videoBase64 ? `data:${videoMimeType};base64,${videoBase64}` : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
 
     // Relative path for display/copy (relative to repo, not workspace root)
@@ -476,6 +536,7 @@ export default function FileScreen(props?: FileScreenProps) {
                 setIsLoading(true);
                 setError(null);
                 setImageBase64(null);
+                setVideoBase64(null);
                 setImageViewerVisible(false);
 
                 // Get session metadata for git commands
@@ -496,6 +557,28 @@ export default function FileScreen(props?: FileScreenProps) {
                             });
                             setImageBase64(response.content);
                             setImageMimeType(mimeType);
+                        } else {
+                            setError(response?.error || 'Failed to read file');
+                        }
+                    }
+                    return;
+                }
+
+
+                if (isPreviewVideoFile && !ref) {
+                    const response = canReadFromMachine
+                        ? await machineReadFile(machineFileReaderId!, filePath)
+                        : await sessionReadFile(sessionId!, filePath);
+                    if (!isCancelled) {
+                        if (response && response.success && response.content) {
+                            const mimeType = getVideoMimeType(filePath) || 'video/mp4';
+                            setFileContent({
+                                content: '',
+                                encoding: 'base64',
+                                isBinary: false,
+                            });
+                            setVideoBase64(response.content);
+                            setVideoMimeType(mimeType);
                         } else {
                             setError(response?.error || 'Failed to read file');
                         }
@@ -625,7 +708,7 @@ export default function FileScreen(props?: FileScreenProps) {
         return () => {
             isCancelled = true;
         };
-    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, canReadFromMachine, machineFileReaderId, gitCwd]);
+    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, isPreviewVideoFile, canReadFromMachine, machineFileReaderId, gitCwd]);
 
     // Show error modal if there's an error
     React.useEffect(() => {
@@ -914,7 +997,11 @@ export default function FileScreen(props?: FileScreenProps) {
                 </ScrollView>
             </View>
 
-            {imagePreviewUri ? (
+            {videoPreviewUri ? (
+                <View style={{ flex: 1, padding: 16 }}>
+                    <VideoPreview uri={videoPreviewUri} fileName={fileName} />
+                </View>
+            ) : imagePreviewUri ? (
                 <>
                     <View style={{ flex: 1, padding: 16 }}>
                         <Pressable onPress={() => setImageViewerVisible(true)} style={{ flex: 1 }}>
@@ -1121,5 +1208,17 @@ const styles = StyleSheet.create((theme) => ({
     },
     htmlPreviewWebView: {
         flex: 1,
+    },
+    videoPreviewContainer: {
+        flex: 1,
+        backgroundColor: '#000',
+        borderRadius: 10,
+        overflow: 'hidden',
+    },
+    videoPreviewWebView: {
+        flex: 1,
+        backgroundColor: '#000',
+        borderRadius: 10,
+        overflow: 'hidden',
     },
 }));

@@ -1,4 +1,8 @@
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { readFile, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { z } from 'zod'
 import type { ReviewContext } from './context'
 
@@ -85,36 +89,61 @@ export function formatFollowUpMessage(result: ReviewResult, template = DEFAULT_F
     .replace(/{{\s*evidence\s*}}/g, evidence)
 }
 
-export function buildReviewerSpawnArgs(cwd: string): string[] {
-  return ['exec', '--sandbox', 'read-only', '--cd', cwd, '-']
+export function buildReviewerSpawnArgs(cwd: string, outputPath?: string): string[] {
+  const args = [
+    'exec',
+    '--ignore-user-config',
+    '--sandbox',
+    'read-only',
+    '--cd',
+    tmpdir(),
+    '--skip-git-repo-check',
+  ]
+  if (outputPath) args.push('--output-last-message', outputPath)
+  args.push('-')
+  return args
 }
 
 export async function runReviewer(args: { cwd: string, prompt: string, timeoutMs?: number }): Promise<ReviewResult> {
   const timeoutMs = args.timeoutMs ?? 120_000
-  const output = await new Promise<string>((resolve, reject) => {
-    const child = spawn('codex', buildReviewerSpawnArgs(args.cwd), {
-      cwd: args.cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env,
+  const outputPath = join(tmpdir(), `happy-auto-review-${process.pid}-${randomUUID()}.txt`)
+  let fallbackOutput = ''
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('codex', buildReviewerSpawnArgs(args.cwd, outputPath), {
+        cwd: args.cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: process.env,
+      })
+      let stdout = ''
+      let stderr = ''
+      const timer = setTimeout(() => {
+        child.kill('SIGTERM')
+        reject(new Error(`Reviewer timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+      child.stdin?.end(args.prompt)
+      child.stdout?.on('data', (chunk) => { stdout += chunk.toString() })
+      child.stderr?.on('data', (chunk) => { stderr += chunk.toString() })
+      child.once('error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+      child.once('exit', (code) => {
+        clearTimeout(timer)
+        fallbackOutput = stdout || stderr
+        if (code === 0) resolve()
+        else reject(new Error(`Reviewer exited with code ${code}: ${stderr.slice(0, 1000)}`))
+      })
     })
-    let stdout = ''
-    let stderr = ''
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM')
-      reject(new Error(`Reviewer timed out after ${timeoutMs}ms`))
-    }, timeoutMs)
-    child.stdin?.end(args.prompt)
-    child.stdout?.on('data', (chunk) => { stdout += chunk.toString() })
-    child.stderr?.on('data', (chunk) => { stderr += chunk.toString() })
-    child.once('error', (error) => {
-      clearTimeout(timer)
-      reject(error)
-    })
-    child.once('exit', (code) => {
-      clearTimeout(timer)
-      if (code === 0) resolve(stdout || stderr)
-      else reject(new Error(`Reviewer exited with code ${code}: ${stderr.slice(0, 1000)}`))
-    })
-  })
-  return parseReviewResult(output)
+
+    let output = fallbackOutput
+    try {
+      output = await readFile(outputPath, 'utf8')
+    } catch {
+      // Fall back to stdout/stderr if the current Codex build did not write the last-message file.
+    }
+    return parseReviewResult(output)
+  } finally {
+    await rm(outputPath, { force: true }).catch(() => undefined)
+  }
 }
