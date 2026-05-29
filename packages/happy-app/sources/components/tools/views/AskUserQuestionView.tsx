@@ -301,7 +301,7 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId 
                 permissionId: tool.permission?.id,
                 answers,
             }, {
-                sendOrQueueMessage: (targetSessionId, text) => sync.sendOrQueueMessage(targetSessionId, text),
+                sendMessage: (targetSessionId, text) => sync.sendMessage(targetSessionId, text),
                 allow: (targetSessionId, permissionId, submittedAnswers) => sessionAllow(targetSessionId, permissionId, undefined, undefined, undefined, submittedAnswers),
             });
         } catch (error) {

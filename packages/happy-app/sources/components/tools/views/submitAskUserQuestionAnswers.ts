@@ -1,7 +1,7 @@
 import { buildAnswersReplyText } from '../../optionReply';
 
 export type SubmitAskUserQuestionAnswersDeps = {
-    sendOrQueueMessage: (sessionId: string, text: string) => Promise<unknown>;
+    sendMessage: (sessionId: string, text: string) => Promise<unknown>;
     allow: (sessionId: string, permissionId: string, answers: Record<string, string>) => Promise<void>;
 };
 
@@ -16,10 +16,11 @@ export async function submitAskUserQuestionAnswers(
     const replyText = buildAnswersReplyText(args.answers);
 
     // Send a normal user-visible message as the authoritative answer first.
-    // The structured permission result is still resolved below so the tool call
-    // can continue, but the agent also sees the concrete choice in chat history
-    // instead of only a permission/tool receipt.
-    await deps.sendOrQueueMessage(args.sessionId, replyText);
+    // Use the direct send path instead of the pending queue: selecting a structured
+    // answer is already an explicit confirmation and should not require the user
+    // to press the pending-queue send button again. The structured permission
+    // result is still resolved below so the tool call can continue.
+    await deps.sendMessage(args.sessionId, replyText);
 
     if (args.permissionId) {
         await deps.allow(args.sessionId, args.permissionId, args.answers);
