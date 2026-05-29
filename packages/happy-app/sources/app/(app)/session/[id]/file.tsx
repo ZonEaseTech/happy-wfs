@@ -14,6 +14,9 @@ import { DesktopModalShell } from '@/components/DesktopModalShell';
 import EditScreen from '@/app/(app)/session/[id]/edit';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { getSession, useSetting } from '@/sync/storage';
+import { useAuth } from '@/auth/AuthContext';
+import { getServerUrl } from '@/sync/serverConfig';
+import { uploadPublicFileShare } from '@/sync/uploadFileShare';
 import { Modal } from '@/modal';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
@@ -27,7 +30,7 @@ import { showCopiedToast } from '@/components/Toast';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
-import { getImageMimeType, getVideoMimeType, isPreviewableHtml, isPreviewableImage, isPreviewableVideo, isTemporaryFilePath } from '@/utils/fileViewer';
+import { getImageMimeType, getVideoMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableHtml, isPreviewableImage, isPreviewableVideo, isTemporaryFilePath } from '@/utils/fileViewer';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { isMachineScopedSpreadsheetPath } from '@/components/markdown/markdownLinkUtils';
 import { Image } from 'expo-image';
@@ -219,6 +222,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const route = useRoute();
     const router = useRouter();
     const { theme } = useUnistyles();
+    const { credentials } = useAuth();
     const urlParams = useLocalSearchParams<{ id: string }>();
     const sessionId = props?.sessionId ?? urlParams.id;
     const embedded = !!props?.embedded;
@@ -283,6 +287,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const isPreviewVideoFile = isPreviewableVideo(filePath);
     const isPreviewMarkdownFile = /\.(md|markdown)$/i.test(filePath);
     const canReadFromMachine = !!machineFileReaderId && (isTemporaryFilePath(filePath) || isMachineScopedSpreadsheetPath(filePath));
+    const machineReadFallbackId = machineFileReaderId ?? session?.metadata?.machineId;
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
     const videoPreviewUri = videoBase64 ? `data:${videoMimeType};base64,${videoBase64}` : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
@@ -298,20 +303,38 @@ export default function FileScreen(props?: FileScreenProps) {
         return filePath;
     }, [filePath, gitCwd, sessionPath]);
 
+    const readFileBase64 = React.useCallback(async (path: string) => {
+        if (canReadFromMachine && machineFileReaderId) {
+            return machineReadFile(machineFileReaderId, path);
+        }
+        const response = await sessionReadFile(sessionId!, path);
+        if (
+            response.success
+            || !machineReadFallbackId
+            || !isAbsoluteLocalPath(path)
+            || !isOutsideWorkingDirectoryError(response.error)
+        ) {
+            return response;
+        }
+        // Preview/download reads are read-only. If the session rejects an
+        // absolute path because it is outside the session workspace, retry via
+        // the owning machine so memory/evidence files can be viewed without
+        // widening session write/list/delete permissions.
+        return machineReadFile(machineReadFallbackId, path);
+    }, [canReadFromMachine, machineFileReaderId, machineReadFallbackId, sessionId]);
+
     const readCurrentFileBase64 = React.useCallback(async (): Promise<string | null> => {
         if (!sessionId || ref) {
             Modal.alert(t('common.error'), 'Cannot download this file version');
             return null;
         }
-        const response = canReadFromMachine
-            ? await machineReadFile(machineFileReaderId!, filePath)
-            : await sessionReadFile(sessionId, filePath);
+        const response = await readFileBase64(filePath);
         if (!response.success || !response.content) {
             Modal.alert(t('common.error'), response.error || 'Failed to download file');
             return null;
         }
         return response.content;
-    }, [canReadFromMachine, filePath, machineFileReaderId, ref, sessionId]);
+    }, [filePath, readFileBase64, ref, sessionId]);
 
     const handleDownload = React.useCallback(async () => {
         try {
@@ -380,14 +403,28 @@ export default function FileScreen(props?: FileScreenProps) {
 
     const handleShare = React.useCallback(async () => {
         try {
-            await Clipboard.setStringAsync(buildShareLink());
+            if (!credentials?.token) {
+                Modal.alert(t('common.error'), 'Cannot create share link without login');
+                return;
+            }
+            const base64 = await readCurrentFileBase64();
+            if (!base64) return;
+
+            const uploaded = await uploadPublicFileShare({
+                base64,
+                fileName: sanitizeDownloadFileName(fileName),
+                mimeType: getDownloadMimeType(filePath),
+                token: credentials.token,
+                apiUrl: getServerUrl(),
+            });
+            await Clipboard.setStringAsync(uploaded.url);
             hapticsLight();
             showCopiedToast();
         } catch (shareError) {
-            console.error('Failed to copy share link:', shareError);
-            Modal.alert(t('common.error'), 'Failed to copy link');
+            console.error('Failed to create public file share:', shareError);
+            Modal.alert(t('common.error'), shareError instanceof Error ? shareError.message : 'Failed to create share link');
         }
-    }, [buildShareLink]);
+    }, [credentials?.token, fileName, filePath, readCurrentFileBase64]);
 
     // Menu items
     const menuItems: ActionMenuItem[] = React.useMemo(() => {
@@ -572,9 +609,7 @@ export default function FileScreen(props?: FileScreenProps) {
                 const sessionPath = session?.metadata?.path;
 
                 if (isPreviewImageFile && !ref) {
-                    const response = canReadFromMachine
-                        ? await machineReadFile(machineFileReaderId!, filePath)
-                        : await sessionReadFile(sessionId!, filePath);
+                    const response = await readFileBase64(filePath);
                     if (!isCancelled) {
                         if (response && response.success && response.content) {
                             const mimeType = getImageMimeType(filePath) || 'image/png';
@@ -594,9 +629,7 @@ export default function FileScreen(props?: FileScreenProps) {
 
 
                 if (isPreviewVideoFile && !ref) {
-                    const response = canReadFromMachine
-                        ? await machineReadFile(machineFileReaderId!, filePath)
-                        : await sessionReadFile(sessionId!, filePath);
+                    const response = await readFileBase64(filePath);
                     if (!isCancelled) {
                         if (response && response.success && response.content) {
                             const mimeType = getVideoMimeType(filePath) || 'video/mp4';
@@ -676,9 +709,7 @@ export default function FileScreen(props?: FileScreenProps) {
                         }
                     }
                 } else {
-                    const response = canReadFromMachine
-                        ? await machineReadFile(machineFileReaderId!, filePath)
-                        : await sessionReadFile(sessionId, filePath);
+                    const response = await readFileBase64(filePath);
 
                     if (!isCancelled) {
                         if (response && response.success && response.content) {
@@ -736,7 +767,7 @@ export default function FileScreen(props?: FileScreenProps) {
         return () => {
             isCancelled = true;
         };
-    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, isPreviewVideoFile, canReadFromMachine, machineFileReaderId, gitCwd]);
+    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, isPreviewVideoFile, canReadFromMachine, machineFileReaderId, gitCwd, readFileBase64]);
 
     // Show error modal if there's an error
     React.useEffect(() => {

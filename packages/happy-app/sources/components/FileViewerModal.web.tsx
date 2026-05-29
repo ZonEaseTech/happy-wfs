@@ -34,7 +34,7 @@ import { ResizableHandle } from '@/components/ResizableHandle';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { getSession } from '@/sync/storage';
 import { t } from '@/text';
-import { getImageMimeType, isPreviewableImage } from '@/utils/fileViewer';
+import { getImageMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableImage } from '@/utils/fileViewer';
 
 // Override the app's Modal Manager with native browser dialogs INSIDE this
 // file. Reason: the FileViewerModal is rendered via createPortal directly into
@@ -108,13 +108,6 @@ const Modal = {
 // keep this file independent of the translation files for now.
 const tx = t as unknown as (key: string, ...args: any[]) => string;
 
-function isAbsoluteLocalPath(path: string): boolean {
-    return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path);
-}
-
-function isOutsideWorkingDirectoryError(error?: string): boolean {
-    return typeof error === 'string' && error.includes('outside the working directory');
-}
 
 export interface FileViewerModalProps {
     visible: boolean;
@@ -433,15 +426,14 @@ export function FileViewerModal({
         if (
             response.success
             || !machineReadFallbackId
-            || !isPreviewableImage(p)
             || !isAbsoluteLocalPath(p)
             || !isOutsideWorkingDirectoryError(response.error)
         ) {
             return response;
         }
-        // Image previews are read-only. If an absolute screenshot/evidence path
-        // is outside the session working directory, fall back to machine-scope
-        // read so local image evidence can be viewed without widening session
+        // File previews are read-only. If an absolute path is outside the
+        // session working directory, fall back to machine-scope read so local
+        // evidence/config files can be viewed without widening session
         // write/list/delete permissions.
         return machineReadFile(machineReadFallbackId, p);
     }, [isMachineMode, machineId, machineReadFallbackId, sessionId]);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getExtensionFromMimeType, getImageMimeType, getVideoMimeType, isPreviewableImage, isPreviewableVideo } from './fileViewer';
+import { getExtensionFromMimeType, getImageMimeType, getVideoMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableImage, isPreviewableVideo } from './fileViewer';
 
 describe('fileViewer utils', () => {
     it('recognizes supported preview image extensions', () => {
@@ -21,7 +21,6 @@ describe('fileViewer utils', () => {
         expect(isPreviewableImage('/tmp/a')).toBe(false);
         expect(isPreviewableImage('')).toBe(false);
     });
-
 
     it('recognizes supported preview video extensions', () => {
         expect(isPreviewableVideo('/tmp/a.mp4')).toBe(true);
@@ -63,5 +62,18 @@ describe('fileViewer utils', () => {
     it('returns png as fallback for unknown MIME types', () => {
         expect(getExtensionFromMimeType('image/bmp')).toBe('png');
         expect(getExtensionFromMimeType('application/pdf')).toBe('png');
+    });
+
+    it('detects paths that can be retried through machine-scope read', () => {
+        expect(isAbsoluteLocalPath('/home/weifashi/.claude/ttpos-memory/MEMORY.md')).toBe(true);
+        expect(isAbsoluteLocalPath('C:/Users/wfs/file.txt')).toBe(true);
+        expect(isAbsoluteLocalPath('C:\\Users\\wfs\\file.txt')).toBe(true);
+        expect(isAbsoluteLocalPath('relative/file.txt')).toBe(false);
+    });
+
+    it('detects outside working directory read errors', () => {
+        expect(isOutsideWorkingDirectoryError("Access denied: Path '/home/weifashi/.claude/ttpos-memory/MEMORY.md' is outside the working directory")).toBe(true);
+        expect(isOutsideWorkingDirectoryError('Failed to read file')).toBe(false);
+        expect(isOutsideWorkingDirectoryError(undefined)).toBe(false);
     });
 });

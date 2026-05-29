@@ -13,6 +13,15 @@ const PREVIEW_VIDEO_MIME_BY_EXT: Record<string, string> = {
     m4v: 'video/x-m4v',
 };
 
+
+export function isAbsoluteLocalPath(path: string): boolean {
+    return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path);
+}
+
+export function isOutsideWorkingDirectoryError(error?: string | null): boolean {
+    return typeof error === 'string' && error.includes('outside the working directory');
+}
+
 function getFileExtension(path: string): string | null {
     const fileName = path.split('/').pop() || '';
     const ext = fileName.split('.').pop()?.toLowerCase();
