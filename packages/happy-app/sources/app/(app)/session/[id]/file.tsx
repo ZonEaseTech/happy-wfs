@@ -485,14 +485,18 @@ export default function FileScreen(props?: FileScreenProps) {
                 return;
             }
 
-            await Modal.prompt(t('files.shareLinkCreated'), t('files.shareLinkManualCopy'), {
+            const manualCopyUrl = await Modal.prompt(t('files.shareLinkCreated'), t('files.shareLinkManualCopy'), {
                 defaultValue: uploaded.url,
-                confirmText: t('common.ok'),
+                confirmText: t('common.copy'),
                 cancelText: t('common.cancel'),
                 multiline: true,
                 multilineRows: 3,
                 size: 'large',
             });
+            if (manualCopyUrl) {
+                const copiedManually = await copyTextToClipboardVerified(manualCopyUrl.trim());
+                if (copiedManually) showCopiedToast();
+            }
         } catch (shareError) {
             console.error('Failed to create public file share:', shareError);
             Modal.alert(t('common.error'), shareError instanceof Error ? shareError.message : 'Failed to create share link');
