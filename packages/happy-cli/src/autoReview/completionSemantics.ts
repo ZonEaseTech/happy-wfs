@@ -1,26 +1,34 @@
-const COMPLETION_PATTERNS = [
-  /(^|[\s，。！？,.!?])已完成([\s，。！？,.!?]|$)/i,
-  /修复完成/i,
-  /验证通过/i,
-  /已验证/i,
-  /请确认/i,
-  /可以提交/i,
-  /可以归档/i,
-  /待确认/i,
-  /\bdone\b/i,
-  /\bcompleted\b/i,
-  /\bfixed\b/i,
-  /\bverified\b/i,
-  /ready for review/i,
-  /ready to merge/i,
-  /please confirm/i,
-]
-
 const NON_COMPLETION_PATTERNS = [
   /准备.*完成/,
   /计划.*完成/,
   /需要.*完成/,
   /todo/i,
+  /自动完成度审查发现/,
+  /审查范围[:：]/,
+  /完成度|完成率/,
+  /请选择|请选一个|请选择一个|请你定夺|你想打算怎么拆|要我.*吗[？?]?/,
+]
+
+const COMPLETION_CLAIM_PATTERNS = [
+  /(实现|修复|调整|改动|处理|任务|功能|问题|代码|接口|页面|样式).{0,18}(完成|已完成|完成了)/i,
+  /(已|已经).{0,12}(实现|修复|调整|处理|验证|测试|构建|build|typecheck|部署|发布|提交|推送)/i,
+  /(验证|测试|typecheck|build|构建|部署|发布|提交|推送).{0,18}(通过|成功|完成|done)/i,
+  /可以(提交|归档|合并|merge)/i,
+  /ready for review|ready to merge/i,
+  /\b(implemented|fixed|verified|completed|done)\b/i,
+]
+
+const HANDOFF_PATTERNS = [
+  /(请|麻烦).{0,8}(确认|验收|检查|审阅|review)/i,
+  /please confirm/i,
+]
+
+const COMPLETION_EVIDENCE_PATTERNS = [
+  /git (status|diff|log|commit|push)/i,
+  /commit\s+[0-9a-f]{7,40}/i,
+  /PR|pull request|merge/i,
+  /typecheck|build|test|lint|vitest|tsc|pytest|go test|cargo test/i,
+  /验证|测试|构建|部署|发布|提交|推送|已生成|已修改|已实现|已修复|改动|变更/i,
 ]
 
 function collectText(value: unknown, output: string[]): void {
@@ -43,17 +51,53 @@ function collectText(value: unknown, output: string[]): void {
   }
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function phraseMatchesAsStatement(text: string, phrase: string): boolean {
+  const normalizedPhrase = phrase.trim()
+  if (!normalizedPhrase) return false
+  const boundary = '[\\s，。！？,.!?；;：:\\n]'
+  return new RegExp(`(^|${boundary})${escapeRegExp(normalizedPhrase)}(${boundary}|$)`, 'i').test(text)
+}
+
+function hasCompletionEvidence(text: string): boolean {
+  return COMPLETION_EVIDENCE_PATTERNS.some((pattern) => pattern.test(text))
+}
+
 export function normalizeReviewableAgentText(payload: unknown): string {
   const parts: string[] = []
   collectText(payload, parts)
   return [...new Set(parts.map((part) => part.trim()).filter(Boolean))].join('\n').trim()
 }
 
+export function completionClaimFingerprint(text: string): string {
+  return text
+    .toLocaleLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[0-9a-f]{7,40}/g, '<hash>')
+    .trim()
+    .slice(0, 2000)
+}
+
 export function hasCompletionSemantics(text: string, customPhrases?: string[]): boolean {
   const normalized = text.trim()
   if (!normalized) return false
   if (NON_COMPLETION_PATTERNS.some((pattern) => pattern.test(normalized))) return false
+
+  const hasEvidence = hasCompletionEvidence(normalized)
+  if (COMPLETION_CLAIM_PATTERNS.some((pattern) => pattern.test(normalized))) return true
+  if (HANDOFF_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return hasEvidence || /完成|已验证|已完成|修复|实现|验证|测试|提交|发布|部署|done|fixed|verified|completed/i.test(normalized)
+  }
+
   const phrases = customPhrases?.map((phrase) => phrase.trim()).filter(Boolean) ?? []
-  if (phrases.some((phrase) => normalized.toLocaleLowerCase().includes(phrase.toLocaleLowerCase()))) return true
-  return COMPLETION_PATTERNS.some((pattern) => pattern.test(normalized))
+  const hasCustomStatement = phrases.some((phrase) => phraseMatchesAsStatement(normalized, phrase))
+  if (!hasCustomStatement) return false
+
+  // Custom trigger phrases are a fallback only. Generic phrases like “完成”
+  // must appear as a standalone statement and be accompanied by work evidence;
+  // otherwise UI prompts such as “请选择完成度” or review messages loop forever.
+  return hasEvidence || normalized.length <= 24
 }

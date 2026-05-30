@@ -1,5 +1,5 @@
 import type { Metadata } from '@/api/types'
-import { hasCompletionSemantics } from './completionSemantics'
+import { completionClaimFingerprint, hasCompletionSemantics } from './completionSemantics'
 import { formatFollowUpMessage, shouldSendFollowUp, type ReviewResult } from './reviewer'
 
 type GuardMetadata = NonNullable<Metadata['autoReviewGuard']>
@@ -49,8 +49,11 @@ export class AutoReviewGuard {
     }
     if (!hasCompletionSemantics(text, metadata.autoReviewGuard.triggerPhrases)) return
     if (metadata.autoReviewGuard.lastTriggeredMessageId === messageId) return
+    const claimFingerprint = completionClaimFingerprint(text)
+    if (this.sentFollowUpFingerprints.has(`claim:${claimFingerprint}`)) return
     if (this.inFlight) return
 
+    this.sentFollowUpFingerprints.add(`claim:${claimFingerprint}`)
     this.lastClaim = text
     this.lastMessageId = messageId
     if (this.timer) clearTimeout(this.timer)

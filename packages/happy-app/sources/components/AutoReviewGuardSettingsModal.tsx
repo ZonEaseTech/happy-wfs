@@ -37,6 +37,7 @@ export function AutoReviewGuardSettingsModal({ visible, onClose, sessionId, guar
     const [followUpTemplate, setFollowUpTemplate] = React.useState('');
     const [sendSimplifyOnPass, setSendSimplifyOnPass] = React.useState(true);
     const [isReviewingNow, setIsReviewingNow] = React.useState(false);
+    const [showAdvancedTriggers, setShowAdvancedTriggers] = React.useState(false);
 
     React.useEffect(() => {
         if (!visible) return;
@@ -183,8 +184,19 @@ export function AutoReviewGuardSettingsModal({ visible, onClose, sessionId, guar
                         </View>
 
                         <View>
-                            <Text style={{ color: theme.colors.text, fontSize: 13, marginBottom: 6, ...Typography.default('semiBold') }}>{t('sessionInfo.autoReviewGuardTriggers')}</Text>
-                            <TextInput multiline value={triggerText} onChangeText={setTriggerText} style={[inputBase, { minHeight: 110, textAlignVertical: 'top' }]} placeholder={t('sessionInfo.autoReviewGuardTriggersPlaceholder')} placeholderTextColor={theme.colors.textSecondary} />
+                            <Pressable
+                                onPress={() => setShowAdvancedTriggers((value) => !value)}
+                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ color: theme.colors.text, fontSize: 13, ...Typography.default('semiBold') }}>{t('sessionInfo.autoReviewGuardTriggers')}</Text>
+                                    <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 3, ...Typography.default() }}>默认使用智能上下文判断；触发词仅作为高级兜底。</Text>
+                                </View>
+                                <Ionicons name={showAdvancedTriggers ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.textSecondary} />
+                            </Pressable>
+                            {showAdvancedTriggers ? (
+                                <TextInput multiline value={triggerText} onChangeText={setTriggerText} style={[inputBase, { minHeight: 110, textAlignVertical: 'top', marginTop: 8 }]} placeholder={t('sessionInfo.autoReviewGuardTriggersPlaceholder')} placeholderTextColor={theme.colors.textSecondary} />
+                            ) : null}
                         </View>
 
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AutoReviewGuard } from './AutoReviewGuard'
+import { hasCompletionSemantics } from './completionSemantics'
 
 const enabledMetadata = () => ({
   path: '/repo',
@@ -12,6 +13,26 @@ const enabledMetadata = () => ({
 })
 
 describe('AutoReviewGuard', () => {
+
+  it('ignores option prompts and auto review follow-up text that mention completion', () => {
+    expect(hasCompletionSemantics('请选一个，别再让审查空转了。\n认可当前完成度：撤销暂存，等我审代码')).toBe(false)
+    expect(hasCompletionSemantics('自动完成度审查发现以下漏项，请继续处理：\n1. 补证据')).toBe(false)
+    expect(hasCompletionSemantics('下面 4 个口径请你定夺（已标准推荐项），定完我就给完整设计')).toBe(false)
+    expect(hasCompletionSemantics('请确认这个方案是否可以')).toBe(false)
+  })
+
+  it('recognizes real completion claims with evidence or final handoff', () => {
+    expect(hasCompletionSemantics('实现完成，typecheck 通过，请确认')).toBe(true)
+    expect(hasCompletionSemantics('已验证，git status 干净，可以提交')).toBe(true)
+    expect(hasCompletionSemantics('修复完成')).toBe(true)
+  })
+
+  it('treats custom trigger phrases as statement fallback, not substring matching', () => {
+    expect(hasCompletionSemantics('当前代码完成度还不够', ['完成'])).toBe(false)
+    expect(hasCompletionSemantics('完成', ['完成'])).toBe(true)
+    expect(hasCompletionSemantics('构建通过，完成', ['完成'])).toBe(true)
+  })
+
   it('does not trigger when disabled', () => {
     const run = vi.fn()
     const guard = new AutoReviewGuard({
