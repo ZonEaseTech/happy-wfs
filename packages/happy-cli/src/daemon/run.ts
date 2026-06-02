@@ -1145,7 +1145,7 @@ export async function startDaemon(): Promise<void> {
     logger.debug(`[DAEMON RUN] Machine registered: ${machine.id}`);
 
     // Create realtime machine session
-    const apiMachine = api.machineSyncClient(machine);
+    const apiMachine = api.machineSyncClient(machine, initialDaemonState);
 
     // Set RPC handlers
     apiMachine.setRPCHandlers({

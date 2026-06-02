@@ -414,12 +414,12 @@ export function FileViewerModal({
     const isMachineMode = !sessionId && !!machineId;
     const session = sessionId ? getSession(sessionId) : undefined;
     const machineReadFallbackId = machineId ?? session?.metadata?.machineId;
-    const localStreamMachine = machineReadFallbackId ? getMachine(machineReadFallbackId) : undefined;
     const baseRoot = initialCwd ?? session?.metadata?.path ?? '';
     const [rootPath, setRootPath] = React.useState<string>(baseRoot);
-    const getLocalStreamUrl = React.useCallback((p: string): string | null => (
-        buildLocalDaemonFileStreamUrl(localStreamMachine?.daemonState?.httpPort, p)
-    ), [localStreamMachine?.daemonState?.httpPort]);
+    const getLocalStreamUrl = React.useCallback((p: string): string | null => {
+        const machine = machineReadFallbackId ? getMachine(machineReadFallbackId) : undefined;
+        return buildLocalDaemonFileStreamUrl(machine?.daemonState?.httpPort, p);
+    }, [machineReadFallbackId]);
 
     // Bind RPCs to the active mode once. Each closure dispatches to the right
     // implementation; the rest of the component stays mode-agnostic.
@@ -482,6 +482,7 @@ export function FileViewerModal({
     const [activeTabId, setActiveTabId] = React.useState<string | null>(null);
     const [loadingPath, setLoadingPath] = React.useState<string | null>(null);
     const [saving, setSaving] = React.useState(false);
+    const [videoLoadErrors, setVideoLoadErrors] = React.useState<Set<string>>(() => new Set());
     // Cursor position is updated by Monaco — but our upstream MonacoEditor
     // contract does not yet expose `onCursorChange`. Statusbar shows "—" until
     // impl-integrate (or a follow-up) extends the editor wrapper.
@@ -739,6 +740,7 @@ export function FileViewerModal({
             setActiveTabId(null);
             setOriginalContent(new Map());
             setDiffFetchFailed(new Set());
+            setVideoLoadErrors(new Set());
             return;
         }
         if (initialFilePath && initialOpenedRef.current !== initialFilePath) {
@@ -841,6 +843,12 @@ export function FileViewerModal({
         if (isVideo) {
             const streamUrl = getLocalStreamUrl(tab.path);
             if (streamUrl) {
+                setVideoLoadErrors(prev => {
+                    if (!prev.has(tab.id)) return prev;
+                    const next = new Set(prev);
+                    next.delete(tab.id);
+                    return next;
+                });
                 setTabs(prev => prev.map(p => p.id === tab.id
                     ? {
                         ...p,
@@ -882,6 +890,47 @@ export function FileViewerModal({
             : p,
         ));
     }, [activeTab, saveTab, readFile, getLocalStreamUrl]);
+
+    const handleVideoPreviewError = React.useCallback((tab: Tab) => {
+        setVideoLoadErrors(prev => {
+            const next = new Set(prev);
+            next.add(tab.id);
+            return next;
+        });
+
+        // If the localhost daemon stream is stale/unreachable (for example the
+        // daemon restarted and the browser still has an old port), try one
+        // readFile fallback. Small videos then still open instead of sitting on
+        // a black player. Data-URL failures should not recursively retry.
+        if (!tab.previewUri || tab.previewUri.startsWith('data:')) return;
+
+        void (async () => {
+            try {
+                const resp = await readFile(tab.path);
+                if (!resp.success || !resp.content) return;
+                const dataUri = `data:${getVideoMimeType(tab.path) ?? 'video/mp4'};base64,${resp.content}`;
+                setTabs(prev => prev.map(p => p.id === tab.id
+                    ? {
+                        ...p,
+                        content: resp.content ?? '',
+                        original: resp.content ?? '',
+                        mimeType: getVideoMimeType(tab.path) ?? 'video/mp4',
+                        previewUri: dataUri,
+                    }
+                    : p,
+                ));
+                setVideoLoadErrors(prev => {
+                    if (!prev.has(tab.id)) return prev;
+                    const next = new Set(prev);
+                    next.delete(tab.id);
+                    return next;
+                });
+            } catch {
+                // Keep the visible error state. The user can retry after the
+                // machine daemon reconnects and syncs its latest port.
+            }
+        })();
+    }, [readFile]);
 
     // Repair media tabs that were opened as text before the media-preview
     // support loaded. This protects long-lived web sessions after a deploy and
@@ -1564,13 +1613,14 @@ export function FileViewerModal({
                                         padding: 24,
                                     }}
                                 >
-                                    {activeTab.previewUri ? (
+                                    {activeTab.previewUri && !videoLoadErrors.has(activeTab.id) ? (
                                         <video
                                             key={activeTab.previewUri}
                                             src={activeTab.previewUri}
                                             controls
                                             playsInline
                                             preload="metadata"
+                                            onError={() => handleVideoPreviewError(activeTab)}
                                             style={{
                                                 width: '100%',
                                                 height: '100%',
@@ -1583,9 +1633,26 @@ export function FileViewerModal({
                                             }}
                                         />
                                     ) : (
-                                        <Text style={{ fontSize: 14, color: '#8f8f8f', ...Typography.default() }}>
-                                            {tx('fileViewer.openFailed')}
-                                        </Text>
+                                        <View style={{ alignItems: 'center', gap: 12, padding: 24 }}>
+                                            <Ionicons name="alert-circle-outline" size={34} color="#f48771" />
+                                            <Text style={{ fontSize: 14, color: '#cccccc', textAlign: 'center', ...Typography.default() }}>
+                                                {tx('fileViewer.openFailed')}
+                                            </Text>
+                                            <Pressable
+                                                onPress={() => { void refreshActiveTab(); }}
+                                                style={({ pressed }) => ({
+                                                    paddingHorizontal: 14,
+                                                    paddingVertical: 8,
+                                                    borderRadius: 6,
+                                                    backgroundColor: '#0e639c',
+                                                    opacity: pressed ? 0.75 : 1,
+                                                })}
+                                            >
+                                                <Text style={{ fontSize: 13, color: '#ffffff', ...Typography.default('semiBold') }}>
+                                                    {tx('fileViewer.refresh')}
+                                                </Text>
+                                            </Pressable>
+                                        </View>
                                     )}
                                 </div>
                             ) : previewTabIds.has(activeTab.id) && activeTab.language === 'markdown' ? (

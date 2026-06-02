@@ -9,6 +9,7 @@ import { logger } from '@/ui/logger';
 import { configuration } from '@/configuration';
 import { isDebug } from '@/utils/env';
 import { MachineMetadata, DaemonState, Machine, Update, UpdateMachineBody } from './types';
+import { buildRunningDaemonState } from './apiMachineDaemonState';
 import { registerCommonHandlers, SpawnSessionOptions, SpawnSessionResult } from '../modules/common/registerCommonHandlers';
 import { registerOpenClawHandlers, openClawTunnelManager } from '../modules/openclaw';
 import { registerPortProxyHandlers } from '../modules/portProxy/registerPortProxyHandlers';
@@ -185,7 +186,8 @@ export class ApiMachineClient {
 
     constructor(
         private token: string,
-        private machine: Machine
+        private machine: Machine,
+        private currentRuntimeDaemonState?: DaemonState | null
     ) {
         // Initialize RPC handler manager
         this.rpcHandlerManager = new RpcHandlerManager({
@@ -751,13 +753,10 @@ export class ApiMachineClient {
             // Update daemon state to running
             // We need to override previous state because the daemon (this process)
             // has restarted with new PID & port
-            this.updateDaemonState((state) => ({
-                ...state,
-                status: 'running',
-                pid: process.pid,
-                httpPort: this.machine.daemonState?.httpPort,
-                startedAt: Date.now()
-            }));
+            this.updateDaemonState((state) => buildRunningDaemonState(
+                state,
+                this.currentRuntimeDaemonState ?? this.machine.daemonState,
+            ));
 
 
             // Register all handlers

@@ -169,7 +169,9 @@ describe('desktop layout adjustments', () => {
         const source = read('components/FileViewerModal.web.tsx');
         expect(source).toContain('buildLocalDaemonFileStreamUrl');
         expect(source).toContain('const streamUrl = getLocalStreamUrl(path);');
+        expect(source).toContain('const machine = machineReadFallbackId ? getMachine(machineReadFallbackId) : undefined;');
         expect(source).toContain('previewUri: streamUrl');
+        expect(source).toContain('handleVideoPreviewError(activeTab)');
         expect(source).toContain('src={activeTab.previewUri}');
         expect(source).toContain("objectFit: 'contain'");
     });
