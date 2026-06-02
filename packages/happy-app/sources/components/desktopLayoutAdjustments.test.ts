@@ -192,6 +192,7 @@ describe('desktop layout adjustments', () => {
     it('offers a session-scoped allow all tools action in permission prompts', () => {
         const source = read('components/tools/PermissionFooter.tsx');
         expect(source).toContain('handleCodexApproveAllTools');
+        expect(source).toContain("sessionAllow(sessionId, permission.id, 'bypassPermissions', undefined, 'approved_for_session')");
         expect(source).toContain("updateSessionPermissionMode(sessionId, 'yolo')");
         expect(source).toContain('handleApproveAllTools');
         expect(source).toContain("sessionAllow(sessionId, permission.id, 'bypassPermissions')");

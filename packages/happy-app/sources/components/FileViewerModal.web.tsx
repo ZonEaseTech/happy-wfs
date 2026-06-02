@@ -34,7 +34,7 @@ import { ResizableHandle } from '@/components/ResizableHandle';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { getSession } from '@/sync/storage';
 import { t } from '@/text';
-import { getImageMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableImage } from '@/utils/fileViewer';
+import { getImageMimeType, getVideoMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableImage, isPreviewableVideo } from '@/utils/fileViewer';
 
 // Override the app's Modal Manager with native browser dialogs INSIDE this
 // file. Reason: the FileViewerModal is rendered via createPortal directly into
@@ -157,7 +157,7 @@ interface Tab {
     original: string;
     dirty: boolean;
     language: string;
-    kind: 'text' | 'image';
+    kind: 'text' | 'image' | 'video';
     mimeType?: string;
 }
 
@@ -670,16 +670,22 @@ export function FileViewerModal({
                 return;
             }
             const isImage = isPreviewableImage(path);
-            const text = isImage ? resp.content : decodeBase64Utf8(resp.content);
+            const isVideo = isPreviewableVideo(path);
+            const mediaKind: Tab['kind'] = isImage ? 'image' : isVideo ? 'video' : 'text';
+            const text = mediaKind !== 'text' ? resp.content : decodeBase64Utf8(resp.content);
             const newTab: Tab = {
                 id: `${path}::${Date.now()}`,
                 path,
                 content: text,
                 original: text,
                 dirty: false,
-                language: isImage ? 'image' : inferLanguage(path),
-                kind: isImage ? 'image' : 'text',
-                mimeType: isImage ? getImageMimeType(path) ?? 'image/png' : undefined,
+                language: mediaKind === 'text' ? inferLanguage(path) : mediaKind,
+                kind: mediaKind,
+                mimeType: isImage
+                    ? getImageMimeType(path) ?? 'image/png'
+                    : isVideo
+                        ? getVideoMimeType(path) ?? 'video/mp4'
+                        : undefined,
             };
             setTabs(prev => [...prev, newTab]);
             setActiveTabId(newTab.id);
@@ -810,41 +816,52 @@ export function FileViewerModal({
             return;
         }
         const isImage = isPreviewableImage(tab.path);
-        const text = isImage ? resp.content : decodeBase64Utf8(resp.content);
+        const isVideo = isPreviewableVideo(tab.path);
+        const mediaKind: Tab['kind'] = isImage ? 'image' : isVideo ? 'video' : 'text';
+        const text = mediaKind !== 'text' ? resp.content : decodeBase64Utf8(resp.content);
         setTabs(prev => prev.map(p => p.id === tab.id
             ? {
                 ...p,
                 content: text,
                 original: text,
                 dirty: false,
-                language: isImage ? 'image' : inferLanguage(tab.path),
-                kind: isImage ? 'image' : 'text',
-                mimeType: isImage ? getImageMimeType(tab.path) ?? 'image/png' : undefined,
+                language: mediaKind === 'text' ? inferLanguage(tab.path) : mediaKind,
+                kind: mediaKind,
+                mimeType: isImage
+                    ? getImageMimeType(tab.path) ?? 'image/png'
+                    : isVideo
+                        ? getVideoMimeType(tab.path) ?? 'video/mp4'
+                        : undefined,
             }
             : p,
         ));
     }, [activeTab, saveTab, readFile]);
 
-    // Repair image tabs that were opened as text before the image-preview
+    // Repair media tabs that were opened as text before the media-preview
     // support loaded. This protects long-lived web sessions after a deploy and
-    // turns existing garbled JPG/PNG tabs into real previews without requiring
-    // the user to close/reopen each file.
+    // turns existing garbled JPG/PNG/MP4/WebM tabs into real previews without
+    // requiring the user to close/reopen each file.
     React.useEffect(() => {
-        if (!activeTab || activeTab.kind === 'image' || !isPreviewableImage(activeTab.path)) return;
+        const shouldBeImage = !!activeTab && isPreviewableImage(activeTab.path);
+        const shouldBeVideo = !!activeTab && isPreviewableVideo(activeTab.path);
+        if (!activeTab || activeTab.kind === 'image' || activeTab.kind === 'video' || (!shouldBeImage && !shouldBeVideo)) return;
         let cancelled = false;
         void (async () => {
             const resp = await readFile(activeTab.path);
             if (cancelled || !resp.success || !resp.content) return;
             const content = resp.content;
+            const kind: Tab['kind'] = shouldBeImage ? 'image' : 'video';
             setTabs(prev => prev.map(tab => tab.id === activeTab.id
                 ? {
                     ...tab,
                     content,
                     original: content,
                     dirty: false,
-                    language: 'image',
-                    kind: 'image',
-                    mimeType: getImageMimeType(tab.path) ?? 'image/png',
+                    language: kind,
+                    kind,
+                    mimeType: shouldBeImage
+                        ? getImageMimeType(tab.path) ?? 'image/png'
+                        : getVideoMimeType(tab.path) ?? 'video/mp4',
                 }
                 : tab,
             ));
@@ -1462,6 +1479,29 @@ export function FileViewerModal({
                                             maxWidth: '100%',
                                             maxHeight: '100%',
                                             objectFit: 'contain',
+                                            borderRadius: 6,
+                                        }}
+                                    />
+                                </View>
+                            ) : activeTab.kind === 'video' ? (
+                                <View style={{
+                                    flex: 1,
+                                    backgroundColor: '#1e1e1e',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: 24,
+                                }}>
+                                    <video
+                                        src={`data:${activeTab.mimeType ?? 'video/mp4'};base64,${activeTab.content}`}
+                                        controls
+                                        playsInline
+                                        preload="metadata"
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            maxWidth: '100%',
+                                            maxHeight: '100%',
+                                            backgroundColor: '#000',
                                             borderRadius: 6,
                                         }}
                                     />

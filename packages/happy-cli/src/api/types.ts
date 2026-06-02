@@ -431,6 +431,7 @@ export type AgentState = {
       mode?: PermissionMode,
       decision?: 'approved' | 'approved_for_session' | 'denied' | 'abort',
       allowTools?: string[]
+      allowedTools?: string[]
     }
   }
 }

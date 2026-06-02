@@ -15,6 +15,7 @@ type PermissionRpcResponse = {
   id: string;
   approved: boolean;
   decision?: 'approved' | 'approved_for_session' | 'denied' | 'abort';
+  mode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
 };
 
 describe('GeminiPermissionHandler', () => {
@@ -79,6 +80,31 @@ describe('GeminiPermissionHandler', () => {
       arguments: { command: 'pwd' },
       status: 'approved',
       decision: 'approved',
+    });
+  });
+
+
+  it('preserves permission response mode in completed requests for UI selection state', async () => {
+    const handler = new GeminiPermissionHandler(session, pushClient);
+    handler.setPermissionMode('default');
+
+    const pending = handler.handleToolCall('tool-3', 'Bash', { command: 'whoami' });
+
+    expect(permissionRpcHandler).toBeDefined();
+    await permissionRpcHandler!({
+      id: 'tool-3',
+      approved: true,
+      decision: 'approved_for_session',
+      mode: 'bypassPermissions',
+    });
+
+    await expect(pending).resolves.toEqual({ decision: 'approved_for_session' });
+    expect(agentState.completedRequests?.['tool-3']).toMatchObject({
+      tool: 'Bash',
+      arguments: { command: 'whoami' },
+      status: 'approved',
+      decision: 'approved_for_session',
+      mode: 'bypassPermissions',
     });
   });
 });

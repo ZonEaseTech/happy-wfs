@@ -148,7 +148,7 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
 
         setLoadingAllTools(true);
         try {
-            await sessionAllow(sessionId, permission.id, undefined, undefined, 'approved_for_session');
+            await sessionAllow(sessionId, permission.id, 'bypassPermissions', undefined, 'approved_for_session');
             storage.getState().updateSessionPermissionMode(sessionId, 'yolo');
         } catch (error) {
             console.error('Failed to approve all tools for session:', error);
@@ -199,7 +199,8 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
     
     // Codex-specific status detection with fallback
     const isCodexApproved = isCodex && isApproved && (permission.decision === 'approved' || !permission.decision);
-    const isCodexApprovedForSession = isCodex && isApproved && permission.decision === 'approved_for_session';
+    const isCodexApprovedAllTools = isCodex && isApproved && permission.decision === 'approved_for_session' && permission.mode === 'bypassPermissions';
+    const isCodexApprovedForSession = isCodex && isApproved && permission.decision === 'approved_for_session' && !isCodexApprovedAllTools;
     const isCodexAborted = isCodex && isDenied && permission.decision === 'abort';
 
     const styles = StyleSheet.create({
@@ -367,6 +368,7 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
                         style={[
                             styles.button,
                             isPending && styles.buttonAllowAll,
+                            isCodexApprovedAllTools && styles.buttonSelected,
                             (isCodexAborted || isCodexApproved || isCodexApprovedForSession) && styles.buttonInactive
                         ]}
                         onPress={handleCodexApproveAllTools}
@@ -381,7 +383,8 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
                             <View style={styles.buttonContent}>
                                 <Text style={[
                                     styles.buttonText,
-                                    isPending && styles.buttonTextAllowAll
+                                    isPending && styles.buttonTextAllowAll,
+                                    isCodexApprovedAllTools && styles.buttonTextSelected
                                 ]} numberOfLines={1} ellipsizeMode="tail">
                                     {t('codex.permissions.yesAllowAllTools')}
                                 </Text>

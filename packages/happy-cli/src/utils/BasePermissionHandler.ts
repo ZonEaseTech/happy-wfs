@@ -19,6 +19,8 @@ export interface PermissionResponse {
     id: string;
     approved: boolean;
     decision?: 'approved' | 'approved_for_session' | 'denied' | 'abort';
+    mode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+    allowTools?: string[];
 }
 
 /**
@@ -116,7 +118,9 @@ export abstract class BasePermissionHandler {
                                 ...request,
                                 completedAt: Date.now(),
                                 status: response.approved ? 'approved' : 'denied',
-                                decision: result.decision
+                                decision: result.decision,
+                                mode: response.mode,
+                                allowedTools: response.allowTools
                             }
                         }
                     } satisfies AgentState;
