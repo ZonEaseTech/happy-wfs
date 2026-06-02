@@ -1618,6 +1618,7 @@ export function FileViewerModal({
                                             key={activeTab.previewUri}
                                             src={activeTab.previewUri}
                                             controls
+                                            crossOrigin="anonymous"
                                             playsInline
                                             preload="metadata"
                                             onError={() => handleVideoPreviewError(activeTab)}

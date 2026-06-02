@@ -165,6 +165,12 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('return machineReadFile(machineReadFallbackId, p);');
     });
 
+    it('does not route image file previews through the video stream player', () => {
+        const source = read('app/(app)/session/[id]/file.tsx');
+        expect(source).toContain("const videoPreviewUri = isPreviewVideoFile ? (");
+        expect(source).toContain("const localDaemonFileStreamUrl = Platform.OS === 'web' && isPreviewVideoFile");
+    });
+
     it('opens desktop video previews through the local daemon stream instead of base64 reads', () => {
         const source = read('components/FileViewerModal.web.tsx');
         expect(source).toContain('buildLocalDaemonFileStreamUrl');
@@ -173,7 +179,14 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('previewUri: streamUrl');
         expect(source).toContain('handleVideoPreviewError(activeTab)');
         expect(source).toContain('src={activeTab.previewUri}');
+        expect(source).toContain('crossOrigin="anonymous"');
         expect(source).toContain("objectFit: 'contain'");
+
+        const route = read('app/(app)/session/[id]/file.tsx');
+        expect(route).toContain("crossOrigin: 'anonymous'");
+        expect(route).toContain('failedVideoStreamPaths');
+        expect(route).toContain('handleVideoPreviewError');
+        expect(route).toContain('onError={handleVideoPreviewError}');
     });
 
     it('manages enter-to-send separately for web/desktop and mobile', () => {

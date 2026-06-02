@@ -86,13 +86,16 @@ function HtmlPreview(props: { html: string; fileName: string }) {
 }
 
 
-function VideoPreview(props: { uri: string; fileName: string }) {
+function VideoPreview(props: { uri: string; fileName: string; onError?: () => void }) {
     if (Platform.OS === 'web') {
         return (
             <View style={styles.videoPreviewContainer}>
                 {React.createElement('video', {
                     controls: true,
+                    crossOrigin: 'anonymous',
+                    onError: props.onError,
                     playsInline: true,
+                    preload: 'metadata',
                     src: props.uri,
                     style: {
                         maxWidth: '100%',
@@ -329,6 +332,7 @@ export default function FileScreen(props?: FileScreenProps) {
     const [imageMimeType, setImageMimeType] = React.useState('image/png');
     const [videoBase64, setVideoBase64] = React.useState<string | null>(null);
     const [videoMimeType, setVideoMimeType] = React.useState('video/mp4');
+    const [failedVideoStreamPaths, setFailedVideoStreamPaths] = React.useState<Set<string>>(() => new Set());
     const [imageViewerVisible, setImageViewerVisible] = React.useState(false);
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
@@ -350,12 +354,24 @@ export default function FileScreen(props?: FileScreenProps) {
     const canReadFromMachine = !!machineFileReaderId && (isTemporaryFilePath(filePath) || isMachineScopedSpreadsheetPath(filePath));
     const machineReadFallbackId = machineFileReaderId ?? session?.metadata?.machineId;
     const localStreamMachine = machineReadFallbackId ? getMachine(machineReadFallbackId) : undefined;
-    const localDaemonFileStreamUrl = Platform.OS === 'web'
+    const localDaemonFileStreamUrl = Platform.OS === 'web' && isPreviewVideoFile && !failedVideoStreamPaths.has(filePath)
         ? buildLocalDaemonFileStreamUrl(localStreamMachine?.daemonState?.httpPort, filePath)
         : null;
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
-    const videoPreviewUri = videoBase64 ? `data:${videoMimeType};base64,${videoBase64}` : localDaemonFileStreamUrl;
+    const videoPreviewUri = isPreviewVideoFile ? (
+        videoBase64 ? `data:${videoMimeType};base64,${videoBase64}` : localDaemonFileStreamUrl
+    ) : null;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
+
+    const handleVideoPreviewError = React.useCallback(() => {
+        if (!localDaemonFileStreamUrl) return;
+        setFailedVideoStreamPaths((current) => {
+            if (current.has(filePath)) return current;
+            const next = new Set(current);
+            next.add(filePath);
+            return next;
+        });
+    }, [filePath, localDaemonFileStreamUrl]);
 
     // Relative path for display/copy (relative to repo, not workspace root)
     const relativePath = React.useMemo(() => {
@@ -1136,7 +1152,7 @@ export default function FileScreen(props?: FileScreenProps) {
 
             {videoPreviewUri ? (
                 <View style={{ flex: 1, padding: 16 }}>
-                    <VideoPreview uri={videoPreviewUri} fileName={fileName} />
+                    <VideoPreview uri={videoPreviewUri} fileName={fileName} onError={handleVideoPreviewError} />
                 </View>
             ) : imagePreviewUri ? (
                 <>
