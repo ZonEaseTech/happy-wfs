@@ -59,8 +59,18 @@ function phraseMatchesAsStatement(text: string, phrase: string): boolean {
   const normalizedPhrase = phrase.trim()
   if (!normalizedPhrase) return false
   const boundary = '[\\s，。！？,.!?；;：:\\n]'
-  return new RegExp(`(^|${boundary})${escapeRegExp(normalizedPhrase)}(${boundary}|$)`, 'i').test(text)
+  if (new RegExp(`(^|${boundary})${escapeRegExp(normalizedPhrase)}(${boundary}|$)`, 'i').test(text)) {
+    return true
+  }
+  // Chinese trigger phrases are often embedded in a short sentence, e.g.
+  // “我处理好了”. Keep this limited to longer custom phrases so generic
+  // triggers like “完成” do not reintroduce noisy loops.
+  return /[\u4e00-\u9fff]/.test(normalizedPhrase)
+    && normalizedPhrase.length >= 3
+    && text.length <= 32
+    && text.includes(normalizedPhrase)
 }
+
 
 function hasCompletionEvidence(text: string): boolean {
   return COMPLETION_EVIDENCE_PATTERNS.some((pattern) => pattern.test(text))
