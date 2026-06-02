@@ -32,9 +32,9 @@ import { compressAndDownload } from '@/components/fileViewer/archiveOps';
 import { shellEscape } from '@/utils/shellEscape';
 import { ResizableHandle } from '@/components/ResizableHandle';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
-import { getSession } from '@/sync/storage';
+import { getMachine, getSession } from '@/sync/storage';
 import { t } from '@/text';
-import { getImageMimeType, getVideoMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableImage, isPreviewableVideo } from '@/utils/fileViewer';
+import { buildLocalDaemonFileStreamUrl, getImageMimeType, getVideoMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableImage, isPreviewableVideo } from '@/utils/fileViewer';
 
 // Override the app's Modal Manager with native browser dialogs INSIDE this
 // file. Reason: the FileViewerModal is rendered via createPortal directly into
@@ -159,6 +159,7 @@ interface Tab {
     language: string;
     kind: 'text' | 'image' | 'video';
     mimeType?: string;
+    previewUri?: string;
 }
 
 type CloseDecision = 'save' | 'discard' | 'cancel';
@@ -413,8 +414,12 @@ export function FileViewerModal({
     const isMachineMode = !sessionId && !!machineId;
     const session = sessionId ? getSession(sessionId) : undefined;
     const machineReadFallbackId = machineId ?? session?.metadata?.machineId;
+    const localStreamMachine = machineReadFallbackId ? getMachine(machineReadFallbackId) : undefined;
     const baseRoot = initialCwd ?? session?.metadata?.path ?? '';
     const [rootPath, setRootPath] = React.useState<string>(baseRoot);
+    const getLocalStreamUrl = React.useCallback((p: string): string | null => (
+        buildLocalDaemonFileStreamUrl(localStreamMachine?.daemonState?.httpPort, p)
+    ), [localStreamMachine?.daemonState?.httpPort]);
 
     // Bind RPCs to the active mode once. Each closure dispatches to the right
     // implementation; the rest of the component stays mode-agnostic.
@@ -652,6 +657,27 @@ export function FileViewerModal({
         }
         setLoadingPath(path);
         try {
+            const isVideo = isPreviewableVideo(path);
+            if (isVideo) {
+                const streamUrl = getLocalStreamUrl(path);
+                if (streamUrl) {
+                    const newTab: Tab = {
+                        id: `${path}::${Date.now()}`,
+                        path,
+                        content: '',
+                        original: '',
+                        dirty: false,
+                        language: 'video',
+                        kind: 'video',
+                        mimeType: getVideoMimeType(path) ?? 'video/mp4',
+                        previewUri: streamUrl,
+                    };
+                    setTabs(prev => [...prev, newTab]);
+                    setActiveTabId(newTab.id);
+                    return;
+                }
+            }
+
             let resp;
             try {
                 resp = await readFile(path);
@@ -670,7 +696,6 @@ export function FileViewerModal({
                 return;
             }
             const isImage = isPreviewableImage(path);
-            const isVideo = isPreviewableVideo(path);
             const mediaKind: Tab['kind'] = isImage ? 'image' : isVideo ? 'video' : 'text';
             const text = mediaKind !== 'text' ? resp.content : decodeBase64Utf8(resp.content);
             const newTab: Tab = {
@@ -686,6 +711,7 @@ export function FileViewerModal({
                     : isVideo
                         ? getVideoMimeType(path) ?? 'video/mp4'
                         : undefined,
+                previewUri: isVideo ? `data:${getVideoMimeType(path) ?? 'video/mp4'};base64,${resp.content}` : undefined,
             };
             setTabs(prev => [...prev, newTab]);
             setActiveTabId(newTab.id);
@@ -699,7 +725,7 @@ export function FileViewerModal({
         } finally {
             setLoadingPath(null);
         }
-    }, [readFile, initialFromGit, fetchHeadVersion]);
+    }, [readFile, initialFromGit, fetchHeadVersion, getLocalStreamUrl]);
 
     // Auto-open initialFilePath when modal becomes visible. When the modal is
     // hidden we also reset the entire tab state so reopening doesn't surface stale
@@ -810,13 +836,32 @@ export function FileViewerModal({
                 if (!ok) return;
             }
         }
+        const isImage = isPreviewableImage(tab.path);
+        const isVideo = isPreviewableVideo(tab.path);
+        if (isVideo) {
+            const streamUrl = getLocalStreamUrl(tab.path);
+            if (streamUrl) {
+                setTabs(prev => prev.map(p => p.id === tab.id
+                    ? {
+                        ...p,
+                        content: '',
+                        original: '',
+                        dirty: false,
+                        language: 'video',
+                        kind: 'video',
+                        mimeType: getVideoMimeType(tab.path) ?? 'video/mp4',
+                        previewUri: streamUrl,
+                    }
+                    : p,
+                ));
+                return;
+            }
+        }
         const resp = await readFile(tab.path);
         if (!resp.success || !resp.content) {
             Modal.alert(t('common.error'), resp.error || tx('fileViewer.openFailed'));
             return;
         }
-        const isImage = isPreviewableImage(tab.path);
-        const isVideo = isPreviewableVideo(tab.path);
         const mediaKind: Tab['kind'] = isImage ? 'image' : isVideo ? 'video' : 'text';
         const text = mediaKind !== 'text' ? resp.content : decodeBase64Utf8(resp.content);
         setTabs(prev => prev.map(p => p.id === tab.id
@@ -832,10 +877,11 @@ export function FileViewerModal({
                     : isVideo
                         ? getVideoMimeType(tab.path) ?? 'video/mp4'
                         : undefined,
+                previewUri: isVideo ? `data:${getVideoMimeType(tab.path) ?? 'video/mp4'};base64,${resp.content}` : undefined,
             }
             : p,
         ));
-    }, [activeTab, saveTab, readFile]);
+    }, [activeTab, saveTab, readFile, getLocalStreamUrl]);
 
     // Repair media tabs that were opened as text before the media-preview
     // support loaded. This protects long-lived web sessions after a deploy and
@@ -847,6 +893,25 @@ export function FileViewerModal({
         if (!activeTab || activeTab.kind === 'image' || activeTab.kind === 'video' || (!shouldBeImage && !shouldBeVideo)) return;
         let cancelled = false;
         void (async () => {
+            if (shouldBeVideo) {
+                const streamUrl = getLocalStreamUrl(activeTab.path);
+                if (streamUrl && !cancelled) {
+                    setTabs(prev => prev.map(tab => tab.id === activeTab.id
+                        ? {
+                            ...tab,
+                            content: '',
+                            original: '',
+                            dirty: false,
+                            language: 'video',
+                            kind: 'video',
+                            mimeType: getVideoMimeType(tab.path) ?? 'video/mp4',
+                            previewUri: streamUrl,
+                        }
+                        : tab,
+                    ));
+                    return;
+                }
+            }
             const resp = await readFile(activeTab.path);
             if (cancelled || !resp.success || !resp.content) return;
             const content = resp.content;
@@ -862,6 +927,7 @@ export function FileViewerModal({
                     mimeType: shouldBeImage
                         ? getImageMimeType(tab.path) ?? 'image/png'
                         : getVideoMimeType(tab.path) ?? 'video/mp4',
+                    previewUri: shouldBeVideo ? `data:${getVideoMimeType(tab.path) ?? 'video/mp4'};base64,${content}` : undefined,
                 }
                 : tab,
             ));
@@ -869,7 +935,7 @@ export function FileViewerModal({
         return () => {
             cancelled = true;
         };
-    }, [activeTab, readFile]);
+    }, [activeTab, readFile, getLocalStreamUrl]);
 
     // Esc closes the modal — but we route through requestClose so dirty tabs
     // still get the save/discard prompt.
@@ -1484,28 +1550,44 @@ export function FileViewerModal({
                                     />
                                 </View>
                             ) : activeTab.kind === 'video' ? (
-                                <View style={{
-                                    flex: 1,
-                                    backgroundColor: '#1e1e1e',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: 24,
-                                }}>
-                                    <video
-                                        src={`data:${activeTab.mimeType ?? 'video/mp4'};base64,${activeTab.content}`}
-                                        controls
-                                        playsInline
-                                        preload="metadata"
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            maxWidth: '100%',
-                                            maxHeight: '100%',
-                                            backgroundColor: '#000',
-                                            borderRadius: 6,
-                                        }}
-                                    />
-                                </View>
+                                <div
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        minWidth: 0,
+                                        minHeight: 0,
+                                        boxSizing: 'border-box',
+                                        background: '#1e1e1e',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: 24,
+                                    }}
+                                >
+                                    {activeTab.previewUri ? (
+                                        <video
+                                            key={activeTab.previewUri}
+                                            src={activeTab.previewUri}
+                                            controls
+                                            playsInline
+                                            preload="metadata"
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                maxWidth: '100%',
+                                                maxHeight: '100%',
+                                                objectFit: 'contain',
+                                                backgroundColor: '#000',
+                                                borderRadius: 6,
+                                                display: 'block',
+                                            }}
+                                        />
+                                    ) : (
+                                        <Text style={{ fontSize: 14, color: '#8f8f8f', ...Typography.default() }}>
+                                            {tx('fileViewer.openFailed')}
+                                        </Text>
+                                    )}
+                                </div>
                             ) : previewTabIds.has(activeTab.id) && activeTab.language === 'markdown' ? (
                                 <ScrollView
                                     style={{ flex: 1, backgroundColor: '#1e1e1e' }}

@@ -48,6 +48,13 @@ export class PermissionHandler {
     private lastNonPlanPermissionMode: Exclude<PermissionMode, 'plan'> = 'default';
     private onPermissionRequestCallback?: (toolCallId: string) => void;
 
+    private isUserInteractionTool(toolName: string): boolean {
+        // User-interaction tools always require explicit user approval — they
+        // exist *to* gather user input, so auto-approving them throws away the
+        // entire purpose of the tool call.
+        return ['AskUserQuestion', 'ExitPlanMode', 'exit_plan_mode'].includes(toolName);
+    }
+
     constructor(session: Session) {
         this.session = session;
         this.setupClientHandler();
@@ -105,6 +112,10 @@ export class PermissionHandler {
             if (response.mode !== 'plan') {
                 this.lastNonPlanPermissionMode = response.mode;
             }
+        }
+
+        if (response.approved && response.mode === 'bypassPermissions') {
+            this.approvePendingNonInteractiveRequests(response);
         }
 
         // Handle 
@@ -169,13 +180,7 @@ export class PermissionHandler {
         // Handle special cases
         //
 
-        // User-interaction tools always require explicit user approval — they
-        // exist *to* gather user input, so auto-approving them throws away the
-        // entire purpose of the tool call. The agent ends up with empty
-        // answers like { "23 分支": "-", "脏树处理": "-" } and pretends the
-        // user chose nothing. Applies to every mode, including yolo.
-        const requiresUserApproval = ['AskUserQuestion', 'ExitPlanMode', 'exit_plan_mode'];
-        const isUserInteractionTool = requiresUserApproval.includes(toolName);
+        const isUserInteractionTool = this.isUserInteractionTool(toolName);
 
         // YOLO mode: auto-approve everything except the user-interaction tools.
         if (this.permissionMode === 'yolo' && !isUserInteractionTool) {
@@ -268,6 +273,61 @@ export class PermissionHandler {
             }));
 
             logger.debug(`Permission request sent for tool call ${id}: ${toolName}`);
+        });
+    }
+
+    private approvePendingNonInteractiveRequests(response: PermissionResponse): void {
+        const pendingSnapshot = Array.from(this.pendingRequests.entries());
+        const completedAt = Date.now();
+
+        for (const [id, pending] of pendingSnapshot) {
+            if (this.isUserInteractionTool(pending.toolName)) {
+                continue;
+            }
+
+            this.pendingRequests.delete(id);
+            const updatedInput = (pending.input as Record<string, unknown>) || {};
+            pending.resolve({ behavior: 'allow', updatedInput });
+        }
+
+        if (pendingSnapshot.length === 0) {
+            return;
+        }
+
+        this.session.client.updateAgentState((currentState) => {
+            const requests = { ...(currentState.requests || {}) };
+            const completedRequests = { ...currentState.completedRequests };
+            let changed = false;
+
+            for (const [id, pending] of pendingSnapshot) {
+                if (this.isUserInteractionTool(pending.toolName)) {
+                    continue;
+                }
+                const request = requests[id];
+                if (!request) {
+                    continue;
+                }
+                delete requests[id];
+                completedRequests[id] = {
+                    ...request,
+                    completedAt,
+                    status: 'approved',
+                    reason: response.reason,
+                    mode: response.mode,
+                    allowTools: response.allowTools
+                };
+                changed = true;
+            }
+
+            if (!changed) {
+                return currentState;
+            }
+
+            return {
+                ...currentState,
+                requests,
+                completedRequests
+            };
         });
     }
 

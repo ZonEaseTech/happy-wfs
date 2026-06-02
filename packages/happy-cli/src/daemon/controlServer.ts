@@ -13,7 +13,7 @@ import { logger } from '@/ui/logger';
 import { Metadata } from '@/api/types';
 import { TrackedSession } from './types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
-import { getFileStreamContentType, parseFileStreamRange } from './fileStream';
+import { getFileStreamContentType, getFileStreamCorsHeaders, parseFileStreamRange } from './fileStream';
 
 export function startDaemonControlServer({
   getChildren,
@@ -40,9 +40,9 @@ export function startDaemonControlServer({
 
 
     const addFileStreamCorsHeaders = (reply: any) => {
-      reply.header('Access-Control-Allow-Origin', '*');
-      reply.header('Access-Control-Allow-Headers', 'Range');
-      reply.header('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Length, Content-Range, Content-Type');
+      for (const [key, value] of Object.entries(getFileStreamCorsHeaders())) {
+        reply.header(key, value);
+      }
     };
 
     typed.options('/file-stream', async (_request, reply) => {

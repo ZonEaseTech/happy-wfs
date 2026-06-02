@@ -17,6 +17,15 @@ export function getFileStreamContentType(filePath: string): string {
   return VIDEO_CONTENT_TYPES[extension] ?? 'application/octet-stream';
 }
 
+export function getFileStreamCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Range, Access-Control-Request-Private-Network',
+    'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range, Content-Type',
+    'Access-Control-Allow-Private-Network': 'true',
+  };
+}
+
 export function parseFileStreamRange(rangeHeader: string | undefined, size: number): FileStreamRange {
   if (!Number.isSafeInteger(size) || size <= 0) {
     return { ok: false };

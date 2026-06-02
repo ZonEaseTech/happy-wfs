@@ -107,4 +107,38 @@ describe('GeminiPermissionHandler', () => {
       mode: 'bypassPermissions',
     });
   });
+
+  it('approves already-pending requests when allow-all is selected', async () => {
+    const handler = new GeminiPermissionHandler(session, pushClient);
+    handler.setPermissionMode('default');
+
+    const firstPending = handler.handleToolCall('tool-4', 'read_file', { path: 'a.txt' });
+    const secondPending = handler.handleToolCall('tool-5', 'run_shell_command', { command: 'pwd' });
+
+    expect(agentState.requests?.['tool-4']).toBeDefined();
+    expect(agentState.requests?.['tool-5']).toBeDefined();
+    expect(permissionRpcHandler).toBeDefined();
+
+    await permissionRpcHandler!({
+      id: 'tool-4',
+      approved: true,
+      decision: 'approved_for_session',
+      mode: 'bypassPermissions',
+    });
+
+    await expect(firstPending).resolves.toEqual({ decision: 'approved_for_session' });
+    await expect(secondPending).resolves.toEqual({ decision: 'approved_for_session' });
+    expect(agentState.requests?.['tool-4']).toBeUndefined();
+    expect(agentState.requests?.['tool-5']).toBeUndefined();
+    expect(agentState.completedRequests?.['tool-4']).toMatchObject({
+      status: 'approved',
+      decision: 'approved_for_session',
+      mode: 'bypassPermissions',
+    });
+    expect(agentState.completedRequests?.['tool-5']).toMatchObject({
+      status: 'approved',
+      decision: 'approved_for_session',
+      mode: 'bypassPermissions',
+    });
+  });
 });

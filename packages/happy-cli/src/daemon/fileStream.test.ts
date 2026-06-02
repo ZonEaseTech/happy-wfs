@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getFileStreamContentType, parseFileStreamRange } from './fileStream';
+import { getFileStreamContentType, getFileStreamCorsHeaders, parseFileStreamRange } from './fileStream';
 
 describe('daemon file stream helpers', () => {
   it('maps video extensions to browser-playable content types', () => {
@@ -7,6 +7,14 @@ describe('daemon file stream helpers', () => {
     expect(getFileStreamContentType('/tmp/demo.mp4')).toBe('video/mp4');
     expect(getFileStreamContentType('/tmp/demo.mov')).toBe('video/quicktime');
     expect(getFileStreamContentType('/tmp/demo.bin')).toBe('application/octet-stream');
+  });
+
+  it('allows browser media requests from the HTTPS app to local daemon streams', () => {
+    expect(getFileStreamCorsHeaders()).toMatchObject({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': expect.stringContaining('Range'),
+      'Access-Control-Allow-Private-Network': 'true',
+    });
   });
 
   it('parses browser range requests for streaming playback', () => {

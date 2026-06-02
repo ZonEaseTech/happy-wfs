@@ -24,6 +24,7 @@ type PermissionRpcResponse = {
   id: string;
   approved: boolean;
   reason?: string;
+  mode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
   answers?: Record<string, string>;
 };
 
@@ -88,6 +89,57 @@ describe('PermissionHandler AskUserQuestion', () => {
     expect(agentState.completedRequests?.['tool-ask-1']).toMatchObject({
       status: 'approved',
       answers: { Scope: '先跟我说说 当前任务要做什么事' },
+    });
+  });
+
+  it('approves already-pending non-interactive requests when bypassPermissions is selected', async () => {
+    const handler = new PermissionHandler(session);
+    const firstInput = { id: 347 };
+    const secondInput = { command: 'pwd' };
+    handler.onMessage({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'tool_use', id: 'tool-note-1', name: 'mcp__it_note__get_node', input: firstInput },
+          { type: 'tool_use', id: 'tool-bash-1', name: 'Bash', input: secondInput },
+        ],
+      },
+    } as any);
+
+    const firstPending = handler.handleToolCall('mcp__it_note__get_node', firstInput, 'default' as any, {
+      signal: new AbortController().signal,
+    });
+    const secondPending = handler.handleToolCall('Bash', secondInput, 'default' as any, {
+      signal: new AbortController().signal,
+    });
+
+    expect(agentState.requests?.['tool-note-1']).toBeDefined();
+    expect(agentState.requests?.['tool-bash-1']).toBeDefined();
+    expect(permissionRpcHandler).toBeDefined();
+
+    await permissionRpcHandler!({
+      id: 'tool-note-1',
+      approved: true,
+      mode: 'bypassPermissions',
+    });
+
+    await expect(firstPending).resolves.toEqual({
+      behavior: 'allow',
+      updatedInput: firstInput,
+    });
+    await expect(secondPending).resolves.toEqual({
+      behavior: 'allow',
+      updatedInput: secondInput,
+    });
+    expect(agentState.requests?.['tool-note-1']).toBeUndefined();
+    expect(agentState.requests?.['tool-bash-1']).toBeUndefined();
+    expect(agentState.completedRequests?.['tool-note-1']).toMatchObject({
+      status: 'approved',
+      mode: 'bypassPermissions',
+    });
+    expect(agentState.completedRequests?.['tool-bash-1']).toMatchObject({
+      status: 'approved',
+      mode: 'bypassPermissions',
     });
   });
 });

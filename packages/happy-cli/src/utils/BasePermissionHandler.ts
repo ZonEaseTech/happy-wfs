@@ -62,6 +62,10 @@ export abstract class BasePermissionHandler {
      */
     protected abstract getAgentName(): string;
 
+    protected isUserInteractionTool(toolName: string): boolean {
+        return ['AskUserQuestion', 'ExitPlanMode', 'exit_plan_mode'].includes(toolName);
+    }
+
     constructor(session: ApiSessionClient, pushClient: PushNotificationClient) {
         this.session = session;
         this.pushClient = pushClient;
@@ -102,6 +106,10 @@ export abstract class BasePermissionHandler {
 
                 pending.resolve(result);
 
+                if (response.approved && (response.mode === 'bypassPermissions' || response.decision === 'approved_for_session')) {
+                    this.approvePendingRequestsForSession(response);
+                }
+
                 // Move request to completed in agent state
                 this.session.updateAgentState((currentState) => {
                     const request = currentState.requests?.[response.id];
@@ -130,6 +138,59 @@ export abstract class BasePermissionHandler {
                 logger.debug(`${this.getLogPrefix()} Permission ${response.approved ? 'approved' : 'denied'} for ${pending.toolName}`);
             }
         );
+    }
+
+    private approvePendingRequestsForSession(response: PermissionResponse): void {
+        const pendingSnapshot = Array.from(this.pendingRequests.entries());
+        const completedAt = Date.now();
+
+        for (const [id, pending] of pendingSnapshot) {
+            if (this.isUserInteractionTool(pending.toolName)) {
+                continue;
+            }
+            this.pendingRequests.delete(id);
+            pending.resolve({ decision: 'approved_for_session' });
+        }
+
+        if (pendingSnapshot.length === 0) {
+            return;
+        }
+
+        this.session.updateAgentState((currentState) => {
+            const requests = { ...(currentState.requests || {}) };
+            const completedRequests = { ...currentState.completedRequests };
+            let changed = false;
+
+            for (const [id, pending] of pendingSnapshot) {
+                if (this.isUserInteractionTool(pending.toolName)) {
+                    continue;
+                }
+                const request = requests[id];
+                if (!request) {
+                    continue;
+                }
+                delete requests[id];
+                completedRequests[id] = {
+                    ...request,
+                    completedAt,
+                    status: 'approved',
+                    decision: 'approved_for_session',
+                    mode: response.mode,
+                    allowedTools: response.allowTools
+                };
+                changed = true;
+            }
+
+            if (!changed) {
+                return currentState;
+            }
+
+            return {
+                ...currentState,
+                requests,
+                completedRequests
+            } satisfies AgentState;
+        });
     }
 
     /**

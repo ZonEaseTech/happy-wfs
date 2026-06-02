@@ -165,6 +165,15 @@ describe('desktop layout adjustments', () => {
         expect(source).toContain('return machineReadFile(machineReadFallbackId, p);');
     });
 
+    it('opens desktop video previews through the local daemon stream instead of base64 reads', () => {
+        const source = read('components/FileViewerModal.web.tsx');
+        expect(source).toContain('buildLocalDaemonFileStreamUrl');
+        expect(source).toContain('const streamUrl = getLocalStreamUrl(path);');
+        expect(source).toContain('previewUri: streamUrl');
+        expect(source).toContain('src={activeTab.previewUri}');
+        expect(source).toContain("objectFit: 'contain'");
+    });
+
     it('manages enter-to-send separately for web/desktop and mobile', () => {
         const features = read('app/(app)/settings/features.tsx');
         expect(features).toContain("useSettingMutable('agentInputEnterToSendWeb')");
