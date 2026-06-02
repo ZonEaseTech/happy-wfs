@@ -4,12 +4,16 @@
  */
 
 import fastify, { FastifyInstance } from 'fastify';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import path from 'node:path';
 import { z } from 'zod';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 import { logger } from '@/ui/logger';
 import { Metadata } from '@/api/types';
 import { TrackedSession } from './types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
+import { getFileStreamContentType, parseFileStreamRange } from './fileStream';
 
 export function startDaemonControlServer({
   getChildren,
@@ -33,6 +37,70 @@ export function startDaemonControlServer({
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
     const typed = app.withTypeProvider<ZodTypeProvider>();
+
+
+    const addFileStreamCorsHeaders = (reply: any) => {
+      reply.header('Access-Control-Allow-Origin', '*');
+      reply.header('Access-Control-Allow-Headers', 'Range');
+      reply.header('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Length, Content-Range, Content-Type');
+    };
+
+    typed.options('/file-stream', async (_request, reply) => {
+      addFileStreamCorsHeaders(reply);
+      reply.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      reply.code(204);
+      return '';
+    });
+
+    typed.get('/file-stream', {
+      schema: {
+        querystring: z.object({
+          path: z.string().min(1)
+        })
+      }
+    }, async (request, reply) => {
+      addFileStreamCorsHeaders(reply);
+
+      const filePath = request.query.path;
+      if (!path.isAbsolute(filePath)) {
+        reply.code(400);
+        return { error: 'path must be absolute' };
+      }
+
+      let stats;
+      try {
+        stats = await stat(filePath);
+      } catch (error) {
+        logger.debug(`[CONTROL SERVER] File stream stat failed for ${filePath}:`, error);
+        reply.code(404);
+        return { error: 'file not found' };
+      }
+
+      if (!stats.isFile()) {
+        reply.code(400);
+        return { error: 'path is not a file' };
+      }
+
+      const range = parseFileStreamRange(request.headers.range, stats.size);
+      if (!range.ok) {
+        reply.code(416);
+        reply.header('Content-Range', `bytes */${stats.size}`);
+        return { error: 'range not satisfiable' };
+      }
+
+      const contentLength = range.end - range.start + 1;
+      reply.code(range.partial ? 206 : 200);
+      reply.header('Content-Type', getFileStreamContentType(filePath));
+      reply.header('Accept-Ranges', 'bytes');
+      reply.header('Content-Length', String(contentLength));
+      reply.header('Cache-Control', 'no-store');
+      reply.header('Content-Disposition', `inline; filename="${path.basename(filePath).replace(/["\\]/g, '_')}"`);
+      if (range.partial) {
+        reply.header('Content-Range', `bytes ${range.start}-${range.end}/${stats.size}`);
+      }
+
+      return reply.send(createReadStream(filePath, { start: range.start, end: range.end }));
+    });
 
     // Session reports itself after creation
     typed.post('/session-started', {

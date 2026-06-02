@@ -76,3 +76,13 @@ export function getExtensionFromMimeType(mimeType: string): string {
     }
     return 'png';
 }
+
+export function buildLocalDaemonFileStreamUrl(httpPort: number | undefined | null, path: string): string | null {
+    if (!Number.isSafeInteger(httpPort) || !httpPort || httpPort <= 0 || httpPort > 65535) {
+        return null;
+    }
+    if (!path.trim()) {
+        return null;
+    }
+    return `http://127.0.0.1:${httpPort}/file-stream?path=${encodeURIComponent(path)}`;
+}

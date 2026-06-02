@@ -1606,6 +1606,7 @@ export const ja: TranslationStructure = {
         linkProcessedLocally: 'リンクはブラウザ内でローカルに処理されました',
         linkProcessedOnDevice: 'リンクはデバイス上でローカルに処理されました',
         closeTerminal: 'Close terminal',
+        clearTerminal: 'Clear terminal',
         closeTerminalTab: 'Close terminal tab',
         newTerminalTab: 'New terminal tab',
         dragToResizeWidth: 'Drag to resize terminal width',

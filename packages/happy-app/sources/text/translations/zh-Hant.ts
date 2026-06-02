@@ -1576,6 +1576,7 @@ export const zhHant: TranslationStructure = {
         linkProcessedLocally: '連結在瀏覽器中本機處理',
         linkProcessedOnDevice: '連結在裝置上本機處理',
         closeTerminal: '關閉終端',
+        clearTerminal: '清空終端',
         closeTerminalTab: '關閉終端標籤',
         newTerminalTab: '新增終端標籤',
         dragToResizeWidth: '拖動調整終端寬度',

@@ -1576,6 +1576,7 @@ export const zhHans: TranslationStructure = {
         linkProcessedLocally: '链接在浏览器中本地处理',
         linkProcessedOnDevice: '链接在设备上本地处理',
         closeTerminal: '关闭终端',
+        clearTerminal: '清空终端',
         closeTerminalTab: '关闭终端标签',
         newTerminalTab: '新增终端标签',
         dragToResizeWidth: '拖动调整终端宽度',

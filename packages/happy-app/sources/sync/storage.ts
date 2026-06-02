@@ -1832,6 +1832,10 @@ export function getSession(id: string): Session | undefined {
     return state.sessions[id] ?? state.sharedSessions[id];
 }
 
+export function getMachine(id: string): Machine | undefined {
+    return storage.getState().machines[id];
+}
+
 const emptyArray: unknown[] = [];
 const emptyPendingQueue: PendingMessage[] = [];
 

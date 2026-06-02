@@ -1574,6 +1574,7 @@ export const pt: TranslationStructure = {
         linkProcessedLocally: 'Link processado localmente no navegador',
         linkProcessedOnDevice: 'Link processado localmente no dispositivo',
         closeTerminal: 'Close terminal',
+        clearTerminal: 'Clear terminal',
         closeTerminalTab: 'Close terminal tab',
         newTerminalTab: 'New terminal tab',
         dragToResizeWidth: 'Drag to resize terminal width',

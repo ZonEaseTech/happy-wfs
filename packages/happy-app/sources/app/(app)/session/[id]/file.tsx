@@ -13,7 +13,7 @@ import { DropdownMenu } from '@/components/DropdownMenu';
 import { DesktopModalShell } from '@/components/DesktopModalShell';
 import EditScreen from '@/app/(app)/session/[id]/edit';
 import type { ActionMenuItem } from '@/components/ActionMenu';
-import { getSession, useSetting } from '@/sync/storage';
+import { getMachine, getSession, useSetting } from '@/sync/storage';
 import { useAuth } from '@/auth/AuthContext';
 import { getServerUrl } from '@/sync/serverConfig';
 import { uploadPublicFileShare } from '@/sync/uploadFileShare';
@@ -30,7 +30,7 @@ import { showCopiedToast } from '@/components/Toast';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { shellEscape } from '@/utils/shellEscape';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
-import { getImageMimeType, getVideoMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableHtml, isPreviewableImage, isPreviewableVideo, isTemporaryFilePath } from '@/utils/fileViewer';
+import { buildLocalDaemonFileStreamUrl, getImageMimeType, getVideoMimeType, isAbsoluteLocalPath, isOutsideWorkingDirectoryError, isPreviewableHtml, isPreviewableImage, isPreviewableVideo, isTemporaryFilePath } from '@/utils/fileViewer';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { isMachineScopedSpreadsheetPath } from '@/components/markdown/markdownLinkUtils';
 import { Image } from 'expo-image';
@@ -349,8 +349,12 @@ export default function FileScreen(props?: FileScreenProps) {
     const isPreviewMarkdownFile = /\.(md|markdown)$/i.test(filePath);
     const canReadFromMachine = !!machineFileReaderId && (isTemporaryFilePath(filePath) || isMachineScopedSpreadsheetPath(filePath));
     const machineReadFallbackId = machineFileReaderId ?? session?.metadata?.machineId;
+    const localStreamMachine = machineReadFallbackId ? getMachine(machineReadFallbackId) : undefined;
+    const localDaemonFileStreamUrl = Platform.OS === 'web'
+        ? buildLocalDaemonFileStreamUrl(localStreamMachine?.daemonState?.httpPort, filePath)
+        : null;
     const imagePreviewUri = imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null;
-    const videoPreviewUri = videoBase64 ? `data:${videoMimeType};base64,${videoBase64}` : null;
+    const videoPreviewUri = videoBase64 ? `data:${videoMimeType};base64,${videoBase64}` : localDaemonFileStreamUrl;
     const imageViewerItems: ImageViewerImage[] = imagePreviewUri ? [{ uri: imagePreviewUri }] : [];
 
     // Relative path for display/copy (relative to repo, not workspace root)
@@ -706,10 +710,24 @@ export default function FileScreen(props?: FileScreenProps) {
 
 
                 if (isPreviewVideoFile && !ref) {
+                    const mimeType = getVideoMimeType(filePath) || 'video/mp4';
+                    if (localDaemonFileStreamUrl) {
+                        if (!isCancelled) {
+                            setFileContent({
+                                content: '',
+                                encoding: 'base64',
+                                isBinary: false,
+                            });
+                            setVideoBase64(null);
+                            setVideoMimeType(mimeType);
+                            setIsLoading(false);
+                        }
+                        return;
+                    }
+
                     const response = await readFileBase64(filePath);
                     if (!isCancelled) {
                         if (response && response.success && response.content) {
-                            const mimeType = getVideoMimeType(filePath) || 'video/mp4';
                             setFileContent({
                                 content: '',
                                 encoding: 'base64',
@@ -844,7 +862,7 @@ export default function FileScreen(props?: FileScreenProps) {
         return () => {
             isCancelled = true;
         };
-    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, isPreviewVideoFile, canReadFromMachine, machineFileReaderId, gitCwd, readFileBase64]);
+    }, [sessionId, filePath, ref, isStaged, isBinaryFile, isPreviewImageFile, isPreviewVideoFile, canReadFromMachine, machineFileReaderId, gitCwd, readFileBase64, localDaemonFileStreamUrl]);
 
     // Show error modal if there's an error
     React.useEffect(() => {

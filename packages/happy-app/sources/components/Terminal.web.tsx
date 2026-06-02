@@ -292,10 +292,11 @@ interface TerminalRuntimeProps {
     /** Whether this runtime is currently visible inside the tabbed panel. */
     active?: boolean;
     onInputSenderChange?: (sender: ((data: string) => void) | null) => void;
+    onClearHandlerChange?: (handler: (() => void) | null) => void;
     terminalTheme: TerminalResolvedTheme;
 }
 
-const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true, onInputSenderChange, terminalTheme }) => {
+const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true, onInputSenderChange, onClearHandlerChange, terminalTheme }) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const termRef = React.useRef<InstanceType<XtermModule['Terminal']> | null>(null);
     const fitRef = React.useRef<InstanceType<FitAddonModule['FitAddon']> | null>(null);
@@ -304,10 +305,12 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
     const activeRef = React.useRef(active);
     const [isActivating, setIsActivating] = React.useState(false);
     const onInputSenderChangeRef = React.useRef(onInputSenderChange);
+    const onClearHandlerChangeRef = React.useRef(onClearHandlerChange);
     const themeColors = TERMINAL_THEME_COLORS[terminalTheme];
 
     React.useLayoutEffect(() => { activeRef.current = active; }, [active]);
     React.useLayoutEffect(() => { onInputSenderChangeRef.current = onInputSenderChange; }, [onInputSenderChange]);
+    React.useLayoutEffect(() => { onClearHandlerChangeRef.current = onClearHandlerChange; }, [onClearHandlerChange]);
 
     React.useEffect(() => {
         if (!termRef.current) return;
@@ -442,8 +445,15 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 // nothing (the textarea exists off-screen but has no focus).
                 try { term.focus(); } catch { /* ignore */ }
 
-                // ---- forward keystrokes ----
+                // ---- forward keystrokes / controls ----
                 onInputSenderChangeRef.current?.(sendPtyInput);
+                onClearHandlerChangeRef.current?.(() => {
+                    try {
+                        term.clear();
+                        term.scrollToBottom();
+                        term.focus();
+                    } catch { /* terminal detached */ }
+                });
                 const onDataDisposable = term.onData((data: string) => {
                     void sendPtyInput(data);
                 });
@@ -502,6 +512,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 try { d(); } catch { /* ignore */ }
             }
             onInputSenderChangeRef.current?.(null);
+            onClearHandlerChangeRef.current?.(null);
             const ptyId = ptyIdRef.current;
             ptyIdRef.current = null;
             if (ptyId) {
@@ -938,6 +949,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [errorClosed, setErrorClosed] = React.useState(false);
     const inputSendersRef = React.useRef<Record<string, ((data: string) => void) | undefined>>({});
+    const clearHandlersRef = React.useRef<Record<string, (() => void) | undefined>>({});
     const [terminalQuickCommands, setTerminalQuickCommands] = useSettingMutable('terminalQuickCommands');
     const [terminalThemeSetting] = useSettingMutable('terminalTheme');
     const [quickCommandsOpen, setQuickCommandsOpen] = React.useState(false);
@@ -989,7 +1001,21 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         else delete inputSendersRef.current[tabId];
     }, []);
 
+    const handleClearHandlerChange = React.useCallback((tabId: string, handler: (() => void) | null) => {
+        if (handler) clearHandlersRef.current[tabId] = handler;
+        else delete clearHandlersRef.current[tabId];
+    }, []);
+
     const activeInputSender = React.useCallback(() => inputSendersRef.current[activeTerminalTabId], [activeTerminalTabId]);
+
+    const handleClearActiveTerminal = React.useCallback(() => {
+        const clear = clearHandlersRef.current[activeTerminalTabId];
+        if (!clear) {
+            showToast(t('terminal.quickCommandsTerminalNotReady'));
+            return;
+        }
+        clear();
+    }, [activeTerminalTabId]);
 
     const handleRunQuickCommand = React.useCallback((command: string) => {
         const sender = activeInputSender();
@@ -1090,6 +1116,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             const nextTabs = workspace.tabs.filter((tab) => tab.id !== tabId);
             const next = { ...current };
             delete inputSendersRef.current[tabId];
+            delete clearHandlersRef.current[tabId];
             if (nextTabs.length === 0) {
                 delete next[workspaceKey];
                 if (workspaceKey === sessionId) onClose();
@@ -1111,7 +1138,10 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         setWorkspaces((current) => {
             const workspace = current[workspaceKey];
             if (!workspace) return current;
-            for (const tab of workspace.tabs) delete inputSendersRef.current[tab.id];
+            for (const tab of workspace.tabs) {
+                delete inputSendersRef.current[tab.id];
+                delete clearHandlersRef.current[tab.id];
+            }
             const next = { ...current };
             delete next[workspaceKey];
             if (workspaceKey === sessionId) onClose();
@@ -1277,6 +1307,27 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         <Ionicons name="add" size={18} color={panelTheme.mutedText} />
                     </button>
                 </div>
+                <button
+                    type="button"
+                    onClick={handleClearActiveTerminal}
+                    aria-label={t('terminal.clearTerminal')}
+                    title={t('terminal.clearTerminal')}
+                    style={{
+                        width: 34,
+                        height: 34,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: 0,
+                        borderRadius: 6,
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        padding: 0,
+                        marginLeft: 4,
+                    }}
+                >
+                    <Ionicons name="trash-outline" size={18} color={panelTheme.mutedText} />
+                </button>
                 <button
                     type="button"
                     onClick={() => setManagerOpen((value) => !value)}
@@ -1494,6 +1545,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                 onError={handleError}
                                 active={isActive}
                                 onInputSenderChange={(sender) => handleInputSenderChange(tab.id, sender)}
+                                onClearHandlerChange={(handler) => handleClearHandlerChange(tab.id, handler)}
                                 terminalTheme={resolvedTerminalTheme}
                             />
                         </View>

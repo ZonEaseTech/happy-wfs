@@ -115,6 +115,9 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain('saveQuickCommand');
         expect(terminalWeb).toContain('deleteQuickCommand');
         expect(terminalWeb).toContain('handleRunQuickCommand');
+        expect(terminalWeb).toContain('handleClearActiveTerminal');
+        expect(terminalWeb).toContain('onClearHandlerChange');
+        expect(terminalWeb).toContain("aria-label={t('terminal.clearTerminal')}");
         expect(terminalWeb).toContain('sender(`${command}\\r`);');
         expect(terminalWeb).toContain('terminalTabs');
         expect(terminalWeb).toContain('activeTerminalTabId');
@@ -156,7 +159,7 @@ describe('desktop layout adjustments', () => {
     it('falls back to machine read only for absolute image previews outside the session working directory', () => {
         const source = read('components/FileViewerModal.web.tsx');
         expect(source).toContain('const machineReadFallbackId = machineId ?? session?.metadata?.machineId;');
-        expect(source).toContain('isPreviewableImage(p)');
+        expect(source).toContain('isPreviewableImage(path)');
         expect(source).toContain('isAbsoluteLocalPath(p)');
         expect(source).toContain('isOutsideWorkingDirectoryError(response.error)');
         expect(source).toContain('return machineReadFile(machineReadFallbackId, p);');

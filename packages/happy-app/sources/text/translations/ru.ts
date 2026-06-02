@@ -1573,6 +1573,7 @@ export const ru: TranslationStructure = {
         linkProcessedLocally: 'Ссылка обработана локально в браузере',
         linkProcessedOnDevice: 'Ссылка обработана локально на устройстве',
         closeTerminal: 'Close terminal',
+        clearTerminal: 'Clear terminal',
         closeTerminalTab: 'Close terminal tab',
         newTerminalTab: 'New terminal tab',
         dragToResizeWidth: 'Drag to resize terminal width',

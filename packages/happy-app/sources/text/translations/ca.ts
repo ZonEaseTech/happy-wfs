@@ -1574,6 +1574,7 @@ export const ca: TranslationStructure = {
         linkProcessedLocally: 'Enllaç processat localment al navegador',
         linkProcessedOnDevice: 'Enllaç processat localment al dispositiu',
         closeTerminal: 'Close terminal',
+        clearTerminal: 'Clear terminal',
         closeTerminalTab: 'Close terminal tab',
         newTerminalTab: 'New terminal tab',
         dragToResizeWidth: 'Drag to resize terminal width',
