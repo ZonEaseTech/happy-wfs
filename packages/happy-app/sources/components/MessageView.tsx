@@ -314,6 +314,7 @@ function AgentTextBlock(props: {
     >
       <MarkdownView
         markdown={props.message.text}
+        formatAssistantToolInvocations={true}
         sessionId={props.sessionId}
         machineId={props.machineId}
         sessionWorkingDirectory={props.sessionWorkingDirectory}

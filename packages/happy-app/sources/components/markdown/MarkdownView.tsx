@@ -20,6 +20,7 @@ import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
 import { MermaidRenderer } from './MermaidRenderer';
 import { t } from '@/text';
+import { formatAssistantToolInvocations } from './formatAssistantToolInvocations';
 
 // Option type for callback
 export type Option = {
@@ -42,8 +43,13 @@ export const MarkdownView = React.memo((props: {
     sessionWorkingDirectory?: string | null;
     sessionHomeDirectory?: string | null;
     hideOptions?: boolean;
+    formatAssistantToolInvocations?: boolean;
 }) => {
-    const blocks = React.useMemo(() => parseMarkdown(props.markdown), [props.markdown]);
+    const markdown = React.useMemo(() => {
+        if (!props.formatAssistantToolInvocations) return props.markdown;
+        return formatAssistantToolInvocations(props.markdown);
+    }, [props.markdown, props.formatAssistantToolInvocations]);
+    const blocks = React.useMemo(() => parseMarkdown(markdown), [markdown]);
 
     // Backwards compatibility: The original version just returned the view, wrapping the list of blocks.
     // It made each of the individual text elements selectable. When we enable the markdownCopyV2 feature,
@@ -69,13 +75,13 @@ export const MarkdownView = React.memo((props: {
 
     const handleLongPress = React.useCallback(() => {
         try {
-            const textId = storeTempText(props.markdown);
+            const textId = storeTempText(markdown);
             router.push(`/text-selection?textId=${textId}`);
         } catch (error) {
             console.error('Error storing text for selection:', error);
             Modal.alert('Error', 'Failed to open text selection. Please try again.');
         }
-    }, [props.markdown, router]);
+    }, [markdown, router]);
 
     // Separate blocks into groups: options blocks need to be outside the parent GestureDetector
     // to prevent long press conflicts with the markdownCopyV2 feature
