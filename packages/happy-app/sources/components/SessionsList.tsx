@@ -755,6 +755,7 @@ export function SessionsList() {
     const isTablet = useIsTablet();
     const navigateToSession = useNavigateToSession();
     const compactSessionView = useSetting('compactSessionView');
+    const githubIssueStartPromptTemplate = useSetting('githubIssueStartPromptTemplate');
     const router = useRouter();
     const { theme } = useUnistyles();
     const [refreshing, setRefreshing] = React.useState(false);
@@ -1103,7 +1104,7 @@ export function SessionsList() {
 
 
     const handleStartIssue = React.useCallback((issue: GitHubIssue) => {
-        const prompt = buildGitHubIssueStartPrompt(issue);
+        const prompt = buildGitHubIssueStartPrompt(issue, githubIssueStartPromptTemplate);
         const dataId = storeTempData({
             prompt,
             agentType: 'codex',
@@ -1132,7 +1133,7 @@ export function SessionsList() {
             },
         });
         router.push(`/new?dataId=${encodeURIComponent(dataId)}`);
-    }, [router]);
+    }, [githubIssueStartPromptTemplate, router]);
     const handleOpenIssueDetails = React.useCallback((issue: GitHubIssue) => {
         Modal.show({
             component: GitHubIssueDetailModal,

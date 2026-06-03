@@ -190,6 +190,12 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="settings/github-issue-start-template"
+                options={{
+                    headerTitle: t('settingsFeatures.githubIssueStartPromptTemplate'),
+                }}
+            />
+            <Stack.Screen
                 name="settings/notifications"
                 options={{
                     headerTitle: t('settingsNotifications.title'),

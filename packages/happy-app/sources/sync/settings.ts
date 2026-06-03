@@ -1,5 +1,8 @@
 import * as z from 'zod';
 import { CustomQuickActionSchema } from './localSettings';
+import { defaultGitHubIssueStartPromptTemplate } from '@/utils/githubIssueStartPromptTemplate';
+
+export { defaultGitHubIssueStartPromptTemplate } from '@/utils/githubIssueStartPromptTemplate';
 
 export const TerminalQuickCommandSchema = z.object({
     id: z.string().min(1),
@@ -341,6 +344,7 @@ export const SettingsSchema = z.object({
     // Favorite machines for quick machine selection
     favoriteMachines: z.array(z.string()).describe('User-defined favorite machines (machine IDs) for quick access in machine selection'),
     customQuickActions: z.array(CustomQuickActionSchema).describe('Synced AI shortcut prompts shown in the session composer'),
+    githubIssueStartPromptTemplate: z.string().describe('Template used to create the first prompt when starting a session from a GitHub Issue'),
     terminalQuickCommands: z.array(TerminalQuickCommandSchema).describe('User-level terminal quick commands stored in synced account settings'),
     terminalTheme: TerminalThemeSchema.describe('Terminal panel and xterm color theme'),
     autoReviewGuardDefaults: AutoReviewGuardSettingsSchema.describe('Default Auto Review Guard settings applied to sessions'),
@@ -414,6 +418,7 @@ export const settingsDefaults: Settings = {
     // Favorite machines (empty by default)
     favoriteMachines: [],
     customQuickActions: [],
+    githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
     terminalQuickCommands: [],
     terminalTheme: 'dark',
     autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,

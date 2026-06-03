@@ -206,6 +206,42 @@ describe('desktop layout adjustments', () => {
         expect(settings).toContain('parsed.data.agentInputEnterToSendMobile ??= parsed.data.agentInputEnterToSend');
     });
 
+    it('exposes a synced configurable GitHub issue start prompt template', () => {
+        const prompt = read('components/githubIssueStartPrompt.ts');
+        expect(prompt).toContain('applyGitHubIssueStartPromptTemplate');
+
+        const promptTemplate = read('utils/githubIssueStartPromptTemplate.ts');
+        expect(promptTemplate).toContain('applyGitHubIssueStartPromptTemplate');
+        expect(promptTemplate).toContain('{repo}');
+        expect(promptTemplate).toContain('{issueNumber}');
+        expect(promptTemplate).toContain('{issueTitle}');
+        expect(promptTemplate).toContain('{issueUrl}');
+
+        const settings = read('sync/settings.ts');
+        expect(settings).toContain('githubIssueStartPromptTemplate: z.string()');
+        expect(settings).toContain('githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate');
+
+        const sessions = read('components/SessionsList.tsx');
+        expect(sessions).toContain("useSetting('githubIssueStartPromptTemplate')");
+        expect(sessions).toContain('buildGitHubIssueStartPrompt(issue, githubIssueStartPromptTemplate)');
+
+        const routes = read('components/desktopRoutes/registrations.ts');
+        expect(routes).toContain("'/settings/github-issue-start-template'");
+
+        const appLayout = read('app/(app)/_layout.tsx');
+        expect(appLayout).toContain('settings/github-issue-start-template');
+
+        const features = read('app/(app)/settings/features.tsx');
+        expect(features).toContain("openDesktop('/settings/github-issue-start-template'");
+        expect(features).toContain("t('settingsFeatures.githubIssueStartPromptTemplate')");
+
+        const editor = read('app/(app)/settings/github-issue-start-template.tsx');
+        expect(editor).toContain("useSettingMutable('githubIssueStartPromptTemplate')");
+        expect(editor).toContain('defaultGitHubIssueStartPromptTemplate');
+        expect(editor).toContain('TextInput');
+        expect(editor).toContain("t('settingsFeatures.restoreDefaultTemplate')");
+    });
+
     it('does not create a wide blank strip between the permanent sidebar and main content', () => {
         const source = read('components/SidebarNavigator.tsx');
         expect(source).toContain('borderRightWidth: 1');

@@ -572,6 +572,12 @@ export const zhHant: TranslationStructure = {
         enhancedSessionWizard: '增強工作階段精靈',
         enhancedSessionWizardEnabled: '設定檔優先的工作階段啟動器已啟用',
         enhancedSessionWizardDisabled: '使用標準工作階段啟動器',
+        githubIssueFeatures: 'GitHub Issues',
+        githubIssueStartPromptTemplate: 'GitHub Issue 開始任務範本',
+        githubIssueStartPromptTemplateSubtitle: '自訂從 Issue 開始任務時送出的第一則訊息',
+        githubIssueStartPromptTemplateFooter: '支援變數：{repo}、{issueNumber}、{issueTitle}、{issueUrl}。範本為空時使用預設文案。',
+        githubIssueStartPromptTemplateVariables: '可用變數：',
+        restoreDefaultTemplate: '恢復預設',
     },
 
     settingsNotifications: {

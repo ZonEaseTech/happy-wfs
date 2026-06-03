@@ -535,6 +535,12 @@ export const ru: TranslationStructure = {
         enhancedSessionWizard: 'Улучшенный мастер сессий',
         enhancedSessionWizardEnabled: 'Лаунчер с профилем активен',
         enhancedSessionWizardDisabled: 'Используется стандартный лаунчер',
+        githubIssueFeatures: 'GitHub Issues',
+        githubIssueStartPromptTemplate: 'GitHub Issue Start Prompt Template',
+        githubIssueStartPromptTemplateSubtitle: 'Customize the first message sent when starting from an issue',
+        githubIssueStartPromptTemplateFooter: 'Supports variables: {repo}, {issueNumber}, {issueTitle}, {issueUrl}. Blank templates fall back to the default.',
+        githubIssueStartPromptTemplateVariables: 'Available variables:',
+        restoreDefaultTemplate: 'Restore default',
     },
 
     settingsNotifications: {

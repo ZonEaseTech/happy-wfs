@@ -570,6 +570,12 @@ export const ca: TranslationStructure = {
         enhancedSessionWizard: 'Assistent de sessió millorat',
         enhancedSessionWizardEnabled: 'Llançador de sessió amb perfil actiu',
         enhancedSessionWizardDisabled: 'Usant el llançador de sessió estàndard',
+        githubIssueFeatures: 'GitHub Issues',
+        githubIssueStartPromptTemplate: 'GitHub Issue Start Prompt Template',
+        githubIssueStartPromptTemplateSubtitle: 'Customize the first message sent when starting from an issue',
+        githubIssueStartPromptTemplateFooter: 'Supports variables: {repo}, {issueNumber}, {issueTitle}, {issueUrl}. Blank templates fall back to the default.',
+        githubIssueStartPromptTemplateVariables: 'Available variables:',
+        restoreDefaultTemplate: 'Restore default',
     },
 
     settingsNotifications: {

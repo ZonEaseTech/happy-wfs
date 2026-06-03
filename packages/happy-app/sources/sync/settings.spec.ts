@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { settingsParse, applySettings, settingsDefaults, type Settings, AIBackendProfileSchema, autoReviewGuardSettingsDefaults } from './settings';
+import { settingsParse, applySettings, settingsDefaults, type Settings, AIBackendProfileSchema, autoReviewGuardSettingsDefaults, defaultGitHubIssueStartPromptTemplate } from './settings';
 import { getBuiltInProfile } from './profileUtils';
 
 describe('settings', () => {
@@ -18,12 +18,23 @@ describe('settings', () => {
 
         it('should parse valid settings object', () => {
             const validSettings = {
-                viewInline: true
+                viewInline: true,
+                githubIssueStartPromptTemplate: 'Issue {issueNumber}: {issueTitle}',
             };
             expect(settingsParse(validSettings)).toEqual({
                 ...settingsDefaults,
-                viewInline: true
+                viewInline: true,
+                githubIssueStartPromptTemplate: 'Issue {issueNumber}: {issueTitle}',
             });
+        });
+
+        it('should default the GitHub issue start prompt template', () => {
+            const parsed = settingsParse({});
+            expect(parsed.githubIssueStartPromptTemplate).toBe(defaultGitHubIssueStartPromptTemplate);
+            expect(parsed.githubIssueStartPromptTemplate).toContain('{repo}');
+            expect(parsed.githubIssueStartPromptTemplate).toContain('{issueNumber}');
+            expect(parsed.githubIssueStartPromptTemplate).toContain('{issueTitle}');
+            expect(parsed.githubIssueStartPromptTemplate).toContain('{issueUrl}');
         });
 
         it('should ignore invalid field types and use defaults', () => {
@@ -137,6 +148,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -179,6 +191,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -221,6 +234,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -265,6 +279,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -314,6 +329,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -372,6 +388,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -440,6 +457,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
+                githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,

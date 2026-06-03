@@ -6,8 +6,10 @@ import { ItemList } from '@/components/ItemList';
 import { useSettingMutable, useLocalSettingMutable } from '@/sync/storage';
 import { Switch } from '@/components/Switch';
 import { t } from '@/text';
+import { useDesktopRoutes } from '@/components/desktopRoutes';
 
 export default function FeaturesSettingsScreen() {
+    const { open: openDesktop } = useDesktopRoutes();
     const [experiments, setExperiments] = useSettingMutable('experiments');
     const [agentInputEnterToSendWeb, setAgentInputEnterToSendWeb] = useSettingMutable('agentInputEnterToSendWeb');
     const [agentInputEnterToSendMobile, setAgentInputEnterToSendMobile] = useSettingMutable('agentInputEnterToSendMobile');
@@ -59,6 +61,19 @@ export default function FeaturesSettingsScreen() {
                         />
                     }
                     showChevron={false}
+                />
+            </ItemGroup>
+
+            {/* GitHub Issue Features */}
+            <ItemGroup
+                title={t('settingsFeatures.githubIssueFeatures')}
+                footer={t('settingsFeatures.githubIssueStartPromptTemplateFooter')}
+            >
+                <Item
+                    title={t('settingsFeatures.githubIssueStartPromptTemplate')}
+                    subtitle={t('settingsFeatures.githubIssueStartPromptTemplateSubtitle')}
+                    icon={<Ionicons name="logo-github" size={29} color="#111827" />}
+                    onPress={() => openDesktop('/settings/github-issue-start-template', { title: t('settingsFeatures.githubIssueStartPromptTemplate') })}
                 />
             </ItemGroup>
 

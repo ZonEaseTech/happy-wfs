@@ -13,6 +13,7 @@ export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
     '/settings/appearance': 'settings.appearance',
     '/settings/claude-config': 'claudeConfig.title',
     '/settings/features': 'settings.features',
+    '/settings/github-issue-start-template': 'settingsFeatures.githubIssueStartPromptTemplate',
     '/settings/language': 'settingsLanguage.title',
     '/settings/notifications': 'settingsNotifications.title',
     '/settings/notifications-feishu': 'settings.feishuNotification',
@@ -32,6 +33,7 @@ registerDesktopRoute('/settings/account', () => import('@/app/(app)/settings/acc
 registerDesktopRoute('/settings/appearance', () => import('@/app/(app)/settings/appearance'));
 registerDesktopRoute('/settings/claude-config', () => import('@/app/(app)/settings/claude-config'));
 registerDesktopRoute('/settings/features', () => import('@/app/(app)/settings/features'));
+registerDesktopRoute('/settings/github-issue-start-template', () => import('@/app/(app)/settings/github-issue-start-template'));
 registerDesktopRoute('/settings/language', () => import('@/app/(app)/settings/language'));
 registerDesktopRoute('/settings/notifications', () => import('@/app/(app)/settings/notifications'));
 registerDesktopRoute('/settings/notifications-feishu', () => import('@/app/(app)/settings/notifications-feishu'));

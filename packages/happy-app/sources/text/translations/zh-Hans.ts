@@ -572,6 +572,12 @@ export const zhHans: TranslationStructure = {
         enhancedSessionWizard: '增强会话向导',
         enhancedSessionWizardEnabled: '配置文件优先启动器已激活',
         enhancedSessionWizardDisabled: '使用标准会话启动器',
+        githubIssueFeatures: 'GitHub Issues',
+        githubIssueStartPromptTemplate: 'GitHub Issue 开始任务模板',
+        githubIssueStartPromptTemplateSubtitle: '自定义从 Issue 开始任务时发送的第一条消息',
+        githubIssueStartPromptTemplateFooter: '支持变量：{repo}、{issueNumber}、{issueTitle}、{issueUrl}。模板为空时使用默认文案。',
+        githubIssueStartPromptTemplateVariables: '可用变量：',
+        restoreDefaultTemplate: '恢复默认',
     },
 
     settingsNotifications: {
