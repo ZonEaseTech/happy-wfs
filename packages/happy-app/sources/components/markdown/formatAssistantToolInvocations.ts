@@ -2,6 +2,8 @@ const INVOKE_OPEN_RE = /^<invoke\s+name=(['"])([^'"]+)\1[^>]*>\s*$/;
 const INVOKE_CLOSE_RE = /^<\/invoke>\s*$/;
 const PARAMETER_RE = /<parameter\s+name=(['"])([^'"]+)\1[^>]*>([\s\S]*?)<\/parameter>/gi;
 const FENCE_RE = /^([`~]{3,})([^`~]*)$/;
+const TURN_ABORTED_OPEN_RE = /^<turn_aborted>\s*$/;
+const TURN_ABORTED_CLOSE_RE = /^<\/turn_aborted>\s*$/;
 
 type FenceState = {
     char: '`' | '~';
@@ -57,6 +59,10 @@ function formatInvokeBlock(name: string, blockLines: string[]): string {
     return `> 系统动作：已执行 ${name}`;
 }
 
+function formatTurnAbortedBlock(): string {
+    return '> 系统提示：上一轮已被用户中断；后台命令可能仍在运行，已中断的工具/命令可能只执行了一部分。';
+}
+
 export function formatAssistantToolInvocations(markdown: string): string {
     const lines = markdown.split('\n');
     const kept: string[] = [];
@@ -67,6 +73,23 @@ export function formatAssistantToolInvocations(markdown: string): string {
         const nextFence = getFenceState(line, fence);
         const isFenceLine = nextFence !== fence;
         const invokeOpenMatch = !fence && !isFenceLine ? line.trim().match(INVOKE_OPEN_RE) : null;
+        const turnAbortedOpen = !fence && !isFenceLine && TURN_ABORTED_OPEN_RE.test(line.trim());
+
+        if (turnAbortedOpen) {
+            let closeIndex = -1;
+            for (let cursor = index + 1; cursor < lines.length; cursor++) {
+                if (TURN_ABORTED_CLOSE_RE.test(lines[cursor].trim())) {
+                    closeIndex = cursor;
+                    break;
+                }
+            }
+
+            if (closeIndex >= 0) {
+                kept.push(formatTurnAbortedBlock());
+                index = closeIndex;
+                continue;
+            }
+        }
 
         if (invokeOpenMatch) {
             let closeIndex = -1;

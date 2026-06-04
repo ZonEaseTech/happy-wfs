@@ -49,4 +49,16 @@ describe('formatAssistantToolInvocations', () => {
 
         expect(formatAssistantToolInvocations(markdown)).toContain('<invoke name="TaskUpdate">');
     });
+
+    it('formats turn_aborted system blocks as readable assistant markdown', () => {
+        const markdown = [
+            '<turn_aborted>',
+            'The user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.',
+            '</turn_aborted>',
+        ].join('\n');
+
+        expect(formatAssistantToolInvocations(markdown)).toBe(
+            '> 系统提示：上一轮已被用户中断；后台命令可能仍在运行，已中断的工具/命令可能只执行了一部分。',
+        );
+    });
 });
