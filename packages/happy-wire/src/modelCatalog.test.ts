@@ -3,6 +3,7 @@ import {
     buildClaudeModelMode,
     buildCodexModelMode,
     CODEX_MODEL_FAMILY_OPTIONS,
+    CLAUDE_MODEL_OPTIONS,
     CLAUDE_MODEL_FAMILY_OPTIONS,
     CODEX_MODEL_MODES,
     getClaudeReasoningOptions,
@@ -56,6 +57,32 @@ describe('modelCatalog', () => {
         });
         expect(getMaxContextSize('claude-opus-4-8[1m]', 'claude')).toBe(1_000_000);
         expect(getMaxContextSize('claude-opus-4-8[1m]-high', 'claude')).toBe(1_000_000);
+    });
+
+    it('supports Claude Fable 5 and 1M model modes in Claude pickers', () => {
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value).slice(1, 3)).toEqual([
+            'claude-fable-5',
+            'claude-fable-5[1m]',
+        ]);
+        expect(CLAUDE_MODEL_OPTIONS.map(option => option.value).slice(1, 3)).toEqual([
+            'claude-fable-5[1m]',
+            'claude-fable-5',
+        ]);
+        expect(isModelMode('claude-fable-5-max')).toBe(true);
+        expect(isModelMode('claude-fable-5[1m]-max')).toBe(true);
+        expect(isModelModeForAgent('claude', 'claude-fable-5[1m]-max')).toBe(true);
+        expect(parseClaudeModelMode('claude-fable-5[1m]-max')).toEqual({
+            family: 'claude-fable-5[1m]',
+            effort: 'max',
+        });
+        expect(buildClaudeModelMode('claude-fable-5[1m]', 'xhigh')).toBe('claude-fable-5[1m]-xhigh');
+        expect(getClaudeReasoningOptions('claude-fable-5[1m]')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+        expect(resolveModelSelectionForFlavor('claude', 'claude-fable-5[1m]-max')).toEqual({
+            model: 'claude-fable-5[1m]',
+            reasoningEffort: 'max',
+        });
+        expect(getMaxContextSize('claude-fable-5[1m]', 'claude')).toBe(1_000_000);
+        expect(getMaxContextSize('claude-fable-5[1m]-high', 'claude')).toBe(1_000_000);
     });
 
     it('parses codex model mode into family and effort', () => {
