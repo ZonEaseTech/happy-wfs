@@ -38,6 +38,7 @@ import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { isRunningOnMac } from '@/utils/platform';
 import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/utils/responsive';
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
+import { getCopyToAgentModelMode } from '@/utils/copySessionDefaults';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
 import { HappyError } from '@/utils/errors';
@@ -942,7 +943,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             sessionId: spawnResult.sessionId,
             agentType: targetAgent,
             permissionMode: mapPermissionModeForCopyTarget(permissionMode, targetAgent),
-            modelMode: 'default',
+            modelMode: getCopyToAgentModelMode(targetAgent),
             fastMode: false,
             includeSessionEntry: true,
             includeLastUsed: false,

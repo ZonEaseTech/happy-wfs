@@ -4,6 +4,7 @@ import { Session } from '@/sync/storageTypes';
 import { sessionLastViewedAt, sync } from '@/sync/sync';
 import { sessionUpdateMetadataFields } from '@/sync/ops';
 import { t } from '@/text';
+import { getCopiedSessionModelMode } from './copySessionDefaults';
 
 export type SessionState = 'disconnected' | 'syncing' | 'thinking' | 'waiting' | 'permission_required';
 
@@ -323,7 +324,7 @@ export function copySessionModeSettings(
         sessionId: newSessionId,
         agentType,
         permissionMode: originalSession.permissionMode || 'default',
-        modelMode: originalSession.modelMode || 'default',
+        modelMode: getCopiedSessionModelMode(agentType, originalSession.modelMode),
         fastMode: originalSession.fastMode ?? false,
         includeSessionEntry: true,
         includeLastUsed: false,
