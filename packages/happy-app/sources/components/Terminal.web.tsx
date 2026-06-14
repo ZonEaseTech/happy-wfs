@@ -1446,6 +1446,15 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 </div>
             )}
             {quickCommandsOpen && (
+                <>
+                {/* Click-outside backdrop: same positioned ancestor as the panel,
+                    one z-index below it. Clicking the panel targets the panel
+                    (sibling), so it doesn't bubble here; clicking anywhere else
+                    in the terminal window closes the panel. */}
+                <div
+                    onClick={() => setQuickCommandsOpen(false)}
+                    style={{ position: 'absolute', inset: 0, zIndex: 19 }}
+                />
                 <div
                     style={{
                         position: 'absolute',
@@ -1516,6 +1525,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         </div>
                     ))}
                 </div>
+                </>
             )}
             <View style={{ flex: 1, backgroundColor: panelTheme.panelBackground }}>
                 <React.Suspense
