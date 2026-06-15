@@ -68,3 +68,26 @@ export async function toggleAwaitingClosure(sessionId: string): Promise<void> {
         console.warn('[awaitingClosure] toggle failed:', err);
     }
 }
+
+/**
+ * Clear the awaiting-closure mark if it's set (no-op otherwise). Called when a
+ * session is explicitly archived: once archived it shouldn't also linger in the
+ * "待归档 / to-archive" tab. Note this fires only on an explicit archive — a
+ * session merely going idle keeps its mark on purpose (see
+ * useClosureSessionListViewData). Best-effort, like toggleAwaitingClosure.
+ */
+export async function clearAwaitingClosure(sessionId: string): Promise<void> {
+    const session = getSession(sessionId);
+    if (!session?.metadata?.awaitingClosure) return;
+    try {
+        await sessionUpdateMetadataFields(
+            sessionId,
+            session.metadata,
+            { awaitingClosure: undefined },
+            session.metadataVersion,
+        );
+    } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[awaitingClosure] clear-on-archive failed:', err);
+    }
+}

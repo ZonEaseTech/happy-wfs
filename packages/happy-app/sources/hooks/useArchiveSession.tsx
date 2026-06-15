@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Session } from '@/sync/storageTypes';
 import { storage } from '@/sync/storage';
 import { sessionKill } from '@/sync/ops';
+import { clearAwaitingClosure } from '@/sync/awaitingClosure';
 import { cleanupWorktree, cleanupWorkspace } from '@/utils/worktreeOps';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { useHappyAction } from '@/hooks/useHappyAction';
@@ -59,6 +60,7 @@ export function useArchiveSession(session: Session, options: UseArchiveSessionOp
 
         // Idempotent: if the agent process is gone, the session is effectively archived already.
         if (!result.success && /RPC method not available/i.test(errorMessage)) {
+            void clearAwaitingClosure(session.id);
             navigateAfterArchive();
             return;
         }
@@ -68,6 +70,9 @@ export function useArchiveSession(session: Session, options: UseArchiveSessionOp
             throw new HappyError(errorMessage, false);
         }
 
+        // Once archived, drop any "awaiting closure / 待归档" mark so the session
+        // doesn't also linger in that tab. Best-effort, fire-and-forget.
+        void clearAwaitingClosure(session.id);
         navigateAfterArchive();
     });
 

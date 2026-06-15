@@ -13,6 +13,7 @@ import { useAllMachines, useOrchestratorRunningTaskCount, useSetting } from '@/s
 import { StyleSheet } from 'react-native-unistyles';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { machineSpawnNewSession, sessionKill } from '@/sync/ops';
+import { clearAwaitingClosure } from '@/sync/awaitingClosure';
 import { storage } from '@/sync/storage';
 import { Modal } from '@/modal';
 import { ProjectGitStatus } from './ProjectGitStatus';
@@ -379,6 +380,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         const errorMessage = result.message || t('sessionInfo.failedToArchiveSession');
 
         if (!result.success && /RPC method not available/i.test(errorMessage)) {
+            void clearAwaitingClosure(session.id);
             return;
         }
 
@@ -386,6 +388,9 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             storage.getState().updateSessionActivity(session.id, previousActive);
             throw new HappyError(errorMessage, false);
         }
+
+        // Archived → drop any "待归档" mark so it doesn't linger in that tab.
+        void clearAwaitingClosure(session.id);
     });
 
     const [archiveMenuVisible, setArchiveMenuVisible] = React.useState(false);

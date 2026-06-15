@@ -15,6 +15,7 @@ import { Modal } from '@/modal';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
 import { sessionKill, sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineSpawnNewSession, sessionUpdateSummary, sessionUpdateMetadataFields } from '@/sync/ops';
+import { clearAwaitingClosure } from '@/sync/awaitingClosure';
 import { pushWorktreeBranch, mergeWorktreeBranch, createWorktreePR, cleanupWorktree, cleanupWorkspace, getLocalBranches, getCurrentBranch } from '@/utils/worktreeOps';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
@@ -186,6 +187,7 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
 
         // Archiving is idempotent: if RPC target is gone, session is effectively already archived.
         if (!result.success && /RPC method not available/i.test(errorMessage)) {
+            void clearAwaitingClosure(session.id);
             navigateAfterArchive();
             return;
         }
@@ -195,7 +197,9 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
             throw new HappyError(errorMessage, false);
         }
 
-        // Success - navigate back
+        // Success - navigate back; drop any "待归档" mark so an archived session
+        // doesn't also linger in the to-archive tab.
+        void clearAwaitingClosure(session.id);
         navigateAfterArchive();
     });
 
