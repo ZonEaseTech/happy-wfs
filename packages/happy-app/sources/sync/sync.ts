@@ -25,7 +25,7 @@ import { isRunningOnMac } from '@/utils/platform';
 import { NormalizedMessage, normalizeRawMessage, RawRecord, RawRecordSchema, ImageContent } from './typesRaw';
 import { uploadChatImage } from './uploadChatImage';
 import { LocalImage } from '@/components/ImagePreview';
-import { applySettings, Settings, settingsDefaults, settingsParse, SUPPORTED_SCHEMA_VERSION } from './settings';
+import { applySettings, mergeSettings, Settings, settingsDefaults, settingsParse, SUPPORTED_SCHEMA_VERSION } from './settings';
 import { Profile, profileParse } from './profile';
 import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt } from './persistence';
 import { initializeTracking, tracking } from '@/track';
@@ -2034,14 +2034,24 @@ class Sync {
         // Apply pending settings
         if (Object.keys(this.pendingSettings).length > 0) {
 
+            // Track the expected server version and the payload to write across
+            // retries in locals. IMPORTANT: we never adopt the server's version
+            // into local storage until our write actually succeeds. Previously a
+            // failed merge left local storage at the server's version with
+            // different content, and the `settingsVersion < version` guard in
+            // applySettings then permanently blocked us from pulling the server's
+            // real settings — that's the root cause of stuck, non-converging
+            // clients. Keeping local version untouched lets the GET below (and
+            // realtime updates) re-apply the authoritative server state.
+            let expectedVersion = storage.getState().settingsVersion ?? 0;
+            let outgoing = applySettings(storage.getState().settings, this.pendingSettings);
+
             while (retryCount < maxRetries) {
-                let version = storage.getState().settingsVersion;
-                let settings = applySettings(storage.getState().settings, this.pendingSettings);
                 const response = await fetch(`${API_ENDPOINT}/v1/account/settings`, {
                     method: 'POST',
                     body: JSON.stringify({
-                        settings: await this.encryption.encryptRaw(settings),
-                        expectedVersion: version ?? 0
+                        settings: await this.encryption.encryptRaw(outgoing),
+                        expectedVersion
                     }),
                     headers: {
                         'Authorization': `Bearer ${this.credentials.token}`,
@@ -2067,15 +2077,15 @@ class Sync {
                         ? settingsParse(await this.encryption.decryptRaw(data.currentSettings))
                         : { ...settingsDefaults };
 
-                    // Merge: server base + our pending changes (our changes win)
-                    const mergedSettings = applySettings(serverSettings, this.pendingSettings);
+                    // Rebase our pending changes on top of the server's current
+                    // state. Collection settings (terminalQuickCommands) merge
+                    // per-item so neither client's additions are clobbered.
+                    outgoing = mergeSettings(serverSettings, this.pendingSettings);
+                    expectedVersion = data.currentVersion;
 
-                    // Update local storage with merged result at server's version
-                    storage.getState().applySettings(mergedSettings, data.currentVersion);
-
-                    // Sync tracking state with merged settings
+                    // Sync tracking state with the rebased settings
                     if (tracking) {
-                        mergedSettings.analyticsOptOut ? tracking.optOut() : tracking.optIn();
+                        outgoing.analyticsOptOut ? tracking.optOut() : tracking.optIn();
                     }
 
                     // Log and retry

@@ -486,3 +486,50 @@ export function applySettings(settings: Settings, delta: Partial<Settings>): Set
 
     return result;
 }
+
+/**
+ * Merge two quick-command lists by id so concurrent edits from different
+ * clients union instead of clobbering each other. Per id, the entry with the
+ * larger updatedAt wins; entries present on only one side are kept. Result is
+ * ordered by createdAt (display sorts by name separately).
+ *
+ * NOTE: there are no tombstones, so a delete made on one client can be
+ * resurrected by another client that still has the entry. This is an accepted
+ * trade-off — re-deleting a stray command is less harmful than silently losing
+ * commands the other client added.
+ */
+export function mergeTerminalQuickCommands(
+    base: TerminalQuickCommand[],
+    incoming: TerminalQuickCommand[],
+): TerminalQuickCommand[] {
+    const byId = new Map<string, TerminalQuickCommand>();
+    for (const cmd of base) {
+        byId.set(cmd.id, cmd);
+    }
+    for (const cmd of incoming) {
+        const existing = byId.get(cmd.id);
+        if (!existing || cmd.updatedAt >= existing.updatedAt) {
+            byId.set(cmd.id, cmd);
+        }
+    }
+    return Array.from(byId.values()).sort(
+        (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id),
+    );
+}
+
+/**
+ * Conflict-resolution merge used when the server rejected a push with a version
+ * mismatch: take the server settings as the base and overlay the local pending
+ * delta. Collection-type settings (terminalQuickCommands) are merged per-item
+ * so neither side's additions are lost; all other fields keep last-writer-wins.
+ */
+export function mergeSettings(serverSettings: Settings, delta: Partial<Settings>): Settings {
+    const result = applySettings(serverSettings, delta);
+    if (delta.terminalQuickCommands) {
+        result.terminalQuickCommands = mergeTerminalQuickCommands(
+            serverSettings.terminalQuickCommands ?? [],
+            delta.terminalQuickCommands,
+        );
+    }
+    return result;
+}

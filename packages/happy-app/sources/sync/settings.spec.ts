@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { settingsParse, applySettings, settingsDefaults, type Settings, AIBackendProfileSchema, autoReviewGuardSettingsDefaults, defaultGitHubIssueStartPromptTemplate } from './settings';
+import { settingsParse, applySettings, mergeSettings, mergeTerminalQuickCommands, settingsDefaults, type Settings, type TerminalQuickCommand, AIBackendProfileSchema, autoReviewGuardSettingsDefaults, defaultGitHubIssueStartPromptTemplate } from './settings';
 import { getBuiltInProfile } from './profileUtils';
 
 describe('settings', () => {
@@ -947,6 +947,48 @@ describe('settings', () => {
             expect(merged.useEnhancedSessionWizard).toBe(true);
             expect(merged.profiles).toEqual(pendingChanges.profiles);
             expect(merged.dismissedCLIWarnings).toEqual(pendingChanges.dismissedCLIWarnings);
+        });
+    });
+
+    describe('mergeTerminalQuickCommands / mergeSettings (concurrent-edit convergence)', () => {
+        const qc = (id: string, title: string, updatedAt: number, createdAt = 1): TerminalQuickCommand => ({
+            id,
+            title,
+            command: `cmd ${id}`,
+            createdAt,
+            updatedAt,
+        });
+
+        it('unions disjoint additions from two clients (no clobber)', () => {
+            const server = [qc('a', 'A', 10, 1)];
+            const localPending = [qc('a', 'A', 10, 1), qc('b', 'B', 20, 2)];
+            expect(mergeTerminalQuickCommands(server, localPending).map(c => c.id)).toEqual(['a', 'b']);
+        });
+
+        it('keeps both sides when each client added a different command', () => {
+            const server = [qc('base', 'Base', 5, 1), qc('x', 'X', 30, 3)];
+            const localPending = [qc('base', 'Base', 5, 1), qc('y', 'Y', 40, 4)];
+            expect(mergeTerminalQuickCommands(server, localPending).map(c => c.id).sort()).toEqual(['base', 'x', 'y']);
+        });
+
+        it('resolves same-id conflicts by newest updatedAt', () => {
+            expect(mergeTerminalQuickCommands([qc('a', 'Server', 100, 1)], [qc('a', 'Local', 50, 1)])[0].title).toBe('Server');
+            expect(mergeTerminalQuickCommands([qc('a', 'Server', 50, 1)], [qc('a', 'Local', 100, 1)])[0].title).toBe('Local');
+        });
+
+        it('mergeSettings unions terminalQuickCommands instead of replacing (regression)', () => {
+            const server: Settings = { ...settingsDefaults, terminalQuickCommands: [qc('a', 'A', 10, 1)] };
+            const pending: Partial<Settings> = { terminalQuickCommands: [qc('b', 'B', 20, 2)] };
+            // Both survive. The old whole-value applySettings dropped 'a' — that was the bug.
+            expect(mergeSettings(server, pending).terminalQuickCommands.map(c => c.id)).toEqual(['a', 'b']);
+            expect(applySettings(server, pending).terminalQuickCommands.map(c => c.id)).toEqual(['b']);
+        });
+
+        it('mergeSettings keeps server terminalQuickCommands when the delta omits them', () => {
+            const server: Settings = { ...settingsDefaults, terminalQuickCommands: [qc('a', 'A', 10, 1)] };
+            const merged = mergeSettings(server, { terminalTheme: 'light' });
+            expect(merged.terminalQuickCommands.map(c => c.id)).toEqual(['a']);
+            expect(merged.terminalTheme).toBe('light');
         });
     });
 });
