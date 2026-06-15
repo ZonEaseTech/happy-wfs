@@ -35,10 +35,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiSocket } from '@/sync/apiSocket';
 import { showToast } from '@/components/Toast';
 import { Modal } from '@/modal';
+import { editQuickCommand } from '@/components/TerminalQuickCommandEditor';
 import { t } from '@/text';
 import { useSettingMutable } from '@/sync/storage';
 import type { TerminalQuickCommand, TerminalTheme } from '@/sync/settings';
 import { randomUUID } from 'expo-crypto';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface TerminalProps {
     visible: boolean;
@@ -955,6 +957,12 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     const [quickCommandsOpen, setQuickCommandsOpen] = React.useState(false);
     const [managerOpen, setManagerOpen] = React.useState(false);
     const [hasOpened, setHasOpened] = React.useState(visible);
+    const safeArea = useSafeAreaInsets();
+    // Show quick commands sorted by display name so the list stays scannable.
+    const sortedQuickCommands = React.useMemo(
+        () => [...terminalQuickCommands].sort((a, b) => a.title.localeCompare(b.title)),
+        [terminalQuickCommands],
+    );
     const [workspaces, setWorkspaces] = React.useState<Record<string, TerminalWorkspace>>(() => ({
         [sessionId]: createTerminalWorkspace(sessionId, cwd),
     }));
@@ -1028,41 +1036,21 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
     }, [activeInputSender]);
 
     const saveQuickCommand = React.useCallback(async (existing?: TerminalQuickCommand) => {
-        const title = await Modal.prompt(
-            existing ? t('terminal.quickCommandsEditTitle') : t('terminal.quickCommandsAddTitle'),
-            t('terminal.quickCommandsNamePrompt'),
-            {
-                defaultValue: existing?.title ?? '',
-                placeholder: t('terminal.quickCommandsNamePlaceholder'),
-                confirmText: t('common.save'),
-                cancelText: t('common.cancel'),
-            },
-        );
-        const trimmedTitle = title?.trim();
-        if (!trimmedTitle) return;
-        const command = await Modal.prompt(
-            existing ? t('terminal.quickCommandsEditTitle') : t('terminal.quickCommandsAddTitle'),
-            t('terminal.quickCommandsCommandPrompt'),
-            {
-                defaultValue: existing?.command ?? '',
-                placeholder: 'git status',
-                confirmText: t('common.save'),
-                cancelText: t('common.cancel'),
-                multiline: true,
-                multilineRows: 4,
-            },
-        );
-        const trimmedCommand = command?.trim();
-        if (!trimmedCommand) return;
+        const result = await editQuickCommand({
+            title: existing ? t('terminal.quickCommandsEditTitle') : t('terminal.quickCommandsAddTitle'),
+            initialName: existing?.title ?? '',
+            initialCommand: existing?.command ?? '',
+        });
+        if (!result) return;
         const now = Date.now();
         if (existing) {
             setTerminalQuickCommands(terminalQuickCommands.map((item) => item.id === existing.id
-                ? { ...item, title: trimmedTitle, command: trimmedCommand, updatedAt: now }
+                ? { ...item, title: result.title, command: result.command, updatedAt: now }
                 : item));
         } else {
             setTerminalQuickCommands([
                 ...terminalQuickCommands,
-                { id: randomUUID(), title: trimmedTitle, command: trimmedCommand, createdAt: now, updatedAt: now },
+                { id: randomUUID(), title: result.title, command: result.command, createdAt: now, updatedAt: now },
             ]);
         }
     }, [setTerminalQuickCommands, terminalQuickCommands]);
@@ -1505,7 +1493,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     </div>
                     {terminalQuickCommands.length === 0 ? (
                         <div style={{ color: '#6b7280', fontSize: 12, padding: '14px 4px' }}>{t('terminal.quickCommandsEmpty')}</div>
-                    ) : terminalQuickCommands.map((command) => (
+                    ) : sortedQuickCommands.map((command) => (
                         <div key={command.id} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 4px', borderTop: '1px solid #f3f4f6' }}>
                             <button
                                 type="button"
@@ -1527,7 +1515,10 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 </div>
                 </>
             )}
-            <View style={{ flex: 1, backgroundColor: panelTheme.panelBackground }}>
+            {/* Reserve bottom breathing room so the last terminal line clears
+                the device safe area / screen edge instead of being flush. The
+                gap color matches the terminal background, so it looks seamless. */}
+            <View style={{ flex: 1, backgroundColor: panelTheme.panelBackground, paddingBottom: safeArea.bottom + 16 }}>
                 <React.Suspense
                     fallback={
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
