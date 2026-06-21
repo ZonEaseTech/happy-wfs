@@ -43,7 +43,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
           tags: |
             type=match,pattern=^${{ matrix.tag_prefix }}(.*)$,group=1
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Set up Docker Buildx
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref_name, matrix.tag_prefix)
