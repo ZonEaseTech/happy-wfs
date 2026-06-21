@@ -19,7 +19,7 @@ export default {
     step1: {
       title: '安装 CLI',
       description: '在开发机上安装命令行工具。',
-      code: 'npm i -g happy-ai-cli',
+      code: 'npm i -g @zonease/happy',
     },
     step2: {
       title: '启动会话',

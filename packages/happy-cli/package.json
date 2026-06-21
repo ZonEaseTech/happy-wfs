@@ -1,13 +1,17 @@
 {
-  "name": "happy-ai-cli",
+  "name": "@zonease/happy",
   "version": "0.6.16",
   "description": "Mobile and Web client for Claude Code, Codex, and Gemini",
-  "author": "weifashi",
+  "author": "ZonEaseTech",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://github.com/weifashi/happy-ai",
-  "bugs": "https://github.com/weifashi/happy-ai/issues",
-  "repository": "weifashi/happy-ai",
+  "homepage": "https://github.com/ZonEaseTech/happy-wfs",
+  "bugs": "https://github.com/ZonEaseTech/happy-wfs/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZonEaseTech/happy-wfs.git",
+    "directory": "packages/happy-cli"
+  },
   "bin": {
     "happy": "./bin/happy.mjs",
     "happy-mcp": "./bin/happy-mcp.mjs"
@@ -145,7 +149,8 @@
     "@types/parse-path": "7.0.3"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "packageManager": "yarn@1.22.22"
 }

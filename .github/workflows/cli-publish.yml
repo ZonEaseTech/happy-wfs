@@ -1,28 +1,24 @@
 name: Publish CLI
-run-name: "[Manual] Publish CLI ${{ inputs.version }}${{ inputs.dry-run && ' (dry-run)' || '' }}"
+run-name: "Publish CLI ${{ github.ref_name }}"
 
+# Tag scheme:
+#   cli-v<version> -> publish @zonease/happy to npm
+# The bare v* tags are owned by release.yml (mobile) and docker-publish.yml,
+# so the CLI uses a dedicated cli-v* prefix to avoid triple-firing.
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish (e.g. 0.3.0, patch, minor, major)'
-        required: true
-        type: string
-      dry-run:
-        description: 'Dry run (skip actual publish)'
-        required: false
-        type: boolean
-        default: false
+  push:
+    tags:
+      - 'cli-v*'
+
+permissions:
+  contents: read
+  id-token: write   # required for npm provenance
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -30,11 +26,6 @@ jobs:
           cache: yarn
           cache-dependency-path: yarn.lock
           registry-url: https://registry.npmjs.org
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Verify npm token
         run: npm whoami --registry https://registry.npmjs.org
@@ -44,45 +35,37 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Assert git tag matches package version
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#cli-v}"
+          pkg_version="$(node -p "require('./packages/happy-cli/package.json').version")"
+          if [[ "$tag_version" != "$pkg_version" ]]; then
+            echo "git tag/package version mismatch — tag=$tag_version package=$pkg_version" >&2
+            echo "Bump packages/happy-cli/package.json to $tag_version (or retag) before releasing." >&2
+            exit 1
+          fi
+          echo "Publishing @zonease/happy@$pkg_version"
+
       - name: Build happy-wire
         run: yarn workspace happy-wire build
 
       - name: Build CLI
-        run: yarn workspace happy-ai-cli build
+        run: yarn workspace @zonease/happy build
 
       - name: Run tests
-        run: yarn workspace happy-ai-cli test
-
-      - name: Bump version
-        working-directory: packages/happy-cli
-        run: |
-          npm version "${{ inputs.version }}" --no-git-tag-version
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          echo "NEW_VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+        run: yarn workspace @zonease/happy test
 
       - name: Publish to npm
         working-directory: packages/happy-cli
-        run: npm publish ${{ inputs.dry-run && '--dry-run' || '' }}
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Commit version bump
-        if: ${{ !inputs.dry-run }}
-        run: |
-          git add packages/happy-cli/package.json
-          git commit -m "release: happy-ai-cli v${NEW_VERSION}"
-          git push origin main
-
-      - name: Summary (dry run)
-        if: ${{ inputs.dry-run }}
-        run: |
-          echo "### 🧪 Dry Run Complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "Would have published **happy-ai-cli@${NEW_VERSION}**" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Summary
-        if: ${{ !inputs.dry-run }}
         run: |
+          pkg_version="$(node -p "require('./packages/happy-cli/package.json').version")"
           echo "### ✅ Published" >> "$GITHUB_STEP_SUMMARY"
-          echo "**happy-ai-cli@${NEW_VERSION}** is live on npm" >> "$GITHUB_STEP_SUMMARY"
+          echo "**@zonease/happy@${pkg_version}** is live on npm" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "[npm](https://www.npmjs.com/package/happy-ai-cli/v/${NEW_VERSION})" >> "$GITHUB_STEP_SUMMARY"
+          echo "[npm](https://www.npmjs.com/package/@zonease/happy/v/${pkg_version})" >> "$GITHUB_STEP_SUMMARY"

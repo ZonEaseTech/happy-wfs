@@ -30,7 +30,7 @@ Happy AI is the secure mobile companion for Claude Code that lets you continue y
 • Zero-knowledge architecture - we can't read your data
 
 **How It Works:**
-1. Install the happy-ai-cli CLI on your computer
+1. Install the @zonease/happy CLI on your computer
 2. Scan a QR code to securely pair your devices
 3. Use 'happy' instead of 'claude' to start encrypted sessions
 4. Switch between desktop and mobile instantly
@@ -62,13 +62,13 @@ Your code. Your privacy. Your Claude Code companion.
 ## URLs
 
 ### Privacy Policy
-https://github.com/hitosea/happy-ai/blob/next/packages/happy-app/PRIVACY.md
+https://github.com/ZonEaseTech/happy-wfs/blob/next/packages/happy-app/PRIVACY.md
 
 ### Support / Contact
-https://github.com/hitosea/happy-ai/issues
+https://github.com/ZonEaseTech/happy-wfs/issues
 
 ### Website / Marketing
-https://github.com/hitosea/happy-ai
+https://github.com/ZonEaseTech/happy-wfs
 
 ## Additional Google Play Requirements
 

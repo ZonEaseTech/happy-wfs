@@ -10,7 +10,7 @@ Use Claude Code, Codex, or Gemini from anywhere with end-to-end encryption.
 
 <div align="center">
   
-[🖥️ **Web App**](https://app.happy.weifashi.cn/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/hitosea/happy-ai/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
+[🖥️ **Web App**](https://app-happy.zonease.org/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/ZonEaseTech/happy-wfs/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
 
 </div>
 
@@ -23,7 +23,7 @@ Step 1: Download App
 <div align="center">
 <a href="https://testflight.apple.com/join/XyjvbhXe"><img src="/.github/badge-testflight.svg" height="39" alt="Download on TestFlight" /></a>
 &nbsp;&nbsp;
-<a href="https://github.com/hitosea/happy-ai/releases/latest"><img src="/.github/badge-github-apk.svg" height="39" alt="Get it on GitHub" /></a>
+<a href="https://github.com/ZonEaseTech/happy-wfs/releases/latest"><img src="/.github/badge-github-apk.svg" height="39" alt="Get it on GitHub" /></a>
 </div>
 
 <h3 align="center">
@@ -31,7 +31,7 @@ Step 2: Install CLI on your computer
 </h3>
 
 ```bash
-npm install -g happy-ai-cli
+npm install -g @zonease/happy
 ```
 
 <h3 align="center">
@@ -57,7 +57,7 @@ happy gemini
 
 Running `happy` prints a QR code for device pairing.
 
-- Scan the QR code with the app you downloaded in Step 1 (or open [app.happy.weifashi.cn](https://app.happy.weifashi.cn/) in a browser).
+- Scan the QR code with the app you downloaded in Step 1 (or open [app-happy.zonease.org](https://app-happy.zonease.org/) in a browser).
 - Prerequisite: install the vendor CLI(s) you want to control (`claude`, `codex`, and/or `gemini`).
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy AI" alt="Happy AI"/></div>

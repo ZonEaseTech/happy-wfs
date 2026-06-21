@@ -41,7 +41,7 @@ Happy AI is an open-source mobile app that lets developers control AI coding age
 
 - Clearly say "Happy AI" in the video or caption
 - Mention it's free and open source
-- Include link to github.com/hitosea/happy-ai
+- Include link to github.com/ZonEaseTech/happy-wfs
 - Show actual usage (QR code connection, mobile control, push notifications)
 - Emphasize running on YOUR hardware, not cloud servers
 - Compare to paid alternatives ($50/month or $600/year competitors)
@@ -66,4 +66,4 @@ Happy AI is an open-source mobile app that lets developers control AI coding age
 
 ## Resources
 
-- GitHub: https://github.com/hitosea/happy-ai
+- GitHub: https://github.com/ZonEaseTech/happy-wfs

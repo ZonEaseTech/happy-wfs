@@ -25,7 +25,7 @@
 | MCP 工具 | `preview_html`、冒号分隔工具命名、双模式长按复制 |
 | OpenClaw | 外部 AI 机器网关，隧道/直连模式，聊天 UI |
 | 配置文件 | AI 后端配置，内置 DeepSeek、Z.AI、OpenAI、Azure、Google AI 预设 |
-| 品牌重塑 | CLI 发布为 `happy-ai-cli`，二进制名保持 `happy` |
+| 品牌重塑 | CLI 发布为 `@zonease/happy`，二进制名保持 `happy` |
 
 ---
 
@@ -248,7 +248,7 @@ Happy AI 添加了一等自托管路径。
 
 ## CLI 改进
 
-CLI（`happy-ai-cli`）收到了大量升级。
+CLI（`@zonease/happy`）收到了大量升级。
 
 - **多 Agent 支持**：Claude Code、Codex（通过 ACP 后端）和 Gemini 作为一等公民
 - **会话恢复/复制**，所有 Agent 支持正确的消息回填

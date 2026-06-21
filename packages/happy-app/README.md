@@ -10,7 +10,7 @@ Use Claude Code, Codex, or Gemini from anywhere with end-to-end encryption.
 
 <div align="center">
   
-[🌐 **GitHub**](https://github.com/hitosea/happy-ai) • [📚 **Documentation**](https://github.com/hitosea/happy-ai)
+[🌐 **GitHub**](https://github.com/ZonEaseTech/happy-wfs) • [📚 **Documentation**](https://github.com/ZonEaseTech/happy-wfs)
 
 </div>
 
@@ -22,7 +22,7 @@ Step 1: Install CLI on your computer
 </h3>
 
 ```bash
-npm install -g happy-ai-cli
+npm install -g @zonease/happy
 ```
 
 <h3 align="center">

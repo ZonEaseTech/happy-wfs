@@ -7,7 +7,7 @@ Free. Open source. Code anywhere.
 ## Installation
 
 ```bash
-npm install -g happy-ai-cli
+npm install -g @zonease/happy
 ```
 
 ## Usage
@@ -92,8 +92,8 @@ happy gemini project get          # Show current Google Cloud Project ID
 
 ### Happy Configuration
 
-- `HAPPY_SERVER_URL` - Custom server URL (default: https://api.happy.weifashi.cn)
-- `HAPPY_WEBAPP_URL` - Custom web app URL (default: https://app.happy.weifashi.cn)
+- `HAPPY_SERVER_URL` - Custom server URL (default: https://api-happy.zonease.org)
+- `HAPPY_WEBAPP_URL` - Custom web app URL (default: https://app-happy.zonease.org)
 - `HAPPY_HOME_DIR` - Custom home directory for Happy AI data (default: ~/.happy-ai)
 - `HAPPY_DISABLE_CAFFEINATE` - Disable macOS sleep prevention (set to `true`, `1`, or `yes`)
 - `HAPPY_EXPERIMENTAL` - Enable experimental features (set to `true`, `1`, or `yes`)

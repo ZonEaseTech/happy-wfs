@@ -1,7 +1,7 @@
 /**
- * happy-ai-cli mcp serve — stdio MCP server exposing happy session APIs.
+ * happy mcp serve — stdio MCP server exposing happy session APIs.
  *
- * Reads credentials from `~/.happy-ai/` (whatever happy-cli already authenticated
+ * Reads credentials from `~/.happy-ai/` (whatever the happy CLI already authenticated
  * with) and surfaces 7 tools:
  *   - happy_session_list      (read)
  *   - happy_session_inspect   (read)
@@ -12,7 +12,7 @@
  *   - happy_session_spawn     (write — proxies daemon RPC `spawn-happy-session`)
  *
  * Runs as a stdio MCP server — register in your Claude/Codex config:
- *   { "mcpServers": { "happy": { "command": "happy-ai-cli", "args": ["mcp", "serve"] } } }
+ *   { "mcpServers": { "happy": { "command": "happy", "args": ["mcp", "serve"] } } }
  *
  * IMPORTANT: this process must NEVER write to stdout — that channel is reserved
  * for the MCP JSON-RPC framing. All diagnostics go to stderr.
@@ -58,7 +58,7 @@ function wrap<I, O>(
 export async function runMcpServe(): Promise<void> {
     const credentials = await readCredentials();
     if (!credentials) {
-        logStderr('No happy credentials found at ~/.happy-ai/. Run "happy-ai-cli auth" first.');
+        logStderr('No happy credentials found at ~/.happy-ai/. Run "happy auth" first.');
         process.exit(1);
     }
 

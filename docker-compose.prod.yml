@@ -1,6 +1,6 @@
 services:
   happy-app:
-    image: weifashi/happy-app:latest
+    image: ghcr.io/zoneasetech/happy-app:latest
     ports:
       - "3030:80"
     restart: unless-stopped
@@ -13,7 +13,7 @@ services:
       - EXPO_PUBLIC_VOICE_PUBLIC_KEY=${VOICE_PUBLIC_KEY:-dev-voice-public-key}
 
   happy-server:
-    image: weifashi/happy-server:latest
+    image: ghcr.io/zoneasetech/happy-server:latest
     ports:
       - "3031:3031"
     restart: unless-stopped

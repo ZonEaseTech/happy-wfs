@@ -479,11 +479,11 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     }
     return;
   } else if (subcommand === 'mcp') {
-    // happy-ai-cli mcp serve — stdio MCP exposing read/write tools over the
+    // happy mcp serve — stdio MCP exposing read/write tools over the
     // user's happy sessions. Currently only `serve` is supported.
     const mcpSubcommand = args[1];
     if (mcpSubcommand !== 'serve') {
-      console.error(chalk.red('Usage: happy-ai-cli mcp serve'));
+      console.error(chalk.red('Usage: happy mcp serve'));
       process.exit(1);
     }
     try {

@@ -30,8 +30,8 @@ class Configuration {
 
   constructor() {
     // Server configuration - priority: parameter > environment > default
-    this.serverUrl = process.env.HAPPY_SERVER_URL || 'https://api.happy.weifashi.cn'
-    this.webappUrl = process.env.HAPPY_WEBAPP_URL || 'https://app.happy.weifashi.cn'
+    this.serverUrl = process.env.HAPPY_SERVER_URL || 'https://api-happy.zonease.org'
+    this.webappUrl = process.env.HAPPY_WEBAPP_URL || 'https://app-happy.zonease.org'
 
     // Check if we're running as daemon based on process args
     const args = process.argv.slice(2)

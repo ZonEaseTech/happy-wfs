@@ -47,7 +47,7 @@ export const SettingsView = React.memo(function SettingsView() {
     const { launchScanner, connectWithUrl, isLoading } = useUnifiedScanner();
 
     const handleGitHub = async () => {
-        const url = 'https://github.com/hitosea/happy-ai';
+        const url = 'https://github.com/ZonEaseTech/happy-wfs';
         const supported = await Linking.canOpenURL(url);
         if (supported) {
             await Linking.openURL(url);
@@ -55,7 +55,7 @@ export const SettingsView = React.memo(function SettingsView() {
     };
 
     const handleReportIssue = async () => {
-        const url = 'https://github.com/hitosea/happy-ai/issues';
+        const url = 'https://github.com/ZonEaseTech/happy-wfs/issues';
         const supported = await Linking.canOpenURL(url);
         if (supported) {
             await Linking.openURL(url);

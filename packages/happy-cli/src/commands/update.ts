@@ -5,7 +5,7 @@ import packageJson from '../../package.json';
 import { stopDaemon, checkIfDaemonRunningAndCleanupStaleState } from '@/daemon/controlClient';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
 
-const PACKAGE_NAME = 'happy-ai-cli';
+const PACKAGE_NAME = '@zonease/happy';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
 

@@ -71,7 +71,7 @@ ${chalk.bold('Examples:')}
 ${chalk.bold('Notes:')} 
   • You must be authenticated with Happy first (run 'happy auth login')
   • API keys are encrypted and stored securely in Happy AI cloud
-  • You can manage your stored keys at app.happy.weifashi.cn
+  • You can manage your stored keys at app-happy.zonease.org
 `);
 }
 

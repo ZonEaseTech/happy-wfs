@@ -339,7 +339,7 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                 {
                     text: t('common.copy'),
                     onPress: async () => {
-                        const updateCommand = 'npm install -g happy-ai-cli@latest';
+                        const updateCommand = 'npm install -g @zonease/happy@latest';
                         await Clipboard.setStringAsync(updateCommand);
                         hapticsLight();
                         showCopiedToast();

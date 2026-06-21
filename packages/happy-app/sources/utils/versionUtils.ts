@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 
-const NPM_REGISTRY_URL = 'https://registry.npmjs.org/happy-ai-cli/latest';
+const NPM_REGISTRY_URL = 'https://registry.npmjs.org/@zonease/happy/latest';
 
 let latestVersionPromise: Promise<string | null> | null = null;
 

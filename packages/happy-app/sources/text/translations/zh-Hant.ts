@@ -942,7 +942,7 @@ export const zhHant: TranslationStructure = {
         cliVersionOutdated: '需要更新 CLI',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `已安裝版本 ${currentVersion}。請更新到 ${requiredVersion} 或更高版本`,
-        updateCliInstructions: '請執行 npm install -g happy-ai-cli@latest',
+        updateCliInstructions: '請執行 npm install -g @zonease/happy@latest',
         cliUpgradeAvailable: '有新的 CLI 版本可用',
         cliUpgradeAvailableSubtitle: '點擊以使用最新 CLI 重新啟動工作階段',
         cliUpgradeInProgress: '正在升級...',
@@ -1666,7 +1666,7 @@ export const zhHant: TranslationStructure = {
     machine: {
         launchNewSessionInDirectory: '在目錄中啟動新工作階段',
         offlineUnableToSpawn: '裝置離線時無法啟動',
-        offlineHelp: '• 確保您的電腦在線上\n• 執行 `happy daemon status` 進行診斷\n• 您是否在執行最新的 CLI 版本？請使用 `npm install -g happy-ai-cli@latest` 升級',
+        offlineHelp: '• 確保您的電腦在線上\n• 執行 `happy daemon status` 進行診斷\n• 您是否在執行最新的 CLI 版本？請使用 `npm install -g @zonease/happy@latest` 升級',
         daemon: '守護程序',
         status: '狀態',
         stopDaemon: '停止守護程序',

@@ -13,6 +13,12 @@ import {
 
 export type NotificationKind = 'session-completed' | 'message-completed' | 'input-needed';
 
+const DEFAULT_APP_URL = 'https://app-happy.zonease.org';
+
+function getAppUrl(): string {
+    return (process.env.APP_URL || DEFAULT_APP_URL).replace(/\/+$/, '');
+}
+
 export interface SessionCompletedEvent {
     userId: string;
     sessionId: string;
@@ -46,7 +52,7 @@ export async function onSessionCompleted(event: SessionCompletedEvent): Promise<
             machineName: null,
             durationMs: Math.max(0, session.lastActiveAt.getTime() - session.createdAt.getTime()),
             completedAt: event.completedAt.getTime(),
-            sessionUrl: `https://happy.ai/session/${session.id}`,
+            sessionUrl: `${getAppUrl()}/session/${session.id}`,
         };
         await sendFeishuMessage(feishu, buildSessionCompletedCard(meta));
     });
@@ -58,7 +64,7 @@ export async function onMessageCompleted(event: MessageCompletedEvent): Promise<
             sessionTag: session.tag,
             preview: event.preview ?? null,
             completedAt: event.completedAt.getTime(),
-            sessionUrl: `https://happy.ai/session/${session.id}`,
+            sessionUrl: `${getAppUrl()}/session/${session.id}`,
         };
         await sendFeishuMessage(feishu, buildMessageCompletedCard(meta));
     });
@@ -70,7 +76,7 @@ export async function onInputNeeded(event: InputNeededEvent): Promise<void> {
             sessionTag: session.tag,
             reason: event.reason ?? null,
             occurredAt: event.occurredAt.getTime(),
-            sessionUrl: `https://happy.ai/session/${session.id}`,
+            sessionUrl: `${getAppUrl()}/session/${session.id}`,
         };
         await sendFeishuMessage(feishu, buildInputNeededCard(meta));
     });

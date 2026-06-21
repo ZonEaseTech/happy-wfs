@@ -5,12 +5,12 @@ describe('workflowReports', () => {
     it('renders a GitHub takeover prompt with target and repo', () => {
         const report = buildGithubTakeoverReport({
             target: '#123',
-            repo: 'weifashi/happy-ai',
+            repo: 'ZonEaseTech/happy-wfs',
             mode: 'pr',
         });
 
         expect(report).toContain('GitHub Task Takeover');
-        expect(report).toContain('weifashi/happy-ai');
+        expect(report).toContain('ZonEaseTech/happy-wfs');
         expect(report).toContain('Copy-Paste Agent Prompt');
     });
 

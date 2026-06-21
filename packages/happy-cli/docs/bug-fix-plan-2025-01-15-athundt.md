@@ -97,7 +97,7 @@ if (startFrom) {
 **Problem**: Happy-CLI crashes when Happy API server is unreachable
 
 **Server Details**:
-- Default server: `https://api.happy.weifashi.cn`
+- Default server: `https://api-happy.zonease.org`
 - Environment variable: `HAPPY_SERVER_URL` (overrides default)
 - Local development: `http://localhost:3005`
 - The server handles session management and real-time communication for Happy CLI

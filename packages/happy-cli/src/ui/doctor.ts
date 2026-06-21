@@ -261,8 +261,8 @@ export async function runDoctorCommand(filter?: 'all' | 'daemon'): Promise<void>
 
         // Support and bug reports
         console.log(chalk.bold('\n🐛 Support & Bug Reports'));
-        console.log(`Report issues: ${chalk.blue('https://github.com/hitosea/happy-ai/issues')}`);
-        console.log(`Documentation: ${chalk.blue('https://github.com/hitosea/happy-ai')}`);
+        console.log(`Report issues: ${chalk.blue('https://github.com/ZonEaseTech/happy-wfs/issues')}`);
+        console.log(`Documentation: ${chalk.blue('https://github.com/ZonEaseTech/happy-wfs')}`);
     }
 
     console.log(chalk.green('\n✅ Doctor diagnosis complete!\n'));

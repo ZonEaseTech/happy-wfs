@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[🖥️ **Web 应用**](https://app.happy.weifashi.cn/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK 下载**](https://github.com/hitosea/happy-ai/releases/latest) • [📚 **文档**](docs/README.md) • [🇬🇧 **English**](README.md)
+[🖥️ **Web 应用**](https://app-happy.zonease.org/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK 下载**](https://github.com/ZonEaseTech/happy-wfs/releases/latest) • [📚 **文档**](docs/README.md) • [🇬🇧 **English**](README.md)
 
 </div>
 
@@ -23,7 +23,7 @@
 <div align="center">
 <a href="https://testflight.apple.com/join/XyjvbhXe"><img src="/.github/badge-testflight.svg" height="39" alt="Download on TestFlight" /></a>
 &nbsp;&nbsp;
-<a href="https://github.com/hitosea/happy-ai/releases/latest"><img src="/.github/badge-github-apk.svg" height="39" alt="Download on GitHub" /></a>
+<a href="https://github.com/ZonEaseTech/happy-wfs/releases/latest"><img src="/.github/badge-github-apk.svg" height="39" alt="Download on GitHub" /></a>
 </div>
 
 <h3 align="center">
@@ -31,7 +31,7 @@
 </h3>
 
 ```bash
-npm install -g happy-ai-cli
+npm install -g @zonease/happy
 ```
 
 <h3 align="center">
@@ -57,7 +57,7 @@ happy gemini
 
 运行 `happy` 会打印一个二维码用于设备配对。
 
-- 用第一步下载的应用扫描二维码（或在浏览器中打开 [app.happy.weifashi.cn](https://app.happy.weifashi.cn/)）。
+- 用第一步下载的应用扫描二维码（或在浏览器中打开 [app-happy.zonease.org](https://app-happy.zonease.org/)）。
 - 前提：安装你想要控制的供应商 CLI（`claude`、`codex` 和/或 `gemini`）。
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy AI" alt="Happy AI"/></div>

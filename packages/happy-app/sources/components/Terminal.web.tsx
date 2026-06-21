@@ -430,7 +430,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                         // node-pty failed to native-compile on the user's CLI
                         // install. Reinstall with build tools available
                         // (python3 + a C++ toolchain) and the message goes away.
-                        onError('终端不可用：CLI 端 node-pty 未成功编译。请在装好 python3 + 编译器的环境下重装：npm install -g happy-ai-cli@latest');
+                        onError('终端不可用：CLI 端 node-pty 未成功编译。请在装好 python3 + 编译器的环境下重装：npm install -g @zonease/happy@latest');
                     } else {
                         onError(`Terminal failed to start: ${err || 'unknown error'}`);
                     }

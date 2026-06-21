@@ -19,7 +19,7 @@ export default {
     step1: {
       title: 'Install CLI',
       description: 'Install the CLI on your development machine.',
-      code: 'npm i -g happy-ai-cli',
+      code: 'npm i -g @zonease/happy',
     },
     step2: {
       title: 'Start a Session',

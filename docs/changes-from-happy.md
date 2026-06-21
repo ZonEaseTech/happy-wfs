@@ -25,7 +25,7 @@ This document summarizes what changed in Happy AI compared to the original Happy
 | MCP tools | `preview_html`, colon-separated tool naming, dual-mode long-press copy |
 | OpenClaw | External AI machine gateway with tunnel/direct connections and chat UI |
 | Profiles | AI backend profiles with presets for DeepSeek, Z.AI, OpenAI, Azure, Google AI |
-| Rebrand | CLI published as `happy-ai-cli`, binary remains `happy` |
+| Rebrand | CLI published as `@zonease/happy`, binary remains `happy` |
 
 ---
 
@@ -248,7 +248,7 @@ Extensive improvements to the chat and session management experience.
 
 ## CLI Improvements
 
-The CLI (`happy-ai-cli`) received substantial upgrades.
+The CLI (`@zonease/happy`) received substantial upgrades.
 
 - **Multi-agent support**: Claude Code, Codex (via ACP backend), and Gemini as first-class agents
 - **Session resume/duplicate** for all agents with proper message backfill

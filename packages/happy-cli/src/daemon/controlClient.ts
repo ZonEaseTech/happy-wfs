@@ -164,7 +164,7 @@ export async function isDaemonRunningCurrentlyInstalledHappyVersion(): Promise<b
     
     // PREVIOUS IMPLEMENTATION - Keeping this commented in case we need it
     // It's unclear how the upgrade of npm packages works and whether
-    // we will get a new path or not when happy-ai-cli is upgraded globally.
+    // we will get a new path or not when @zonease/happy is upgraded globally.
     // If reading package.json doesn't work correctly after npm upgrades,
     // we can revert to spawning a process (but should add timeout and cleanup!)
     /*

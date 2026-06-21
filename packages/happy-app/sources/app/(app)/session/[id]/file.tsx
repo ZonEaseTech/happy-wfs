@@ -154,7 +154,7 @@ function getShareOrigin(): string {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
         return window.location.origin;
     }
-    return 'https://happy.weifashi.cn';
+    return 'https://happy.zonease.org';
 }
 
 function stripTrailingSlash(value: string): string {

@@ -185,7 +185,7 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/hitosea/happy-ai",
+          "href": "https://github.com/ZonEaseTech/happy-wfs",
           "icon": "github"
         }
       ]
@@ -199,11 +199,11 @@
     "links": [
       {
         "label": "Website",
-        "href": "https://happy.weifashi.cn"
+        "href": "https://happy.zonease.org"
       },
       {
         "label": "Web App",
-        "href": "https://app.happy.weifashi.cn"
+        "href": "https://app-happy.zonease.org"
       },
       {
         "label": "Download",
@@ -211,7 +211,7 @@
       },
       {
         "label": "GitHub",
-        "href": "https://github.com/hitosea/happy-ai"
+        "href": "https://github.com/ZonEaseTech/happy-wfs"
       }
     ]
   },
@@ -229,7 +229,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/hitosea/happy-ai"
+      "github": "https://github.com/ZonEaseTech/happy-wfs"
     }
   }
 }
