@@ -23,9 +23,13 @@
         ]
     },
     "scripts": {
-        "postinstall": "patch-package"
+        "postinstall": "patch-package",
+        "prepare": "husky"
     },
     "devDependencies": {
+        "@commitlint/cli": "^19.6.1",
+        "@commitlint/config-conventional": "^19.6.0",
+        "husky": "^9.1.7",
         "patch-package": "^8.0.0"
     },
     "packageManager": "yarn@1.22.22"
