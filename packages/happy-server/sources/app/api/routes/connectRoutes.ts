@@ -99,7 +99,7 @@ export function connectRoutes(app: Fastify) {
         }
     }, async (request, reply) => {
         const { code, state } = request.query;
-        const appUrl = process.env.APP_URL || 'https://app-happy.zonease.org';
+        const appUrl = process.env.APP_URL || 'https://happy.zonease.org';
 
         // Verify the state token to get userId
         try {

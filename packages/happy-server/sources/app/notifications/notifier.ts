@@ -13,7 +13,7 @@ import {
 
 export type NotificationKind = 'session-completed' | 'message-completed' | 'input-needed';
 
-const DEFAULT_APP_URL = 'https://app-happy.zonease.org';
+const DEFAULT_APP_URL = 'https://happy.zonease.org';
 
 function getAppUrl(): string {
     return (process.env.APP_URL || DEFAULT_APP_URL).replace(/\/+$/, '');
