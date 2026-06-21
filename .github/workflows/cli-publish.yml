@@ -3,8 +3,9 @@ run-name: "Publish CLI ${{ github.ref_name }}"
 
 # Tag scheme:
 #   cli-v<version> -> publish @zonease/happy to npm
-# Docker images use docker-v<version>, and bare v* tags stay reserved for
-# app/mobile releases. CLI uses cli-v* to avoid cross-triggering those lanes.
+# Server and web Docker images use server-v<version> and web-v<version>.
+# Bare v* tags stay reserved for app/mobile releases. CLI uses cli-v* to
+# avoid cross-triggering those lanes.
 on:
   push:
     tags:
