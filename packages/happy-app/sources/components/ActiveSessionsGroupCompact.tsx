@@ -256,8 +256,8 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
             // when it spawns inside a worktree) and fall back to the parent
             // directory of the worktree path. The fallback handles the common
             // case where the CLI is too old to fill worktreeBasePath but the
-            // worktree paths all share a parent (e.g. all ~/.happy-ai/
-            // workspaces/vk-* collapse into ~/.happy-ai/workspaces).
+            // worktree paths all share a parent (e.g. all ~/.happy/
+            // workspaces/vk-* collapse into ~/.happy/workspaces).
             const ownPath = session.metadata?.path || '';
             let projectPath = ownPath;
             if (mergeWorktreeGroups) {

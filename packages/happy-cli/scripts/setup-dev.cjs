@@ -10,8 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const STABLE_DIR = path.join(os.homedir(), '.happy-ai');
-const DEV_DIR = path.join(os.homedir(), '.happy-ai-dev');
+const STABLE_DIR = path.join(os.homedir(), '.happy');
+const DEV_DIR = path.join(os.homedir(), '.happy-dev');
 
 console.log('🔧 Setting up happy-cli development environment...\n');
 
@@ -30,7 +30,7 @@ const envrcContent = `# Happy CLI environment (for direnv users)
 # Automatically sets HAPPY_HOME_DIR based on directory
 #
 # To use: cd to happy-cli-dev directory, run: direnv allow
-export HAPPY_HOME_DIR="$HOME/.happy-ai-dev"
+export HAPPY_HOME_DIR="$HOME/.happy-dev"
 export HAPPY_VARIANT="dev"
 `;
 

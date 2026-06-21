@@ -40,7 +40,7 @@ interface CreateWorkspaceResult {
  * Create a multi-repo workspace with git worktrees for each repo.
  *
  * For each repo input, creates a git worktree inside a shared workspace
- * directory (~/.happy-ai/workspaces/<name>). On failure, rolls back all
+ * directory (~/.happy/workspaces/<name>). On failure, rolls back all
  * previously created worktrees and removes the workspace directory.
  */
 export async function createWorkspace(
@@ -58,7 +58,7 @@ export async function createWorkspace(
     const dirPrefix = prefix.replace(/\//g, '-');
     const dirName = `${dirPrefix}${workspaceName}`;
     // ~ is left unescaped so the shell expands it; dirName is safe (alphanum + - / .)
-    const workspacePath = `~/.happy-ai/workspaces/${shellEscape(dirName)}`;
+    const workspacePath = `~/.happy/workspaces/${shellEscape(dirName)}`;
 
     // Create workspace directory
     // Use '/' as cwd to bypass daemon path validation (the command itself uses absolute/~ paths)

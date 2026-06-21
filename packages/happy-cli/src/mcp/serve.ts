@@ -1,7 +1,7 @@
 /**
  * happy mcp serve — stdio MCP server exposing happy session APIs.
  *
- * Reads credentials from `~/.happy-ai/` (whatever the happy CLI already authenticated
+ * Reads credentials from `~/.happy/` (whatever the happy CLI already authenticated
  * with) and surfaces 7 tools:
  *   - happy_session_list      (read)
  *   - happy_session_inspect   (read)
@@ -58,7 +58,7 @@ function wrap<I, O>(
 export async function runMcpServe(): Promise<void> {
     const credentials = await readCredentials();
     if (!credentials) {
-        logStderr('No happy credentials found at ~/.happy-ai/. Run "happy auth" first.');
+        logStderr('No happy credentials found at ~/.happy/. Run "happy auth" first.');
         process.exit(1);
     }
 

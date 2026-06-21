@@ -48,7 +48,7 @@ const testMetadata = {
     path: '/tmp',
     host: 'localhost',
     homeDir: '/home/user',
-    happyHomeDir: '/home/user/.happy-ai',
+    happyHomeDir: '/home/user/.happy',
     happyLibDir: '/home/user/.happy/lib',
     happyToolsDir: '/home/user/.happy/tools'
 };
@@ -58,7 +58,7 @@ const testMachineMetadata = {
     platform: 'darwin',
     happyCliVersion: '1.0.0',
     homeDir: '/home/user',
-    happyHomeDir: '/home/user/.happy-ai',
+    happyHomeDir: '/home/user/.happy',
     happyLibDir: '/home/user/.happy/lib'
 };
 

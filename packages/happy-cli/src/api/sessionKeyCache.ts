@@ -5,7 +5,7 @@
  * reads it back to decrypt session rows without needing the app's
  * contentKeyPair.privateKey (which the CLI never has).
  *
- * Storage: one file per session under `~/.happy-ai/session-keys/{sessionId}.key`
+ * Storage: one file per session under `~/.happy/session-keys/{sessionId}.key`
  * Format:  AES-256-GCM bundle produced by `encryptWithDataKey` / `decryptWithDataKey`.
  *          The AES key is base64-encoded before encryption (JSON-safe).
  */

@@ -22,7 +22,7 @@ Even if the server is compromised, your data remains encrypted.
 
 When you first run Happy, a **NaCl (Networking and Cryptography library)** key pair is generated:
 
-- **Private key** — Stored locally at `~/.happy-ai/access.key` (never leaves your device)
+- **Private key** — Stored locally at `~/.happy/access.key` (never leaves your device)
 - **Public key** — Sent to the server as your identity
 
 ### Message encryption
@@ -47,7 +47,7 @@ When you share a session with another user:
 ## Key backup
 
 <Warning>
-**Back up `~/.happy-ai/access.key`.** This file is your encryption private key. If you lose it, you permanently lose access to your encrypted session history. There is no recovery mechanism — this is by design.
+**Back up `~/.happy/access.key`.** This file is your encryption private key. If you lose it, you permanently lose access to your encrypted session history. There is no recovery mechanism — this is by design.
 </Warning>
 
 ## Library

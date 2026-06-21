@@ -113,7 +113,7 @@ function createHappyBashRc(): string {
         'fi',
         '',
         '__happy_short_pwd() {',
-        '  local ws_root="${HAPPY_WORKSPACES_DIR:-$HOME/.happy-ai/workspaces}"',
+        '  local ws_root="${HAPPY_WORKSPACES_DIR:-$HOME/.happy/workspaces}"',
         '  local dir="$PWD"',
         '  if [[ "$dir" == "$ws_root"/* ]]; then',
         '    local rel="${dir#$ws_root/}"',
@@ -182,7 +182,7 @@ export function spawnShell(opts: SpawnShellOptions): SpawnShellResult {
     shellEnv.COLORTERM = 'truecolor';
     shellEnv.FORCE_COLOR = shellEnv.FORCE_COLOR || '1';
     shellEnv.CLICOLOR = shellEnv.CLICOLOR || '1';
-    shellEnv.HAPPY_WORKSPACES_DIR = shellEnv.HAPPY_WORKSPACES_DIR || `${shellEnv.HOME || ''}/.happy-ai/workspaces`;
+    shellEnv.HAPPY_WORKSPACES_DIR = shellEnv.HAPPY_WORKSPACES_DIR || `${shellEnv.HOME || ''}/.happy/workspaces`;
 
     const term = mod.spawn(shell, shellArgs, {
         name: 'xterm-256color',

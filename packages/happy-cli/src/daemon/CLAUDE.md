@@ -222,7 +222,7 @@ Checks if machine ID exists in settings:
     'platform': 'darwin',
     'happyCliVersion': '1.0.0',
     'homeDir': '/Users/john',
-    'happyHomeDir': '/Users/john/.happy-ai'
+    'happyHomeDir': '/Users/john/.happy'
   }))",
   "daemonState": "base64(encrypted({
     'status': 'running',
@@ -316,7 +316,7 @@ socket.emit('machine-update-metadata', {
     'platform': 'darwin',
     'happyCliVersion': '1.0.1',  // version updated
     'homeDir': '/Users/john',
-    'happyHomeDir': '/Users/john/.happy-ai'
+    'happyHomeDir': '/Users/john/.happy'
   }))",
   "expectedVersion": 1
 }, callback)

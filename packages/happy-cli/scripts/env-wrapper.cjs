@@ -6,8 +6,8 @@
  * Usage: node scripts/env-wrapper.js <variant> <command> [...args]
  *
  * Variants:
- *   - stable: Production-ready version using ~/.happy-ai/
- *   - dev: Development version using ~/.happy-ai-dev/
+ *   - stable: Production-ready version using ~/.happy/
+ *   - dev: Development version using ~/.happy-dev/
  *
  * Examples:
  *   node scripts/env-wrapper.js stable daemon start
@@ -21,13 +21,13 @@ const fs = require('fs');
 
 const VARIANTS = {
   stable: {
-    homeDir: path.join(os.homedir(), '.happy-ai'),
+    homeDir: path.join(os.homedir(), '.happy'),
     color: '\x1b[32m', // Green
     label: '✅ STABLE',
     serverUrl: process.env.HAPPY_SERVER_URL || 'https://api-happy.zonease.org'
   },
   dev: {
-    homeDir: path.join(os.homedir(), '.happy-ai-dev'),
+    homeDir: path.join(os.homedir(), '.happy-dev'),
     color: '\x1b[33m', // Yellow
     label: '🔧 DEV',
     serverUrl: process.env.HAPPY_SERVER_URL || 'https://api-happy.zonease.org'
@@ -42,8 +42,8 @@ if (!variant || !VARIANTS[variant]) {
   console.error('Usage: node scripts/env-wrapper.js <stable|dev> <command> [...args]');
   console.error('');
   console.error('Variants:');
-  console.error('  stable - Production-ready version (data: ~/.happy-ai/)');
-  console.error('  dev    - Development version (data: ~/.happy-ai-dev/)');
+  console.error('  stable - Production-ready version (data: ~/.happy/)');
+  console.error('  dev    - Development version (data: ~/.happy-dev/)');
   console.error('');
   console.error('Examples:');
   console.error('  node scripts/env-wrapper.js stable daemon start');

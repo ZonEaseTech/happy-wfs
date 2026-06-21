@@ -36,18 +36,18 @@ happy
 
 This starts a Claude Code session (the default agent). On first run, Happy will:
 
-1. Generate an encryption key pair stored at `~/.happy-ai/access.key`
+1. Generate an encryption key pair stored at `~/.happy/access.key`
 2. Register your machine with the Happy server
 3. Start the **daemon** (background service) automatically
 4. Display a QR code for mobile app pairing
 
 <Warning>
-**Keep your encryption key safe.** The file `~/.happy-ai/access.key` is your identity and encryption key. If you lose it, you cannot decrypt your session history. Back it up.
+**Keep your encryption key safe.** The file `~/.happy/access.key` is your identity and encryption key. If you lose it, you cannot decrypt your session history. Back it up.
 </Warning>
 
 ## Data directory
 
-Happy stores its data at `~/.happy-ai/`:
+Happy stores its data at `~/.happy/`:
 
 | File | Purpose |
 |------|---------|
@@ -77,5 +77,5 @@ npm uninstall -g @zonease/happy
 To also remove local data:
 
 ```bash
-rm -rf ~/.happy-ai
+rm -rf ~/.happy
 ```
