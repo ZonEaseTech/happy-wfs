@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# oh-my-claudecode state (local only)
+.omc/
+
 # Expo
 .expo/
 dist/
@@ -58,3 +61,5 @@ tmp/
 
 # Plans (keep local, don't commit)
 docs/plans/*
+# Added by code-review-graph
+.code-review-graph/
