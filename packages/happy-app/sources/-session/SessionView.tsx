@@ -24,7 +24,7 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
-import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -172,7 +172,6 @@ export const SessionView = React.memo((props: { id: string }) => {
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
-    const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
     const autoReviewGuard = useAutoReviewGuard(sessionId);
     const autoReviewDefaults = useSetting('autoReviewGuardDefaults');
     const autoReviewEnabled = autoReviewGuard?.enabled === true;
@@ -192,13 +191,6 @@ export const SessionView = React.memo((props: { id: string }) => {
     );
     const memoryCount = injectedMemoryIds.length;
     const [injectedMemoriesOpen, setInjectedMemoriesOpen] = React.useState(false);
-    const handleOpenSessionRuns = React.useCallback(() => {
-        if (isDesktopPanelMode) {
-            setRightPanelType(prev => (prev === 'orchestrator' ? null : 'orchestrator'));
-        } else {
-            router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
-        }
-    }, [router, sessionId, isDesktopPanelMode]);
     const linkedGitHubIssue = React.useMemo(() => buildLinkedGitHubIssue(session), [session]);
     const handleOpenLinkedGitHubIssue = React.useCallback(() => {
         if (!linkedGitHubIssue) return;
@@ -436,47 +428,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         }}>
                                             {memoryCount}
                                         </Text>
-                                    </Pressable>
-                                )}
-                                {runningTaskCount > 0 && (
-                                    <Pressable
-                                        onPress={handleOpenSessionRuns}
-                                        hitSlop={15}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={t('settings.orchestratorOpenRuns')}
-                                        style={{
-                                            width: 38,
-                                            height: 38,
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: 2,
-                                        }}
-                                    >
-                                        <Ionicons
-                                            name="layers-outline"
-                                            size={22}
-                                            color={isDesktopPanelMode && rightPanelType === 'orchestrator' ? theme.colors.button.primary.background : theme.colors.header.tint}
-                                        />
-                                        <View style={{
-                                            position: 'absolute',
-                                            top: 2,
-                                            right: 0,
-                                            backgroundColor: theme.colors.button.primary.background,
-                                            borderRadius: 8,
-                                            minWidth: 16,
-                                            height: 16,
-                                            paddingHorizontal: 3,
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                        }}>
-                                            <Text style={{
-                                                color: theme.colors.button.primary.tint,
-                                                fontSize: 10,
-                                                fontWeight: '600',
-                                            }}>
-                                                {runningTaskCount > 99 ? '99+' : runningTaskCount}
-                                            </Text>
-                                        </View>
                                     </Pressable>
                                 )}
                                 <Pressable

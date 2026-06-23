@@ -126,7 +126,6 @@ interface StorageState {
     microphoneMuted: boolean;
     socketStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
     orchestratorActivity: Record<string, Record<string, string[]>>;
-    orchestratorTotalRunCount: Record<string, number>;
     socketLastConnectedAt: number | null;
     socketLastDisconnectedAt: number | null;
     isDataReady: boolean;
@@ -400,7 +399,6 @@ export const storage = create<StorageState>()((set, get) => {
         microphoneMuted: false,
         socketStatus: 'disconnected',
         orchestratorActivity: {},
-        orchestratorTotalRunCount: {},
         socketLastConnectedAt: null,
         socketLastDisconnectedAt: null,
         isDataReady: false,
@@ -1200,19 +1198,13 @@ export const storage = create<StorageState>()((set, get) => {
                 ...updates
             };
         }),
-        setOrchestratorActivity: (controllerSessionId: string, activity: Record<string, string[]>, totalRunCount?: number) => set((state) => ({
+        setOrchestratorActivity: (controllerSessionId: string, activity: Record<string, string[]>, _totalRunCount?: number) => set((state) => ({
             ...state,
             orchestratorActivity: { ...state.orchestratorActivity, [controllerSessionId]: activity },
-            ...(totalRunCount !== undefined && {
-                orchestratorTotalRunCount: { ...state.orchestratorTotalRunCount, [controllerSessionId]: totalRunCount },
-            }),
         })),
-        setOrchestratorActivityBatch: (activity: Record<string, Record<string, string[]>>, totalRunCounts?: Record<string, number>) => set((state) => ({
+        setOrchestratorActivityBatch: (activity: Record<string, Record<string, string[]>>, _totalRunCounts?: Record<string, number>) => set((state) => ({
             ...state,
             orchestratorActivity: { ...state.orchestratorActivity, ...activity },
-            ...(totalRunCounts && {
-                orchestratorTotalRunCount: { ...state.orchestratorTotalRunCount, ...totalRunCounts },
-            }),
         })),
         updateSessionDraft: (sessionId: string, draft: SessionDraft | null) => set((state) => {
             const isShared = sessionId in state.sharedSessions;
@@ -2033,17 +2025,6 @@ export function useSocketStatus() {
         lastConnectedAt: state.socketLastConnectedAt,
         lastDisconnectedAt: state.socketLastDisconnectedAt
     })));
-}
-
-export function useOrchestratorRunningTaskCount(sessionId: string): number {
-    return storage((state) => {
-        const byRun = state.orchestratorActivity[sessionId] ?? {};
-        return Object.values(byRun).reduce((sum, taskIds) => sum + taskIds.length, 0);
-    });
-}
-
-export function useOrchestratorHasRuns(sessionId: string): boolean {
-    return storage((state) => (state.orchestratorTotalRunCount[sessionId] ?? 0) > 0);
 }
 
 export function useOrchestratorActiveRunIds(sessionId: string): string[] {

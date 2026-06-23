@@ -9,7 +9,7 @@ import { getSessionName, useSessionStatus, getSessionAvatarId, formatPathRelativ
 import { Avatar } from './Avatar';
 import { Typography } from '@/constants/Typography';
 import { StatusDot } from './StatusDot';
-import { useAllMachines, useOrchestratorRunningTaskCount, useSetting } from '@/sync/storage';
+import { useAllMachines, useSetting } from '@/sync/storage';
 import { StyleSheet } from 'react-native-unistyles';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { machineSpawnNewSession, sessionKill } from '@/sync/ops';
@@ -366,7 +366,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const styles = stylesheet;
     const sessionStatus = useSessionStatus(session);
     const sessionName = getSessionName(session);
-    const runningTaskCount = useOrchestratorRunningTaskCount(session.id);
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
@@ -537,19 +536,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                             );
                         })()}
 
-                        {runningTaskCount > 0 && (
-                            <View style={styles.taskStatusContainer}>
-                                <Ionicons
-                                    name="layers-outline"
-                                    size={10}
-                                    color={styles.taskStatusText.color}
-                                    style={{ marginRight: 2 }}
-                                />
-                                <Text style={styles.taskStatusText}>
-                                    {runningTaskCount > 99 ? '99+' : runningTaskCount}
-                                </Text>
-                            </View>
-                        )}
 
                         {/* Shared status indicator */}
                         {session.ownerProfile ? (

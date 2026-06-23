@@ -3,7 +3,7 @@ import { View, Pressable, FlatList, Platform, RefreshControl, TextInput, ScrollV
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
-import { SessionListViewItem, useLocalSettingMutable, useSetting, useOrchestratorRunningTaskCount } from '@/sync/storage';
+import { SessionListViewItem, useLocalSettingMutable, useSetting } from '@/sync/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { getSessionName, useSessionStatus, getSessionSubtitle, getSessionAvatarId } from '@/utils/sessionUtils';
 import { Avatar } from './Avatar';
@@ -1650,7 +1650,6 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
     const sessionName = getSessionName(session);
     const sessionSubtitle = getSessionSubtitle(session);
     const compactSessionView = useSetting('compactSessionView');
-    const runningTaskCount = useOrchestratorRunningTaskCount(session.id);
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
@@ -1752,22 +1751,8 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                                 </Text>
                             </View>
 
-                            {(runningTaskCount > 0 || session.ownerProfile || session.isShared) && (
+                            {(session.ownerProfile || session.isShared) && (
                                 <View style={styles.statusIndicatorsRight}>
-                                    {runningTaskCount > 0 && !compactSessionView && (
-                                        <View style={styles.taskStatusContainer}>
-                                            <Ionicons
-                                                name="layers-outline"
-                                                size={10}
-                                                color={styles.taskStatusText.color}
-                                                style={{ marginRight: 2 }}
-                                            />
-                                            <Text style={styles.taskStatusText}>
-                                                {runningTaskCount > 99 ? '99+' : runningTaskCount}
-                                            </Text>
-                                        </View>
-                                    )}
-
                                     {/* Shared status indicator */}
                                     {session.ownerProfile ? (
                                         <Avatar id={session.ownerProfile.id} size={18} imageUrl={session.ownerProfile.avatar ?? undefined} />

@@ -1746,6 +1746,7 @@ function NewSessionWizard() {
             { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'flash-outline' },
         ];
     const selectedPermissionOption = permissionOptions.find(option => option.value === permissionMode) ?? permissionOptions[0];
+    const useDesktopRows = Platform.OS === 'web' && screenWidth > 700;
 
     // Persist the current wizard state so it survives remounts and screen navigation
     // Uses debouncing to avoid excessive writes
@@ -2353,76 +2354,132 @@ function NewSessionWizard() {
                                 </View>
                             </View>
 
-                            <View style={{ marginBottom: 24 }}>
-                                <SearchableListSelector<typeof machines[0]>
-                                    config={{
-                                    getItemId: (machine) => machine.id,
-                                    getItemTitle: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
-                                    getItemSubtitle: undefined,
-                                    getItemIcon: (machine) => (
-                                        <Ionicons
-                                            name="desktop-outline"
-                                            size={24}
-                                            color={theme.colors.textSecondary}
-                                        />
-                                    ),
-                                    getRecentItemIcon: (machine) => (
-                                        <Ionicons
-                                            name="time-outline"
-                                            size={24}
-                                            color={theme.colors.textSecondary}
-                                        />
-                                    ),
-                                    getItemStatus: (machine) => {
+                            {useDesktopRows ? (
+                                <View style={{ marginBottom: 24 }}>
+                                    {machines.length === 0 ? (
+                                        <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                            {t('wizard.noMachinesAvailable')}
+                                        </Text>
+                                    ) : machines.map((machine) => {
+                                        const selected = selectedMachineId === machine.id;
                                         const offline = !isMachineOnline(machine);
-                                        return {
-                                            text: offline ? 'offline' : 'online',
-                                            color: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
-                                            dotColor: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
-                                            isPulsing: !offline,
-                                        };
-                                    },
-                                    formatForDisplay: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
-                                    parseFromDisplay: (text) => {
-                                        return machines.find(m =>
-                                            m.metadata?.displayName === text || m.metadata?.host === text || m.id === text
-                                        ) || null;
-                                    },
-                                    filterItem: (machine, searchText) => {
-                                        const displayName = (machine.metadata?.displayName || '').toLowerCase();
-                                        const host = (machine.metadata?.host || '').toLowerCase();
-                                        const search = searchText.toLowerCase();
-                                        return displayName.includes(search) || host.includes(search);
-                                    },
-                                    searchPlaceholder: t('wizard.filterMachines'),
-                                    recentSectionTitle: t('wizard.recentMachines'),
-                                    favoritesSectionTitle: t('wizard.favoriteMachines'),
-                                    noItemsMessage: t('wizard.noMachinesAvailable'),
-                                    showFavorites: true,
-                                    showRecent: true,
-                                    showSearch: true,
-                                    allowCustomInput: false,
-                                    compactItems: true,
-                                }}
-                                items={[]}
-                                recentItems={recentMachines}
-                                favoriteItems={machines.filter(m => favoriteMachines.includes(m.id))}
-                                selectedItem={selectedMachine || null}
-                                onSelect={(machine) => {
-                                    setSelectedMachineId(machine.id);
-                                    const bestPath = getRecentPathForMachine(machine.id, recentMachinePaths);
-                                    setSelectedPath(bestPath);
-                                }}
-                                onToggleFavorite={(machine) => {
-                                    const isInFavorites = favoriteMachines.includes(machine.id);
-                                    if (isInFavorites) {
-                                        setFavoriteMachines(favoriteMachines.filter(id => id !== machine.id));
-                                    } else {
-                                        setFavoriteMachines([...favoriteMachines, machine.id]);
-                                    }
-                                }}
-                                />
-                            </View>
+                                        const title = machine.metadata?.displayName || machine.metadata?.host || machine.id;
+                                        const subtitle = machine.metadata?.host && machine.metadata.host !== title ? machine.metadata.host : undefined;
+
+                                        return (
+                                            <Pressable
+                                                key={machine.id}
+                                                style={[
+                                                    styles.profileListItem,
+                                                    selected && styles.profileListItemSelected,
+                                                ]}
+                                                onPress={() => {
+                                                    setSelectedMachineId(machine.id);
+                                                    const bestPath = getRecentPathForMachine(machine.id, recentMachinePaths);
+                                                    setSelectedPath(bestPath);
+                                                }}
+                                            >
+                                                <View style={styles.profileIcon}>
+                                                    <Ionicons name="desktop-outline" size={12} color="#FFFFFF" />
+                                                </View>
+                                                <View style={{ flex: 1, marginRight: 12 }}>
+                                                    <Text style={styles.profileListName}>{title}</Text>
+                                                    {subtitle ? (
+                                                        <Text style={styles.profileListDetails} numberOfLines={1}>
+                                                            {subtitle}
+                                                        </Text>
+                                                    ) : null}
+                                                </View>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                    <StatusDot
+                                                        color={offline ? theme.colors.status.disconnected : theme.colors.status.connected}
+                                                        isPulsing={!offline}
+                                                        size={6}
+                                                    />
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
+                                                        ...Typography.default(),
+                                                    }}>
+                                                        {offline ? 'offline' : 'online'}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            ) : (
+                                <View style={{ marginBottom: 24 }}>
+                                    <SearchableListSelector<typeof machines[0]>
+                                        config={{
+                                        getItemId: (machine) => machine.id,
+                                        getItemTitle: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
+                                        getItemSubtitle: undefined,
+                                        getItemIcon: (machine) => (
+                                            <Ionicons
+                                                name="desktop-outline"
+                                                size={24}
+                                                color={theme.colors.textSecondary}
+                                            />
+                                        ),
+                                        getRecentItemIcon: (machine) => (
+                                            <Ionicons
+                                                name="time-outline"
+                                                size={24}
+                                                color={theme.colors.textSecondary}
+                                            />
+                                        ),
+                                        getItemStatus: (machine) => {
+                                            const offline = !isMachineOnline(machine);
+                                            return {
+                                                text: offline ? 'offline' : 'online',
+                                                color: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
+                                                dotColor: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
+                                                isPulsing: !offline,
+                                            };
+                                        },
+                                        formatForDisplay: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
+                                        parseFromDisplay: (text) => {
+                                            return machines.find(m =>
+                                                m.metadata?.displayName === text || m.metadata?.host === text || m.id === text
+                                            ) || null;
+                                        },
+                                        filterItem: (machine, searchText) => {
+                                            const displayName = (machine.metadata?.displayName || '').toLowerCase();
+                                            const host = (machine.metadata?.host || '').toLowerCase();
+                                            const search = searchText.toLowerCase();
+                                            return displayName.includes(search) || host.includes(search);
+                                        },
+                                        searchPlaceholder: t('wizard.filterMachines'),
+                                        recentSectionTitle: t('wizard.recentMachines'),
+                                        favoritesSectionTitle: t('wizard.favoriteMachines'),
+                                        noItemsMessage: t('wizard.noMachinesAvailable'),
+                                        showFavorites: true,
+                                        showRecent: true,
+                                        showSearch: true,
+                                        allowCustomInput: false,
+                                        compactItems: true,
+                                    }}
+                                    items={[]}
+                                    recentItems={recentMachines}
+                                    favoriteItems={machines.filter(m => favoriteMachines.includes(m.id))}
+                                    selectedItem={selectedMachine || null}
+                                    onSelect={(machine) => {
+                                        setSelectedMachineId(machine.id);
+                                        const bestPath = getRecentPathForMachine(machine.id, recentMachinePaths);
+                                        setSelectedPath(bestPath);
+                                    }}
+                                    onToggleFavorite={(machine) => {
+                                        const isInFavorites = favoriteMachines.includes(machine.id);
+                                        if (isInFavorites) {
+                                            setFavoriteMachines(favoriteMachines.filter(id => id !== machine.id));
+                                        } else {
+                                            setFavoriteMachines([...favoriteMachines, machine.id]);
+                                        }
+                                    }}
+                                    />
+                                </View>
+                            )}
 
                             {/* Section 3: Session Mode */}
                             <View>
@@ -2483,21 +2540,18 @@ function NewSessionWizard() {
                                 </View>
                             </View>
 
-                            {/* Section 4: Working Directory */}
-                            <View ref={pathSectionRef}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>4.</Text>
-                                    <Ionicons name="folder-outline" size={18} color={theme.colors.text} />
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
-                                </View>
-                            </View>
+                            {sessionType !== 'worktree' && (
+                                <>
+                                    {/* Section 4: Working Directory */}
+                                    <View ref={pathSectionRef}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
+                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>4.</Text>
+                                            <Ionicons name="folder-outline" size={18} color={theme.colors.text} />
+                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
+                                        </View>
+                                    </View>
 
-                            {sessionType === 'worktree' && selectedRepos.length > 0 ? (
-                                <Text style={[styles.sectionDescription, { marginBottom: 24 }]}>
-                                    {t('machine.worktreeAutoPath')}
-                                </Text>
-                            ) : (
-                            <View style={{ marginBottom: 24 }}>
+                                    <View style={{ marginBottom: 24 }}>
                                 <SearchableListSelector<string>
                                     config={{
                                     getItemId: (path) => path,
@@ -2589,7 +2643,8 @@ function NewSessionWizard() {
                                 }}
                                     context={{ homeDir: selectedMachine?.metadata?.homeDir }}
                                 />
-                            </View>
+                                    </View>
+                                </>
                             )}
 
                             {/* Section 5: Permission Mode (restored — yolo skips
@@ -2624,64 +2679,98 @@ function NewSessionWizard() {
                                     </View>
                                 </Pressable>
                             </View>
-                            <ItemGroup title="">
-                                {isPermissionSectionExpanded ? (
-                                    permissionOptions.map((option, index, array) => (
+                            {useDesktopRows ? (
+                                <View style={{ marginBottom: 24 }}>
+                                    {(isPermissionSectionExpanded ? permissionOptions : [selectedPermissionOption]).map((option) => {
+                                        const selected = permissionMode === option.value;
+                                        return (
+                                            <Pressable
+                                                key={option.value}
+                                                style={[
+                                                    styles.profileListItem,
+                                                    selected && styles.profileListItemSelected,
+                                                ]}
+                                                onPress={() => {
+                                                    if (isPermissionSectionExpanded) {
+                                                        handlePermissionModeChange(option.value);
+                                                    } else {
+                                                        setIsPermissionSectionExpanded(true);
+                                                    }
+                                                }}
+                                            >
+                                                <View style={styles.profileIcon}>
+                                                    <Ionicons name={option.icon as any} size={12} color="#FFFFFF" />
+                                                </View>
+                                                <View style={{ flex: 1, marginRight: 12 }}>
+                                                    <Text style={styles.profileListName}>{option.label}</Text>
+                                                    <Text style={styles.profileListDetails} numberOfLines={2}>
+                                                        {option.description}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            ) : (
+                                <ItemGroup title="">
+                                    {isPermissionSectionExpanded ? (
+                                        permissionOptions.map((option, index, array) => (
+                                            <Item
+                                                key={option.value}
+                                                title={option.label}
+                                                subtitle={option.description}
+                                                leftElement={
+                                                    <Ionicons
+                                                        name={option.icon as any}
+                                                        size={24}
+                                                        color={permissionMode === option.value ? theme.colors.button.primary.background : theme.colors.textSecondary}
+                                                    />
+                                                }
+                                                rightElement={null}
+                                                onPress={() => handlePermissionModeChange(option.value)}
+                                                showChevron={false}
+                                                selected={permissionMode === option.value}
+                                                hideSelectedCheckmark={true}
+                                                showDivider={index < array.length - 1}
+                                                style={permissionMode === option.value ? {
+                                                    borderWidth: 2,
+                                                    borderColor: theme.colors.button.primary.background,
+                                                    borderRadius: Platform.select({ ios: 10, default: 16 }),
+                                                } : undefined}
+                                            />
+                                        ))
+                                    ) : (
                                         <Item
-                                            key={option.value}
-                                            title={option.label}
-                                            subtitle={option.description}
+                                            title={selectedPermissionOption.label}
+                                            subtitle={selectedPermissionOption.description}
                                             leftElement={
                                                 <Ionicons
-                                                    name={option.icon as any}
+                                                    name={selectedPermissionOption.icon as any}
                                                     size={24}
-                                                    color={permissionMode === option.value ? theme.colors.button.primary.background : theme.colors.textSecondary}
+                                                    color={theme.colors.button.primary.background}
                                                 />
                                             }
-                                            rightElement={null}
-                                            onPress={() => handlePermissionModeChange(option.value)}
+                                            rightElement={
+                                                <Ionicons
+                                                    name="chevron-down"
+                                                    size={18}
+                                                    color={theme.colors.textSecondary}
+                                                />
+                                            }
+                                            onPress={() => setIsPermissionSectionExpanded(true)}
                                             showChevron={false}
-                                            selected={permissionMode === option.value}
-                                            hideSelectedCheckmark={true}
-                                            showDivider={index < array.length - 1}
-                                            style={permissionMode === option.value ? {
+                                            selected
+                                            hideSelectedCheckmark
+                                            showDivider={false}
+                                            style={{
                                                 borderWidth: 2,
                                                 borderColor: theme.colors.button.primary.background,
                                                 borderRadius: Platform.select({ ios: 10, default: 16 }),
-                                            } : undefined}
+                                            }}
                                         />
-                                    ))
-                                ) : (
-                                    <Item
-                                        title={selectedPermissionOption.label}
-                                        subtitle={selectedPermissionOption.description}
-                                        leftElement={
-                                            <Ionicons
-                                                name={selectedPermissionOption.icon as any}
-                                                size={24}
-                                                color={theme.colors.button.primary.background}
-                                            />
-                                        }
-                                        rightElement={
-                                            <Ionicons
-                                                name="chevron-down"
-                                                size={18}
-                                                color={theme.colors.textSecondary}
-                                            />
-                                        }
-                                        onPress={() => setIsPermissionSectionExpanded(true)}
-                                        showChevron={false}
-                                        selected
-                                        hideSelectedCheckmark
-                                        showDivider={false}
-                                        style={{
-                                            borderWidth: 2,
-                                            borderColor: theme.colors.button.primary.background,
-                                            borderRadius: Platform.select({ ios: 10, default: 16 }),
-                                        }}
-                                    />
-                                )}
-                            </ItemGroup>
+                                    )}
+                                </ItemGroup>
+                            )}
 
                         </View>
                     </View>
