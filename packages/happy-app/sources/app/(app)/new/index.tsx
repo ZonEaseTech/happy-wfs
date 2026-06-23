@@ -46,7 +46,7 @@ import { useImagePicker } from '@/hooks/useImagePicker';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
-import { getInitialNewSessionModelMode } from '@/utils/newSessionDefaults';
+import { getInitialNewSessionModelMode, getInitialNewSessionPermissionMode, NEW_SESSION_FORCED_PERMISSION_MODE } from '@/utils/newSessionDefaults';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -430,7 +430,6 @@ function NewSessionWizard() {
         return 'claude';
     });
     const lastUsedSessionMode = useSessionModeLastUsed(agentType);
-    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', PermissionMode>>>({});
     const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', ModelMode>>>({});
 
     // Agent cycling handler (for cycling through claude -> codex -> gemini)
@@ -456,34 +455,17 @@ function NewSessionWizard() {
     const [addDirBranchMenu, setAddDirBranchMenu] = React.useState<{ visible: boolean; items: ActionMenuItem[] }>({ visible: false, items: [] });
     const addDirBranchResolveRef = React.useRef<((value: string | undefined) => void) | null>(null);
     const folderPickerRef = React.useRef<BottomSheetModal>(null);
-    // Restore the section-5 selector. Default to whatever the user picked
-    // last (so a "yolo by default" workflow keeps working), validated against
-    // the agent type. If the persisted mode isn't valid for this agent, fall
-    // back to 'yolo' rather than 'default' — losing yolo silently after the
-    // selector returns would surprise users who had been relying on it.
-    const [permissionMode, setPermissionMode] = React.useState<PermissionMode>(() => {
-        const mode = lastUsedSessionMode?.permissionMode;
-        const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
-        const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
-        if (mode && validModes.includes(mode as PermissionMode)) {
-            return mode as PermissionMode;
-        }
-        return 'yolo';
-    });
-
-    // NOTE: Permission mode reset on agentType change is handled by the validation useEffect below (lines ~670-681)
-    // which intelligently resets only when the current mode is invalid for the new agent type.
-    // A duplicate unconditional reset here was removed to prevent race conditions.
+    const [permissionMode, setPermissionMode] = React.useState<PermissionMode>(() => (
+        getInitialNewSessionPermissionMode(lastUsedSessionMode?.permissionMode) as PermissionMode
+    ));
 
     const [modelMode, setModelMode] = React.useState<ModelMode>(() => {
         return getInitialNewSessionModelMode(agentType, lastUsedSessionMode?.modelMode);
     });
     const [fastMode, setFastMode] = React.useState(() => lastUsedSessionMode?.fastMode ?? false);
-    const applyManualPermissionMode = React.useCallback((mode: PermissionMode) => {
-        manualPermissionModeByAgentRef.current[agentType] = mode;
-        setPermissionMode(mode);
-    }, [agentType]);
+    const applyManualPermissionMode = React.useCallback((_mode: PermissionMode) => {
+        setPermissionMode(NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode);
+    }, []);
     const applyManualModelMode = React.useCallback((mode: ModelMode) => {
         manualModelModeByAgentRef.current[agentType] = mode;
         setModelMode(mode);
@@ -511,11 +493,12 @@ function NewSessionWizard() {
         return null;
     });
 
-    const handlePermissionModeChange = React.useCallback((mode: PermissionMode) => {
-        applyManualPermissionMode(mode);
+    const handlePermissionModeChange = React.useCallback((_mode: PermissionMode) => {
+        const nextMode = NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode;
+        applyManualPermissionMode(nextMode);
         sync.queueSessionModeConfigUpdate({
             agentType,
-            permissionMode: mode,
+            permissionMode: nextMode,
             modelMode: modelMode || MODEL_MODE_DEFAULT,
             fastMode,
             includeSessionEntry: false,
@@ -801,8 +784,6 @@ function NewSessionWizard() {
     const profileSectionRef = React.useRef<View>(null);
     const machineSectionRef = React.useRef<View>(null);
     const pathSectionRef = React.useRef<View>(null);
-    const permissionSectionRef = React.useRef<View>(null);
-    const [isPermissionSectionExpanded, setIsPermissionSectionExpanded] = React.useState(false);
 
     // CLI Detection - automatic, non-blocking detection of installed CLIs on selected machine
     const cliAvailability = useCLIDetection(selectedMachineId);
@@ -1226,31 +1207,15 @@ function NewSessionWizard() {
             if (profile.defaultSessionType) {
                 setSessionType(profile.defaultSessionType);
             }
-            // Set permission mode from profile's default
-            if (profile.defaultPermissionMode) {
-                applyManualPermissionMode(profile.defaultPermissionMode as PermissionMode);
-            }
         }
-    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, applyManualPermissionMode]);
+    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini]);
 
-    // Restore saved permission mode when agent type changes
+    // New sessions always start in YOLO mode. Keep this independent of
+    // last-used settings, profile defaults, and agent switches.
     React.useEffect(() => {
-        const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
-        const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
-        const manualMode = manualPermissionModeByAgentRef.current[agentType];
-
-        if (manualMode && validModes.includes(manualMode)) {
-            setPermissionMode((prev) => (prev === manualMode ? prev : manualMode));
-            return;
-        }
-
-        const savedMode = lastUsedSessionMode?.permissionMode;
-        if (savedMode && validModes.includes(savedMode)) {
-            setPermissionMode((prev) => (prev === savedMode ? prev : savedMode));
-        } else {
-            setPermissionMode((prev) => (prev === 'default' ? prev : 'default'));
-        }
+        setPermissionMode((prev) => (
+            prev === NEW_SESSION_FORCED_PERMISSION_MODE ? prev : NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode
+        ));
     }, [agentType, lastUsedSessionMode?.permissionMode]);
 
     // Restore saved model mode when agent type changes
@@ -1303,11 +1268,9 @@ function NewSessionWizard() {
         scrollToSection(pathSectionRef);
     }, [scrollToSection]);
 
-    const handleAgentInputPermissionChange = React.useCallback((mode: PermissionMode) => {
-        applyManualPermissionMode(mode);
-        setIsPermissionSectionExpanded(true);
-        scrollToSection(permissionSectionRef);
-    }, [scrollToSection, applyManualPermissionMode]);
+    const handleAgentInputPermissionChange = React.useCallback((_mode: PermissionMode) => {
+        applyManualPermissionMode(NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode);
+    }, [applyManualPermissionMode]);
 
     const handleAgentInputAgentClick = React.useCallback(() => {
         scrollToSection(profileSectionRef); // Agent tied to profile section
@@ -1731,21 +1694,6 @@ function NewSessionWizard() {
         };
     }, [selectedMachine, theme]);
 
-    const permissionOptions = agentType === 'codex'
-        ? [
-            { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
-            { value: 'read-only' as PermissionMode, label: t('wizard.permReadOnly'), description: t('wizard.permReadOnlyDesc'), icon: 'eye-outline' },
-            { value: 'safe-yolo' as PermissionMode, label: t('wizard.permSafeYolo'), description: t('wizard.permSafeYoloDesc'), icon: 'shield-checkmark-outline' },
-            { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'flash-outline' },
-        ]
-        : [
-            { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
-            { value: 'acceptEdits' as PermissionMode, label: t('wizard.permAcceptEdits'), description: t('wizard.permAcceptEditsDesc'), icon: 'checkmark-outline' },
-            { value: 'plan' as PermissionMode, label: t('wizard.permPlan'), description: t('wizard.permPlanDesc'), icon: 'list-outline' },
-            { value: 'bypassPermissions' as PermissionMode, label: t('wizard.permBypass'), description: t('wizard.permBypassDesc'), icon: 'shield-checkmark-outline' },
-            { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'flash-outline' },
-        ];
-    const selectedPermissionOption = permissionOptions.find(option => option.value === permissionMode) ?? permissionOptions[0];
     const useDesktopRows = Platform.OS === 'web' && screenWidth > 700;
 
     // Persist the current wizard state so it survives remounts and screen navigation
@@ -1869,6 +1817,7 @@ function NewSessionWizard() {
                                 onAgentClick={handleAgentClick}
                                 permissionMode={permissionMode}
                                 onPermissionModeChange={handlePermissionModeChange}
+                                hidePermissionSettings
                                 modelMode={modelMode}
                                 onModelModeChange={handleModelModeChange}
                                 fastMode={fastMode}
@@ -2647,130 +2596,7 @@ function NewSessionWizard() {
                                 </>
                             )}
 
-                            {/* Section 5: Permission Mode (restored — yolo skips
-                                AskUserQuestion approval, which surprised users
-                                who actually wanted to be asked). */}
-                            <View ref={permissionSectionRef}>
-                                <Pressable
-                                    onPress={() => setIsPermissionSectionExpanded(prev => !prev)}
-                                    style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: 12,
-                                        marginBottom: 8,
-                                        marginTop: 12,
-                                    }}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
-                                        <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>5.</Text>
-                                        <Ionicons name="shield-outline" size={18} color={theme.colors.text} />
-                                        <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step5Title')}</Text>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {selectedPermissionOption.label}
-                                        </Text>
-                                        <Ionicons
-                                            name={isPermissionSectionExpanded ? 'chevron-up' : 'chevron-down'}
-                                            size={18}
-                                            color={theme.colors.textSecondary}
-                                        />
-                                    </View>
-                                </Pressable>
-                            </View>
-                            {useDesktopRows ? (
-                                <View style={{ marginBottom: 24 }}>
-                                    {(isPermissionSectionExpanded ? permissionOptions : [selectedPermissionOption]).map((option) => {
-                                        const selected = permissionMode === option.value;
-                                        return (
-                                            <Pressable
-                                                key={option.value}
-                                                style={[
-                                                    styles.profileListItem,
-                                                    selected && styles.profileListItemSelected,
-                                                ]}
-                                                onPress={() => {
-                                                    if (isPermissionSectionExpanded) {
-                                                        handlePermissionModeChange(option.value);
-                                                    } else {
-                                                        setIsPermissionSectionExpanded(true);
-                                                    }
-                                                }}
-                                            >
-                                                <View style={styles.profileIcon}>
-                                                    <Ionicons name={option.icon as any} size={12} color="#FFFFFF" />
-                                                </View>
-                                                <View style={{ flex: 1, marginRight: 12 }}>
-                                                    <Text style={styles.profileListName}>{option.label}</Text>
-                                                    <Text style={styles.profileListDetails} numberOfLines={2}>
-                                                        {option.description}
-                                                    </Text>
-                                                </View>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
-                            ) : (
-                                <ItemGroup title="">
-                                    {isPermissionSectionExpanded ? (
-                                        permissionOptions.map((option, index, array) => (
-                                            <Item
-                                                key={option.value}
-                                                title={option.label}
-                                                subtitle={option.description}
-                                                leftElement={
-                                                    <Ionicons
-                                                        name={option.icon as any}
-                                                        size={24}
-                                                        color={permissionMode === option.value ? theme.colors.button.primary.background : theme.colors.textSecondary}
-                                                    />
-                                                }
-                                                rightElement={null}
-                                                onPress={() => handlePermissionModeChange(option.value)}
-                                                showChevron={false}
-                                                selected={permissionMode === option.value}
-                                                hideSelectedCheckmark={true}
-                                                showDivider={index < array.length - 1}
-                                                style={permissionMode === option.value ? {
-                                                    borderWidth: 2,
-                                                    borderColor: theme.colors.button.primary.background,
-                                                    borderRadius: Platform.select({ ios: 10, default: 16 }),
-                                                } : undefined}
-                                            />
-                                        ))
-                                    ) : (
-                                        <Item
-                                            title={selectedPermissionOption.label}
-                                            subtitle={selectedPermissionOption.description}
-                                            leftElement={
-                                                <Ionicons
-                                                    name={selectedPermissionOption.icon as any}
-                                                    size={24}
-                                                    color={theme.colors.button.primary.background}
-                                                />
-                                            }
-                                            rightElement={
-                                                <Ionicons
-                                                    name="chevron-down"
-                                                    size={18}
-                                                    color={theme.colors.textSecondary}
-                                                />
-                                            }
-                                            onPress={() => setIsPermissionSectionExpanded(true)}
-                                            showChevron={false}
-                                            selected
-                                            hideSelectedCheckmark
-                                            showDivider={false}
-                                            style={{
-                                                borderWidth: 2,
-                                                borderColor: theme.colors.button.primary.background,
-                                                borderRadius: Platform.select({ ios: 10, default: 16 }),
-                                            }}
-                                        />
-                                    )}
-                                </ItemGroup>
-                            )}
+
 
                         </View>
                     </View>
@@ -2793,6 +2619,7 @@ function NewSessionWizard() {
                             onAgentClick={handleAgentInputAgentClick}
                             permissionMode={permissionMode}
                             onPermissionModeChange={handleAgentInputPermissionChange}
+                            hidePermissionSettings
                             modelMode={modelMode}
                             onModelModeChange={handleModelModeChange}
                             fastMode={fastMode}

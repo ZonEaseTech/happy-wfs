@@ -78,6 +78,7 @@ interface AgentInputProps {
     isMicActive?: boolean;
     permissionMode?: PermissionMode;
     onPermissionModeChange?: (mode: PermissionMode) => void;
+    hidePermissionSettings?: boolean;
     modelMode?: ModelMode;
     onModelModeChange?: (mode: ModelMode) => void;
     /** Optional inline archive trigger (active sessions). Shown as archive-outline
@@ -798,10 +799,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
     // Handle permission mode text press (right-side text → permission mode selection)
     const handlePermissionPress = React.useCallback(() => {
+        if (props.hidePermissionSettings) return;
         hapticsLight();
         setShowQuickActions(false);
         setShowSettings(prev => prev === 'permission' ? false : 'permission');
-    }, []);
+    }, [props.hidePermissionSettings]);
 
     const handleQuickActionPress = React.useCallback(() => {
         hapticsLight();
@@ -826,9 +828,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Handle settings selection
     const handleSettingsSelect = React.useCallback((mode: PermissionMode) => {
         hapticsLight();
+        if (props.hidePermissionSettings) return;
         props.onPermissionModeChange?.(mode);
         // Don't close the settings overlay - let users see the change and potentially switch again
-    }, [props.onPermissionModeChange]);
+    }, [props.hidePermissionSettings, props.onPermissionModeChange]);
 
     // Handle abort button press
     const handleAbortPress = React.useCallback(async () => {
@@ -910,7 +913,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 }
             }
             // Handle Shift+Tab for permission mode switching
-            if (event.key === 'Tab' && event.shiftKey && props.onPermissionModeChange) {
+            if (event.key === 'Tab' && event.shiftKey && props.onPermissionModeChange && !props.hidePermissionSettings) {
                 const modeOrder: PermissionMode[] = isCodex
                     ? ['default', 'read-only', 'safe-yolo', 'yolo']
                     : ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo']; // Claude and Gemini share same modes
@@ -923,7 +926,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
         }
         return false; // Key was not handled
-    }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.showAbortButton, props.onAbort, isAborting, handleAbortPress, agentInputEnterToSend, resolveSendSnapshot, props.onSend, props.permissionMode, props.onPermissionModeChange, props.isSending, props.isSendDisabled]);
+    }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.showAbortButton, props.onAbort, isAborting, handleAbortPress, agentInputEnterToSend, resolveSendSnapshot, props.onSend, props.permissionMode, props.onPermissionModeChange, props.hidePermissionSettings, props.isSending, props.isSendDisabled]);
 
     const handleSubmitEditing = React.useCallback(() => {
         // Native mobile TextInput does not reliably deliver Enter through
@@ -1027,7 +1030,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             : currentModelLabel;
                                         const tabs = [
                                             { key: 'model' as const, label: t('agentInput.model.title'), subtitle: currentModelSubtitle },
-                                            { key: 'permission' as const, label: isCodex ? t('agentInput.codexPermissionMode.title') : isGemini ? t('agentInput.geminiPermissionMode.title') : t('agentInput.permissionMode.title'), subtitle: permissionLabel },
+                                            ...(props.hidePermissionSettings ? [] : [{ key: 'permission' as const, label: isCodex ? t('agentInput.codexPermissionMode.title') : isGemini ? t('agentInput.geminiPermissionMode.title') : t('agentInput.permissionMode.title'), subtitle: permissionLabel }]),
                                         ];
                                         return tabs.map((tab) => {
                                             const isActive = showSettings === tab.key;
@@ -1077,7 +1080,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 </View>
 
                                 {/* Permission Mode Section */}
-                                {showSettings === 'permission' && <View style={styles.overlaySection}>
+                                {showSettings === 'permission' && !props.hidePermissionSettings && <View style={styles.overlaySection}>
                                     {((isCodex || isGemini)
                                         ? (['default', 'read-only', 'safe-yolo', 'yolo'] as const)
                                         : (['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'] as const)
@@ -1488,6 +1491,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                                             onPress={() => {
                                                 if (props.connectionStatus?.action === 'openPermission') {
+                                                    if (props.hidePermissionSettings) return;
                                                     hapticsLight();
                                                     setShowSettings(prev => prev === 'permission' ? false : 'permission');
                                                 } else {
@@ -1679,7 +1683,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 </Pressable>
                             )}
                             {props.permissionMode && (
-                                <Pressable hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={handlePermissionPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+                                <Pressable disabled={props.hidePermissionSettings} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={handlePermissionPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
                                     <Text style={{
                                         fontSize: 11,
                                         color: props.permissionMode === 'acceptEdits' ? theme.colors.permission.acceptEdits :
