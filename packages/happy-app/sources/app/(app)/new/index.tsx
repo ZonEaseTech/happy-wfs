@@ -2401,6 +2401,14 @@ function NewSessionWizard() {
                 />
 
                 <ActionMenuModal
+                    visible={profileMenuVisible}
+                    title={t('wizard.step1Title')}
+                    searchable
+                    items={profileMenuItems}
+                    onClose={() => setProfileMenuVisible(false)}
+                />
+
+                <ActionMenuModal
                     visible={branchModeMenuVisible}
                     items={branchModeMenuItems}
                     onClose={() => setBranchModeMenuVisible(false)}

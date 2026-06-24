@@ -9,7 +9,8 @@ describe('new session profile dropdown', () => {
         expect(newSessionSource).toContain('profileMenuVisible');
         expect(newSessionSource).toContain('profileMenuItems');
         expect(newSessionSource).toContain('setProfileMenuVisible(true)');
-        expect(newSessionSource).toContain('visible={profileMenuVisible}');
+        const profileModalCount = (newSessionSource.match(/visible=\{profileMenuVisible\}/g) || []).length;
+        expect(profileModalCount).toBe(2);
         expect(newSessionSource).not.toContain('{profiles.map((profile) => {');
         expect(newSessionSource).not.toContain('{DEFAULT_PROFILES.map((profileDisplay) => {');
         expect(newSessionSource).not.toContain('wizard.showMoreProfiles');
