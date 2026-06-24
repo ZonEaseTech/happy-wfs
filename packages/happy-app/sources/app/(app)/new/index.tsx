@@ -25,7 +25,7 @@ import { RepoPickerBar, type SelectedRepo } from '@/components/RepoPickerBar';
 import type { RegisteredRepo } from '@/utils/workspaceRepos';
 import { saveRegisteredRepos, loadRegisteredRepos } from '@/sync/repoStore';
 import { getTempData, type NewSessionData } from '@/utils/tempDataStore';
-import { PermissionMode, ModelMode, PermissionModeSelector } from '@/components/PermissionModeSelector';
+import { PermissionMode, ModelMode } from '@/components/PermissionModeSelector';
 import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile, DEFAULT_PROFILES } from '@/sync/profileUtils';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
@@ -40,13 +40,13 @@ import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { MultiTextInput } from '@/components/MultiTextInput';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { StatusDot } from '@/components/StatusDot';
-import { SearchableListSelector, SelectorConfig } from '@/components/SearchableListSelector';
+import { SearchableListSelector } from '@/components/SearchableListSelector';
 import { clearNewSessionDraft, loadNewSessionDraft, saveNewSessionDraft } from '@/sync/persistence';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
-import { getInitialNewSessionModelMode, getInitialNewSessionPermissionMode, NEW_SESSION_FORCED_PERMISSION_MODE } from '@/utils/newSessionDefaults';
+import { getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } from '@/utils/newSessionDefaults';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -367,7 +367,6 @@ function NewSessionWizard() {
     const [profiles, setProfiles] = useSettingMutable('profiles');
     const lastUsedProfile = useSetting('lastUsedProfile');
     const [favoriteDirectories, setFavoriteDirectories] = useSettingMutable('favoriteDirectories');
-    const [favoriteMachines, setFavoriteMachines] = useSettingMutable('favoriteMachines');
     const [dismissedCLIWarnings, setDismissedCLIWarnings] = useSettingMutable('dismissedCLIWarnings');
     const [syncedCustomQuickActions, setCustomQuickActions] = useSettingMutable('customQuickActions');
     const [legacyLocalCustomQuickActions, setLegacyLocalCustomQuickActions] = useLocalSettingMutable('customQuickActions');
@@ -451,6 +450,8 @@ function NewSessionWizard() {
 
     const [sessionType, setSessionType] = React.useState<'simple' | 'worktree'>(tempSessionData?.sessionType || persistedDraft?.sessionType || 'simple');
     const [branchMode, setBranchMode] = React.useState<'new' | 'existing'>('new');
+    const [branchModeMenuVisible, setBranchModeMenuVisible] = React.useState(false);
+    const [machineMenuVisible, setMachineMenuVisible] = React.useState(false);
     const [selectedRepos, setSelectedRepos] = React.useState<SelectedRepo[]>([]);
     const [addDirBranchMenu, setAddDirBranchMenu] = React.useState<{ visible: boolean; items: ActionMenuItem[] }>({ visible: false, items: [] });
     const addDirBranchResolveRef = React.useRef<((value: string | undefined) => void) | null>(null);
@@ -463,8 +464,8 @@ function NewSessionWizard() {
         return getInitialNewSessionModelMode(agentType, lastUsedSessionMode?.modelMode);
     });
     const [fastMode, setFastMode] = React.useState(() => lastUsedSessionMode?.fastMode ?? false);
-    const applyManualPermissionMode = React.useCallback((_mode: PermissionMode) => {
-        setPermissionMode(NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode);
+    const applyManualPermissionMode = React.useCallback((mode: PermissionMode) => {
+        setPermissionMode(mode);
     }, []);
     const applyManualModelMode = React.useCallback((mode: ModelMode) => {
         manualModelModeByAgentRef.current[agentType] = mode;
@@ -493,8 +494,7 @@ function NewSessionWizard() {
         return null;
     });
 
-    const handlePermissionModeChange = React.useCallback((_mode: PermissionMode) => {
-        const nextMode = NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode;
+    const handlePermissionModeChange = React.useCallback((nextMode: PermissionMode) => {
         applyManualPermissionMode(nextMode);
         sync.queueSessionModeConfigUpdate({
             agentType,
@@ -782,7 +782,6 @@ function NewSessionWizard() {
     // Refs for scrolling to sections
     const scrollViewRef = React.useRef<ScrollView>(null);
     const profileSectionRef = React.useRef<View>(null);
-    const machineSectionRef = React.useRef<View>(null);
     const pathSectionRef = React.useRef<View>(null);
 
     // CLI Detection - automatic, non-blocking detection of installed CLIs on selected machine
@@ -1026,31 +1025,6 @@ function NewSessionWizard() {
     }, []);
 
     // Get recent paths for the selected machine
-    // Recent machines computed from sessions (for inline machine selection)
-    const recentMachines = React.useMemo(() => {
-        const machineIds = new Set<string>();
-        const machinesWithTimestamp: Array<{ machine: typeof machines[0]; timestamp: number }> = [];
-
-        sessions?.forEach(item => {
-            if (typeof item === 'string') return; // Skip section headers
-            const session = item as any;
-            if (session.metadata?.machineId && !machineIds.has(session.metadata.machineId)) {
-                const machine = machines.find(m => m.id === session.metadata.machineId);
-                if (machine) {
-                    machineIds.add(machine.id);
-                    machinesWithTimestamp.push({
-                        machine,
-                        timestamp: session.updatedAt || session.createdAt
-                    });
-                }
-            }
-        });
-
-        return machinesWithTimestamp
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .map(item => item.machine);
-    }, [sessions, machines]);
-
     const recentPaths = React.useMemo(() => {
         if (!selectedMachineId) return [];
 
@@ -1210,14 +1184,6 @@ function NewSessionWizard() {
         }
     }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini]);
 
-    // New sessions always start in YOLO mode. Keep this independent of
-    // last-used settings, profile defaults, and agent switches.
-    React.useEffect(() => {
-        setPermissionMode((prev) => (
-            prev === NEW_SESSION_FORCED_PERMISSION_MODE ? prev : NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode
-        ));
-    }, [agentType, lastUsedSessionMode?.permissionMode]);
-
     // Restore saved model mode when agent type changes
     React.useEffect(() => {
         const manualMode = manualModelModeByAgentRef.current[agentType];
@@ -1261,16 +1227,12 @@ function NewSessionWizard() {
     }, [scrollToSection]);
 
     const handleAgentInputMachineClick = React.useCallback(() => {
-        scrollToSection(machineSectionRef);
-    }, [scrollToSection]);
+        setMachineMenuVisible(true);
+    }, []);
 
     const handleAgentInputPathClick = React.useCallback(() => {
         scrollToSection(pathSectionRef);
     }, [scrollToSection]);
-
-    const handleAgentInputPermissionChange = React.useCallback((_mode: PermissionMode) => {
-        applyManualPermissionMode(NEW_SESSION_FORCED_PERMISSION_MODE as PermissionMode);
-    }, [applyManualPermissionMode]);
 
     const handleAgentInputAgentClick = React.useCallback(() => {
         scrollToSection(profileSectionRef); // Agent tied to profile section
@@ -1694,7 +1656,26 @@ function NewSessionWizard() {
         };
     }, [selectedMachine, theme]);
 
-    const useDesktopRows = Platform.OS === 'web' && screenWidth > 700;
+    const selectMachine = React.useCallback((machineId: string) => {
+        setSelectedMachineId(machineId);
+        const bestPath = getRecentPathForMachine(machineId, recentMachinePaths);
+        setSelectedPath(bestPath);
+    }, [recentMachinePaths]);
+
+    const selectedMachineTitle = selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host || selectedMachine?.id || 'Machine';
+
+    const machineMenuItems = React.useMemo<ActionMenuItem[]>(() => machines.map((machine) => {
+        const title = machine.metadata?.displayName || machine.metadata?.host || machine.id;
+        const offline = !isMachineOnline(machine);
+        return {
+            label: `${title} · ${offline ? 'offline' : 'online'}`,
+            selected: selectedMachineId === machine.id,
+            onPress: () => {
+                selectMachine(machine.id);
+                setMachineMenuVisible(false);
+            },
+        };
+    }), [machines, selectedMachineId, selectMachine]);
 
     // Persist the current wizard state so it survives remounts and screen navigation
     // Uses debouncing to avoid excessive writes
@@ -1723,6 +1704,38 @@ function NewSessionWizard() {
             }
         };
     }, [tempSessionData, sessionPrompt, selectedMachineId, selectedPath, agentType, permissionMode, sessionType, images]);
+
+    const branchModeMenuItems = React.useMemo<ActionMenuItem[]>(() => (['new', 'existing'] as const).map((mode) => ({
+        label: t(`newSession.branchMode.${mode === 'new' ? 'newBranch' : 'existingBranch'}`),
+        selected: branchMode === mode,
+        onPress: () => {
+            setBranchMode(mode);
+            setBranchModeMenuVisible(false);
+        },
+    })), [branchMode]);
+
+    const branchModeSelector = sessionType === 'worktree' && selectedMachineId ? (
+        <Pressable
+            onPress={() => setBranchModeMenuVisible(true)}
+            style={({ pressed }) => [{
+                alignSelf: 'flex-end',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: 10,
+                backgroundColor: theme.colors.surfaceHigh,
+                opacity: pressed ? 0.75 : 1,
+            }]}
+        >
+            <Ionicons name="git-branch-outline" size={15} color={theme.colors.textSecondary} />
+            <Text style={{ fontSize: 13, color: theme.colors.text, ...Typography.default('semiBold') }}>
+                {t(`newSession.branchMode.${branchMode === 'new' ? 'newBranch' : 'existingBranch'}`)}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color={theme.colors.textSecondary} />
+        </Pressable>
+    ) : null;
 
     const externalContextBanner = tempSessionData?.externalContext ? (
         <View style={{
@@ -1790,7 +1803,8 @@ function NewSessionWizard() {
                     {/* Repo picker for worktree mode */}
                     {sessionType === 'worktree' && selectedMachineId && (
                         <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
+                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center', gap: 8 }}>
+                                {branchModeSelector}
                                 <RepoPickerBar
                                     machineId={selectedMachineId}
                                     selectedRepos={selectedRepos}
@@ -1817,7 +1831,6 @@ function NewSessionWizard() {
                                 onAgentClick={handleAgentClick}
                                 permissionMode={permissionMode}
                                 onPermissionModeChange={handlePermissionModeChange}
-                                hidePermissionSettings
                                 modelMode={modelMode}
                                 onModelModeChange={handleModelModeChange}
                                 fastMode={fastMode}
@@ -1865,6 +1878,21 @@ function NewSessionWizard() {
                     items={imagePickerMenuItems}
                     onClose={() => setImagePickerSheetVisible(false)}
                     deferItemPress
+                />
+
+                <ActionMenuModal
+                    visible={branchModeMenuVisible}
+                    items={branchModeMenuItems}
+                    onClose={() => setBranchModeMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={machineMenuVisible}
+                    title={t('wizard.step2Title')}
+                    searchable
+                    searchPlaceholder={t('wizard.filterMachines')}
+                    items={machineMenuItems}
+                    onClose={() => setMachineMenuVisible(false)}
                 />
 
                 {/* Branch picker for Add Directory flow */}
@@ -1916,22 +1944,26 @@ function NewSessionWizard() {
                             {/* External context banner */}
                             {externalContextBanner}
 
-                            {/* CLI Detection Status Banner - shows after detection completes */}
-                            {selectedMachineId && cliAvailability.timestamp > 0 && selectedMachine && connectionStatus && (
-                                <View style={{
-                                    backgroundColor: theme.colors.surfacePressed,
-                                    borderRadius: 10,
-                                    padding: 10,
-                                    paddingRight: 18,
-                                    marginBottom: 12,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: STATUS_ITEM_GAP,
-                                }}>
+                            {/* Machine selector */}
+                            {selectedMachine && connectionStatus && (
+                                <Pressable
+                                    onPress={() => setMachineMenuVisible(true)}
+                                    style={({ pressed }) => ({
+                                        backgroundColor: theme.colors.surfacePressed,
+                                        borderRadius: 10,
+                                        padding: 10,
+                                        paddingRight: 14,
+                                        marginBottom: 12,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: STATUS_ITEM_GAP,
+                                        opacity: pressed ? 0.72 : 1,
+                                    })}
+                                >
                                     <Ionicons name="desktop-outline" size={16} color={theme.colors.textSecondary} />
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: STATUS_ITEM_GAP, flexWrap: 'wrap' }}>
+                                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: STATUS_ITEM_GAP, flexWrap: 'wrap' }}>
                                         <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {selectedMachine.metadata?.displayName || selectedMachine.metadata?.host || 'Machine'}:
+                                            {selectedMachineTitle}:
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                             <StatusDot
@@ -1944,7 +1976,8 @@ function NewSessionWizard() {
                                             </Text>
                                         </View>
                                     </View>
-                                </View>
+                                    <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                                </Pressable>
                             )}
 
                             {/* Section 1: Profile Management */}
@@ -2294,146 +2327,10 @@ function NewSessionWizard() {
 
                             {/* Profile Action Buttons (add/duplicate/delete) hidden by request — manage profiles from the per-profile edit pencil instead */}
 
-                            {/* Section 2: Machine Selection */}
-                            <View ref={machineSectionRef}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>2.</Text>
-                                    <Ionicons name="desktop-outline" size={18} color={theme.colors.text} />
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step2Title')}</Text>
-                                </View>
-                            </View>
-
-                            {useDesktopRows ? (
-                                <View style={{ marginBottom: 24 }}>
-                                    {machines.length === 0 ? (
-                                        <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {t('wizard.noMachinesAvailable')}
-                                        </Text>
-                                    ) : machines.map((machine) => {
-                                        const selected = selectedMachineId === machine.id;
-                                        const offline = !isMachineOnline(machine);
-                                        const title = machine.metadata?.displayName || machine.metadata?.host || machine.id;
-                                        const subtitle = machine.metadata?.host && machine.metadata.host !== title ? machine.metadata.host : undefined;
-
-                                        return (
-                                            <Pressable
-                                                key={machine.id}
-                                                style={[
-                                                    styles.profileListItem,
-                                                    selected && styles.profileListItemSelected,
-                                                ]}
-                                                onPress={() => {
-                                                    setSelectedMachineId(machine.id);
-                                                    const bestPath = getRecentPathForMachine(machine.id, recentMachinePaths);
-                                                    setSelectedPath(bestPath);
-                                                }}
-                                            >
-                                                <View style={styles.profileIcon}>
-                                                    <Ionicons name="desktop-outline" size={12} color="#FFFFFF" />
-                                                </View>
-                                                <View style={{ flex: 1, marginRight: 12 }}>
-                                                    <Text style={styles.profileListName}>{title}</Text>
-                                                    {subtitle ? (
-                                                        <Text style={styles.profileListDetails} numberOfLines={1}>
-                                                            {subtitle}
-                                                        </Text>
-                                                    ) : null}
-                                                </View>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                    <StatusDot
-                                                        color={offline ? theme.colors.status.disconnected : theme.colors.status.connected}
-                                                        isPulsing={!offline}
-                                                        size={6}
-                                                    />
-                                                    <Text style={{
-                                                        fontSize: 12,
-                                                        color: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
-                                                        ...Typography.default(),
-                                                    }}>
-                                                        {offline ? 'offline' : 'online'}
-                                                    </Text>
-                                                </View>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
-                            ) : (
-                                <View style={{ marginBottom: 24 }}>
-                                    <SearchableListSelector<typeof machines[0]>
-                                        config={{
-                                        getItemId: (machine) => machine.id,
-                                        getItemTitle: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
-                                        getItemSubtitle: undefined,
-                                        getItemIcon: (machine) => (
-                                            <Ionicons
-                                                name="desktop-outline"
-                                                size={24}
-                                                color={theme.colors.textSecondary}
-                                            />
-                                        ),
-                                        getRecentItemIcon: (machine) => (
-                                            <Ionicons
-                                                name="time-outline"
-                                                size={24}
-                                                color={theme.colors.textSecondary}
-                                            />
-                                        ),
-                                        getItemStatus: (machine) => {
-                                            const offline = !isMachineOnline(machine);
-                                            return {
-                                                text: offline ? 'offline' : 'online',
-                                                color: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
-                                                dotColor: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
-                                                isPulsing: !offline,
-                                            };
-                                        },
-                                        formatForDisplay: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
-                                        parseFromDisplay: (text) => {
-                                            return machines.find(m =>
-                                                m.metadata?.displayName === text || m.metadata?.host === text || m.id === text
-                                            ) || null;
-                                        },
-                                        filterItem: (machine, searchText) => {
-                                            const displayName = (machine.metadata?.displayName || '').toLowerCase();
-                                            const host = (machine.metadata?.host || '').toLowerCase();
-                                            const search = searchText.toLowerCase();
-                                            return displayName.includes(search) || host.includes(search);
-                                        },
-                                        searchPlaceholder: t('wizard.filterMachines'),
-                                        recentSectionTitle: t('wizard.recentMachines'),
-                                        favoritesSectionTitle: t('wizard.favoriteMachines'),
-                                        noItemsMessage: t('wizard.noMachinesAvailable'),
-                                        showFavorites: true,
-                                        showRecent: true,
-                                        showSearch: true,
-                                        allowCustomInput: false,
-                                        compactItems: true,
-                                    }}
-                                    items={[]}
-                                    recentItems={recentMachines}
-                                    favoriteItems={machines.filter(m => favoriteMachines.includes(m.id))}
-                                    selectedItem={selectedMachine || null}
-                                    onSelect={(machine) => {
-                                        setSelectedMachineId(machine.id);
-                                        const bestPath = getRecentPathForMachine(machine.id, recentMachinePaths);
-                                        setSelectedPath(bestPath);
-                                    }}
-                                    onToggleFavorite={(machine) => {
-                                        const isInFavorites = favoriteMachines.includes(machine.id);
-                                        if (isInFavorites) {
-                                            setFavoriteMachines(favoriteMachines.filter(id => id !== machine.id));
-                                        } else {
-                                            setFavoriteMachines([...favoriteMachines, machine.id]);
-                                        }
-                                    }}
-                                    />
-                                </View>
-                            )}
-
-                            {/* Section 3: Session Mode */}
+                            {/* Section 2: Session Mode */}
                             <View>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>3.</Text>
+                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>2.</Text>
                                     <Ionicons name="git-branch-outline" size={18} color={theme.colors.text} />
                                     <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step3Title')}</Text>
                                 </View>
@@ -2444,46 +2341,13 @@ function NewSessionWizard() {
                                     <SessionTypeSelector value={sessionType} onChange={setSessionType} />
                                     {sessionType === 'worktree' && selectedMachineId && (
                                         <View style={{ marginTop: 8, gap: 8 }}>
+                                            {branchModeSelector}
                                             <RepoPickerBar
                                                 machineId={selectedMachineId}
                                                 selectedRepos={selectedRepos}
                                                 onReposChange={setSelectedRepos}
                                                 onAddDirectory={handleAddDirectory}
                                             />
-                                            {selectedRepos.length > 0 && (
-                                                <View style={{ flexDirection: 'row', borderRadius: 8, overflow: 'hidden', padding: 2, backgroundColor: theme.colors.surfaceHigh }}>
-                                                    {(['new', 'existing'] as const).map((mode) => {
-                                                        const isActive = branchMode === mode;
-                                                        return (
-                                                            <Pressable
-                                                                key={mode}
-                                                                onPress={() => setBranchMode(mode)}
-                                                                style={[{
-                                                                    flex: 1,
-                                                                    paddingVertical: 6,
-                                                                    alignItems: 'center',
-                                                                    borderRadius: 6,
-                                                                }, isActive && {
-                                                                    backgroundColor: theme.colors.surface,
-                                                                    shadowColor: '#000',
-                                                                    shadowOffset: { width: 0, height: 1 },
-                                                                    shadowOpacity: 0.1,
-                                                                    shadowRadius: 2,
-                                                                    elevation: 2,
-                                                                }]}
-                                                            >
-                                                                <Text style={{
-                                                                    fontSize: 13,
-                                                                    color: isActive ? theme.colors.text : theme.colors.textSecondary,
-                                                                    fontWeight: isActive ? '600' : '400',
-                                                                }}>
-                                                                    {t(`newSession.branchMode.${mode === 'new' ? 'newBranch' : 'existingBranch'}`)}
-                                                                </Text>
-                                                            </Pressable>
-                                                        );
-                                                    })}
-                                                </View>
-                                            )}
                                         </View>
                                     )}
                                 </View>
@@ -2491,10 +2355,10 @@ function NewSessionWizard() {
 
                             {sessionType !== 'worktree' && (
                                 <>
-                                    {/* Section 4: Working Directory */}
+                                    {/* Section 3: Working Directory */}
                                     <View ref={pathSectionRef}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>4.</Text>
+                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>3.</Text>
                                             <Ionicons name="folder-outline" size={18} color={theme.colors.text} />
                                             <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
                                         </View>
@@ -2618,8 +2482,7 @@ function NewSessionWizard() {
                             agentType={agentType}
                             onAgentClick={handleAgentInputAgentClick}
                             permissionMode={permissionMode}
-                            onPermissionModeChange={handleAgentInputPermissionChange}
-                            hidePermissionSettings
+                            onPermissionModeChange={handlePermissionModeChange}
                             modelMode={modelMode}
                             onModelModeChange={handleModelModeChange}
                             fastMode={fastMode}
@@ -2667,6 +2530,21 @@ function NewSessionWizard() {
                     items={imagePickerMenuItems}
                     onClose={() => setImagePickerSheetVisible(false)}
                     deferItemPress
+                />
+
+                <ActionMenuModal
+                    visible={branchModeMenuVisible}
+                    items={branchModeMenuItems}
+                    onClose={() => setBranchModeMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={machineMenuVisible}
+                    title={t('wizard.step2Title')}
+                    searchable
+                    searchPlaceholder={t('wizard.filterMachines')}
+                    items={machineMenuItems}
+                    onClose={() => setMachineMenuVisible(false)}
                 />
 
                 {/* Branch picker for Add Directory flow */}
