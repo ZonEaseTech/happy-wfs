@@ -392,32 +392,7 @@ function NewSessionWizard() {
         return 'anthropic'; // Default to Anthropic
     });
 
-    // Collapse the AI profile list by default; user expands via "Show more".
-    const [showAllProfiles, setShowAllProfiles] = React.useState(false);
-    const totalProfileCount = profiles.length + DEFAULT_PROFILES.length;
-    const defaultVisibleProfileIds = React.useMemo<Set<string> | null>(() => {
-        // null = no filtering (show all)
-        if (showAllProfiles || totalProfileCount <= 2) return null;
-        const ordered = [
-            ...profiles.map(p => p.id),
-            ...DEFAULT_PROFILES.map(p => p.id),
-        ];
-        const result = new Set<string>();
-        // Always include the currently selected profile so users see what's chosen.
-        if (selectedProfileId && ordered.includes(selectedProfileId)) {
-            result.add(selectedProfileId);
-        }
-        // Fill the rest in display order until we have 2 visible items.
-        for (const id of ordered) {
-            if (result.size >= 2) break;
-            result.add(id);
-        }
-        return result;
-    }, [showAllProfiles, totalProfileCount, profiles, selectedProfileId]);
-    const isProfileVisible = React.useCallback(
-        (id: string) => defaultVisibleProfileIds === null || defaultVisibleProfileIds.has(id),
-        [defaultVisibleProfileIds],
-    );
+    const [profileMenuVisible, setProfileMenuVisible] = React.useState(false);
     const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
@@ -1238,40 +1213,11 @@ function NewSessionWizard() {
         scrollToSection(profileSectionRef); // Agent tied to profile section
     }, [scrollToSection]);
 
-    const handleAddProfile = React.useCallback(() => {
-        const newProfile: AIBackendProfile = {
-            id: randomUUID(),
-            name: '',
-            anthropicConfig: {},
-            environmentVariables: [],
-            compatibility: { claude: true, codex: true, gemini: true },
-            isBuiltIn: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            version: '1.0.0',
-        };
-        const profileData = encodeURIComponent(JSON.stringify(newProfile));
-        router.push(`/new/pick/profile-edit?profileData=${profileData}`);
-    }, [router]);
-
     const handleEditProfile = React.useCallback((profile: AIBackendProfile) => {
         const profileData = encodeURIComponent(JSON.stringify(profile));
         const machineId = selectedMachineId || '';
         router.push(`/new/pick/profile-edit?profileData=${profileData}&machineId=${machineId}`);
     }, [router, selectedMachineId]);
-
-    const handleDuplicateProfile = React.useCallback((profile: AIBackendProfile) => {
-        const duplicatedProfile: AIBackendProfile = {
-            ...profile,
-            id: randomUUID(),
-            name: `${profile.name} (Copy)`,
-            isBuiltIn: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        };
-        const profileData = encodeURIComponent(JSON.stringify(duplicatedProfile));
-        router.push(`/new/pick/profile-edit?profileData=${profileData}`);
-    }, [router]);
 
     // Helper to get meaningful subtitle text for profiles
     const getProfileSubtitle = React.useCallback((profile: AIBackendProfile): string => {
@@ -1358,26 +1304,26 @@ function NewSessionWizard() {
         return parts.join(', ');
     }, [agentType, isProfileAvailable, daemonEnv]);
 
-    const handleDeleteProfile = React.useCallback((profile: AIBackendProfile) => {
-        Modal.alert(
-            t('profiles.delete.title'),
-            t('profiles.delete.message', { name: profile.name }),
-            [
-                { text: t('profiles.delete.cancel'), style: 'cancel' },
-                {
-                    text: t('profiles.delete.confirm'),
-                    style: 'destructive',
-                    onPress: () => {
-                        const updatedProfiles = profiles.filter(p => p.id !== profile.id);
-                        setProfiles(updatedProfiles); // Use mutable setter for persistence
-                        if (selectedProfileId === profile.id) {
-                            setSelectedProfileId('anthropic'); // Default to Anthropic
-                        }
+    const profileMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        const builtInProfiles = DEFAULT_PROFILES
+            .map(profileDisplay => getBuiltInProfile(profileDisplay.id))
+            .filter((profile): profile is AIBackendProfile => Boolean(profile));
+
+        return [...profiles, ...builtInProfiles].map(profile => {
+            const availability = isProfileAvailable(profile);
+            return {
+                label: profile.name,
+                selected: selectedProfileId === profile.id,
+                secondary: !availability.available,
+                onPress: () => {
+                    if (availability.available) {
+                        selectProfile(profile.id);
                     }
-                }
-            ]
-        );
-    }, [profiles, selectedProfileId, setProfiles]);
+                    setProfileMenuVisible(false);
+                },
+            };
+        });
+    }, [profiles, isProfileAvailable, selectedProfileId, selectProfile]);
 
     // Handle machine and path selection callbacks
     React.useEffect(() => {
@@ -1718,7 +1664,6 @@ function NewSessionWizard() {
         <Pressable
             onPress={() => setBranchModeMenuVisible(true)}
             style={({ pressed }) => [{
-                alignSelf: 'flex-end',
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
@@ -1796,6 +1741,7 @@ function NewSessionWizard() {
                             <SessionTypeSelector
                                 value={sessionType}
                                 onChange={setSessionType}
+                                worktreeAccessory={branchModeSelector}
                             />
                         </View>
                     </View>
@@ -1804,7 +1750,6 @@ function NewSessionWizard() {
                     {sessionType === 'worktree' && selectedMachineId && (
                         <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
                             <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center', gap: 8 }}>
-                                {branchModeSelector}
                                 <RepoPickerBar
                                     machineId={selectedMachineId}
                                     selectedRepos={selectedRepos}
@@ -1878,6 +1823,14 @@ function NewSessionWizard() {
                     items={imagePickerMenuItems}
                     onClose={() => setImagePickerSheetVisible(false)}
                     deferItemPress
+                />
+
+                <ActionMenuModal
+                    visible={profileMenuVisible}
+                    title={t('wizard.step1Title')}
+                    searchable
+                    items={profileMenuItems}
+                    onClose={() => setProfileMenuVisible(false)}
                 />
 
                 <ActionMenuModal
@@ -2207,121 +2160,37 @@ function NewSessionWizard() {
                                 </View>
                             )}
 
-                            {/* Custom profiles - show first */}
-                            {profiles.map((profile) => {
-                                if (!isProfileVisible(profile.id)) return null;
-                                const availability = isProfileAvailable(profile);
-
-                                return (
-                                    <Pressable
-                                        key={profile.id}
-                                        style={[
-                                            styles.profileListItem,
-                                            selectedProfileId === profile.id && styles.profileListItemSelected,
-                                            !availability.available && { opacity: 0.5 }
-                                        ]}
-                                        onPress={() => availability.available && selectProfile(profile.id)}
-                                        disabled={!availability.available}
-                                    >
-                                        <View style={styles.profileIcon}>
-                                            <Ionicons name="person" size={12} color="#FFFFFF" />
-                                        </View>
-                                        <View style={{ flex: 1, marginRight: 12 }}>
-                                            <Text style={styles.profileListName}>{profile.name}</Text>
-                                            <Text style={styles.profileListDetails} numberOfLines={2}>
-                                                {getProfileSubtitle(profile)}
-                                            </Text>
-                                        </View>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                            <Pressable
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteProfile(profile);
-                                                }}
-                                            >
-                                                <Ionicons name="trash-outline" size={20} color={theme.colors.deleteAction} />
-                                            </Pressable>
-                                            <Pressable
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDuplicateProfile(profile);
-                                                }}
-                                            >
-                                                <Ionicons name="copy-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                            </Pressable>
-                                            <Pressable
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEditProfile(profile);
-                                                }}
-                                            >
-                                                <Ionicons name="create-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                            </Pressable>
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
-
-                            {/* Built-in profiles - show after custom */}
-                            {DEFAULT_PROFILES.map((profileDisplay) => {
-                                const profile = getBuiltInProfile(profileDisplay.id);
-                                if (!profile) return null;
-                                if (!isProfileVisible(profile.id)) return null;
-
-                                const availability = isProfileAvailable(profile);
-
-                                return (
-                                    <Pressable
-                                        key={profile.id}
-                                        style={[
-                                            styles.profileListItem,
-                                            selectedProfileId === profile.id && styles.profileListItemSelected,
-                                            !availability.available && { opacity: 0.5 }
-                                        ]}
-                                        onPress={() => availability.available && selectProfile(profile.id)}
-                                        disabled={!availability.available}
-                                    >
-                                        <View style={styles.profileIcon}>
-                                            <Ionicons name="star" size={12} color="#FFFFFF" />
-                                        </View>
-                                        <View style={{ flex: 1, marginRight: 12 }}>
-                                            <Text style={styles.profileListName}>{profile.name}</Text>
-                                            <Text style={styles.profileListDetails} numberOfLines={2}>
-                                                {getProfileSubtitle(profile)}
-                                            </Text>
-                                        </View>
+                            {/* Selected AI profile dropdown */}
+                            {selectedProfile && (
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.profileListItem,
+                                        styles.profileListItemSelected,
+                                        { opacity: pressed ? 0.75 : 1 },
+                                    ]}
+                                    onPress={() => setProfileMenuVisible(true)}
+                                >
+                                    <View style={styles.profileIcon}>
+                                        <Ionicons name={selectedProfile.isBuiltIn ? "star" : "person"} size={12} color="#FFFFFF" />
+                                    </View>
+                                    <View style={{ flex: 1, marginRight: 12 }}>
+                                        <Text style={styles.profileListName}>{selectedProfile.name}</Text>
+                                        <Text style={styles.profileListDetails} numberOfLines={2}>
+                                            {getProfileSubtitle(selectedProfile)}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                        <Ionicons name="chevron-down" size={18} color={theme.colors.textSecondary} />
                                         <Pressable
                                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                             onPress={(e) => {
                                                 e.stopPropagation();
-                                                handleEditProfile(profile);
+                                                handleEditProfile(selectedProfile);
                                             }}
                                         >
                                             <Ionicons name="create-outline" size={20} color={theme.colors.button.secondary.tint} />
                                         </Pressable>
-                                    </Pressable>
-                                );
-                            })}
-
-                            {/* Show more / collapse toggle for AI profile list */}
-                            {totalProfileCount > 2 && (
-                                <Pressable
-                                    onPress={() => setShowAllProfiles(prev => !prev)}
-                                    style={{
-                                        paddingVertical: 10,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginBottom: 8,
-                                    }}
-                                >
-                                    <Text style={{ color: theme.colors.textLink, fontSize: 14, ...Typography.default() }}>
-                                        {showAllProfiles
-                                            ? t('common.collapse')
-                                            : t('wizard.showMoreProfiles', { count: totalProfileCount - (defaultVisibleProfileIds?.size ?? 0) })}
-                                    </Text>
+                                    </View>
                                 </Pressable>
                             )}
 
@@ -2338,10 +2207,9 @@ function NewSessionWizard() {
                                     {t('wizard.step3Description')}
                                 </Text>
                                 <View style={{ marginBottom: 12 }}>
-                                    <SessionTypeSelector value={sessionType} onChange={setSessionType} />
+                                    <SessionTypeSelector value={sessionType} onChange={setSessionType} worktreeAccessory={branchModeSelector} />
                                     {sessionType === 'worktree' && selectedMachineId && (
                                         <View style={{ marginTop: 8, gap: 8 }}>
-                                            {branchModeSelector}
                                             <RepoPickerBar
                                                 machineId={selectedMachineId}
                                                 selectedRepos={selectedRepos}
