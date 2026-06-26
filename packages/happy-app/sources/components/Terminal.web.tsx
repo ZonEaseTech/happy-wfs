@@ -531,7 +531,6 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
 
     return (
         <div
-            ref={containerRef}
             style={{
                 flex: 1,
                 width: '100%',
@@ -540,9 +539,28 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 padding: 8,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
+                display: 'flex',
+                minWidth: 0,
+                minHeight: 0,
                 opacity: isActivating ? 0 : 1,
             }}
-        />
+        >
+            {/* Keep padding off the xterm fit host. FitAddon measures the
+                host's computed width/height; padding on that same element
+                overestimates cols/rows and clips the right/bottom text. */}
+            <div
+                ref={containerRef}
+                style={{
+                    flex: 1,
+                    width: '100%',
+                    height: '100%',
+                    minWidth: 0,
+                    minHeight: 0,
+                    background: themeColors.xterm.background,
+                    overflow: 'hidden',
+                }}
+            />
+        </div>
     );
 };
 
@@ -935,6 +953,11 @@ type TerminalWorkspace = {
     tabCounter: number;
 };
 
+interface TerminalPanelProps extends TerminalProps {
+    /** Incremented by the header terminal button to open/create the current session terminal. */
+    openRequestKey?: number;
+}
+
 function createTerminalWorkspace(sessionId: string, cwd?: string): TerminalWorkspace {
     const title = terminalLabelFromCwd(cwd);
     return {
@@ -947,7 +970,7 @@ function createTerminalWorkspace(sessionId: string, cwd?: string): TerminalWorks
     };
 }
 
-export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd }) => {
+export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, sessionId, cwd, openRequestKey = 0 }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [errorClosed, setErrorClosed] = React.useState(false);
     const inputSendersRef = React.useRef<Record<string, ((data: string) => void) | undefined>>({});
@@ -963,9 +986,10 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         () => [...terminalQuickCommands].sort((a, b) => a.title.localeCompare(b.title)),
         [terminalQuickCommands],
     );
-    const [workspaces, setWorkspaces] = React.useState<Record<string, TerminalWorkspace>>(() => ({
-        [sessionId]: createTerminalWorkspace(sessionId, cwd),
-    }));
+    const [workspaces, setWorkspaces] = React.useState<Record<string, TerminalWorkspace>>({});
+    const [activeWorkspaceKey, setActiveWorkspaceKey] = React.useState('');
+    const handledOpenRequestKeyRef = React.useRef(0);
+    const processedOpenRequestKeyRef = React.useRef(0);
     const panelWidthRef = React.useRef(420);
     const [panelWidth, setPanelWidth] = React.useState<number>(() => {
         if (typeof window === 'undefined') return 420;
@@ -984,18 +1008,43 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         if (!visible) return;
         setHasOpened(true);
         setErrorClosed(false);
+    }, [visible]);
+
+    React.useEffect(() => {
+        if (!visible || openRequestKey <= 0 || openRequestKey <= processedOpenRequestKeyRef.current) return;
+        processedOpenRequestKeyRef.current = openRequestKey;
+        setHasOpened(true);
+        setErrorClosed(false);
         setWorkspaces((current) => {
             if (current[sessionId]) return current;
             return { ...current, [sessionId]: createTerminalWorkspace(sessionId, cwd) };
         });
-    }, [cwd, sessionId, visible]);
+        setActiveWorkspaceKey(sessionId);
+    }, [cwd, openRequestKey, sessionId, visible]);
 
     const resolvedTerminalTheme = resolveTerminalTheme(terminalThemeSetting);
     const panelTheme = TERMINAL_THEME_COLORS[resolvedTerminalTheme];
 
-    const activeWorkspace = workspaces[sessionId];
+    const activeWorkspace = workspaces[activeWorkspaceKey];
     const activeTerminalTabId = activeWorkspace?.activeTabId ?? '';
     const terminalTabs = activeWorkspace?.tabs ?? [];
+
+    const allWorkspaces = React.useMemo(() => Object.values(workspaces), [workspaces]);
+
+    React.useEffect(() => {
+        if (!visible || !hasOpened) return;
+        if (allWorkspaces.length === 0) {
+            if (openRequestKey > handledOpenRequestKeyRef.current) return;
+            onClose();
+            return;
+        } else if (!workspaces[activeWorkspaceKey]) setActiveWorkspaceKey(allWorkspaces[0].key);
+    }, [activeWorkspaceKey, allWorkspaces, hasOpened, onClose, openRequestKey, visible, workspaces]);
+
+    React.useEffect(() => {
+        if (openRequestKey > handledOpenRequestKeyRef.current && workspaces[sessionId]) {
+            handledOpenRequestKeyRef.current = openRequestKey;
+        }
+    }, [openRequestKey, sessionId, workspaces]);
 
     const handleError = React.useCallback((msg: string) => {
         if (errorClosed) return;
@@ -1067,18 +1116,18 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
 
     const handleAddTerminalTab = React.useCallback(() => {
         setWorkspaces((current) => {
-            const workspace = current[sessionId] ?? createTerminalWorkspace(sessionId, cwd);
+            const workspace = current[activeWorkspaceKey] ?? createTerminalWorkspace(sessionId, cwd);
             const nextIndex = workspace.tabCounter + 1;
             const baseTitle = terminalLabelFromCwd(workspace.cwd ?? cwd);
             const nextTab = {
-                id: `${sessionId}:terminal-${nextIndex}`,
+                id: `${workspace.sessionId}:terminal-${nextIndex}`,
                 title: `${baseTitle} ${nextIndex}`,
-                sessionId,
+                sessionId: workspace.sessionId,
                 cwd: workspace.cwd ?? cwd,
             };
             return {
                 ...current,
-                [sessionId]: {
+                [workspace.key]: {
                     ...workspace,
                     tabCounter: nextIndex,
                     activeTabId: nextTab.id,
@@ -1086,7 +1135,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                 },
             };
         });
-    }, [cwd, sessionId]);
+    }, [activeWorkspaceKey, cwd, sessionId]);
 
     const handleSelectTerminalTab = React.useCallback((tabId: string) => {
         setWorkspaces((current) => {
@@ -1107,7 +1156,6 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             delete clearHandlersRef.current[tabId];
             if (nextTabs.length === 0) {
                 delete next[workspaceKey];
-                if (workspaceKey === sessionId) onClose();
                 return next;
             }
             const fallbackTab = workspace.activeTabId === tabId
@@ -1120,7 +1168,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             };
             return next;
         });
-    }, [onClose, sessionId]);
+    }, []);
 
     const handleCloseWorkspace = React.useCallback((workspaceKey: string) => {
         setWorkspaces((current) => {
@@ -1132,10 +1180,9 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
             }
             const next = { ...current };
             delete next[workspaceKey];
-            if (workspaceKey === sessionId) onClose();
             return next;
         });
-    }, [onClose, sessionId]);
+    }, []);
 
     const handlePanelResizeStart = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -1160,8 +1207,6 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
     }, []);
-
-    const allWorkspaces = Object.values(workspaces);
 
     if (!visible && !hasOpened) return null;
 
@@ -1248,7 +1293,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                                     onMouseDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                         event.stopPropagation();
-                                        handleCloseTerminalTab(sessionId, tab.id);
+                                        handleCloseTerminalTab(activeWorkspaceKey, tab.id);
                                     }}
                                     aria-label="Close terminal tab"
                                     title={t('terminal.closeTerminalTab')}
@@ -1410,7 +1455,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                         <div key={workspace.key} style={{ borderTop: '1px solid #f3f4f6', padding: '8px 4px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 700, color: workspace.key === sessionId ? '#2563eb' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: workspace.key === activeWorkspaceKey ? '#2563eb' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {terminalLabelFromCwd(workspace.cwd)}
                                     </div>
                                     <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1529,7 +1574,7 @@ export const TerminalPanel: React.FC<TerminalProps> = ({ visible, onClose, sessi
                     {!bundle && <LazyXtermBoot onReady={setBundle} />}
                 </React.Suspense>
                 {bundle && allWorkspaces.flatMap((workspace) => workspace.tabs.map((tab) => {
-                    const isActive = visible && workspace.key === sessionId && tab.id === workspace.activeTabId;
+                    const isActive = visible && workspace.key === activeWorkspaceKey && tab.id === workspace.activeTabId;
                     return (
                         <View
                             key={tab.id}

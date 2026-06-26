@@ -167,7 +167,12 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Mounted inside SessionViewLoaded so it has session context, but state
     // lives here so the header button can flip it.
     const [showTerminal, setShowTerminal] = React.useState(false);
+    const [terminalOpenRequestKey, setTerminalOpenRequestKey] = React.useState(0);
     const showTerminalButton = Platform.OS === 'web' && isTablet;
+    const handleOpenTerminalPanel = React.useCallback(() => {
+        setShowTerminal(true);
+        setTerminalOpenRequestKey((value) => value + 1);
+    }, []);
     // Reset panel if shrinking out of desktop mode (avoid stale panel state on resize).
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
@@ -463,7 +468,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 {showTerminalButton && (
                                     <Pressable
                                         {...webTooltip('Terminal')}
-                                        onPress={() => setShowTerminal(prev => !prev)}
+                                        onPress={handleOpenTerminalPanel}
                                         hitSlop={15}
                                         accessibilityRole="button"
                                         accessibilityLabel="Terminal"
@@ -554,6 +559,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                     onClose={() => setShowTerminal(false)}
                     sessionId={sessionId}
                     cwd={session?.metadata?.path}
+                    openRequestKey={terminalOpenRequestKey}
                 />
             )}
             {isDesktopPanelMode && rightPanelType && (
