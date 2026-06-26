@@ -1147,10 +1147,12 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
 
     const handleSelectWorkspace = React.useCallback((workspaceKey: string) => {
         setActiveWorkspaceKey(workspaceKey);
+        setManagerOpen(false);
     }, []);
 
     const handleSelectManagedTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
         setActiveWorkspaceKey(workspaceKey);
+        setManagerOpen(false);
         setWorkspaces((current) => {
             const workspace = current[workspaceKey];
             if (!workspace) return current;
