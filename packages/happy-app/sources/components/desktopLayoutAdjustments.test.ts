@@ -145,6 +145,10 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain('onClose();');
         expect(terminalWeb).not.toContain('workspaceKey === sessionId) onClose();');
         expect(terminalWeb).toContain('managerOpen');
+        expect(terminalWeb).toContain('handleSelectWorkspace');
+        expect(terminalWeb).toContain('handleSelectManagedTerminalTab');
+        expect(terminalWeb).toContain('onClick={() => handleSelectWorkspace(workspace.key)}');
+        expect(terminalWeb).toContain('onClick={() => handleSelectManagedTerminalTab(workspace.key, tab.id)}');
         expect(terminalWeb).toContain('handleCloseWorkspace');
         expect(terminalWeb).toContain('Keep padding off the xterm fit host');
         expect(terminalWeb).toMatch(/ref=\{containerRef\}[\s\S]{0,500}minWidth: 0[\s\S]{0,200}minHeight: 0/);

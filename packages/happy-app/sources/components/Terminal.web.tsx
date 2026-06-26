@@ -1139,11 +1139,24 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
 
     const handleSelectTerminalTab = React.useCallback((tabId: string) => {
         setWorkspaces((current) => {
-            const workspace = current[sessionId];
+            const workspace = current[activeWorkspaceKey];
             if (!workspace) return current;
-            return { ...current, [sessionId]: { ...workspace, activeTabId: tabId } };
+            return { ...current, [activeWorkspaceKey]: { ...workspace, activeTabId: tabId } };
         });
-    }, [sessionId]);
+    }, [activeWorkspaceKey]);
+
+    const handleSelectWorkspace = React.useCallback((workspaceKey: string) => {
+        setActiveWorkspaceKey(workspaceKey);
+    }, []);
+
+    const handleSelectManagedTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
+        setActiveWorkspaceKey(workspaceKey);
+        setWorkspaces((current) => {
+            const workspace = current[workspaceKey];
+            if (!workspace) return current;
+            return { ...current, [workspaceKey]: { ...workspace, activeTabId: tabId } };
+        });
+    }, []);
 
     const handleCloseTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
         setWorkspaces((current) => {
@@ -1453,7 +1466,17 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                         <div style={{ color: '#6b7280', fontSize: 12, padding: '14px 4px' }}>{t('terminal.noBackgroundTerminals')}</div>
                     ) : allWorkspaces.map((workspace) => (
                         <div key={workspace.key} style={{ borderTop: '1px solid #f3f4f6', padding: '8px 4px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => handleSelectWorkspace(workspace.key)}
+                                onKeyDown={(event) => {
+                                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                                    event.preventDefault();
+                                    handleSelectWorkspace(workspace.key);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 6, cursor: 'pointer', padding: '4px 2px' }}
+                            >
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 12, fontWeight: 700, color: workspace.key === activeWorkspaceKey ? '#2563eb' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {terminalLabelFromCwd(workspace.cwd)}
@@ -1462,18 +1485,48 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                                         {t('terminal.terminalCount', { count: workspace.tabs.length })} · {workspace.cwd ?? workspace.sessionId}
                                     </div>
                                 </div>
-                                <button type="button" onClick={() => handleCloseWorkspace(workspace.key)} title={t('terminal.closeTerminalWorkspace')} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 4 }}>
+                                <button
+                                    type="button"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleCloseWorkspace(workspace.key);
+                                    }}
+                                    title={t('terminal.closeTerminalWorkspace')}
+                                    style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 4 }}
+                                >
                                     <Ionicons name="trash-outline" size={15} color="#ef4444" />
                                 </button>
                             </div>
-                            {workspace.tabs.map((tab) => (
-                                <div key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 0 14px' }}>
-                                    <span style={{ flex: 1, minWidth: 0, color: '#374151', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title}</span>
-                                    <button type="button" onClick={() => handleCloseTerminalTab(workspace.key, tab.id)} title={t('terminal.closeTerminalTab')} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 3 }}>
-                                        <Ionicons name="close-circle" size={14} color="#6b7280" />
-                                    </button>
-                                </div>
-                            ))}
+                            {workspace.tabs.map((tab) => {
+                                const isManagedTabActive = workspace.key === activeWorkspaceKey && tab.id === workspace.activeTabId;
+                                return (
+                                    <div
+                                        key={tab.id}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => handleSelectManagedTerminalTab(workspace.key, tab.id)}
+                                        onKeyDown={(event) => {
+                                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                                            event.preventDefault();
+                                            handleSelectManagedTerminalTab(workspace.key, tab.id);
+                                        }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 0 14px', borderRadius: 6, cursor: 'pointer' }}
+                                    >
+                                        <span style={{ flex: 1, minWidth: 0, color: isManagedTabActive ? '#2563eb' : '#374151', fontSize: 12, fontWeight: isManagedTabActive ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title}</span>
+                                        <button
+                                            type="button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleCloseTerminalTab(workspace.key, tab.id);
+                                            }}
+                                            title={t('terminal.closeTerminalTab')}
+                                            style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 3 }}
+                                        >
+                                            <Ionicons name="close-circle" size={14} color="#6b7280" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     ))}
                 </div>
