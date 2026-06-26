@@ -293,52 +293,34 @@ const OptionItem = React.memo((props: {
     onPress: () => void,
     onLongPress: () => void,
 }) => {
-    // Use GestureDetector to handle long press, which takes priority over parent GestureDetector
-    const longPressGesture = Gesture.LongPress()
-        .minDuration(500)
-        .onStart(() => {
-            if (!props.isDisabled) {
-                props.onLongPress();
-            }
-        })
-        .runOnJS(true);
-
-    const tapGesture = Gesture.Tap()
-        .onEnd(() => {
-            if (!props.isDisabled) {
-                props.onPress();
-            }
-        })
-        .runOnJS(true);
-
-    // Race between tap and long press - first one to complete wins
-    const composedGesture = Gesture.Race(tapGesture, longPressGesture);
-
     return (
-        <GestureDetector gesture={composedGesture}>
-            <View
+        <Pressable
+            disabled={props.isDisabled}
+            delayLongPress={500}
+            onPress={props.onPress}
+            onLongPress={props.onLongPress}
+            style={({ pressed }) => [
+                style.optionItem,
+                props.isDisabled && style.optionItemDisabled,
+                pressed && !props.isDisabled && style.optionItemPressed,
+            ]}
+        >
+            <Text
+                selectable={false}
                 style={[
-                    style.optionItem,
-                    props.isDisabled && style.optionItemDisabled,
+                    style.optionText,
+                    props.item.destructive && style.optionTextDestructive,
+                    props.isDisabled && style.optionTextDisabled,
                 ]}
             >
-                <Text
-                    selectable={false}
-                    style={[
-                        style.optionText,
-                        props.item.destructive && style.optionTextDestructive,
-                        props.isDisabled && style.optionTextDisabled,
-                    ]}
-                >
-                    {props.item.title}
-                </Text>
-                {props.isThisLoading && (
-                    <View style={style.optionLoadingOverlay}>
-                        <ActivityIndicator size="small" />
-                    </View>
-                )}
-            </View>
-        </GestureDetector>
+                {props.item.title}
+            </Text>
+            {props.isThisLoading && (
+                <View style={style.optionLoadingOverlay}>
+                    <ActivityIndicator size="small" />
+                </View>
+            )}
+        </Pressable>
     );
 });
 
@@ -823,6 +805,9 @@ const style = StyleSheet.create((theme) => ({
     },
     optionItemDisabled: {
         opacity: 0.5,
+    },
+    optionItemPressed: {
+        backgroundColor: theme.colors.surfacePressed,
     },
     optionText: {
         ...Typography.default(),

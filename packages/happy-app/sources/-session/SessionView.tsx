@@ -16,6 +16,7 @@ import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { useArchiveSession } from '@/hooks/useArchiveSession';
 import { useResumeSession } from '@/hooks/useResumeSession';
 import { useHappyAction } from '@/hooks/useHappyAction';
@@ -35,6 +36,8 @@ import { showCopiedToast, showToast } from '@/components/Toast';
 import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
+import { buildUploadedFilesText } from '@/utils/fileAttachments';
+import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
 import { isRunningOnMac } from '@/utils/platform';
 import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/utils/responsive';
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
@@ -979,6 +982,13 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         initImages,
         canAddMore,
     } = useImagePicker({ maxImages: 4 });
+    const {
+        fileAttachments,
+        setFileAttachments,
+        addFiles,
+        pickFiles,
+        clearFileAttachments,
+    } = useFileAttachments();
 
     // Use draft hook for auto-saving message drafts
     const { clearDraft } = useDraft(sessionId, message, setMessage, images, initImages);
@@ -1231,7 +1241,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
         { label: t('session.takePhoto'), onPress: pickFromCamera },
         { label: t('session.chooseFromLibrary'), onPress: pickFromGallery },
-    ], [pickFromCamera, pickFromGallery]);
+        { label: t('dootask.chooseFromFile'), onPress: pickFiles },
+    ], [pickFromCamera, pickFromGallery, pickFiles]);
 
     // Handle file input change (web only)
     const handleFileInputChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1239,15 +1250,17 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         if (!files || files.length === 0) return;
 
         Array.from(files).forEach(file => {
-            if (file.type.startsWith('image/')) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
-                addImageFromUri(url, file.type);
+                void addImageFromUri(url, file.type);
+            } else {
+                void addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         });
 
         // Reset input so same file can be selected again
         event.target.value = '';
-    }, [addImageFromUri]);
+    }, [addFiles, addImageFromUri, canAddMore, supportsImages]);
 
     // Handle paste event for images (both web and native through input)
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
@@ -1264,15 +1277,15 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
     // Handle image drop (web only) - passed to AgentInput
     const handleImageDrop = React.useCallback(async (files: File[]) => {
-        if (!canAddMore || !supportsImages) return;
-
         for (const file of files) {
-            if (file.type.startsWith('image/') && canAddMore) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
                 await addImageFromUri(url, file.type);
+            } else {
+                await addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         }
-    }, [canAddMore, supportsImages, addImageFromUri]);
+    }, [addFiles, canAddMore, supportsImages, addImageFromUri]);
 
     // Handle loading more older messages when scrolling to top
     const handleLoadMore = React.useCallback(() => {
@@ -1426,9 +1439,9 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 }
 
                 const messageToSend = (textSnapshot ?? message).trim();
-                if (messageToSend || images.length > 0) {
+                if (messageToSend || images.length > 0 || fileAttachments.length > 0) {
                     const socketStatus = storage.getState().socketStatus;
-                    log.log(`[SEND_DEBUG][UI] tap_send sid=${sessionId} hasText=${messageToSend.length > 0} images=${images.length} isSending=${isSending} socket=${socketStatus}`);
+                    log.log(`[SEND_DEBUG][UI] tap_send sid=${sessionId} hasText=${messageToSend.length > 0} images=${images.length} files=${fileAttachments.length} isSending=${isSending} socket=${socketStatus}`);
 
                     // Handle /duplicate command locally
                     if (messageToSend.toLowerCase() === '/duplicate') {
@@ -1439,7 +1452,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                     }
 
                     const imagesToSend = images.length > 0 ? [...images] : undefined;
-                    const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []);
+                    const filesToSend = fileAttachments.length > 0 ? [...fileAttachments] : [];
+                    const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []) + JSON.stringify(filesToSend.map(file => ({ name: file.name, size: file.size })));
 
                     // Check if this is a retry of the same content
                     const existingLocalId = failedMessageRef.current?.content === contentForRetry
@@ -1448,18 +1462,23 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
                     // Set sending state
                     setIsSending(true);
-                    if (imagesToSend) {
+                    if (imagesToSend || filesToSend.length > 0) {
                         setIsUploadingImages(true);
                     }
 
                     try {
+                        const uploadedFiles = filesToSend.length > 0
+                            ? await Promise.all(filesToSend.map(file => uploadChatFileToCli(sessionId, file)))
+                            : [];
+                        const finalMessage = `${messageToSend}${buildUploadedFilesText(uploadedFiles)}`;
                         const result = await sync.sendOrQueueMessage(
-                            sessionId, messageToSend, undefined, imagesToSend, existingLocalId,
+                            sessionId, finalMessage, undefined, imagesToSend, existingLocalId,
                             // Clear input before message appears in the list
                             () => {
                                 setMessage('');
                                 clearDraft();
                                 clearImages();
+                                clearFileAttachments();
                             }
                         );
                         const mode = result.success ? result.mode : 'failed';
@@ -1523,6 +1542,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 contextWindowSize: session.latestUsage.contextWindowSize,
             } : undefined}
             alwaysShowContextSize={alwaysShowContextSize}
+            fileAttachments={fileAttachments}
+            onFileAttachmentsChange={setFileAttachments}
             images={images}
             onImagesChange={(newImages) => {
                 // Handle image removal by finding removed index
@@ -1555,7 +1576,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 <input
                     ref={fileInputRef as any}
                     type="file"
-                    accept="image/jpeg,image/png"
+                    accept="*/*"
                     multiple
                     style={{ display: 'none' }}
                     onChange={handleFileInputChange as any}

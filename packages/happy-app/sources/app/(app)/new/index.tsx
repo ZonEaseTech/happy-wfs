@@ -43,6 +43,7 @@ import { StatusDot } from '@/components/StatusDot';
 import { SearchableListSelector } from '@/components/SearchableListSelector';
 import { clearNewSessionDraft, loadNewSessionDraft, saveNewSessionDraft } from '@/sync/persistence';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
@@ -50,6 +51,8 @@ import { getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } fro
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
+import { buildUploadedFilesText } from '@/utils/fileAttachments';
+import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
 
 // Simple temporary state for passing selections back from picker screens
@@ -639,6 +642,13 @@ function NewSessionWizard() {
         initImages,
         canAddMore,
     } = useImagePicker({ maxImages: 4 });
+    const {
+        fileAttachments,
+        setFileAttachments,
+        addFiles,
+        pickFiles,
+        clearFileAttachments,
+    } = useFileAttachments();
 
     // Restore images from persisted draft on mount
     React.useEffect(() => {
@@ -664,19 +674,22 @@ function NewSessionWizard() {
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
         { label: t('session.takePhoto'), onPress: pickFromCamera },
         { label: t('session.chooseFromLibrary'), onPress: pickFromGallery },
-    ], [pickFromCamera, pickFromGallery]);
+        { label: t('dootask.chooseFromFile'), onPress: pickFiles },
+    ], [pickFromCamera, pickFromGallery, pickFiles]);
 
     const handleFileInputChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
         Array.from(files).forEach(file => {
-            if (file.type.startsWith('image/')) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
-                addImageFromUri(url, file.type);
+                void addImageFromUri(url, file.type);
+            } else {
+                void addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         });
         event.target.value = '';
-    }, [addImageFromUri]);
+    }, [addFiles, addImageFromUri, canAddMore, supportsImages]);
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
         await handleImagePasteEvent(event, {
@@ -703,14 +716,15 @@ function NewSessionWizard() {
     }, [handlePaste]);
 
     const handleImageDrop = React.useCallback(async (files: File[]) => {
-        if (!canAddMore || !supportsImages) return;
         for (const file of files) {
-            if (file.type.startsWith('image/') && canAddMore) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
                 await addImageFromUri(url, file.type);
+            } else {
+                await addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         }
-    }, [canAddMore, supportsImages, addImageFromUri]);
+    }, [addFiles, canAddMore, supportsImages, addImageFromUri]);
 
     // Handle machineId route param from picker screens (main's navigation pattern)
     React.useEffect(() => {
@@ -1559,9 +1573,18 @@ function NewSessionWizard() {
                 });
 
                 // Send initial message if provided
-                if (promptToSend || images.length > 0) {
-                    await sync.sendMessage(result.sessionId, promptToSend, undefined, images.length > 0 ? images : undefined);
+                if (promptToSend || images.length > 0 || fileAttachments.length > 0) {
+                    const uploadedFiles = fileAttachments.length > 0
+                        ? await Promise.all(fileAttachments.map(file => uploadChatFileToCli(result.sessionId, file)))
+                        : [];
+                    await sync.sendMessage(
+                        result.sessionId,
+                        `${promptToSend}${buildUploadedFilesText(uploadedFiles)}`,
+                        undefined,
+                        images.length > 0 ? images : undefined,
+                    );
                     clearImages();
+                    clearFileAttachments();
                 }
 
                 router.replace(`/session/${result.sessionId}`, {
@@ -1585,7 +1608,7 @@ function NewSessionWizard() {
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);
         }
-    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, branchMode, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, tempSessionData, selectedRepos]);
+    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, branchMode, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, clearFileAttachments, fileAttachments, tempSessionData, selectedRepos]);
 
     const screenWidth = useWindowDimensions().width;
 
@@ -1785,6 +1808,8 @@ function NewSessionWizard() {
                                 onMachineClick={handleMachineClick}
                                 currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
                                 onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
+                                fileAttachments={fileAttachments}
+                                onFileAttachmentsChange={setFileAttachments}
                                 images={images}
                                 onImagesChange={(newImages) => {
                                     const currentUris = new Set(newImages.map(img => img.uri));
@@ -1810,7 +1835,7 @@ function NewSessionWizard() {
                     <input
                         ref={fileInputRef as any}
                         type="file"
-                        accept="image/jpeg,image/png"
+                        accept="*/*"
                         multiple
                         style={{ display: 'none' }}
                         onChange={handleFileInputChange as any}
@@ -2362,6 +2387,8 @@ function NewSessionWizard() {
                             onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handleAgentInputPathClick}
                             profileId={selectedProfileId}
                             onProfileClick={handleAgentInputProfileClick}
+                            fileAttachments={fileAttachments}
+                            onFileAttachmentsChange={setFileAttachments}
                             images={images}
                             onImagesChange={(newImages) => {
                                 const currentUris = new Set(newImages.map(img => img.uri));
@@ -2385,7 +2412,7 @@ function NewSessionWizard() {
                     <input
                         ref={fileInputRef as any}
                         type="file"
-                        accept="image/jpeg,image/png"
+                        accept="*/*"
                         multiple
                         style={{ display: 'none' }}
                         onChange={handleFileInputChange as any}
