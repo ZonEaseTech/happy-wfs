@@ -16,6 +16,27 @@ export interface UploadedSessionFile {
     absolutePath: string;
 }
 
+export const CHAT_FILE_UPLOAD_ROOT = '.happy-ai/uploads';
+
+export function sanitizeChatUploadFileName(name: string): string {
+    const basename = name.split(/[\\/]/).pop()?.trim() || 'file';
+    const cleaned = basename
+        .replace(/[\x00-\x1f:*?"<>|]/g, '_')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!cleaned || cleaned === '.' || cleaned === '..') return 'file';
+    return cleaned.slice(0, 180);
+}
+
+export function sanitizeChatUploadId(id: string): string {
+    const cleaned = id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+    return cleaned || 'upload';
+}
+
+export function buildChatUploadRelativePath(uploadId: string, fileName: string): string {
+    return `${CHAT_FILE_UPLOAD_ROOT}/${sanitizeChatUploadId(uploadId)}/${sanitizeChatUploadFileName(fileName)}`;
+}
+
 export function formatFileSize(bytes: number): string {
     if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
     if (bytes < 1024) return `${bytes} B`;

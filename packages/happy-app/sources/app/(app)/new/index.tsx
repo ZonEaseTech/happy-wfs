@@ -1603,6 +1603,8 @@ function NewSessionWizard() {
                     errorMessage = 'Session startup timed out. The machine may be slow or the daemon may not be responding.';
                 } else if (error.message.includes('Socket not connected')) {
                     errorMessage = 'Not connected to server. Check your internet connection.';
+                } else {
+                    errorMessage = error.message;
                 }
             }
             Modal.alert(t('common.error'), errorMessage);

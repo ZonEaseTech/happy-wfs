@@ -1492,6 +1492,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                             failedMessageRef.current = { localId: result.localId, content: contentForRetry };
                             log.log(`[SEND_DEBUG][UI] record_retry sid=${sessionId} localId=${result.localId}`);
                         }
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : t('status.operationFailed');
+                        console.error('Failed to send message', error);
+                        log.log(`[SEND_DEBUG][UI] send_error sid=${sessionId} error=${message}`);
+                        Modal.alert(t('common.error'), message);
                     } finally {
                         setIsSending(false);
                         setIsUploadingImages(false);
