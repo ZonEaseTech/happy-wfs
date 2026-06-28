@@ -342,6 +342,12 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="share/html"
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
                 name="user/[id]"
                 options={{
                     headerShown: true,

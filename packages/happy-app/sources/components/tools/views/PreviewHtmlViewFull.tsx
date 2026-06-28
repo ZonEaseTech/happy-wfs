@@ -12,6 +12,7 @@ import { setPreviewHtml } from '../previewHtmlStore';
 import { useAuth } from '@/auth/AuthContext';
 import { getServerUrl } from '@/sync/serverConfig';
 import { uploadPublicFileShare } from '@/sync/uploadFileShare';
+import { buildPublicHtmlPreviewUrl } from '@/utils/publicHtmlPreviewShare';
 import { encodeBase64 } from '@/encryption/base64';
 import { encodeUTF8 } from '@/encryption/text';
 import { hapticsLight } from '@/components/haptics';
@@ -172,7 +173,8 @@ export const PreviewHtmlViewFull = React.memo<PreviewHtmlViewFullProps>(({ tool 
                 token: credentials.token,
                 apiUrl: getServerUrl(),
             });
-            const copied = await copyTextToClipboardVerified(uploaded.url);
+            const shareUrl = buildPublicHtmlPreviewUrl(uploaded.url, title || uploaded.fileName);
+            const copied = await copyTextToClipboardVerified(shareUrl);
             hapticsLight();
             if (copied) {
                 showCopiedToast();
@@ -180,7 +182,7 @@ export const PreviewHtmlViewFull = React.memo<PreviewHtmlViewFullProps>(({ tool 
             }
 
             const manualCopyUrl = await Modal.prompt(t('files.shareLinkCreated'), t('files.shareLinkManualCopy'), {
-                defaultValue: uploaded.url,
+                defaultValue: shareUrl,
                 confirmText: t('common.copy'),
                 cancelText: t('common.cancel'),
                 multiline: true,

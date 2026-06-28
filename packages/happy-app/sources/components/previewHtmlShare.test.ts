@@ -14,10 +14,12 @@ describe('Preview Html sharing', () => {
 
         expect(source).toContain('handleSharePreviewHtml');
         expect(source).toContain('uploadPublicFileShare');
+        expect(source).toContain('buildPublicHtmlPreviewUrl');
         expect(source).toContain('sanitizePreviewHtmlFileName');
         expect(source).toContain("mimeType: 'text/html'");
         expect(source).toContain("Ionicons name=\"share-outline\"");
         expect(source).toContain("accessibilityLabel={t('files.share')}");
         expect(source).toContain('copyTextToClipboardVerified');
+        expect(source).toContain('const shareUrl = buildPublicHtmlPreviewUrl');
     });
 });
