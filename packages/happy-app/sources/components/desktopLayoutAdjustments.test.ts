@@ -123,6 +123,9 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain("aria-label={t('terminal.clearTerminal')}");
         expect(terminalWeb).toContain('sender(`${command}\\r`);');
         expect(terminalWeb).toContain('terminalTabs');
+        expect(terminalWeb).toContain('allWorkspaces.flatMap((workspace) => workspace.tabs.map((tab) => ({ ...tab, workspaceKey: workspace.key })))');
+        expect(terminalWeb).toContain('handleSelectTerminalTab(tab.workspaceKey, tab.id)');
+        expect(terminalWeb).toContain('handleCloseTerminalTab(tab.workspaceKey, tab.id);');
         expect(terminalWeb).toContain('activeTerminalTabId');
         expect(terminalWeb).toContain('active={isActive}');
         expect(terminalWeb).toContain('handleAddTerminalTab');

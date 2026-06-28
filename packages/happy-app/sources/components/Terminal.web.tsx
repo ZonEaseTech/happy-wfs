@@ -1027,9 +1027,12 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
 
     const activeWorkspace = workspaces[activeWorkspaceKey];
     const activeTerminalTabId = activeWorkspace?.activeTabId ?? '';
-    const terminalTabs = activeWorkspace?.tabs ?? [];
 
     const allWorkspaces = React.useMemo(() => Object.values(workspaces), [workspaces]);
+    const terminalTabs = React.useMemo(
+        () => allWorkspaces.flatMap((workspace) => workspace.tabs.map((tab) => ({ ...tab, workspaceKey: workspace.key }))),
+        [allWorkspaces],
+    );
 
     React.useEffect(() => {
         if (!visible || !hasOpened) return;
@@ -1137,13 +1140,14 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
         });
     }, [activeWorkspaceKey, cwd, sessionId]);
 
-    const handleSelectTerminalTab = React.useCallback((tabId: string) => {
+    const handleSelectTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
+        setActiveWorkspaceKey(workspaceKey);
         setWorkspaces((current) => {
-            const workspace = current[activeWorkspaceKey];
+            const workspace = current[workspaceKey];
             if (!workspace) return current;
-            return { ...current, [activeWorkspaceKey]: { ...workspace, activeTabId: tabId } };
+            return { ...current, [workspaceKey]: { ...workspace, activeTabId: tabId } };
         });
-    }, [activeWorkspaceKey]);
+    }, []);
 
     const handleSelectWorkspace = React.useCallback((workspaceKey: string) => {
         setActiveWorkspaceKey(workspaceKey);
@@ -1271,17 +1275,17 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                     style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flex: 1, overflow: 'hidden' }}
                 >
                     {terminalTabs.map((tab) => {
-                        const isActive = tab.id === activeTerminalTabId;
+                        const isActive = tab.workspaceKey === activeWorkspaceKey && tab.id === activeTerminalTabId;
                         return (
                             <div
                                 key={tab.id}
                                 role="button"
                                 tabIndex={0}
-                                onClick={() => handleSelectTerminalTab(tab.id)}
+                                onClick={() => handleSelectTerminalTab(tab.workspaceKey, tab.id)}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' || event.key === ' ') {
                                         event.preventDefault();
-                                        handleSelectTerminalTab(tab.id);
+                                        handleSelectTerminalTab(tab.workspaceKey, tab.id);
                                     }
                                 }}
                                 style={{
@@ -1308,7 +1312,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                                     onMouseDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                         event.stopPropagation();
-                                        handleCloseTerminalTab(activeWorkspaceKey, tab.id);
+                                        handleCloseTerminalTab(tab.workspaceKey, tab.id);
                                     }}
                                     aria-label="Close terminal tab"
                                     title={t('terminal.closeTerminalTab')}
