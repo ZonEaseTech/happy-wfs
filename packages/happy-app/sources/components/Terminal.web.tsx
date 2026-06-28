@@ -1382,27 +1382,6 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                 </button>
                 <button
                     type="button"
-                    onClick={() => setManagerOpen((value) => !value)}
-                    aria-label={t('terminal.manageTerminals')}
-                    title={t('terminal.manageTerminals')}
-                    style={{
-                        width: 34,
-                        height: 34,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: managerOpen ? `1px solid ${panelTheme.activeControlBorder}` : 0,
-                        borderRadius: 6,
-                        background: managerOpen ? panelTheme.activeControlBackground : 'transparent',
-                        cursor: 'pointer',
-                        padding: 0,
-                        marginLeft: 4,
-                    }}
-                >
-                    <Ionicons name="albums-outline" size={18} color={managerOpen ? panelTheme.activeControlText : panelTheme.mutedText} />
-                </button>
-                <button
-                    type="button"
                     onClick={() => setQuickCommandsOpen((value) => !value)}
                     aria-label="Terminal quick commands"
                     title={t('terminal.quickCommands')}

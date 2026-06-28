@@ -148,6 +148,8 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain('onClose();');
         expect(terminalWeb).not.toContain('workspaceKey === sessionId) onClose();');
         expect(terminalWeb).toContain('managerOpen');
+        expect(terminalWeb).not.toContain("aria-label={t('terminal.manageTerminals')}");
+        expect(terminalWeb).not.toContain('name="albums-outline"');
         expect(terminalWeb).toContain('handleSelectWorkspace');
         expect(terminalWeb).toContain('handleSelectManagedTerminalTab');
         expect(terminalWeb).toContain('onClick={() => handleSelectWorkspace(workspace.key)}');
