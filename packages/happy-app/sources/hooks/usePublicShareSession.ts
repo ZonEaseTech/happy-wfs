@@ -1,15 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { accessPublicShare, getPublicShareMessages } from '@/sync/apiSharing';
+import { accessPublicShare, getPublicShareMessages, sendPublicShareMessage } from '@/sync/apiSharing';
 import type { PublicShareMessagePage } from '@/sync/apiSharing';
 import { decryptDataKeyFromPublicShare } from '@/sync/encryption/publicShareEncryption';
 import { AES256Encryption } from '@/sync/encryption/encryptor';
-import { decodeBase64 } from '@/encryption/base64';
+import { decodeBase64, encodeBase64 } from '@/encryption/base64';
 import { normalizeRawMessage } from '@/sync/typesRaw';
+import type { RawRecord } from '@/sync/typesRaw';
 import { createReducer, reducer } from '@/sync/reducer/reducer';
 import { getServerUrl } from '@/sync/serverConfig';
 import { PublicShareNotFoundError, ConsentRequiredError, ShareUserProfile } from '@/sync/sharingTypes';
 import { Message } from '@/sync/typesMessage';
 import { Metadata, MetadataSchema } from '@/sync/storageTypes';
+import { randomUUID } from 'expo-crypto';
 
 export type PublicShareState = 'loading' | 'loaded' | 'error' | 'consent-required' | 'not-found';
 
@@ -49,8 +51,10 @@ export function usePublicShareSession(token: string) {
     const [metadata, setMetadata] = useState<Metadata | null>(null);
     const [owner, setOwner] = useState<ShareUserProfile | null>(null);
     const [sessionId, setSessionId] = useState<string | null>(null);
+    const [allowChat, setAllowChat] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [isSending, setIsSending] = useState(false);
     const consentRef = useRef(false);
     const decryptorRef = useRef<AES256Encryption | null>(null);
     const oldestSeqRef = useRef<number | null>(null);
@@ -61,6 +65,7 @@ export function usePublicShareSession(token: string) {
             consentRef.current = withConsent;
             setState('loading');
             setHasMore(false);
+            setAllowChat(false);
             oldestSeqRef.current = null;
             decryptorRef.current = null;
             const serverUrl = getServerUrl();
@@ -70,6 +75,7 @@ export function usePublicShareSession(token: string) {
             const shareData = await accessPublicShare(serverUrl, token, consent);
             setOwner(shareData.owner);
             setSessionId(shareData.session.id);
+            setAllowChat(shareData.allowChat === true);
 
             // 2. Decrypt data key from token
             const dataKey = await decryptDataKeyFromPublicShare(shareData.encryptedDataKey, token);
@@ -162,5 +168,113 @@ export function usePublicShareSession(token: string) {
         }
     }, [load]);
 
-    return { state, messages, metadata, owner, sessionId, hasMore, isLoadingMore, loadMore, giveConsent };
+    const refreshMessages = useCallback(async () => {
+        const decryptor = decryptorRef.current;
+        if (!decryptor) {
+            return;
+        }
+
+        const page = await getPublicShareMessages(getServerUrl(), token, {
+            consent: consentRef.current || undefined,
+            limit: 50,
+        });
+        const latestMessages = await decryptMessagePage(page, decryptor);
+        const latestMinSeq = minSeq(page);
+        if (latestMinSeq !== null) {
+            oldestSeqRef.current = oldestSeqRef.current === null
+                ? latestMinSeq
+                : Math.min(oldestSeqRef.current, latestMinSeq);
+        }
+        if (page.hasMore) {
+            setHasMore(true);
+        }
+        if (latestMessages.length > 0) {
+            setMessages((current) => {
+                const byId = new Map<string, Message>();
+                for (const message of current) byId.set(message.id, message);
+                for (const message of latestMessages) byId.set(message.id, message);
+                return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+            });
+        }
+    }, [token]);
+
+    useEffect(() => {
+        if (state !== 'loaded' || !allowChat) {
+            return;
+        }
+
+        const id = setInterval(() => {
+            refreshMessages().catch(() => {
+                // Public share polling is best-effort.
+            });
+        }, 5000);
+        return () => clearInterval(id);
+    }, [allowChat, refreshMessages, state]);
+
+    const sendMessage = useCallback(async (text: string): Promise<boolean> => {
+        const trimmed = text.trim();
+        const decryptor = decryptorRef.current;
+        if (!trimmed || !allowChat || !decryptor) {
+            return false;
+        }
+
+        const localId = randomUUID();
+        const rawRecord: RawRecord = {
+            role: 'user',
+            content: {
+                type: 'text',
+                text: trimmed,
+            },
+            meta: {
+                sentFrom: 'public-share',
+                permissionMode: 'default',
+            },
+        };
+
+        setIsSending(true);
+        try {
+            const [encrypted] = await decryptor.encrypt([rawRecord]);
+            const sent = await sendPublicShareMessage(getServerUrl(), token, {
+                content: encodeBase64(encrypted, 'base64'),
+                localId,
+                consent: consentRef.current || undefined,
+            });
+
+            const sentMessage: Message = {
+                kind: 'user-text',
+                id: sent.id,
+                localId: sent.localId ?? localId,
+                createdAt: sent.createdAt,
+                seq: sent.seq,
+                text: trimmed,
+                meta: rawRecord.meta,
+                sentBy: null,
+                sentByName: sent.sentByName,
+            };
+            setMessages((current) => {
+                const byId = new Map<string, Message>();
+                for (const message of current) byId.set(message.id, message);
+                byId.set(sentMessage.id, sentMessage);
+                return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+            });
+            setTimeout(() => {
+                refreshMessages().catch(() => {
+                    // Best-effort refresh for the public chat view.
+                });
+            }, 1500);
+            return true;
+        } catch (e) {
+            if (e instanceof PublicShareNotFoundError) {
+                setState('not-found');
+            } else if (e instanceof ConsentRequiredError) {
+                setOwner(e.owner);
+                setState('consent-required');
+            }
+            return false;
+        } finally {
+            setIsSending(false);
+        }
+    }, [allowChat, refreshMessages, token]);
+
+    return { state, messages, metadata, owner, sessionId, allowChat, isSending, hasMore, isLoadingMore, loadMore, giveConsent, sendMessage };
 }

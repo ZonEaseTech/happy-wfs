@@ -626,6 +626,7 @@ model PublicSessionShare {
   maxUses           Int?
   useCount          Int                      @default(0)
   isConsentRequired Boolean                  @default(false)
+  allowChat         Boolean                  @default(false)
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
   accessLogs        PublicShareAccessLog[]

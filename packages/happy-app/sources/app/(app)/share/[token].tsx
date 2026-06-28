@@ -1,5 +1,5 @@
-import { memo, useCallback } from 'react';
-import { View, FlatList, ActivityIndicator, Pressable } from 'react-native';
+import { memo, useCallback, useState } from 'react';
+import { View, FlatList, ActivityIndicator, Pressable, TextInput, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
@@ -60,10 +60,64 @@ function ShareHeader({ owner }: { owner: { username: string | null; firstName: s
     );
 }
 
+function PublicChatInput({
+    disabled,
+    onSend,
+}: {
+    disabled: boolean;
+    onSend: (text: string) => Promise<boolean>;
+}) {
+    const { theme } = useUnistyles();
+    const [text, setText] = useState('');
+
+    const handleSend = useCallback(async () => {
+        const next = text.trim();
+        if (!next || disabled) return;
+        const sent = await onSend(next);
+        if (sent) {
+            setText('');
+        }
+    }, [disabled, onSend, text]);
+
+    const canSend = text.trim().length > 0 && !disabled;
+
+    return (
+        <View style={[styles.inputBar, { borderTopColor: theme.colors.divider, backgroundColor: theme.colors.surface }]}>
+            <TextInput
+                style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.surfaceHigh }, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
+                placeholder={t('session.sharing.publicChatPlaceholder')}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={text}
+                onChangeText={setText}
+                multiline
+                editable={!disabled}
+            />
+            <Pressable
+                onPress={handleSend}
+                disabled={!canSend}
+                style={[
+                    styles.sendButton,
+                    { backgroundColor: canSend ? theme.colors.button.primary.background : theme.colors.surfaceHigh },
+                ]}
+            >
+                {disabled ? (
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                ) : (
+                    <Ionicons
+                        name="arrow-up"
+                        size={22}
+                        color={canSend ? theme.colors.button.primary.tint : theme.colors.textSecondary}
+                    />
+                )}
+            </Pressable>
+        </View>
+    );
+}
+
 export default memo(function PublicShareScreen() {
     const { token } = useLocalSearchParams<{ token: string }>();
     const { theme } = useUnistyles();
-    const { state, messages, metadata, owner, sessionId, hasMore, isLoadingMore, loadMore, giveConsent } = usePublicShareSession(token);
+    const { state, messages, metadata, owner, sessionId, allowChat, isSending, hasMore, isLoadingMore, loadMore, giveConsent, sendMessage } = usePublicShareSession(token);
 
     const keyExtractor = useCallback((item: Message) => item.id, []);
     const renderItem = useCallback(({ item }: { item: Message }) => (
@@ -144,27 +198,32 @@ export default memo(function PublicShareScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             <ShareHeader owner={owner} />
-            {messages.length === 0 ? (
-                <View style={styles.center}>
-                    <Ionicons name="chatbubble-outline" size={48} color={theme.colors.textSecondary} />
-                    <Text style={[styles.statusText, { color: theme.colors.textSecondary }]}>
-                        {t('session.sharing.noMessages')}
-                    </Text>
-                </View>
-            ) : (
-                <FlatList
-                    data={messages}
-                    keyExtractor={keyExtractor}
-                    renderItem={renderItem}
-                    inverted
-                    maintainVisibleContentPosition={{
-                        minIndexForVisible: 0,
-                    }}
-                    contentContainerStyle={styles.listContent}
-                    ListFooterComponent={listFooter}
-                    onEndReached={loadMore}
-                    onEndReachedThreshold={0.5}
-                />
+            <View style={styles.messageArea}>
+                {messages.length === 0 ? (
+                    <View style={styles.center}>
+                        <Ionicons name="chatbubble-outline" size={48} color={theme.colors.textSecondary} />
+                        <Text style={[styles.statusText, { color: theme.colors.textSecondary }]}>
+                            {t('session.sharing.noMessages')}
+                        </Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={messages}
+                        keyExtractor={keyExtractor}
+                        renderItem={renderItem}
+                        inverted
+                        maintainVisibleContentPosition={{
+                            minIndexForVisible: 0,
+                        }}
+                        contentContainerStyle={styles.listContent}
+                        ListFooterComponent={listFooter}
+                        onEndReached={loadMore}
+                        onEndReachedThreshold={0.5}
+                    />
+                )}
+            </View>
+            {allowChat && (
+                <PublicChatInput disabled={isSending} onSend={sendMessage} />
             )}
         </View>
     );
@@ -179,6 +238,10 @@ const styles = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 32,
+    },
+    messageArea: {
+        flex: 1,
+        minHeight: 0,
     },
     statusText: {
         ...Typography.default('semiBold'),
@@ -260,5 +323,31 @@ const styles = StyleSheet.create((theme) => ({
     loadingMore: {
         paddingVertical: 16,
         alignItems: 'center',
+    },
+    inputBar: {
+        borderTopWidth: 0.5,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    input: {
+        ...Typography.default(),
+        flex: 1,
+        minHeight: 40,
+        maxHeight: 120,
+        borderRadius: 20,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        fontSize: 16,
+        textAlignVertical: 'top',
+    },
+    sendButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 }));
