@@ -10,11 +10,37 @@ import { allocateUserSeq } from "@/storage/seq";
 import { createHash } from "crypto";
 import { decodeBase64 } from "privacy-kit";
 import { touchSession } from "@/app/session/sessionTouch";
+import { dispatchSessionMessage } from "@/app/session/sessionMessageDispatch";
+
+const sendPublicShareMessageBodySchema = z.object({
+    content: z.string().min(1),
+    localId: z.string().min(1),
+});
+
+function toPublicShareSendResponseMessage(message: {
+    id: string;
+    seq: number;
+    localId: string | null;
+    sentBy: string | null;
+    sentByName: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+}) {
+    return {
+        id: message.id,
+        seq: message.seq,
+        localId: message.localId,
+        sentBy: message.sentBy,
+        sentByName: message.sentByName,
+        createdAt: message.createdAt.getTime(),
+        updatedAt: message.updatedAt.getTime(),
+    };
+}
 
 /**
  * Public session sharing API routes
  *
- * Public shares are always view-only for security
+ * Public shares are view-only unless the owner enables public chat.
  */
 export function publicShareRoutes(app: Fastify) {
 
@@ -38,13 +64,14 @@ export function publicShareRoutes(app: Fastify) {
                 encryptedDataKey: z.string().optional(), // base64 encoded (required when creating or rotating)
                 expiresAt: z.number().optional(), // timestamp
                 maxUses: z.number().int().positive().optional(),
-                isConsentRequired: z.boolean().optional() // require consent for detailed logging
+                isConsentRequired: z.boolean().optional(), // require consent for detailed logging
+                allowChat: z.boolean().optional()
             })
         }
     }, async (request, reply) => {
         const userId = request.userId;
         const { sessionId } = request.params;
-        const { token, encryptedDataKey, expiresAt, maxUses, isConsentRequired } = request.body;
+        const { token, encryptedDataKey, expiresAt, maxUses, isConsentRequired, allowChat } = request.body;
 
         // Only owner can create public shares
         if (!await isSessionOwner(userId, sessionId)) {
@@ -89,6 +116,7 @@ export function publicShareRoutes(app: Fastify) {
                         expiresAt: expiresAt ? new Date(expiresAt) : null,
                         maxUses: maxUses ?? null,
                         isConsentRequired: isConsentRequired ?? false,
+                        allowChat: allowChat ?? false,
                         ...(nextTokenHash ? { useCount: 0 } : {}),
                     }
                 });
@@ -104,7 +132,8 @@ export function publicShareRoutes(app: Fastify) {
                         encryptedDataKey: decodeBase64(encryptedDataKey!, 'base64'),
                         expiresAt: expiresAt ? new Date(expiresAt) : null,
                         maxUses: maxUses ?? null,
-                        isConsentRequired: isConsentRequired ?? false
+                        isConsentRequired: isConsentRequired ?? false,
+                        allowChat: allowChat ?? false
                     }
                 });
             }
@@ -132,6 +161,7 @@ export function publicShareRoutes(app: Fastify) {
                 maxUses: publicShare.maxUses,
                 useCount: publicShare.useCount,
                 isConsentRequired: publicShare.isConsentRequired,
+                allowChat: publicShare.allowChat,
                 createdAt: publicShare.createdAt.getTime(),
                 updatedAt: publicShare.updatedAt.getTime()
             }
@@ -173,6 +203,7 @@ export function publicShareRoutes(app: Fastify) {
                 maxUses: publicShare.maxUses,
                 useCount: publicShare.useCount,
                 isConsentRequired: publicShare.isConsentRequired,
+                allowChat: publicShare.allowChat,
                 createdAt: publicShare.createdAt.getTime(),
                 updatedAt: publicShare.updatedAt.getTime()
             }
@@ -285,6 +316,7 @@ export function publicShareRoutes(app: Fastify) {
                     maxUses: true,
                     useCount: true,
                     isConsentRequired: true,
+                    allowChat: true,
                     encryptedDataKey: true,
                     blockedUsers: userId ? {
                         where: { userId },
@@ -333,6 +365,7 @@ export function publicShareRoutes(app: Fastify) {
                 publicShareId: publicShare.id,
                 sessionId: publicShare.sessionId,
                 isConsentRequired: publicShare.isConsentRequired,
+                allowChat: publicShare.allowChat,
                 encryptedDataKey: publicShare.encryptedDataKey
             };
         });
@@ -405,12 +438,13 @@ export function publicShareRoutes(app: Fastify) {
             owner: toShareUserProfile(session.account),
             accessLevel: 'view',
             encryptedDataKey: Buffer.from(result.encryptedDataKey).toString('base64'),
-            isConsentRequired: result.isConsentRequired
+            isConsentRequired: result.isConsentRequired,
+            allowChat: result.allowChat
         });
     });
 
     /**
-     * Get messages for a public share token (no auth required, read-only)
+     * Get messages for a public share token (no auth required)
      *
      * NOTE: Does not increment useCount (useCount is incremented on /v1/public-share/:token).
      */
@@ -456,6 +490,7 @@ export function publicShareRoutes(app: Fastify) {
                 maxUses: true,
                 useCount: true,
                 isConsentRequired: true,
+                allowChat: true,
                 blockedUsers: userId ? {
                     where: { userId },
                     select: { id: true }
@@ -531,6 +566,138 @@ export function publicShareRoutes(app: Fastify) {
                 updatedAt: v.updatedAt.getTime()
             })),
             hasMore
+        });
+    });
+
+    /**
+     * Send a message through a public share token.
+     *
+     * The client encrypts the raw user message with the public share data key.
+     */
+    app.post('/v1/public-share/:token/messages', {
+        config: {
+            rateLimit: {
+                max: 20,
+                timeWindow: '1 minute'
+            }
+        },
+        schema: {
+            params: z.object({
+                token: z.string()
+            }),
+            querystring: z.object({
+                consent: z.coerce.boolean().optional()
+            }).optional(),
+            body: sendPublicShareMessageBodySchema
+        }
+    }, async (request, reply) => {
+        const { token } = request.params;
+        const { consent } = request.query || {};
+        const { content, localId } = request.body;
+        const tokenHash = createHash('sha256').update(token, 'utf8').digest();
+
+        // Try to get user ID if authenticated
+        let userId: string | null = null;
+        if (request.headers.authorization) {
+            try {
+                await app.authenticate(request, reply);
+                userId = request.userId;
+            } catch {
+                // Not authenticated, continue as anonymous
+            }
+        }
+
+        const publicShare = await db.publicSessionShare.findUnique({
+            where: { tokenHash },
+            select: {
+                id: true,
+                sessionId: true,
+                expiresAt: true,
+                maxUses: true,
+                useCount: true,
+                isConsentRequired: true,
+                allowChat: true,
+                session: {
+                    select: {
+                        accountId: true
+                    }
+                },
+                blockedUsers: userId ? {
+                    where: { userId },
+                    select: { id: true }
+                } : undefined
+            }
+        });
+
+        if (!publicShare) {
+            return reply.code(404).send({ error: 'Public share not found or expired' });
+        }
+
+        if (publicShare.expiresAt && publicShare.expiresAt < new Date()) {
+            return reply.code(404).send({ error: 'Public share not found or expired' });
+        }
+
+        if (publicShare.maxUses && publicShare.useCount >= publicShare.maxUses) {
+            return reply.code(404).send({ error: 'Public share not found or expired' });
+        }
+
+        if (userId && publicShare.blockedUsers && publicShare.blockedUsers.length > 0) {
+            return reply.code(404).send({ error: 'Public share not found or expired' });
+        }
+
+        if (publicShare.isConsentRequired && !consent) {
+            const session = await db.session.findUnique({
+                where: { id: publicShare.sessionId },
+                select: {
+                    account: {
+                        select: PROFILE_SELECT
+                    }
+                }
+            });
+
+            return reply.code(403).send({
+                error: 'Consent required',
+                requiresConsent: true,
+                sessionId: publicShare.sessionId,
+                owner: session?.account ? toShareUserProfile(session.account) : null
+            });
+        }
+
+        if (!publicShare.allowChat) {
+            return reply.code(403).send({ error: 'Public share chat is disabled' });
+        }
+
+        const existing = await db.sessionMessage.findFirst({
+            where: {
+                sessionId: publicShare.sessionId,
+                localId,
+            },
+            select: {
+                id: true,
+                seq: true,
+                localId: true,
+                sentBy: true,
+                sentByName: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        if (existing) {
+            return reply.send({ message: toPublicShareSendResponseMessage(existing) });
+        }
+
+        const dispatched = await dispatchSessionMessage({
+            ownerId: publicShare.session.accountId,
+            sessionId: publicShare.sessionId,
+            content,
+            localId,
+            sentBy: null,
+            sentByName: 'Public visitor',
+            trackCliDelivery: true,
+        });
+
+        return reply.send({
+            message: toPublicShareSendResponseMessage(dispatched.message),
         });
     });
 

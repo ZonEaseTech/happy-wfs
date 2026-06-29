@@ -371,6 +371,44 @@ export async function getPublicShareMessages(
     };
 }
 
+export async function sendPublicShareMessage(
+    serverUrl: string,
+    token: string,
+    request: { content: string; localId: string; consent?: boolean }
+): Promise<{ id: string; seq: number; localId: string | null; sentBy: string | null; sentByName: string | null; createdAt: number; updatedAt: number }> {
+    const url = new URL(`${serverUrl}/v1/public-share/${token}/messages`);
+    if (request.consent) {
+        url.searchParams.set('consent', 'true');
+    }
+
+    const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            content: request.content,
+            localId: request.localId,
+        }),
+    });
+
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new PublicShareNotFoundError();
+        }
+        if (response.status === 403) {
+            const body = await response.json();
+            if (body.requiresConsent) {
+                throw new ConsentRequiredError(body.owner);
+            }
+        }
+        throw new Error(`Failed to send public share message: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.message;
+}
+
 /**
  * Access a session via a public share token (public endpoint, no auth required)
  */

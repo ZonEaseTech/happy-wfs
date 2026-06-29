@@ -214,6 +214,7 @@ export type UpdateEvent = {
     expiresAt: number | null;
     maxUses: number | null;
     isConsentRequired: boolean;
+    allowChat: boolean;
     createdAt: number;
 } | {
     type: 'public-share-updated';
@@ -222,6 +223,7 @@ export type UpdateEvent = {
     expiresAt: number | null;
     maxUses: number | null;
     isConsentRequired: boolean;
+    allowChat: boolean;
     updatedAt: number;
 } | {
     type: 'public-share-deleted';
@@ -1094,6 +1096,7 @@ export function buildPublicShareCreatedUpdate(publicShare: {
     expiresAt: Date | null;
     maxUses: number | null;
     isConsentRequired: boolean;
+    allowChat: boolean;
     createdAt: Date;
 }, updateSeq: number, updateId: string): UpdatePayload {
     return {
@@ -1107,6 +1110,7 @@ export function buildPublicShareCreatedUpdate(publicShare: {
             expiresAt: publicShare.expiresAt?.getTime() ?? null,
             maxUses: publicShare.maxUses,
             isConsentRequired: publicShare.isConsentRequired,
+            allowChat: publicShare.allowChat,
             createdAt: publicShare.createdAt.getTime()
         },
         createdAt: Date.now()
@@ -1119,6 +1123,7 @@ export function buildPublicShareUpdatedUpdate(publicShare: {
     expiresAt: Date | null;
     maxUses: number | null;
     isConsentRequired: boolean;
+    allowChat: boolean;
     updatedAt: Date;
 }, updateSeq: number, updateId: string): UpdatePayload {
     return {
@@ -1131,6 +1136,7 @@ export function buildPublicShareUpdatedUpdate(publicShare: {
             expiresAt: publicShare.expiresAt?.getTime() ?? null,
             maxUses: publicShare.maxUses,
             isConsentRequired: publicShare.isConsentRequired,
+            allowChat: publicShare.allowChat,
             updatedAt: publicShare.updatedAt.getTime()
         },
         createdAt: Date.now()

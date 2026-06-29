@@ -1,7 +1,7 @@
 import { logger } from '@/ui/logger';
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
-import { readFile, writeFile, readdir, stat, rename, unlink, rm, mkdir, lstat } from 'fs/promises';
+import { appendFile, readFile, writeFile, readdir, stat, rename, unlink, rm, mkdir, lstat } from 'fs/promises';
 import { join, resolve } from 'path';
 import { run as runRipgrep } from '@/modules/ripgrep/index';
 import { run as runDifftastic } from '@/modules/difftastic/index';
@@ -11,6 +11,7 @@ import { getDiffDetail } from './diffStore';
 import { getToolOutputRecord } from './toolOutputStore';
 import { spawnShell, resizePty, closePty, writeToPty, PTY_UNAVAILABLE } from '@/modules/pty';
 import { encrypt, decrypt, encodeBase64, decodeBase64 } from '@/api/encryption';
+import { MAX_SESSION_UPLOAD_FILE_BYTES, resolveSessionUploadPaths } from './sessionFileUpload';
 
 const execAsync = promisify(exec);
 
@@ -48,6 +49,37 @@ interface WriteFileResponse {
     error?: string;
     bytesWritten?: number;
 }
+interface UploadFileInitRequest {
+    uploadId: string;
+    fileName: string;
+    fileSize: number;
+}
+
+interface UploadFileChunkRequest {
+    uploadId: string;
+    fileName: string;
+    chunkBase64: string;
+}
+
+interface UploadFileCompleteRequest {
+    uploadId: string;
+    fileName: string;
+    fileSize: number;
+}
+
+interface UploadFileAbortRequest {
+    uploadId: string;
+    fileName: string;
+}
+
+interface UploadFileResponse {
+    success: boolean;
+    error?: string;
+    relativePath?: string;
+    absolutePath?: string;
+    bytesWritten?: number;
+}
+
 
 interface ListDirRequest {
     path: string;
@@ -416,6 +448,147 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             const message = error instanceof Error ? error.message : 'Failed to write file';
             logger.debug('[writeFile] path=%s ok=%s reason=%s', absPath, false, message);
             return { success: false, error: message };
+        }
+    });
+
+    // Chunked file upload handler. The app sends arbitrary files in small
+    // encrypted RPC chunks so the CLI writes the original bytes directly under
+    // the session working directory without converting/parsing them.
+    rpcHandlerManager.registerHandler<UploadFileInitRequest, UploadFileResponse>('uploadFile.init', async (data) => {
+        if (!Number.isFinite(data.fileSize) || data.fileSize < 0) {
+            return { success: false, error: 'Invalid file size' };
+        }
+        if (data.fileSize > MAX_SESSION_UPLOAD_FILE_BYTES) {
+            return { success: false, error: 'File exceeds 100MB limit' };
+        }
+
+        let paths: ReturnType<typeof resolveSessionUploadPaths>;
+        try {
+            paths = resolveSessionUploadPaths({
+                workingDirectory,
+                uploadId: data.uploadId,
+                fileName: data.fileName,
+            });
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Invalid upload path' };
+        }
+
+        const finalValidation = validatePath(paths.relativePath, workingDirectory);
+        const tempValidation = validatePath(paths.tempRelativePath, workingDirectory);
+        if (!finalValidation.valid) return { success: false, error: finalValidation.error };
+        if (!tempValidation.valid) return { success: false, error: tempValidation.error };
+        if (!isWritableForSession(paths.absolutePath) || !isWritableForSession(paths.tempAbsolutePath)) {
+            return { success: false, error: `Path '${paths.absolutePath}' is on the system write deny-list` };
+        }
+
+        try {
+            await mkdir(paths.directory, { recursive: true });
+            await rm(paths.tempAbsolutePath, { force: true });
+            await rm(paths.absolutePath, { force: true });
+            await writeFile(paths.tempAbsolutePath, Buffer.alloc(0));
+            return {
+                success: true,
+                relativePath: paths.relativePath,
+                absolutePath: paths.absolutePath,
+                bytesWritten: 0,
+            };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Failed to initialize upload' };
+        }
+    });
+
+    rpcHandlerManager.registerHandler<UploadFileChunkRequest, UploadFileResponse>('uploadFile.chunk', async (data) => {
+        let paths: ReturnType<typeof resolveSessionUploadPaths>;
+        try {
+            paths = resolveSessionUploadPaths({
+                workingDirectory,
+                uploadId: data.uploadId,
+                fileName: data.fileName,
+            });
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Invalid upload path' };
+        }
+
+        const validation = validatePath(paths.tempRelativePath, workingDirectory);
+        if (!validation.valid) return { success: false, error: validation.error };
+        if (!isWritableForSession(paths.tempAbsolutePath)) {
+            return { success: false, error: `Path '${paths.tempAbsolutePath}' is on the system write deny-list` };
+        }
+
+        try {
+            const chunk = Buffer.from(data.chunkBase64, 'base64');
+            const current = await stat(paths.tempAbsolutePath).catch(() => null);
+            const currentSize = current?.size ?? 0;
+            if (currentSize + chunk.length > MAX_SESSION_UPLOAD_FILE_BYTES) {
+                return { success: false, error: 'File exceeds 100MB limit' };
+            }
+            await appendFile(paths.tempAbsolutePath, chunk);
+            return {
+                success: true,
+                relativePath: paths.relativePath,
+                absolutePath: paths.absolutePath,
+                bytesWritten: currentSize + chunk.length,
+            };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Failed to write upload chunk' };
+        }
+    });
+
+    rpcHandlerManager.registerHandler<UploadFileCompleteRequest, UploadFileResponse>('uploadFile.complete', async (data) => {
+        if (!Number.isFinite(data.fileSize) || data.fileSize < 0) {
+            return { success: false, error: 'Invalid file size' };
+        }
+        if (data.fileSize > MAX_SESSION_UPLOAD_FILE_BYTES) {
+            return { success: false, error: 'File exceeds 100MB limit' };
+        }
+
+        let paths: ReturnType<typeof resolveSessionUploadPaths>;
+        try {
+            paths = resolveSessionUploadPaths({
+                workingDirectory,
+                uploadId: data.uploadId,
+                fileName: data.fileName,
+            });
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Invalid upload path' };
+        }
+
+        const finalValidation = validatePath(paths.relativePath, workingDirectory);
+        const tempValidation = validatePath(paths.tempRelativePath, workingDirectory);
+        if (!finalValidation.valid) return { success: false, error: finalValidation.error };
+        if (!tempValidation.valid) return { success: false, error: tempValidation.error };
+        if (!isWritableForSession(paths.absolutePath) || !isWritableForSession(paths.tempAbsolutePath)) {
+            return { success: false, error: `Path '${paths.absolutePath}' is on the system write deny-list` };
+        }
+
+        try {
+            const info = await stat(paths.tempAbsolutePath);
+            if (info.size !== data.fileSize) {
+                return { success: false, error: `Upload size mismatch: expected ${data.fileSize}, got ${info.size}` };
+            }
+            await rename(paths.tempAbsolutePath, paths.absolutePath);
+            return {
+                success: true,
+                relativePath: paths.relativePath,
+                absolutePath: paths.absolutePath,
+                bytesWritten: info.size,
+            };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Failed to complete upload' };
+        }
+    });
+
+    rpcHandlerManager.registerHandler<UploadFileAbortRequest, UploadFileResponse>('uploadFile.abort', async (data) => {
+        try {
+            const paths = resolveSessionUploadPaths({
+                workingDirectory,
+                uploadId: data.uploadId,
+                fileName: data.fileName,
+            });
+            await rm(paths.tempAbsolutePath, { force: true });
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Failed to abort upload' };
         }
     });
 

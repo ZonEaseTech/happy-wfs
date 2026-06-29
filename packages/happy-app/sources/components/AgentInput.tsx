@@ -35,6 +35,8 @@ const webTooltip = (label: string): Record<string, string> => (
     Platform.OS === 'web' ? { title: label } : {}
 );
 import { ImagePreview, LocalImage } from '@/components/ImagePreview';
+import { FileAttachmentPreview } from '@/components/FileAttachmentPreview';
+import type { LocalFileAttachment } from '@/utils/fileAttachments';
 import { Switch } from '@/components/Switch';
 import { Modal } from '@/modal';
 import {
@@ -78,6 +80,7 @@ interface AgentInputProps {
     isMicActive?: boolean;
     permissionMode?: PermissionMode;
     onPermissionModeChange?: (mode: PermissionMode) => void;
+    hidePermissionSettings?: boolean;
     modelMode?: ModelMode;
     onModelModeChange?: (mode: ModelMode) => void;
     /** Optional inline archive trigger (active sessions). Shown as archive-outline
@@ -142,6 +145,8 @@ interface AgentInputProps {
     onProfileClick?: () => void;
     images?: LocalImage[];
     onImagesChange?: (images: LocalImage[]) => void;
+    fileAttachments?: LocalFileAttachment[];
+    onFileAttachmentsChange?: (files: LocalFileAttachment[]) => void;
     onImageButtonPress?: () => void;
     supportsImages?: boolean;
     isUploadingImages?: boolean;
@@ -599,7 +604,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
     // Set up native drag event listeners for web
     React.useEffect(() => {
-        if (Platform.OS !== 'web' || !props.supportsImages || !props.onImageDrop) return;
+        if (Platform.OS !== 'web' || !props.onImageDrop) return;
 
         const element = dropZoneRef.current as unknown as HTMLElement | null;
         if (!element) return;
@@ -632,7 +637,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             dragCounterRef.current = 0;
 
             if (!e.dataTransfer) return;
-            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            const files = Array.from(e.dataTransfer.files);
             if (files.length > 0) {
                 props.onImageDrop!(files);
             }
@@ -649,7 +654,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             element.removeEventListener('dragover', handleDragOver);
             element.removeEventListener('drop', handleDrop);
         };
-    }, [props.supportsImages, props.onImageDrop]);
+    }, [props.onImageDrop]);
 
     // Forward ref to the MultiTextInput
     React.useImperativeHandle(ref, () => inputRef.current!, []);
@@ -659,7 +664,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         text: props.value,
         selection: { start: 0, end: 0 }
     });
-    const hasText = inputState.text.trim().length > 0 || props.value.trim().length > 0;
+    const hasFileAttachments = (props.fileAttachments?.length ?? 0) > 0;
+    const hasText = inputState.text.trim().length > 0 || props.value.trim().length > 0 || hasFileAttachments;
 
     // Keep a latest text snapshot to avoid stale parent-state reads during fast click-after-type sends.
     const latestTextRef = React.useRef(props.value);
@@ -733,6 +739,45 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         return latestTextRef.current;
     }, [inputState.text, props.value]);
 
+    const sendPressInHandledRef = React.useRef(false);
+    const isCompactWeb = Platform.OS === 'web' && screenWidth <= 700;
+
+    const handleSendOrMicPress = React.useCallback(() => {
+        if (props.isSendDisabled || props.isSending) {
+            return;
+        }
+        const textSnapshot = resolveSendSnapshot();
+        log.log(`[SEND_DEBUG][INPUT] press hasText=${hasText} latestLen=${latestTextRef.current.trim().length} stateLen=${inputState.text.trim().length} propLen=${props.value.trim().length} pickedLen=${textSnapshot.trim().length} mic=${props.onMicPress ? 'yes' : 'no'} disabled=${props.isSendDisabled || props.isSending ? 'yes' : 'no'}`);
+        if (textSnapshot.trim() || hasFileAttachments) {
+            hapticsLight();
+            props.onSend(textSnapshot);
+            return;
+        }
+        if (props.onMicPress) {
+            hapticsLight();
+            props.onMicPress();
+        }
+    }, [hasFileAttachments, hasText, inputState.text, props.isSendDisabled, props.isSending, props.onMicPress, props.onSend, props.value, resolveSendSnapshot]);
+
+    const handleSendPressIn = React.useCallback(() => {
+        if (!isCompactWeb) {
+            return;
+        }
+        sendPressInHandledRef.current = true;
+        handleSendOrMicPress();
+        setTimeout(() => {
+            sendPressInHandledRef.current = false;
+        }, 500);
+    }, [handleSendOrMicPress, isCompactWeb]);
+
+    const handleSendPress = React.useCallback(() => {
+        if (sendPressInHandledRef.current) {
+            sendPressInHandledRef.current = false;
+            return;
+        }
+        handleSendOrMicPress();
+    }, [handleSendOrMicPress]);
+
     // Use the tracked selection from inputState
     const activeWord = useActiveWord(inputState.text, inputState.selection, props.autocompletePrefixes);
     // Using default options: clampSelection=true, autoSelectFirst=true, wrapAround=true
@@ -798,10 +843,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
     // Handle permission mode text press (right-side text → permission mode selection)
     const handlePermissionPress = React.useCallback(() => {
+        if (props.hidePermissionSettings) return;
         hapticsLight();
         setShowQuickActions(false);
         setShowSettings(prev => prev === 'permission' ? false : 'permission');
-    }, []);
+    }, [props.hidePermissionSettings]);
 
     const handleQuickActionPress = React.useCallback(() => {
         hapticsLight();
@@ -826,9 +872,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Handle settings selection
     const handleSettingsSelect = React.useCallback((mode: PermissionMode) => {
         hapticsLight();
+        if (props.hidePermissionSettings) return;
         props.onPermissionModeChange?.(mode);
         // Don't close the settings overlay - let users see the change and potentially switch again
-    }, [props.onPermissionModeChange]);
+    }, [props.hidePermissionSettings, props.onPermissionModeChange]);
 
     // Handle abort button press
     const handleAbortPress = React.useCallback(async () => {
@@ -910,7 +957,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 }
             }
             // Handle Shift+Tab for permission mode switching
-            if (event.key === 'Tab' && event.shiftKey && props.onPermissionModeChange) {
+            if (event.key === 'Tab' && event.shiftKey && props.onPermissionModeChange && !props.hidePermissionSettings) {
                 const modeOrder: PermissionMode[] = isCodex
                     ? ['default', 'read-only', 'safe-yolo', 'yolo']
                     : ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo']; // Claude and Gemini share same modes
@@ -923,7 +970,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
         }
         return false; // Key was not handled
-    }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.showAbortButton, props.onAbort, isAborting, handleAbortPress, agentInputEnterToSend, resolveSendSnapshot, props.onSend, props.permissionMode, props.onPermissionModeChange, props.isSending, props.isSendDisabled]);
+    }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.showAbortButton, props.onAbort, isAborting, handleAbortPress, agentInputEnterToSend, resolveSendSnapshot, props.onSend, props.permissionMode, props.onPermissionModeChange, props.hidePermissionSettings, props.isSending, props.isSendDisabled]);
 
     const handleSubmitEditing = React.useCallback(() => {
         // Native mobile TextInput does not reliably deliver Enter through
@@ -1027,7 +1074,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             : currentModelLabel;
                                         const tabs = [
                                             { key: 'model' as const, label: t('agentInput.model.title'), subtitle: currentModelSubtitle },
-                                            { key: 'permission' as const, label: isCodex ? t('agentInput.codexPermissionMode.title') : isGemini ? t('agentInput.geminiPermissionMode.title') : t('agentInput.permissionMode.title'), subtitle: permissionLabel },
+                                            ...(props.hidePermissionSettings ? [] : [{ key: 'permission' as const, label: isCodex ? t('agentInput.codexPermissionMode.title') : isGemini ? t('agentInput.geminiPermissionMode.title') : t('agentInput.permissionMode.title'), subtitle: permissionLabel }]),
                                         ];
                                         return tabs.map((tab) => {
                                             const isActive = showSettings === tab.key;
@@ -1077,7 +1124,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 </View>
 
                                 {/* Permission Mode Section */}
-                                {showSettings === 'permission' && <View style={styles.overlaySection}>
+                                {showSettings === 'permission' && !props.hidePermissionSettings && <View style={styles.overlaySection}>
                                     {((isCodex || isGemini)
                                         ? (['default', 'read-only', 'safe-yolo', 'yolo'] as const)
                                         : (['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'] as const)
@@ -1488,6 +1535,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                                             onPress={() => {
                                                 if (props.connectionStatus?.action === 'openPermission') {
+                                                    if (props.hidePermissionSettings) return;
                                                     hapticsLight();
                                                     setShowSettings(prev => prev === 'permission' ? false : 'permission');
                                                 } else {
@@ -1679,7 +1727,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 </Pressable>
                             )}
                             {props.permissionMode && (
-                                <Pressable hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={handlePermissionPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+                                <Pressable disabled={props.hidePermissionSettings} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={handlePermissionPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
                                     <Text style={{
                                         fontSize: 11,
                                         color: props.permissionMode === 'acceptEdits' ? theme.colors.permission.acceptEdits :
@@ -1848,6 +1896,18 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 props.onImagesChange!(newImages);
                             }}
                             disabled={props.isUploadingImages}
+                        />
+                    )}
+
+                    {/* File attachment preview */}
+                    {props.fileAttachments && props.fileAttachments.length > 0 && props.onFileAttachmentsChange && (
+                        <FileAttachmentPreview
+                            attachments={props.fileAttachments}
+                            disabled={props.isSending}
+                            onRemove={(index) => {
+                                const nextFiles = props.fileAttachments!.filter((_, i) => i !== index);
+                                props.onFileAttachmentsChange!(nextFiles);
+                            }}
                         />
                     )}
 
@@ -2059,20 +2119,15 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 {/* Image button */}
                                 {props.onImageButtonPress && (
                                     <Pressable
-                                        {...webTooltip('Add image')}
-                                        onPress={props.supportsImages !== false ? props.onImageButtonPress : () => {
-                                            Modal.alert('Not Supported', 'This AI does not support images');
-                                        }}
-                                        style={[
-                                            styles.iconButton,
-                                            props.supportsImages === false && styles.iconButtonDisabled
-                                        ]}
+                                        {...webTooltip('Add file')}
+                                        onPress={props.onImageButtonPress}
+                                        style={styles.iconButton}
                                         disabled={props.isUploadingImages}
                                     >
                                         <Ionicons
                                             name="image-outline"
                                             size={24}
-                                            color={props.supportsImages !== false ? theme.colors.text : theme.colors.textSecondary}
+                                            color={theme.colors.text}
                                         />
                                     </Pressable>
                                 )}
@@ -2096,19 +2151,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             opacity: p.pressed ? 0.7 : 1,
                                         })}
                                         hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
-                                        onPress={() => {
-                                            const textSnapshot = resolveSendSnapshot();
-                                            log.log(`[SEND_DEBUG][INPUT] press hasText=${hasText} latestLen=${latestTextRef.current.trim().length} stateLen=${inputState.text.trim().length} propLen=${props.value.trim().length} pickedLen=${textSnapshot.trim().length} mic=${props.onMicPress ? 'yes' : 'no'} disabled=${props.isSendDisabled || props.isSending ? 'yes' : 'no'}`);
-                                            if (textSnapshot.trim()) {
-                                                hapticsLight();
-                                                props.onSend(textSnapshot);
-                                                return;
-                                            }
-                                            if (props.onMicPress) {
-                                                hapticsLight();
-                                                props.onMicPress();
-                                            }
-                                        }}
+                                        onPressIn={handleSendPressIn}
+                                        onPress={handleSendPress}
                                         accessibilityState={{
                                             disabled: !!(props.isSendDisabled || props.isSending || (!hasText && !props.onMicPress)),
                                         }}

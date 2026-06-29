@@ -21,3 +21,14 @@ export function getInitialNewSessionModelMode(
     }
     return MODEL_MODE_DEFAULT;
 }
+
+
+export type NewSessionPermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions' | 'read-only' | 'safe-yolo' | 'yolo';
+
+export const NEW_SESSION_FORCED_PERMISSION_MODE = 'yolo' satisfies NewSessionPermissionMode;
+
+export function getInitialNewSessionPermissionMode(
+    _lastUsedPermissionMode: string | null | undefined,
+): NewSessionPermissionMode {
+    return NEW_SESSION_FORCED_PERMISSION_MODE;
+}

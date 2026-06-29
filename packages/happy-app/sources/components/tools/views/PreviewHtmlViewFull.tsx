@@ -2,12 +2,23 @@ import * as React from 'react';
 import { View, Text, Platform, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { ToolCall } from '@/sync/typesMessage';
 import { Metadata } from '@/sync/storageTypes';
 import { toolFullViewStyles } from '../ToolFullView';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { LongPressCopy, useCopySelectable } from '@/components/LongPressCopy';
 import { setPreviewHtml } from '../previewHtmlStore';
+import { useAuth } from '@/auth/AuthContext';
+import { getServerUrl } from '@/sync/serverConfig';
+import { uploadPublicFileShare } from '@/sync/uploadFileShare';
+import { buildPublicHtmlPreviewUrl } from '@/utils/publicHtmlPreviewShare';
+import { encodeBase64 } from '@/encryption/base64';
+import { encodeUTF8 } from '@/encryption/text';
+import { hapticsLight } from '@/components/haptics';
+import { showCopiedToast } from '@/components/Toast';
+import { Modal } from '@/modal';
+import { t } from '@/text';
 
 interface PreviewHtmlViewFullProps {
     tool: ToolCall;
@@ -32,12 +43,85 @@ function injectHeightScript(html: string): string {
 /** Injected JS for native WebView to report content height */
 const NATIVE_HEIGHT_SCRIPT = `(function(){function r(){var h=Math.max(document.documentElement.scrollHeight,document.body.scrollHeight);window.ReactNativeWebView.postMessage(JSON.stringify({type:'resize',height:h}));}if(typeof ResizeObserver!=='undefined'){new ResizeObserver(r).observe(document.documentElement);}r();window.addEventListener('load',r);})();true;`;
 
+function sanitizePreviewHtmlFileName(title: string | null): string {
+    const base = (title || 'preview-html')
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, ' ')
+        .slice(0, 80)
+        .trim() || 'preview-html';
+    return base.toLowerCase().endsWith('.html') ? base : `${base}.html`;
+}
+
+async function copyTextToClipboardVerified(text: string): Promise<boolean> {
+    if (Platform.OS === 'web') {
+        const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+        const doc = typeof document !== 'undefined' ? document : undefined;
+
+        if (nav?.clipboard?.writeText) {
+            try {
+                await nav.clipboard.writeText(text);
+                if (nav.clipboard.readText) {
+                    try {
+                        return (await nav.clipboard.readText()) === text;
+                    } catch {
+                        // Browsers often deny readText() without permission; try legacy copy below.
+                    }
+                }
+            } catch {
+                // Async uploads can outlive the original click activation.
+            }
+        }
+
+        if (doc?.body) {
+            const textarea = doc.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            textarea.style.opacity = '0';
+            doc.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                return doc.execCommand('copy');
+            } catch {
+                return false;
+            } finally {
+                doc.body.removeChild(textarea);
+            }
+        }
+
+        return false;
+    }
+
+    try {
+        await Clipboard.setStringAsync(text);
+        const getStringAsync = (Clipboard as typeof Clipboard & { getStringAsync?: () => Promise<string> }).getStringAsync;
+        if (typeof getStringAsync === 'function') {
+            try {
+                return (await getStringAsync()) === text;
+            } catch {
+                // Older native clipboard implementations may not support reading.
+            }
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export const PreviewHtmlViewFull = React.memo<PreviewHtmlViewFullProps>(({ tool }) => {
     const html = typeof tool.input?.html === 'string' ? tool.input.html : null;
     const title = typeof tool.input?.title === 'string' ? tool.input.title : null;
     const selectable = useCopySelectable();
     const { theme } = useUnistyles();
+    const router = useRouter();
+    const { id: sessionId } = useLocalSearchParams<{ id: string }>();
+    const { credentials } = useAuth();
     const [contentHeight, setContentHeight] = React.useState(MIN_PREVIEW_HEIGHT);
+    const [isSharing, setIsSharing] = React.useState(false);
 
     // Web: listen for height messages from iframe
     React.useEffect(() => {
@@ -58,6 +142,64 @@ export const PreviewHtmlViewFull = React.memo<PreviewHtmlViewFullProps>(({ tool 
 
     // Inject height-reporting script into HTML for iframe
     const enhancedHtml = React.useMemo(() => html ? injectHeightScript(html) : null, [html]);
+
+    const handleOpenInNewWindow = React.useCallback(() => {
+        if (!html) return;
+        if (Platform.OS === 'web') {
+            const win = window.open('', '_blank');
+            if (win) {
+                win.document.write(html);
+                win.document.close();
+            }
+        } else if (sessionId) {
+            setPreviewHtml(html, title);
+            router.push(`/session/${sessionId}/preview`);
+        }
+    }, [html, title, sessionId, router]);
+
+    const handleSharePreviewHtml = React.useCallback(async () => {
+        if (!html || isSharing) return;
+        if (!credentials?.token) {
+            Modal.alert(t('common.error'), 'Cannot create share link without login');
+            return;
+        }
+
+        setIsSharing(true);
+        try {
+            const uploaded = await uploadPublicFileShare({
+                base64: encodeBase64(encodeUTF8(html)),
+                fileName: sanitizePreviewHtmlFileName(title),
+                mimeType: 'text/html',
+                token: credentials.token,
+                apiUrl: getServerUrl(),
+            });
+            const shareUrl = buildPublicHtmlPreviewUrl(uploaded.url, title || uploaded.fileName);
+            const copied = await copyTextToClipboardVerified(shareUrl);
+            hapticsLight();
+            if (copied) {
+                showCopiedToast();
+                return;
+            }
+
+            const manualCopyUrl = await Modal.prompt(t('files.shareLinkCreated'), t('files.shareLinkManualCopy'), {
+                defaultValue: shareUrl,
+                confirmText: t('common.copy'),
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 3,
+                size: 'large',
+            });
+            if (manualCopyUrl) {
+                const copiedManually = await copyTextToClipboardVerified(manualCopyUrl.trim());
+                if (copiedManually) showCopiedToast();
+            }
+        } catch (shareError) {
+            console.error('Failed to create public HTML preview share:', shareError);
+            Modal.alert(t('common.error'), shareError instanceof Error ? shareError.message : 'Failed to create share link');
+        } finally {
+            setIsSharing(false);
+        }
+    }, [credentials?.token, html, isSharing, title]);
 
     // Loading state: tool is still running, HTML not yet available
     if (tool.state === 'running') {
@@ -95,26 +237,22 @@ export const PreviewHtmlViewFull = React.memo<PreviewHtmlViewFullProps>(({ tool 
         );
     }
 
-    const router = useRouter();
-    const { id: sessionId } = useLocalSearchParams<{ id: string }>();
-
-    const handleOpenInNewWindow = React.useCallback(() => {
-        if (Platform.OS === 'web') {
-            const win = window.open('', '_blank');
-            if (win) {
-                win.document.write(html);
-                win.document.close();
-            }
-        } else if (sessionId) {
-            setPreviewHtml(html, title);
-            router.push(`/session/${sessionId}/preview`);
-        }
-    }, [html, title, sessionId, router]);
-
     return (
         <View style={styles.container}>
             <View style={styles.titleBar}>
                 <Text style={styles.titleText} numberOfLines={1}>{title || 'Preview'}</Text>
+                <Pressable
+                    style={styles.openButton}
+                    onPress={handleSharePreviewHtml}
+                    disabled={isSharing}
+                    accessibilityLabel={t('files.share')}
+                >
+                    {isSharing ? (
+                        <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                    ) : (
+                        <Ionicons name="share-outline" size={18} color={theme.colors.textSecondary} />
+                    )}
+                </Pressable>
                 <Pressable style={styles.openButton} onPress={handleOpenInNewWindow}>
                     <FontAwesome6 name="window-restore" size={16} color={theme.colors.textSecondary} />
                 </Pressable>

@@ -22,6 +22,7 @@ export interface PublicLinkDialogProps {
         expiresInDays?: number;
         maxUses?: number;
         isConsentRequired: boolean;
+        allowChat: boolean;
     }) => void;
     onDelete: () => void;
 }
@@ -37,6 +38,7 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
     const [expiresInDays, setExpiresInDays] = React.useState<number | undefined>(7);
     const [maxUses, setMaxUses] = React.useState<number | undefined>(undefined);
     const [isConsentRequired, setIsConsentRequired] = React.useState(true);
+    const [allowChat, setAllowChat] = React.useState(false);
     const desktopDialog = useSharingDesktopDialog();
     const sheetRef = React.useRef<BottomSheetModal>(null);
     const Scroller = desktopDialog.isDesktop ? ScrollView : BottomSheetScrollView;
@@ -55,9 +57,9 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
     }) as BottomSheetModal, [desktopDialog, dismissDialog]);
 
     const handleCreate = React.useCallback(() => {
-        onCreate({ expiresInDays, maxUses, isConsentRequired });
+        onCreate({ expiresInDays, maxUses, isConsentRequired, allowChat });
         dismissDialog();
-    }, [expiresInDays, maxUses, isConsentRequired, onCreate, dismissDialog]);
+    }, [expiresInDays, maxUses, isConsentRequired, allowChat, onCreate, dismissDialog]);
 
     const handleDelete = React.useCallback(() => {
         onDelete();
@@ -113,6 +115,11 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
                             <Item
                                 title={t('session.sharing.requireConsent')}
                                 subtitle={publicShare.isConsentRequired ? t('common.yes') : t('common.no')}
+                                showChevron={false}
+                            />
+                            <Item
+                                title={t('session.sharing.allowPublicChat')}
+                                subtitle={publicShare.allowChat ? t('common.yes') : t('common.no')}
                                 showChevron={false}
                             />
                         </ItemGroup>
@@ -226,6 +233,19 @@ export const PublicLinkDialog = React.memo(React.forwardRef<BottomSheetModal, Pu
                                     <Switch
                                         value={isConsentRequired}
                                         onValueChange={setIsConsentRequired}
+                                    />
+                                }
+                            />
+                        </ItemGroup>
+
+                        <ItemGroup>
+                            <Item
+                                title={t('session.sharing.allowPublicChat')}
+                                subtitle={t('session.sharing.allowPublicChatDescription')}
+                                rightElement={
+                                    <Switch
+                                        value={allowChat}
+                                        onValueChange={setAllowChat}
                                     />
                                 }
                             />

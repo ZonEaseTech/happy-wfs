@@ -7,6 +7,7 @@ import { t } from '@/text';
 interface SessionTypeSelectorProps {
     value: 'simple' | 'worktree';
     onChange: (value: 'simple' | 'worktree') => void;
+    worktreeAccessory?: React.ReactNode;
 }
 
 const stylesheet = StyleSheet.create((theme, rt) => ({
@@ -42,11 +43,23 @@ const stylesheet = StyleSheet.create((theme, rt) => ({
         color: theme.colors.textSecondary,
         ...Typography.default('regular'),
     },
+    optionContent: {
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    worktreeAccessory: {
+        position: 'absolute',
+        right: 8,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',
+    },
 }));
 
 const SESSION_TYPES = ['simple', 'worktree'] as const;
 
-export const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChange }) => {
+export const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChange, worktreeAccessory }) => {
     const styles = stylesheet;
 
     return (
@@ -59,9 +72,16 @@ export const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value,
                         onPress={() => onChange(type)}
                         style={[styles.option, isActive && styles.optionActive]}
                     >
-                        <Text style={[styles.label, isActive ? styles.labelActive : styles.labelInactive]}>
-                            {t(`newSession.sessionType.${type}`)}
-                        </Text>
+                        <View style={styles.optionContent}>
+                            <Text style={[styles.label, isActive ? styles.labelActive : styles.labelInactive]}>
+                                {t(`newSession.sessionType.${type}`)}
+                            </Text>
+                            {type === 'worktree' && worktreeAccessory ? (
+                                <View style={styles.worktreeAccessory}>
+                                    {worktreeAccessory}
+                                </View>
+                            ) : null}
+                        </View>
                     </Pressable>
                 );
             })}

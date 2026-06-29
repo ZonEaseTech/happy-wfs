@@ -10,6 +10,8 @@ export interface TerminalProps {
     sessionId: string;
     /** Optional working directory hint forwarded to the CLI as pty-start.cwd. */
     cwd?: string;
+    /** Incremented by the header terminal button to open/create the current session terminal. */
+    openRequestKey?: number;
 }
 
 export function Terminal(_props: TerminalProps): null {

@@ -74,8 +74,8 @@ export interface SessionShare {
  *
  * @remarks
  * Represents a public link that allows anyone with the token to access a session.
- * Public shares are always read-only for security reasons. They can have optional
- * expiration dates and usage limits.
+ * Public shares are read-only unless the owner enables public chat. They can
+ * have optional expiration dates and usage limits.
  *
  * When `isConsentRequired` is true, users must explicitly consent to logging of
  * their IP address and user agent before accessing the session.
@@ -117,6 +117,8 @@ export interface PublicSessionShare {
      * user agent are logged. If false, access is not logged.
      */
     isConsentRequired: boolean;
+    /** Whether anyone with the public link can send messages */
+    allowChat: boolean;
     /** Timestamp when the share was created (milliseconds since epoch) */
     createdAt: number;
     /** Timestamp when the share was last updated (milliseconds since epoch) */
@@ -248,6 +250,8 @@ export interface CreatePublicShareRequest {
      * are logged. Defaults to false.
      */
     isConsentRequired?: boolean;
+    /** Whether anyone with the public link can send messages */
+    allowChat?: boolean;
 }
 
 /** Response containing a public share */
@@ -295,6 +299,8 @@ export interface AccessPublicShareResponse {
     owner: ShareUserProfile;
     /** Whether consent is required (echoed) */
     isConsentRequired: boolean;
+    /** Whether the public share allows sending messages */
+    allowChat: boolean;
 }
 
 /** Response containing access logs for a public share */

@@ -1176,6 +1176,7 @@ function SessionInfoContent({ session, embedded = false, onSelectRepoTab }: { se
                 title={branchPickerTitle}
                 items={branchPickerItems}
                 onClose={() => setBranchPickerVisible(false)}
+                searchable
             />
             <ActionMenuModal
                 visible={archiveMenuVisible}

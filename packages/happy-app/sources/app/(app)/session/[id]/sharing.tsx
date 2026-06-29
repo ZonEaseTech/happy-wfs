@@ -121,7 +121,7 @@ function SharingManagementContent({ sessionId }: { sessionId: string }) {
     }, [sessionId, loadSharingData]);
 
     // Handle creating a public share
-    const handleCreatePublicShare = useCallback(async (options: { expiresInDays?: number; maxUses?: number; isConsentRequired: boolean }) => {
+    const handleCreatePublicShare = useCallback(async (options: { expiresInDays?: number; maxUses?: number; isConsentRequired: boolean; allowChat: boolean }) => {
         try {
             const credentials = sync.getCredentials();
             const tokenBytes = getRandomBytes(12);
@@ -131,7 +131,7 @@ function SharingManagementContent({ sessionId }: { sessionId: string }) {
             const encryptedDataKey = await encryptDataKeyForPublicShare(dataKey, token);
             const expiresAt = options.expiresInDays ? Date.now() + options.expiresInDays * 24 * 60 * 60 * 1000 : undefined;
             const created = await createPublicShare(credentials, sessionId, {
-                token, encryptedDataKey, expiresAt, maxUses: options.maxUses, isConsentRequired: options.isConsentRequired,
+                token, encryptedDataKey, expiresAt, maxUses: options.maxUses, isConsentRequired: options.isConsentRequired, allowChat: options.allowChat,
             });
             setPublicShare(created);
             setPublicShareToken(token);

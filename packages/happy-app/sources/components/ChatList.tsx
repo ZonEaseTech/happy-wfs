@@ -201,7 +201,7 @@ const ChatListInternal = React.memo((props: {
                     minIndexForVisible: 0,
                     autoscrollToTopThreshold: 100,
                 }}
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 renderItem={renderItem}
                 ListHeaderComponent={<ListFooter sessionId={props.sessionId} />}

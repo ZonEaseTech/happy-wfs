@@ -274,6 +274,7 @@ export const ApiPublicShareCreatedSchema = z.object({
     expiresAt: z.number().nullable(),
     maxUses: z.number().nullable(),
     isConsentRequired: z.boolean(),
+    allowChat: z.boolean().optional().default(false),
     createdAt: z.number(),
 });
 
@@ -284,6 +285,7 @@ export const ApiPublicShareUpdatedSchema = z.object({
     expiresAt: z.number().nullable(),
     maxUses: z.number().nullable(),
     isConsentRequired: z.boolean(),
+    allowChat: z.boolean().optional().default(false),
     updatedAt: z.number(),
 });
 

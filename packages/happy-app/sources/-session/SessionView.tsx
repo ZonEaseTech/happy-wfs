@@ -16,6 +16,7 @@ import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { useArchiveSession } from '@/hooks/useArchiveSession';
 import { useResumeSession } from '@/hooks/useResumeSession';
 import { useHappyAction } from '@/hooks/useHappyAction';
@@ -24,7 +25,7 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
-import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useOrchestratorRunningTaskCount, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -35,6 +36,8 @@ import { showCopiedToast, showToast } from '@/components/Toast';
 import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
+import { buildUploadedFilesText } from '@/utils/fileAttachments';
+import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
 import { isRunningOnMac } from '@/utils/platform';
 import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/utils/responsive';
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
@@ -167,12 +170,16 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Mounted inside SessionViewLoaded so it has session context, but state
     // lives here so the header button can flip it.
     const [showTerminal, setShowTerminal] = React.useState(false);
+    const [terminalOpenRequestKey, setTerminalOpenRequestKey] = React.useState(0);
     const showTerminalButton = Platform.OS === 'web' && isTablet;
+    const handleOpenTerminalPanel = React.useCallback(() => {
+        setShowTerminal(true);
+        setTerminalOpenRequestKey((value) => value + 1);
+    }, []);
     // Reset panel if shrinking out of desktop mode (avoid stale panel state on resize).
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
-    const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
     const autoReviewGuard = useAutoReviewGuard(sessionId);
     const autoReviewDefaults = useSetting('autoReviewGuardDefaults');
     const autoReviewEnabled = autoReviewGuard?.enabled === true;
@@ -192,13 +199,6 @@ export const SessionView = React.memo((props: { id: string }) => {
     );
     const memoryCount = injectedMemoryIds.length;
     const [injectedMemoriesOpen, setInjectedMemoriesOpen] = React.useState(false);
-    const handleOpenSessionRuns = React.useCallback(() => {
-        if (isDesktopPanelMode) {
-            setRightPanelType(prev => (prev === 'orchestrator' ? null : 'orchestrator'));
-        } else {
-            router.push(`/orchestrator?controllerSessionId=${encodeURIComponent(sessionId)}`);
-        }
-    }, [router, sessionId, isDesktopPanelMode]);
     const linkedGitHubIssue = React.useMemo(() => buildLinkedGitHubIssue(session), [session]);
     const handleOpenLinkedGitHubIssue = React.useCallback(() => {
         if (!linkedGitHubIssue) return;
@@ -438,47 +438,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         </Text>
                                     </Pressable>
                                 )}
-                                {runningTaskCount > 0 && (
-                                    <Pressable
-                                        onPress={handleOpenSessionRuns}
-                                        hitSlop={15}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={t('settings.orchestratorOpenRuns')}
-                                        style={{
-                                            width: 38,
-                                            height: 38,
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: 2,
-                                        }}
-                                    >
-                                        <Ionicons
-                                            name="layers-outline"
-                                            size={22}
-                                            color={isDesktopPanelMode && rightPanelType === 'orchestrator' ? theme.colors.button.primary.background : theme.colors.header.tint}
-                                        />
-                                        <View style={{
-                                            position: 'absolute',
-                                            top: 2,
-                                            right: 0,
-                                            backgroundColor: theme.colors.button.primary.background,
-                                            borderRadius: 8,
-                                            minWidth: 16,
-                                            height: 16,
-                                            paddingHorizontal: 3,
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                        }}>
-                                            <Text style={{
-                                                color: theme.colors.button.primary.tint,
-                                                fontSize: 10,
-                                                fontWeight: '600',
-                                            }}>
-                                                {runningTaskCount > 99 ? '99+' : runningTaskCount}
-                                            </Text>
-                                        </View>
-                                    </Pressable>
-                                )}
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
@@ -512,7 +471,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 {showTerminalButton && (
                                     <Pressable
                                         {...webTooltip('Terminal')}
-                                        onPress={() => setShowTerminal(prev => !prev)}
+                                        onPress={handleOpenTerminalPanel}
                                         hitSlop={15}
                                         accessibilityRole="button"
                                         accessibilityLabel="Terminal"
@@ -603,6 +562,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                     onClose={() => setShowTerminal(false)}
                     sessionId={sessionId}
                     cwd={session?.metadata?.path}
+                    openRequestKey={terminalOpenRequestKey}
                 />
             )}
             {isDesktopPanelMode && rightPanelType && (
@@ -1022,6 +982,13 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         initImages,
         canAddMore,
     } = useImagePicker({ maxImages: 4 });
+    const {
+        fileAttachments,
+        setFileAttachments,
+        addFiles,
+        pickFiles,
+        clearFileAttachments,
+    } = useFileAttachments();
 
     // Use draft hook for auto-saving message drafts
     const { clearDraft } = useDraft(sessionId, message, setMessage, images, initImages);
@@ -1274,7 +1241,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
         { label: t('session.takePhoto'), onPress: pickFromCamera },
         { label: t('session.chooseFromLibrary'), onPress: pickFromGallery },
-    ], [pickFromCamera, pickFromGallery]);
+        { label: t('dootask.chooseFromFile'), onPress: pickFiles },
+    ], [pickFromCamera, pickFromGallery, pickFiles]);
 
     // Handle file input change (web only)
     const handleFileInputChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1282,15 +1250,17 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         if (!files || files.length === 0) return;
 
         Array.from(files).forEach(file => {
-            if (file.type.startsWith('image/')) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
-                addImageFromUri(url, file.type);
+                void addImageFromUri(url, file.type);
+            } else {
+                void addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         });
 
         // Reset input so same file can be selected again
         event.target.value = '';
-    }, [addImageFromUri]);
+    }, [addFiles, addImageFromUri, canAddMore, supportsImages]);
 
     // Handle paste event for images (both web and native through input)
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
@@ -1307,15 +1277,15 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
     // Handle image drop (web only) - passed to AgentInput
     const handleImageDrop = React.useCallback(async (files: File[]) => {
-        if (!canAddMore || !supportsImages) return;
-
         for (const file of files) {
-            if (file.type.startsWith('image/') && canAddMore) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
                 await addImageFromUri(url, file.type);
+            } else {
+                await addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         }
-    }, [canAddMore, supportsImages, addImageFromUri]);
+    }, [addFiles, canAddMore, supportsImages, addImageFromUri]);
 
     // Handle loading more older messages when scrolling to top
     const handleLoadMore = React.useCallback(() => {
@@ -1469,9 +1439,9 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 }
 
                 const messageToSend = (textSnapshot ?? message).trim();
-                if (messageToSend || images.length > 0) {
+                if (messageToSend || images.length > 0 || fileAttachments.length > 0) {
                     const socketStatus = storage.getState().socketStatus;
-                    log.log(`[SEND_DEBUG][UI] tap_send sid=${sessionId} hasText=${messageToSend.length > 0} images=${images.length} isSending=${isSending} socket=${socketStatus}`);
+                    log.log(`[SEND_DEBUG][UI] tap_send sid=${sessionId} hasText=${messageToSend.length > 0} images=${images.length} files=${fileAttachments.length} isSending=${isSending} socket=${socketStatus}`);
 
                     // Handle /duplicate command locally
                     if (messageToSend.toLowerCase() === '/duplicate') {
@@ -1482,7 +1452,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                     }
 
                     const imagesToSend = images.length > 0 ? [...images] : undefined;
-                    const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []);
+                    const filesToSend = fileAttachments.length > 0 ? [...fileAttachments] : [];
+                    const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []) + JSON.stringify(filesToSend.map(file => ({ name: file.name, size: file.size })));
 
                     // Check if this is a retry of the same content
                     const existingLocalId = failedMessageRef.current?.content === contentForRetry
@@ -1491,18 +1462,23 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
                     // Set sending state
                     setIsSending(true);
-                    if (imagesToSend) {
+                    if (imagesToSend || filesToSend.length > 0) {
                         setIsUploadingImages(true);
                     }
 
                     try {
+                        const uploadedFiles = filesToSend.length > 0
+                            ? await Promise.all(filesToSend.map(file => uploadChatFileToCli(sessionId, file)))
+                            : [];
+                        const finalMessage = `${messageToSend}${buildUploadedFilesText(uploadedFiles)}`;
                         const result = await sync.sendOrQueueMessage(
-                            sessionId, messageToSend, undefined, imagesToSend, existingLocalId,
+                            sessionId, finalMessage, undefined, imagesToSend, existingLocalId,
                             // Clear input before message appears in the list
                             () => {
                                 setMessage('');
                                 clearDraft();
                                 clearImages();
+                                clearFileAttachments();
                             }
                         );
                         const mode = result.success ? result.mode : 'failed';
@@ -1516,6 +1492,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                             failedMessageRef.current = { localId: result.localId, content: contentForRetry };
                             log.log(`[SEND_DEBUG][UI] record_retry sid=${sessionId} localId=${result.localId}`);
                         }
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : t('status.operationFailed');
+                        console.error('Failed to send message', error);
+                        log.log(`[SEND_DEBUG][UI] send_error sid=${sessionId} error=${message}`);
+                        Modal.alert(t('common.error'), message);
                     } finally {
                         setIsSending(false);
                         setIsUploadingImages(false);
@@ -1566,6 +1547,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 contextWindowSize: session.latestUsage.contextWindowSize,
             } : undefined}
             alwaysShowContextSize={alwaysShowContextSize}
+            fileAttachments={fileAttachments}
+            onFileAttachmentsChange={setFileAttachments}
             images={images}
             onImagesChange={(newImages) => {
                 // Handle image removal by finding removed index
@@ -1598,7 +1581,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 <input
                     ref={fileInputRef as any}
                     type="file"
-                    accept="image/jpeg,image/png"
+                    accept="*/*"
                     multiple
                     style={{ display: 'none' }}
                     onChange={handleFileInputChange as any}

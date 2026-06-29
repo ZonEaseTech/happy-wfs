@@ -25,7 +25,7 @@ import { RepoPickerBar, type SelectedRepo } from '@/components/RepoPickerBar';
 import type { RegisteredRepo } from '@/utils/workspaceRepos';
 import { saveRegisteredRepos, loadRegisteredRepos } from '@/sync/repoStore';
 import { getTempData, type NewSessionData } from '@/utils/tempDataStore';
-import { PermissionMode, ModelMode, PermissionModeSelector } from '@/components/PermissionModeSelector';
+import { PermissionMode, ModelMode } from '@/components/PermissionModeSelector';
 import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile, DEFAULT_PROFILES } from '@/sync/profileUtils';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
@@ -40,16 +40,19 @@ import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { MultiTextInput } from '@/components/MultiTextInput';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { StatusDot } from '@/components/StatusDot';
-import { SearchableListSelector, SelectorConfig } from '@/components/SearchableListSelector';
+import { SearchableListSelector } from '@/components/SearchableListSelector';
 import { clearNewSessionDraft, loadNewSessionDraft, saveNewSessionDraft } from '@/sync/persistence';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
-import { getInitialNewSessionModelMode } from '@/utils/newSessionDefaults';
+import { getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } from '@/utils/newSessionDefaults';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
+import { buildUploadedFilesText } from '@/utils/fileAttachments';
+import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
 
 // Simple temporary state for passing selections back from picker screens
@@ -367,7 +370,6 @@ function NewSessionWizard() {
     const [profiles, setProfiles] = useSettingMutable('profiles');
     const lastUsedProfile = useSetting('lastUsedProfile');
     const [favoriteDirectories, setFavoriteDirectories] = useSettingMutable('favoriteDirectories');
-    const [favoriteMachines, setFavoriteMachines] = useSettingMutable('favoriteMachines');
     const [dismissedCLIWarnings, setDismissedCLIWarnings] = useSettingMutable('dismissedCLIWarnings');
     const [syncedCustomQuickActions, setCustomQuickActions] = useSettingMutable('customQuickActions');
     const [legacyLocalCustomQuickActions, setLegacyLocalCustomQuickActions] = useLocalSettingMutable('customQuickActions');
@@ -393,32 +395,7 @@ function NewSessionWizard() {
         return 'anthropic'; // Default to Anthropic
     });
 
-    // Collapse the AI profile list by default; user expands via "Show more".
-    const [showAllProfiles, setShowAllProfiles] = React.useState(false);
-    const totalProfileCount = profiles.length + DEFAULT_PROFILES.length;
-    const defaultVisibleProfileIds = React.useMemo<Set<string> | null>(() => {
-        // null = no filtering (show all)
-        if (showAllProfiles || totalProfileCount <= 2) return null;
-        const ordered = [
-            ...profiles.map(p => p.id),
-            ...DEFAULT_PROFILES.map(p => p.id),
-        ];
-        const result = new Set<string>();
-        // Always include the currently selected profile so users see what's chosen.
-        if (selectedProfileId && ordered.includes(selectedProfileId)) {
-            result.add(selectedProfileId);
-        }
-        // Fill the rest in display order until we have 2 visible items.
-        for (const id of ordered) {
-            if (result.size >= 2) break;
-            result.add(id);
-        }
-        return result;
-    }, [showAllProfiles, totalProfileCount, profiles, selectedProfileId]);
-    const isProfileVisible = React.useCallback(
-        (id: string) => defaultVisibleProfileIds === null || defaultVisibleProfileIds.has(id),
-        [defaultVisibleProfileIds],
-    );
+    const [profileMenuVisible, setProfileMenuVisible] = React.useState(false);
     const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
@@ -430,7 +407,6 @@ function NewSessionWizard() {
         return 'claude';
     });
     const lastUsedSessionMode = useSessionModeLastUsed(agentType);
-    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', PermissionMode>>>({});
     const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', ModelMode>>>({});
 
     // Agent cycling handler (for cycling through claude -> codex -> gemini)
@@ -452,38 +428,23 @@ function NewSessionWizard() {
 
     const [sessionType, setSessionType] = React.useState<'simple' | 'worktree'>(tempSessionData?.sessionType || persistedDraft?.sessionType || 'simple');
     const [branchMode, setBranchMode] = React.useState<'new' | 'existing'>('new');
+    const [branchModeMenuVisible, setBranchModeMenuVisible] = React.useState(false);
+    const [machineMenuVisible, setMachineMenuVisible] = React.useState(false);
     const [selectedRepos, setSelectedRepos] = React.useState<SelectedRepo[]>([]);
     const [addDirBranchMenu, setAddDirBranchMenu] = React.useState<{ visible: boolean; items: ActionMenuItem[] }>({ visible: false, items: [] });
     const addDirBranchResolveRef = React.useRef<((value: string | undefined) => void) | null>(null);
     const folderPickerRef = React.useRef<BottomSheetModal>(null);
-    // Restore the section-5 selector. Default to whatever the user picked
-    // last (so a "yolo by default" workflow keeps working), validated against
-    // the agent type. If the persisted mode isn't valid for this agent, fall
-    // back to 'yolo' rather than 'default' — losing yolo silently after the
-    // selector returns would surprise users who had been relying on it.
-    const [permissionMode, setPermissionMode] = React.useState<PermissionMode>(() => {
-        const mode = lastUsedSessionMode?.permissionMode;
-        const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
-        const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
-        if (mode && validModes.includes(mode as PermissionMode)) {
-            return mode as PermissionMode;
-        }
-        return 'yolo';
-    });
-
-    // NOTE: Permission mode reset on agentType change is handled by the validation useEffect below (lines ~670-681)
-    // which intelligently resets only when the current mode is invalid for the new agent type.
-    // A duplicate unconditional reset here was removed to prevent race conditions.
+    const [permissionMode, setPermissionMode] = React.useState<PermissionMode>(() => (
+        getInitialNewSessionPermissionMode(lastUsedSessionMode?.permissionMode) as PermissionMode
+    ));
 
     const [modelMode, setModelMode] = React.useState<ModelMode>(() => {
         return getInitialNewSessionModelMode(agentType, lastUsedSessionMode?.modelMode);
     });
     const [fastMode, setFastMode] = React.useState(() => lastUsedSessionMode?.fastMode ?? false);
     const applyManualPermissionMode = React.useCallback((mode: PermissionMode) => {
-        manualPermissionModeByAgentRef.current[agentType] = mode;
         setPermissionMode(mode);
-    }, [agentType]);
+    }, []);
     const applyManualModelMode = React.useCallback((mode: ModelMode) => {
         manualModelModeByAgentRef.current[agentType] = mode;
         setModelMode(mode);
@@ -511,11 +472,11 @@ function NewSessionWizard() {
         return null;
     });
 
-    const handlePermissionModeChange = React.useCallback((mode: PermissionMode) => {
-        applyManualPermissionMode(mode);
+    const handlePermissionModeChange = React.useCallback((nextMode: PermissionMode) => {
+        applyManualPermissionMode(nextMode);
         sync.queueSessionModeConfigUpdate({
             agentType,
-            permissionMode: mode,
+            permissionMode: nextMode,
             modelMode: modelMode || MODEL_MODE_DEFAULT,
             fastMode,
             includeSessionEntry: false,
@@ -681,6 +642,13 @@ function NewSessionWizard() {
         initImages,
         canAddMore,
     } = useImagePicker({ maxImages: 4 });
+    const {
+        fileAttachments,
+        setFileAttachments,
+        addFiles,
+        pickFiles,
+        clearFileAttachments,
+    } = useFileAttachments();
 
     // Restore images from persisted draft on mount
     React.useEffect(() => {
@@ -706,19 +674,22 @@ function NewSessionWizard() {
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
         { label: t('session.takePhoto'), onPress: pickFromCamera },
         { label: t('session.chooseFromLibrary'), onPress: pickFromGallery },
-    ], [pickFromCamera, pickFromGallery]);
+        { label: t('dootask.chooseFromFile'), onPress: pickFiles },
+    ], [pickFromCamera, pickFromGallery, pickFiles]);
 
     const handleFileInputChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
         Array.from(files).forEach(file => {
-            if (file.type.startsWith('image/')) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
-                addImageFromUri(url, file.type);
+                void addImageFromUri(url, file.type);
+            } else {
+                void addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         });
         event.target.value = '';
-    }, [addImageFromUri]);
+    }, [addFiles, addImageFromUri, canAddMore, supportsImages]);
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
         await handleImagePasteEvent(event, {
@@ -745,14 +716,15 @@ function NewSessionWizard() {
     }, [handlePaste]);
 
     const handleImageDrop = React.useCallback(async (files: File[]) => {
-        if (!canAddMore || !supportsImages) return;
         for (const file of files) {
-            if (file.type.startsWith('image/') && canAddMore) {
+            if (file.type.startsWith('image/') && supportsImages && canAddMore) {
                 const url = URL.createObjectURL(file);
                 await addImageFromUri(url, file.type);
+            } else {
+                await addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
             }
         }
-    }, [canAddMore, supportsImages, addImageFromUri]);
+    }, [addFiles, canAddMore, supportsImages, addImageFromUri]);
 
     // Handle machineId route param from picker screens (main's navigation pattern)
     React.useEffect(() => {
@@ -799,10 +771,7 @@ function NewSessionWizard() {
     // Refs for scrolling to sections
     const scrollViewRef = React.useRef<ScrollView>(null);
     const profileSectionRef = React.useRef<View>(null);
-    const machineSectionRef = React.useRef<View>(null);
     const pathSectionRef = React.useRef<View>(null);
-    const permissionSectionRef = React.useRef<View>(null);
-    const [isPermissionSectionExpanded, setIsPermissionSectionExpanded] = React.useState(false);
 
     // CLI Detection - automatic, non-blocking detection of installed CLIs on selected machine
     const cliAvailability = useCLIDetection(selectedMachineId);
@@ -1045,31 +1014,6 @@ function NewSessionWizard() {
     }, []);
 
     // Get recent paths for the selected machine
-    // Recent machines computed from sessions (for inline machine selection)
-    const recentMachines = React.useMemo(() => {
-        const machineIds = new Set<string>();
-        const machinesWithTimestamp: Array<{ machine: typeof machines[0]; timestamp: number }> = [];
-
-        sessions?.forEach(item => {
-            if (typeof item === 'string') return; // Skip section headers
-            const session = item as any;
-            if (session.metadata?.machineId && !machineIds.has(session.metadata.machineId)) {
-                const machine = machines.find(m => m.id === session.metadata.machineId);
-                if (machine) {
-                    machineIds.add(machine.id);
-                    machinesWithTimestamp.push({
-                        machine,
-                        timestamp: session.updatedAt || session.createdAt
-                    });
-                }
-            }
-        });
-
-        return machinesWithTimestamp
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .map(item => item.machine);
-    }, [sessions, machines]);
-
     const recentPaths = React.useMemo(() => {
         if (!selectedMachineId) return [];
 
@@ -1226,32 +1170,8 @@ function NewSessionWizard() {
             if (profile.defaultSessionType) {
                 setSessionType(profile.defaultSessionType);
             }
-            // Set permission mode from profile's default
-            if (profile.defaultPermissionMode) {
-                applyManualPermissionMode(profile.defaultPermissionMode as PermissionMode);
-            }
         }
-    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, applyManualPermissionMode]);
-
-    // Restore saved permission mode when agent type changes
-    React.useEffect(() => {
-        const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
-        const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
-        const manualMode = manualPermissionModeByAgentRef.current[agentType];
-
-        if (manualMode && validModes.includes(manualMode)) {
-            setPermissionMode((prev) => (prev === manualMode ? prev : manualMode));
-            return;
-        }
-
-        const savedMode = lastUsedSessionMode?.permissionMode;
-        if (savedMode && validModes.includes(savedMode)) {
-            setPermissionMode((prev) => (prev === savedMode ? prev : savedMode));
-        } else {
-            setPermissionMode((prev) => (prev === 'default' ? prev : 'default'));
-        }
-    }, [agentType, lastUsedSessionMode?.permissionMode]);
+    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini]);
 
     // Restore saved model mode when agent type changes
     React.useEffect(() => {
@@ -1296,57 +1216,22 @@ function NewSessionWizard() {
     }, [scrollToSection]);
 
     const handleAgentInputMachineClick = React.useCallback(() => {
-        scrollToSection(machineSectionRef);
-    }, [scrollToSection]);
+        setMachineMenuVisible(true);
+    }, []);
 
     const handleAgentInputPathClick = React.useCallback(() => {
         scrollToSection(pathSectionRef);
     }, [scrollToSection]);
 
-    const handleAgentInputPermissionChange = React.useCallback((mode: PermissionMode) => {
-        applyManualPermissionMode(mode);
-        setIsPermissionSectionExpanded(true);
-        scrollToSection(permissionSectionRef);
-    }, [scrollToSection, applyManualPermissionMode]);
-
     const handleAgentInputAgentClick = React.useCallback(() => {
         scrollToSection(profileSectionRef); // Agent tied to profile section
     }, [scrollToSection]);
-
-    const handleAddProfile = React.useCallback(() => {
-        const newProfile: AIBackendProfile = {
-            id: randomUUID(),
-            name: '',
-            anthropicConfig: {},
-            environmentVariables: [],
-            compatibility: { claude: true, codex: true, gemini: true },
-            isBuiltIn: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            version: '1.0.0',
-        };
-        const profileData = encodeURIComponent(JSON.stringify(newProfile));
-        router.push(`/new/pick/profile-edit?profileData=${profileData}`);
-    }, [router]);
 
     const handleEditProfile = React.useCallback((profile: AIBackendProfile) => {
         const profileData = encodeURIComponent(JSON.stringify(profile));
         const machineId = selectedMachineId || '';
         router.push(`/new/pick/profile-edit?profileData=${profileData}&machineId=${machineId}`);
     }, [router, selectedMachineId]);
-
-    const handleDuplicateProfile = React.useCallback((profile: AIBackendProfile) => {
-        const duplicatedProfile: AIBackendProfile = {
-            ...profile,
-            id: randomUUID(),
-            name: `${profile.name} (Copy)`,
-            isBuiltIn: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        };
-        const profileData = encodeURIComponent(JSON.stringify(duplicatedProfile));
-        router.push(`/new/pick/profile-edit?profileData=${profileData}`);
-    }, [router]);
 
     // Helper to get meaningful subtitle text for profiles
     const getProfileSubtitle = React.useCallback((profile: AIBackendProfile): string => {
@@ -1433,26 +1318,26 @@ function NewSessionWizard() {
         return parts.join(', ');
     }, [agentType, isProfileAvailable, daemonEnv]);
 
-    const handleDeleteProfile = React.useCallback((profile: AIBackendProfile) => {
-        Modal.alert(
-            t('profiles.delete.title'),
-            t('profiles.delete.message', { name: profile.name }),
-            [
-                { text: t('profiles.delete.cancel'), style: 'cancel' },
-                {
-                    text: t('profiles.delete.confirm'),
-                    style: 'destructive',
-                    onPress: () => {
-                        const updatedProfiles = profiles.filter(p => p.id !== profile.id);
-                        setProfiles(updatedProfiles); // Use mutable setter for persistence
-                        if (selectedProfileId === profile.id) {
-                            setSelectedProfileId('anthropic'); // Default to Anthropic
-                        }
+    const profileMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        const builtInProfiles = DEFAULT_PROFILES
+            .map(profileDisplay => getBuiltInProfile(profileDisplay.id))
+            .filter((profile): profile is AIBackendProfile => Boolean(profile));
+
+        return [...profiles, ...builtInProfiles].map(profile => {
+            const availability = isProfileAvailable(profile);
+            return {
+                label: profile.name,
+                selected: selectedProfileId === profile.id,
+                secondary: !availability.available,
+                onPress: () => {
+                    if (availability.available) {
+                        selectProfile(profile.id);
                     }
-                }
-            ]
-        );
-    }, [profiles, selectedProfileId, setProfiles]);
+                    setProfileMenuVisible(false);
+                },
+            };
+        });
+    }, [profiles, isProfileAvailable, selectedProfileId, selectProfile]);
 
     // Handle machine and path selection callbacks
     React.useEffect(() => {
@@ -1688,9 +1573,18 @@ function NewSessionWizard() {
                 });
 
                 // Send initial message if provided
-                if (promptToSend || images.length > 0) {
-                    await sync.sendMessage(result.sessionId, promptToSend, undefined, images.length > 0 ? images : undefined);
+                if (promptToSend || images.length > 0 || fileAttachments.length > 0) {
+                    const uploadedFiles = fileAttachments.length > 0
+                        ? await Promise.all(fileAttachments.map(file => uploadChatFileToCli(result.sessionId, file)))
+                        : [];
+                    await sync.sendMessage(
+                        result.sessionId,
+                        `${promptToSend}${buildUploadedFilesText(uploadedFiles)}`,
+                        undefined,
+                        images.length > 0 ? images : undefined,
+                    );
                     clearImages();
+                    clearFileAttachments();
                 }
 
                 router.replace(`/session/${result.sessionId}`, {
@@ -1709,12 +1603,14 @@ function NewSessionWizard() {
                     errorMessage = 'Session startup timed out. The machine may be slow or the daemon may not be responding.';
                 } else if (error.message.includes('Socket not connected')) {
                     errorMessage = 'Not connected to server. Check your internet connection.';
+                } else {
+                    errorMessage = error.message;
                 }
             }
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);
         }
-    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, branchMode, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, tempSessionData, selectedRepos]);
+    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, branchMode, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, clearFileAttachments, fileAttachments, tempSessionData, selectedRepos]);
 
     const screenWidth = useWindowDimensions().width;
 
@@ -1731,21 +1627,26 @@ function NewSessionWizard() {
         };
     }, [selectedMachine, theme]);
 
-    const permissionOptions = agentType === 'codex'
-        ? [
-            { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
-            { value: 'read-only' as PermissionMode, label: t('wizard.permReadOnly'), description: t('wizard.permReadOnlyDesc'), icon: 'eye-outline' },
-            { value: 'safe-yolo' as PermissionMode, label: t('wizard.permSafeYolo'), description: t('wizard.permSafeYoloDesc'), icon: 'shield-checkmark-outline' },
-            { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'flash-outline' },
-        ]
-        : [
-            { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
-            { value: 'acceptEdits' as PermissionMode, label: t('wizard.permAcceptEdits'), description: t('wizard.permAcceptEditsDesc'), icon: 'checkmark-outline' },
-            { value: 'plan' as PermissionMode, label: t('wizard.permPlan'), description: t('wizard.permPlanDesc'), icon: 'list-outline' },
-            { value: 'bypassPermissions' as PermissionMode, label: t('wizard.permBypass'), description: t('wizard.permBypassDesc'), icon: 'shield-checkmark-outline' },
-            { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'flash-outline' },
-        ];
-    const selectedPermissionOption = permissionOptions.find(option => option.value === permissionMode) ?? permissionOptions[0];
+    const selectMachine = React.useCallback((machineId: string) => {
+        setSelectedMachineId(machineId);
+        const bestPath = getRecentPathForMachine(machineId, recentMachinePaths);
+        setSelectedPath(bestPath);
+    }, [recentMachinePaths]);
+
+    const selectedMachineTitle = selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host || selectedMachine?.id || 'Machine';
+
+    const machineMenuItems = React.useMemo<ActionMenuItem[]>(() => machines.map((machine) => {
+        const title = machine.metadata?.displayName || machine.metadata?.host || machine.id;
+        const offline = !isMachineOnline(machine);
+        return {
+            label: `${title} · ${offline ? 'offline' : 'online'}`,
+            selected: selectedMachineId === machine.id,
+            onPress: () => {
+                selectMachine(machine.id);
+                setMachineMenuVisible(false);
+            },
+        };
+    }), [machines, selectedMachineId, selectMachine]);
 
     // Persist the current wizard state so it survives remounts and screen navigation
     // Uses debouncing to avoid excessive writes
@@ -1774,6 +1675,37 @@ function NewSessionWizard() {
             }
         };
     }, [tempSessionData, sessionPrompt, selectedMachineId, selectedPath, agentType, permissionMode, sessionType, images]);
+
+    const branchModeMenuItems = React.useMemo<ActionMenuItem[]>(() => (['new', 'existing'] as const).map((mode) => ({
+        label: t(`newSession.branchMode.${mode === 'new' ? 'newBranch' : 'existingBranch'}`),
+        selected: branchMode === mode,
+        onPress: () => {
+            setBranchMode(mode);
+            setBranchModeMenuVisible(false);
+        },
+    })), [branchMode]);
+
+    const branchModeSelector = sessionType === 'worktree' && selectedMachineId ? (
+        <Pressable
+            onPress={() => setBranchModeMenuVisible(true)}
+            style={({ pressed }) => [{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: 10,
+                backgroundColor: theme.colors.surfaceHigh,
+                opacity: pressed ? 0.75 : 1,
+            }]}
+        >
+            <Ionicons name="git-branch-outline" size={15} color={theme.colors.textSecondary} />
+            <Text style={{ fontSize: 13, color: theme.colors.text, ...Typography.default('semiBold') }}>
+                {t(`newSession.branchMode.${branchMode === 'new' ? 'newBranch' : 'existingBranch'}`)}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color={theme.colors.textSecondary} />
+        </Pressable>
+    ) : null;
 
     const externalContextBanner = tempSessionData?.externalContext ? (
         <View style={{
@@ -1834,6 +1766,7 @@ function NewSessionWizard() {
                             <SessionTypeSelector
                                 value={sessionType}
                                 onChange={setSessionType}
+                                worktreeAccessory={branchModeSelector}
                             />
                         </View>
                     </View>
@@ -1841,7 +1774,7 @@ function NewSessionWizard() {
                     {/* Repo picker for worktree mode */}
                     {sessionType === 'worktree' && selectedMachineId && (
                         <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
+                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center', gap: 8 }}>
                                 <RepoPickerBar
                                     machineId={selectedMachineId}
                                     selectedRepos={selectedRepos}
@@ -1877,6 +1810,8 @@ function NewSessionWizard() {
                                 onMachineClick={handleMachineClick}
                                 currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
                                 onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
+                                fileAttachments={fileAttachments}
+                                onFileAttachmentsChange={setFileAttachments}
                                 images={images}
                                 onImagesChange={(newImages) => {
                                     const currentUris = new Set(newImages.map(img => img.uri));
@@ -1902,7 +1837,7 @@ function NewSessionWizard() {
                     <input
                         ref={fileInputRef as any}
                         type="file"
-                        accept="image/jpeg,image/png"
+                        accept="*/*"
                         multiple
                         style={{ display: 'none' }}
                         onChange={handleFileInputChange as any}
@@ -1915,6 +1850,29 @@ function NewSessionWizard() {
                     items={imagePickerMenuItems}
                     onClose={() => setImagePickerSheetVisible(false)}
                     deferItemPress
+                />
+
+                <ActionMenuModal
+                    visible={profileMenuVisible}
+                    title={t('wizard.step1Title')}
+                    searchable
+                    items={profileMenuItems}
+                    onClose={() => setProfileMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={branchModeMenuVisible}
+                    items={branchModeMenuItems}
+                    onClose={() => setBranchModeMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={machineMenuVisible}
+                    title={t('wizard.step2Title')}
+                    searchable
+                    searchPlaceholder={t('wizard.filterMachines')}
+                    items={machineMenuItems}
+                    onClose={() => setMachineMenuVisible(false)}
                 />
 
                 {/* Branch picker for Add Directory flow */}
@@ -1966,22 +1924,26 @@ function NewSessionWizard() {
                             {/* External context banner */}
                             {externalContextBanner}
 
-                            {/* CLI Detection Status Banner - shows after detection completes */}
-                            {selectedMachineId && cliAvailability.timestamp > 0 && selectedMachine && connectionStatus && (
-                                <View style={{
-                                    backgroundColor: theme.colors.surfacePressed,
-                                    borderRadius: 10,
-                                    padding: 10,
-                                    paddingRight: 18,
-                                    marginBottom: 12,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: STATUS_ITEM_GAP,
-                                }}>
+                            {/* Machine selector */}
+                            {selectedMachine && connectionStatus && (
+                                <Pressable
+                                    onPress={() => setMachineMenuVisible(true)}
+                                    style={({ pressed }) => ({
+                                        backgroundColor: theme.colors.surfacePressed,
+                                        borderRadius: 10,
+                                        padding: 10,
+                                        paddingRight: 14,
+                                        marginBottom: 12,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: STATUS_ITEM_GAP,
+                                        opacity: pressed ? 0.72 : 1,
+                                    })}
+                                >
                                     <Ionicons name="desktop-outline" size={16} color={theme.colors.textSecondary} />
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: STATUS_ITEM_GAP, flexWrap: 'wrap' }}>
+                                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: STATUS_ITEM_GAP, flexWrap: 'wrap' }}>
                                         <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {selectedMachine.metadata?.displayName || selectedMachine.metadata?.host || 'Machine'}:
+                                            {selectedMachineTitle}:
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                             <StatusDot
@@ -1994,7 +1956,8 @@ function NewSessionWizard() {
                                             </Text>
                                         </View>
                                     </View>
-                                </View>
+                                    <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                                </Pressable>
                             )}
 
                             {/* Section 1: Profile Management */}
@@ -2224,210 +2187,46 @@ function NewSessionWizard() {
                                 </View>
                             )}
 
-                            {/* Custom profiles - show first */}
-                            {profiles.map((profile) => {
-                                if (!isProfileVisible(profile.id)) return null;
-                                const availability = isProfileAvailable(profile);
-
-                                return (
-                                    <Pressable
-                                        key={profile.id}
-                                        style={[
-                                            styles.profileListItem,
-                                            selectedProfileId === profile.id && styles.profileListItemSelected,
-                                            !availability.available && { opacity: 0.5 }
-                                        ]}
-                                        onPress={() => availability.available && selectProfile(profile.id)}
-                                        disabled={!availability.available}
-                                    >
-                                        <View style={styles.profileIcon}>
-                                            <Ionicons name="person" size={12} color="#FFFFFF" />
-                                        </View>
-                                        <View style={{ flex: 1, marginRight: 12 }}>
-                                            <Text style={styles.profileListName}>{profile.name}</Text>
-                                            <Text style={styles.profileListDetails} numberOfLines={2}>
-                                                {getProfileSubtitle(profile)}
-                                            </Text>
-                                        </View>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                            <Pressable
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteProfile(profile);
-                                                }}
-                                            >
-                                                <Ionicons name="trash-outline" size={20} color={theme.colors.deleteAction} />
-                                            </Pressable>
-                                            <Pressable
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDuplicateProfile(profile);
-                                                }}
-                                            >
-                                                <Ionicons name="copy-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                            </Pressable>
-                                            <Pressable
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEditProfile(profile);
-                                                }}
-                                            >
-                                                <Ionicons name="create-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                            </Pressable>
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
-
-                            {/* Built-in profiles - show after custom */}
-                            {DEFAULT_PROFILES.map((profileDisplay) => {
-                                const profile = getBuiltInProfile(profileDisplay.id);
-                                if (!profile) return null;
-                                if (!isProfileVisible(profile.id)) return null;
-
-                                const availability = isProfileAvailable(profile);
-
-                                return (
-                                    <Pressable
-                                        key={profile.id}
-                                        style={[
-                                            styles.profileListItem,
-                                            selectedProfileId === profile.id && styles.profileListItemSelected,
-                                            !availability.available && { opacity: 0.5 }
-                                        ]}
-                                        onPress={() => availability.available && selectProfile(profile.id)}
-                                        disabled={!availability.available}
-                                    >
-                                        <View style={styles.profileIcon}>
-                                            <Ionicons name="star" size={12} color="#FFFFFF" />
-                                        </View>
-                                        <View style={{ flex: 1, marginRight: 12 }}>
-                                            <Text style={styles.profileListName}>{profile.name}</Text>
-                                            <Text style={styles.profileListDetails} numberOfLines={2}>
-                                                {getProfileSubtitle(profile)}
-                                            </Text>
-                                        </View>
+                            {/* Selected AI profile dropdown */}
+                            {selectedProfile && (
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.profileListItem,
+                                        styles.profileListItemSelected,
+                                        { opacity: pressed ? 0.75 : 1 },
+                                    ]}
+                                    onPress={() => setProfileMenuVisible(true)}
+                                >
+                                    <View style={styles.profileIcon}>
+                                        <Ionicons name={selectedProfile.isBuiltIn ? "star" : "person"} size={12} color="#FFFFFF" />
+                                    </View>
+                                    <View style={{ flex: 1, marginRight: 12 }}>
+                                        <Text style={styles.profileListName}>{selectedProfile.name}</Text>
+                                        <Text style={styles.profileListDetails} numberOfLines={2}>
+                                            {getProfileSubtitle(selectedProfile)}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                        <Ionicons name="chevron-down" size={18} color={theme.colors.textSecondary} />
                                         <Pressable
                                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                             onPress={(e) => {
                                                 e.stopPropagation();
-                                                handleEditProfile(profile);
+                                                handleEditProfile(selectedProfile);
                                             }}
                                         >
                                             <Ionicons name="create-outline" size={20} color={theme.colors.button.secondary.tint} />
                                         </Pressable>
-                                    </Pressable>
-                                );
-                            })}
-
-                            {/* Show more / collapse toggle for AI profile list */}
-                            {totalProfileCount > 2 && (
-                                <Pressable
-                                    onPress={() => setShowAllProfiles(prev => !prev)}
-                                    style={{
-                                        paddingVertical: 10,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginBottom: 8,
-                                    }}
-                                >
-                                    <Text style={{ color: theme.colors.textLink, fontSize: 14, ...Typography.default() }}>
-                                        {showAllProfiles
-                                            ? t('common.collapse')
-                                            : t('wizard.showMoreProfiles', { count: totalProfileCount - (defaultVisibleProfileIds?.size ?? 0) })}
-                                    </Text>
+                                    </View>
                                 </Pressable>
                             )}
 
                             {/* Profile Action Buttons (add/duplicate/delete) hidden by request — manage profiles from the per-profile edit pencil instead */}
 
-                            {/* Section 2: Machine Selection */}
-                            <View ref={machineSectionRef}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>2.</Text>
-                                    <Ionicons name="desktop-outline" size={18} color={theme.colors.text} />
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step2Title')}</Text>
-                                </View>
-                            </View>
-
-                            <View style={{ marginBottom: 24 }}>
-                                <SearchableListSelector<typeof machines[0]>
-                                    config={{
-                                    getItemId: (machine) => machine.id,
-                                    getItemTitle: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
-                                    getItemSubtitle: undefined,
-                                    getItemIcon: (machine) => (
-                                        <Ionicons
-                                            name="desktop-outline"
-                                            size={24}
-                                            color={theme.colors.textSecondary}
-                                        />
-                                    ),
-                                    getRecentItemIcon: (machine) => (
-                                        <Ionicons
-                                            name="time-outline"
-                                            size={24}
-                                            color={theme.colors.textSecondary}
-                                        />
-                                    ),
-                                    getItemStatus: (machine) => {
-                                        const offline = !isMachineOnline(machine);
-                                        return {
-                                            text: offline ? 'offline' : 'online',
-                                            color: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
-                                            dotColor: offline ? theme.colors.status.disconnected : theme.colors.status.connected,
-                                            isPulsing: !offline,
-                                        };
-                                    },
-                                    formatForDisplay: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
-                                    parseFromDisplay: (text) => {
-                                        return machines.find(m =>
-                                            m.metadata?.displayName === text || m.metadata?.host === text || m.id === text
-                                        ) || null;
-                                    },
-                                    filterItem: (machine, searchText) => {
-                                        const displayName = (machine.metadata?.displayName || '').toLowerCase();
-                                        const host = (machine.metadata?.host || '').toLowerCase();
-                                        const search = searchText.toLowerCase();
-                                        return displayName.includes(search) || host.includes(search);
-                                    },
-                                    searchPlaceholder: t('wizard.filterMachines'),
-                                    recentSectionTitle: t('wizard.recentMachines'),
-                                    favoritesSectionTitle: t('wizard.favoriteMachines'),
-                                    noItemsMessage: t('wizard.noMachinesAvailable'),
-                                    showFavorites: true,
-                                    showRecent: true,
-                                    showSearch: true,
-                                    allowCustomInput: false,
-                                    compactItems: true,
-                                }}
-                                items={[]}
-                                recentItems={recentMachines}
-                                favoriteItems={machines.filter(m => favoriteMachines.includes(m.id))}
-                                selectedItem={selectedMachine || null}
-                                onSelect={(machine) => {
-                                    setSelectedMachineId(machine.id);
-                                    const bestPath = getRecentPathForMachine(machine.id, recentMachinePaths);
-                                    setSelectedPath(bestPath);
-                                }}
-                                onToggleFavorite={(machine) => {
-                                    const isInFavorites = favoriteMachines.includes(machine.id);
-                                    if (isInFavorites) {
-                                        setFavoriteMachines(favoriteMachines.filter(id => id !== machine.id));
-                                    } else {
-                                        setFavoriteMachines([...favoriteMachines, machine.id]);
-                                    }
-                                }}
-                                />
-                            </View>
-
-                            {/* Section 3: Session Mode */}
+                            {/* Section 2: Session Mode */}
                             <View>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>3.</Text>
+                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>2.</Text>
                                     <Ionicons name="git-branch-outline" size={18} color={theme.colors.text} />
                                     <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step3Title')}</Text>
                                 </View>
@@ -2435,7 +2234,7 @@ function NewSessionWizard() {
                                     {t('wizard.step3Description')}
                                 </Text>
                                 <View style={{ marginBottom: 12 }}>
-                                    <SessionTypeSelector value={sessionType} onChange={setSessionType} />
+                                    <SessionTypeSelector value={sessionType} onChange={setSessionType} worktreeAccessory={branchModeSelector} />
                                     {sessionType === 'worktree' && selectedMachineId && (
                                         <View style={{ marginTop: 8, gap: 8 }}>
                                             <RepoPickerBar
@@ -2444,60 +2243,23 @@ function NewSessionWizard() {
                                                 onReposChange={setSelectedRepos}
                                                 onAddDirectory={handleAddDirectory}
                                             />
-                                            {selectedRepos.length > 0 && (
-                                                <View style={{ flexDirection: 'row', borderRadius: 8, overflow: 'hidden', padding: 2, backgroundColor: theme.colors.surfaceHigh }}>
-                                                    {(['new', 'existing'] as const).map((mode) => {
-                                                        const isActive = branchMode === mode;
-                                                        return (
-                                                            <Pressable
-                                                                key={mode}
-                                                                onPress={() => setBranchMode(mode)}
-                                                                style={[{
-                                                                    flex: 1,
-                                                                    paddingVertical: 6,
-                                                                    alignItems: 'center',
-                                                                    borderRadius: 6,
-                                                                }, isActive && {
-                                                                    backgroundColor: theme.colors.surface,
-                                                                    shadowColor: '#000',
-                                                                    shadowOffset: { width: 0, height: 1 },
-                                                                    shadowOpacity: 0.1,
-                                                                    shadowRadius: 2,
-                                                                    elevation: 2,
-                                                                }]}
-                                                            >
-                                                                <Text style={{
-                                                                    fontSize: 13,
-                                                                    color: isActive ? theme.colors.text : theme.colors.textSecondary,
-                                                                    fontWeight: isActive ? '600' : '400',
-                                                                }}>
-                                                                    {t(`newSession.branchMode.${mode === 'new' ? 'newBranch' : 'existingBranch'}`)}
-                                                                </Text>
-                                                            </Pressable>
-                                                        );
-                                                    })}
-                                                </View>
-                                            )}
                                         </View>
                                     )}
                                 </View>
                             </View>
 
-                            {/* Section 4: Working Directory */}
-                            <View ref={pathSectionRef}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>4.</Text>
-                                    <Ionicons name="folder-outline" size={18} color={theme.colors.text} />
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
-                                </View>
-                            </View>
+                            {sessionType !== 'worktree' && (
+                                <>
+                                    {/* Section 3: Working Directory */}
+                                    <View ref={pathSectionRef}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
+                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>3.</Text>
+                                            <Ionicons name="folder-outline" size={18} color={theme.colors.text} />
+                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
+                                        </View>
+                                    </View>
 
-                            {sessionType === 'worktree' && selectedRepos.length > 0 ? (
-                                <Text style={[styles.sectionDescription, { marginBottom: 24 }]}>
-                                    {t('machine.worktreeAutoPath')}
-                                </Text>
-                            ) : (
-                            <View style={{ marginBottom: 24 }}>
+                                    <View style={{ marginBottom: 24 }}>
                                 <SearchableListSelector<string>
                                     config={{
                                     getItemId: (path) => path,
@@ -2589,99 +2351,11 @@ function NewSessionWizard() {
                                 }}
                                     context={{ homeDir: selectedMachine?.metadata?.homeDir }}
                                 />
-                            </View>
+                                    </View>
+                                </>
                             )}
 
-                            {/* Section 5: Permission Mode (restored — yolo skips
-                                AskUserQuestion approval, which surprised users
-                                who actually wanted to be asked). */}
-                            <View ref={permissionSectionRef}>
-                                <Pressable
-                                    onPress={() => setIsPermissionSectionExpanded(prev => !prev)}
-                                    style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: 12,
-                                        marginBottom: 8,
-                                        marginTop: 12,
-                                    }}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
-                                        <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>5.</Text>
-                                        <Ionicons name="shield-outline" size={18} color={theme.colors.text} />
-                                        <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step5Title')}</Text>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {selectedPermissionOption.label}
-                                        </Text>
-                                        <Ionicons
-                                            name={isPermissionSectionExpanded ? 'chevron-up' : 'chevron-down'}
-                                            size={18}
-                                            color={theme.colors.textSecondary}
-                                        />
-                                    </View>
-                                </Pressable>
-                            </View>
-                            <ItemGroup title="">
-                                {isPermissionSectionExpanded ? (
-                                    permissionOptions.map((option, index, array) => (
-                                        <Item
-                                            key={option.value}
-                                            title={option.label}
-                                            subtitle={option.description}
-                                            leftElement={
-                                                <Ionicons
-                                                    name={option.icon as any}
-                                                    size={24}
-                                                    color={permissionMode === option.value ? theme.colors.button.primary.background : theme.colors.textSecondary}
-                                                />
-                                            }
-                                            rightElement={null}
-                                            onPress={() => handlePermissionModeChange(option.value)}
-                                            showChevron={false}
-                                            selected={permissionMode === option.value}
-                                            hideSelectedCheckmark={true}
-                                            showDivider={index < array.length - 1}
-                                            style={permissionMode === option.value ? {
-                                                borderWidth: 2,
-                                                borderColor: theme.colors.button.primary.background,
-                                                borderRadius: Platform.select({ ios: 10, default: 16 }),
-                                            } : undefined}
-                                        />
-                                    ))
-                                ) : (
-                                    <Item
-                                        title={selectedPermissionOption.label}
-                                        subtitle={selectedPermissionOption.description}
-                                        leftElement={
-                                            <Ionicons
-                                                name={selectedPermissionOption.icon as any}
-                                                size={24}
-                                                color={theme.colors.button.primary.background}
-                                            />
-                                        }
-                                        rightElement={
-                                            <Ionicons
-                                                name="chevron-down"
-                                                size={18}
-                                                color={theme.colors.textSecondary}
-                                            />
-                                        }
-                                        onPress={() => setIsPermissionSectionExpanded(true)}
-                                        showChevron={false}
-                                        selected
-                                        hideSelectedCheckmark
-                                        showDivider={false}
-                                        style={{
-                                            borderWidth: 2,
-                                            borderColor: theme.colors.button.primary.background,
-                                            borderRadius: Platform.select({ ios: 10, default: 16 }),
-                                        }}
-                                    />
-                                )}
-                            </ItemGroup>
+
 
                         </View>
                     </View>
@@ -2703,7 +2377,7 @@ function NewSessionWizard() {
                             agentType={agentType}
                             onAgentClick={handleAgentInputAgentClick}
                             permissionMode={permissionMode}
-                            onPermissionModeChange={handleAgentInputPermissionChange}
+                            onPermissionModeChange={handlePermissionModeChange}
                             modelMode={modelMode}
                             onModelModeChange={handleModelModeChange}
                             fastMode={fastMode}
@@ -2715,6 +2389,8 @@ function NewSessionWizard() {
                             onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handleAgentInputPathClick}
                             profileId={selectedProfileId}
                             onProfileClick={handleAgentInputProfileClick}
+                            fileAttachments={fileAttachments}
+                            onFileAttachmentsChange={setFileAttachments}
                             images={images}
                             onImagesChange={(newImages) => {
                                 const currentUris = new Set(newImages.map(img => img.uri));
@@ -2738,7 +2414,7 @@ function NewSessionWizard() {
                     <input
                         ref={fileInputRef as any}
                         type="file"
-                        accept="image/jpeg,image/png"
+                        accept="*/*"
                         multiple
                         style={{ display: 'none' }}
                         onChange={handleFileInputChange as any}
@@ -2751,6 +2427,29 @@ function NewSessionWizard() {
                     items={imagePickerMenuItems}
                     onClose={() => setImagePickerSheetVisible(false)}
                     deferItemPress
+                />
+
+                <ActionMenuModal
+                    visible={profileMenuVisible}
+                    title={t('wizard.step1Title')}
+                    searchable
+                    items={profileMenuItems}
+                    onClose={() => setProfileMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={branchModeMenuVisible}
+                    items={branchModeMenuItems}
+                    onClose={() => setBranchModeMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={machineMenuVisible}
+                    title={t('wizard.step2Title')}
+                    searchable
+                    searchPlaceholder={t('wizard.filterMachines')}
+                    items={machineMenuItems}
+                    onClose={() => setMachineMenuVisible(false)}
                 />
 
                 {/* Branch picker for Add Directory flow */}

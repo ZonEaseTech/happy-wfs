@@ -18,6 +18,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { ActionMenu, ActionMenuItem } from './ActionMenu';
+import { filterActionMenuItems } from './actionMenuSearch';
 
 // On web, stop events from propagating to expo-router's modal overlay
 const stopPropagation = (e: { stopPropagation: () => void }) => e.stopPropagation();
@@ -141,7 +142,7 @@ export function ActionMenuModal({ visible, items, onClose, deferItemPress, title
         if (!searchable) return wrappedItems;
         const q = searchQuery.trim().toLowerCase();
         if (!q) return wrappedItems;
-        return wrappedItems.filter(it => it.label.toLowerCase().includes(q));
+        return filterActionMenuItems(wrappedItems, q);
     }, [wrappedItems, searchable, searchQuery]);
 
     const searchHeader = searchable ? (

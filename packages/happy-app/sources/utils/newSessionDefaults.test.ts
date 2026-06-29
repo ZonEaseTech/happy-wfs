@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLAUDE_NEW_SESSION_DEFAULT_MODEL, getInitialNewSessionModelMode } from './newSessionDefaults';
+import { CLAUDE_NEW_SESSION_DEFAULT_MODEL, getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } from './newSessionDefaults';
 import { CODEX_COPY_SESSION_MODEL_MODE } from './copySessionDefaults';
 
 describe('new session model defaults', () => {
@@ -23,5 +23,15 @@ describe('new session model defaults', () => {
     it('falls back per agent when the saved model belongs to another agent', () => {
         expect(getInitialNewSessionModelMode('claude', 'gpt-5.5-high')).toBe('claude-opus-4-8[1m]');
         expect(getInitialNewSessionModelMode('codex', 'claude-opus-4-8[1m]')).toBe(CODEX_COPY_SESSION_MODEL_MODE);
+    });
+});
+
+
+describe('new session permission defaults', () => {
+    it('forces new sessions to YOLO regardless of saved or profile permission mode', () => {
+        expect(getInitialNewSessionPermissionMode(undefined)).toBe('yolo');
+        expect(getInitialNewSessionPermissionMode('default')).toBe('yolo');
+        expect(getInitialNewSessionPermissionMode('acceptEdits')).toBe('yolo');
+        expect(getInitialNewSessionPermissionMode('read-only')).toBe('yolo');
     });
 });

@@ -10,10 +10,8 @@ import FilesScreen from '@/app/(app)/session/[id]/files';
 import InfoScreen from '@/app/(app)/session/[id]/info';
 import BrowserScreen from '@/app/(app)/session/[id]/browser';
 import CommitsScreen from '@/app/(app)/session/[id]/commits';
-import OrchestratorRunsScreen from '@/app/(app)/orchestrator/index';
-import { t } from '@/text';
 
-export type RightPanelType = 'files' | 'info' | 'browser' | 'commits' | 'orchestrator';
+export type RightPanelType = 'files' | 'info' | 'browser' | 'commits';
 
 export const RIGHT_PANEL_WIDTH = 480; // legacy default — runtime width comes from useResizableColumn
 const MIN_RIGHT_PANEL_WIDTH = 320;
@@ -41,7 +39,6 @@ function getTitle(type: RightPanelType): string {
         case 'info': return 'Info';
         case 'browser': return 'Code';
         case 'commits': return 'Commits';
-        case 'orchestrator': return t('settings.orchestratorRuns');
     }
 }
 
@@ -124,8 +121,6 @@ export const RightPanel = React.memo(function RightPanel(props: {
                         <BrowserScreen sessionId={props.sessionId} embedded />
                     ) : props.type === 'commits' ? (
                         <CommitsScreen sessionId={props.sessionId} embedded />
-                    ) : props.type === 'orchestrator' ? (
-                        <OrchestratorRunsScreen sessionId={props.sessionId} embedded />
                     ) : (
                         <InfoScreen sessionId={props.sessionId} embedded onSelectRepoTab={props.onTypeChange} />
                     )}

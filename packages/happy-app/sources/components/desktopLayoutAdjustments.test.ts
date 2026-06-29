@@ -87,8 +87,11 @@ describe('desktop layout adjustments', () => {
     it('opens the session terminal as a right resizable panel with user-level quick commands', () => {
         const sessionView = read('-session/SessionView.tsx');
         expect(sessionView).toContain("import { TerminalPanel } from '@/components/Terminal';");
-        expect(sessionView).toContain('onPress={() => setShowTerminal(prev => !prev)}');
+        expect(sessionView).toContain('handleOpenTerminalPanel');
+        expect(sessionView).toContain('setTerminalOpenRequestKey((value) => value + 1)');
+        expect(sessionView).not.toContain('onPress={() => setShowTerminal(prev => !prev)}');
         expect(sessionView).toContain('<TerminalPanel');
+        expect(sessionView).toContain('openRequestKey={terminalOpenRequestKey}');
         expect(sessionView).toContain("<View style={{ flex: 1, minWidth: 0, position: 'relative' }}>");
         expect(sessionView).toContain("flexDirection: 'row'");
         expect(sessionView).not.toContain('showTerminal={showTerminal}');
@@ -120,6 +123,9 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain("aria-label={t('terminal.clearTerminal')}");
         expect(terminalWeb).toContain('sender(`${command}\\r`);');
         expect(terminalWeb).toContain('terminalTabs');
+        expect(terminalWeb).toContain('allWorkspaces.flatMap((workspace) => workspace.tabs.map((tab) => ({ ...tab, workspaceKey: workspace.key })))');
+        expect(terminalWeb).toContain('handleSelectTerminalTab(tab.workspaceKey, tab.id)');
+        expect(terminalWeb).toContain('handleCloseTerminalTab(tab.workspaceKey, tab.id);');
         expect(terminalWeb).toContain('activeTerminalTabId');
         expect(terminalWeb).toContain('active={isActive}');
         expect(terminalWeb).toContain('handleAddTerminalTab');
@@ -133,8 +139,32 @@ describe('desktop layout adjustments', () => {
         expect(terminalWeb).toContain("display: visible ? 'flex' : 'none'");
         expect(terminalWeb).toContain('type TerminalWorkspace');
         expect(terminalWeb).toContain('createTerminalWorkspace(sessionId, cwd)');
+        expect(terminalWeb).toContain('openRequestKey');
+        expect(terminalWeb).toContain('activeWorkspaceKey');
+        expect(terminalWeb).toContain('processedOpenRequestKeyRef');
+        expect(terminalWeb).toContain('openRequestKey <= processedOpenRequestKeyRef.current');
+        expect(terminalWeb).toContain('setActiveWorkspaceKey(sessionId)');
+        expect(terminalWeb).toContain('if (allWorkspaces.length === 0)');
+        expect(terminalWeb).toContain('onClose();');
+        expect(terminalWeb).not.toContain('workspaceKey === sessionId) onClose();');
         expect(terminalWeb).toContain('managerOpen');
+        expect(terminalWeb).not.toContain("aria-label={t('terminal.manageTerminals')}");
+        expect(terminalWeb).not.toContain('name="albums-outline"');
+        expect(terminalWeb).toContain('handleSelectWorkspace');
+        expect(terminalWeb).toContain('handleSelectManagedTerminalTab');
+        expect(terminalWeb).toContain('onClick={() => handleSelectWorkspace(workspace.key)}');
+        expect(terminalWeb).toContain('onClick={() => handleSelectManagedTerminalTab(workspace.key, tab.id)}');
+        expect(terminalWeb).toContain(`const handleSelectWorkspace = React.useCallback((workspaceKey: string) => {
+        setActiveWorkspaceKey(workspaceKey);
+        setManagerOpen(false);
+    }, []);`);
+        expect(terminalWeb).toContain(`const handleSelectManagedTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
+        setActiveWorkspaceKey(workspaceKey);
+        setManagerOpen(false);`);
         expect(terminalWeb).toContain('handleCloseWorkspace');
+        expect(terminalWeb).toContain('Keep padding off the xterm fit host');
+        expect(terminalWeb).toMatch(/ref=\{containerRef\}[\s\S]{0,500}minWidth: 0[\s\S]{0,200}minHeight: 0/);
+        expect(terminalWeb).not.toMatch(/ref=\{containerRef\}[\s\S]{0,500}padding: 8/);
 
         const settings = read('sync/settings.ts');
         expect(settings).toContain('TerminalQuickCommandSchema');
