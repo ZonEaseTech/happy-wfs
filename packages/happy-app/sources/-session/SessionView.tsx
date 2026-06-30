@@ -63,6 +63,8 @@ import { AutoReviewGuardSettingsModal } from '@/components/AutoReviewGuardSettin
 
 const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
+const SHOW_HEADER_SESSION_ID_COPY = false;
+const SHOW_HEADER_INJECTED_MEMORY_BADGE = false;
 
 // Spreads a `title` HTML attribute onto Pressable on web (becomes a native
 // hover tooltip). No-op on native — RN Core ignores unknown props.
@@ -341,23 +343,25 @@ export const SessionView = React.memo((props: { id: string }) => {
                             };
                             return (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {/* Quick copy: Happy session ID (always present). */}
-                                <Pressable
-                                    {...webTooltip(t('sessionInfo.happySessionId'))}
-                                    onPress={() => copyId(session.id)}
-                                    hitSlop={15}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={t('sessionInfo.happySessionId')}
-                                    style={{
-                                        width: 38,
-                                        height: 38,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: 2,
-                                    }}
-                                >
-                                    <Ionicons name="finger-print-outline" size={20} color={theme.colors.header.tint} />
-                                </Pressable>
+                                {/* Quick copy: Happy session ID (temporarily hidden). */}
+                                {SHOW_HEADER_SESSION_ID_COPY && (
+                                    <Pressable
+                                        {...webTooltip(t('sessionInfo.happySessionId'))}
+                                        onPress={() => copyId(session.id)}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('sessionInfo.happySessionId')}
+                                        style={{
+                                            width: 38,
+                                            height: 38,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons name="finger-print-outline" size={20} color={theme.colors.header.tint} />
+                                    </Pressable>
+                                )}
                                 {linkedGitHubIssue && (
                                     <Pressable
                                         {...webTooltip(t('sessionInfo.relatedTask'))}
@@ -409,10 +413,10 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         }} />
                                     )}
                                 </Pressable>
-                                {/* Injected-memories badge — count = memories actually merged into
+                                {/* Injected-memories badge (temporarily hidden) — count = memories actually merged into
                                     THIS session's system prompt. Tap opens the same modal as the
                                     Info-panel chip (mute toggles + manage-all link). */}
-                                {memoryCount > 0 && (
+                                {SHOW_HEADER_INJECTED_MEMORY_BADGE && memoryCount > 0 && (
                                     <Pressable
                                         onPress={() => setInjectedMemoriesOpen(true)}
                                         hitSlop={15}
