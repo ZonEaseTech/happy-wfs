@@ -24,4 +24,13 @@ describe('public share message pagination', () => {
         expect(source).toContain('chatImageUpload');
         expect(source).toContain('buildPublicFileSharePath');
     });
+
+    it('keeps public share send and abort idempotent enough for shared chat controls', () => {
+        const source = readFileSync(resolve(__dirname, 'publicShareRoutes.ts'), 'utf8');
+        expect(source).toContain('isUniqueConstraintError');
+        expect(source).toContain("app.post('/v1/public-share/:token/abort'");
+        expect(source).toContain('publicShareAbortBodySchema');
+        expect(source).toContain('invokeUserRpc');
+        expect(source).toContain("`${result.publicShare.sessionId}:abort`");
+    });
 });

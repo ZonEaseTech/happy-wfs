@@ -21,7 +21,7 @@ import { FileIcon } from '@/components/FileIcon';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { shellEscape } from '@/utils/shellEscape';
-import { getWorkspaceRepos } from '@/utils/workspaceRepos';
+import { getWorkspaceRepos, type WorkspaceRepo } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
 import { useRightPanelHeaderSlot } from '@/components/RightPanel';
 
@@ -119,7 +119,9 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     const commandCwd = session?.metadata?.path || '';
 
     // Multi-repo workspace support
-    const workspaceRepos = getWorkspaceRepos(session?.metadata);
+    const metadataWorkspaceRepos = React.useMemo(() => getWorkspaceRepos(session?.metadata), [session?.metadata]);
+    const [autoWorkspaceRepos, setAutoWorkspaceRepos] = React.useState<WorkspaceRepo[]>([]);
+    const workspaceRepos = metadataWorkspaceRepos.length > 0 ? metadataWorkspaceRepos : autoWorkspaceRepos;
     const [selectedRepoIndex, setSelectedRepoIndex] = React.useState(0);
     const selectedRepo = workspaceRepos[selectedRepoIndex];
 
@@ -325,6 +327,13 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         setIsLoading(true);
     }, [selectedRepoIndex]);
 
+    React.useEffect(() => {
+        setAutoWorkspaceRepos([]);
+        setNearbyRepos([]);
+        setAdHocRepoPath(null);
+        setSelectedRepoIndex(0);
+    }, [sessionId, commandCwd, metadataWorkspaceRepos.length]);
+
     // Long press menu
     const handleLongPress = React.useCallback((file: GitFileStatus, staged: boolean) => {
         const items: ActionMenuItem[] = [];
@@ -353,7 +362,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         initialLoadDone.current = false;
         loadGitStatusFiles(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sessionId, selectedRepoIndex, adHocRepoPath]);
+    }, [sessionId, selectedRepoIndex, adHocRepoPath, effectiveRepoPath]);
 
     // When the active path turns out NOT to be a git repo:
     // - Standalone: redirect to the unified file browser (which lists everything + can create files)
@@ -364,19 +373,36 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     // entry nor an ad-hoc repo selected — falling back to the session's
     // metadata.path means "scan the dir Claude was started in".
     React.useEffect(() => {
-        if (isLoading || gitStatusFiles || !repoBaseCwd || adHocRepoPath) {
-            return;
-        }
-        if (!embedded) {
-            router.replace(`/session/${sessionId}/browser`);
+        if (isLoading || gitStatusFiles || !repoBaseCwd || adHocRepoPath || workspaceRepos.length > 0) {
             return;
         }
         let cancelled = false;
         findNearbyGitRepos(sessionId, repoBaseCwd).then((repos) => {
-            if (!cancelled) setNearbyRepos(repos);
+            if (cancelled) return;
+            if (repos.length > 0) {
+                setNearbyRepos([]);
+                setAutoWorkspaceRepos(repos.map((repo) => ({
+                    path: repo.path,
+                    basePath: repo.path,
+                    branchName: '',
+                    displayName: repo.name,
+                })));
+                setSelectedRepoIndex(0);
+                setGitStatusFiles(null);
+                setSearchResults([]);
+                setSearchQuery('');
+                initialLoadDone.current = false;
+                setIsLoading(true);
+                return;
+            }
+            if (!embedded) {
+                router.replace(`/session/${sessionId}/browser`);
+                return;
+            }
+            setNearbyRepos(repos);
         });
         return () => { cancelled = true; };
-    }, [sessionId, repoBaseCwd, isLoading, gitStatusFiles, adHocRepoPath, embedded, router]);
+    }, [sessionId, repoBaseCwd, isLoading, gitStatusFiles, adHocRepoPath, workspaceRepos.length, embedded, router]);
 
     // Refresh silently when screen is focused (after returning from file view)
     useFocusEffect(

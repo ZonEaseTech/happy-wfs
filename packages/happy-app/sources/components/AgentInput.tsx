@@ -2047,7 +2047,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 )}
 
                                 {/* Abort button */}
-                                {props.onAbort && (
+                                {props.onAbort && props.showAbortButton && (
                                     <Shaker ref={shakerRef}>
                                         <Pressable
                                             {...webTooltip('Stop')}
@@ -2071,9 +2071,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                     color={theme.colors.button.secondary.tint}
                                                 />
                                             ) : (
-                                                <Octicons
-                                                    name={"stop"}
-                                                    size={16}
+                                                <Ionicons
+                                                    name="stop-circle-outline"
+                                                    size={20}
                                                     color={theme.colors.button.secondary.tint}
                                                 />
                                             )}

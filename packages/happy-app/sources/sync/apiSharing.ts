@@ -409,6 +409,38 @@ export async function sendPublicShareMessage(
     return data.message;
 }
 
+export async function abortPublicShareSession(
+    serverUrl: string,
+    token: string,
+    request: { params: string; consent?: boolean }
+): Promise<void> {
+    const url = new URL(`${serverUrl}/v1/public-share/${token}/abort`);
+    if (request.consent) {
+        url.searchParams.set('consent', 'true');
+    }
+
+    const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ params: request.params }),
+    });
+
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new PublicShareNotFoundError();
+        }
+        if (response.status === 403) {
+            const body = await response.json();
+            if (body.requiresConsent) {
+                throw new ConsentRequiredError(body.owner);
+            }
+        }
+        throw new Error(`Failed to abort public share session: ${response.status}`);
+    }
+}
+
 /**
  * Access a session via a public share token (public endpoint, no auth required)
  */

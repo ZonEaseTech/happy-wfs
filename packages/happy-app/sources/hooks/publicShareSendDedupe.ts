@@ -53,3 +53,49 @@ export function createPublicShareSendDeduper(windowMs: number) {
         },
     };
 }
+
+function hashPublicShareSignature(signature: string): string {
+    let hash = 2166136261;
+    for (let i = 0; i < signature.length; i++) {
+        hash ^= signature.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return `${(hash >>> 0).toString(36)}-${signature.length.toString(36)}`;
+}
+
+export function buildPublicShareLocalId(signature: string, now = Date.now(), windowMs = 60000): string {
+    const bucket = Math.floor(now / windowMs).toString(36);
+    return `public-share-${bucket}-${hashPublicShareSignature(signature)}`;
+}
+
+export function createPublicShareLocalIdCache(
+    windowMs: number,
+    createLocalId: (signature: string, now: number, windowMs: number) => string = buildPublicShareLocalId,
+) {
+    const localIdsBySignature = new Map<string, { localId: string; timestamp: number }>();
+
+    function prune(now: number) {
+        for (const [key, value] of localIdsBySignature) {
+            if (now - value.timestamp > windowMs * 2) {
+                localIdsBySignature.delete(key);
+            }
+        }
+    }
+
+    return {
+        getOrCreate(signature: string, now = Date.now()): string {
+            const previous = localIdsBySignature.get(signature);
+            if (previous && now - previous.timestamp <= windowMs) {
+                return previous.localId;
+            }
+
+            const localId = createLocalId(signature, now, windowMs);
+            localIdsBySignature.set(signature, { localId, timestamp: now });
+            prune(now);
+            return localId;
+        },
+        forget(signature: string): void {
+            localIdsBySignature.delete(signature);
+        },
+    };
+}

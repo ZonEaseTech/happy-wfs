@@ -377,4 +377,22 @@ describe('desktop layout adjustments', () => {
         expect(source).not.toContain("safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0)");
     });
 
+    it('auto-detects child git repos in a non-git workspace folder for the Files panel', () => {
+        const source = read('app/(app)/session/[id]/files.tsx');
+        expect(source).toContain('autoWorkspaceRepos');
+        expect(source).toContain('setAutoWorkspaceRepos');
+        expect(source).toContain('repos.length > 0');
+        expect(source).toContain('basePath: repo.path');
+        expect(source).toContain('displayName: repo.name');
+        expect(source).toContain('workspaceRepos.length > 0');
+    });
+
+    it('temporarily hides session id copy and injected memory header buttons', () => {
+        const source = read('-session/SessionView.tsx');
+        expect(source).toContain('SHOW_HEADER_SESSION_ID_COPY = false');
+        expect(source).toContain('SHOW_HEADER_INJECTED_MEMORY_BADGE = false');
+        expect(source).toContain('SHOW_HEADER_SESSION_ID_COPY &&');
+        expect(source).toContain('SHOW_HEADER_INJECTED_MEMORY_BADGE && memoryCount > 0');
+    });
+
 });

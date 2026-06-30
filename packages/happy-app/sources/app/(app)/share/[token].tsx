@@ -69,10 +69,14 @@ function ShareHeader({ owner }: { owner: { username: string | null; firstName: s
 }
 
 function PublicShareAgentInput({
+    canAbort,
     disabled,
+    onAbort,
     onSend,
 }: {
+    canAbort: boolean;
     disabled: boolean;
+    onAbort: () => Promise<void>;
     onSend: (text: string, attachments?: {
         images: LocalImage[];
         fileAttachments: LocalFileAttachment[];
@@ -103,18 +107,23 @@ function PublicShareAgentInput({
     const handleSend = useCallback(async (textSnapshot?: string) => {
         const next = (textSnapshot ?? text).trim();
         if ((!next && images.length === 0 && fileAttachments.length === 0) || disabled || sendInFlightRef.current) return;
+        const imagesSnapshot = images;
+        const fileAttachmentsSnapshot = fileAttachments;
         sendInFlightRef.current = true;
+        setText('');
+        clearImages();
+        clearFileAttachments();
         try {
-            const sent = await onSend(next, { images, fileAttachments });
-            if (sent) {
-                setText('');
-                clearImages();
-                clearFileAttachments();
+            const sent = await onSend(next, { images: imagesSnapshot, fileAttachments: fileAttachmentsSnapshot });
+            if (!sent) {
+                setText(next);
+                initImages(imagesSnapshot);
+                setFileAttachments(fileAttachmentsSnapshot);
             }
         } finally {
             sendInFlightRef.current = false;
         }
-    }, [clearFileAttachments, clearImages, disabled, fileAttachments, images, onSend, text]);
+    }, [clearFileAttachments, clearImages, disabled, fileAttachments, images, initImages, onSend, setFileAttachments, text]);
 
     const pickerItems: ActionMenuItem[] = useMemo(() => [
         { label: t('session.takePhoto'), onPress: pickFromCamera },
@@ -180,6 +189,8 @@ function PublicShareAgentInput({
                 onImageDrop={addPickedFiles}
                 isSending={disabled}
                 isSendDisabled={disabled}
+                onAbort={onAbort}
+                showAbortButton={canAbort}
                 hidePermissionSettings
                 minHeight={52}
             />
@@ -198,7 +209,8 @@ function PublicShareAgentInput({
 export default memo(function PublicShareScreen() {
     const { token } = useLocalSearchParams<{ token: string }>();
     const { theme } = useUnistyles();
-    const { state, messages, metadata, owner, sessionId, allowChat, isSending, hasMore, isLoadingMore, loadMore, giveConsent, sendMessage } = usePublicShareSession(token);
+    const { state, messages, metadata, owner, sessionId, allowChat, isSending, hasMore, isLoadingMore, loadMore, giveConsent, sendMessage, abortMessage } = usePublicShareSession(token);
+    const canAbort = allowChat;
 
     const keyExtractor = useCallback((item: Message) => item.id, []);
     const renderItem = useCallback(({ item }: { item: Message }) => (
@@ -304,7 +316,12 @@ export default memo(function PublicShareScreen() {
                 )}
             </View>
             {allowChat && (
-                <PublicShareAgentInput disabled={isSending} onSend={sendMessage} />
+                <PublicShareAgentInput
+                    canAbort={canAbort}
+                    disabled={isSending}
+                    onAbort={abortMessage}
+                    onSend={sendMessage}
+                />
             )}
         </View>
     );

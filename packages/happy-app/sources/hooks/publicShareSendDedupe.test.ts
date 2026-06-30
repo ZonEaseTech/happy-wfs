@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPublicShareSendDeduper, buildPublicShareSendSignature } from './publicShareSendDedupe';
+import { createPublicShareSendDeduper, buildPublicShareSendSignature, buildPublicShareLocalId, createPublicShareLocalIdCache } from './publicShareSendDedupe';
 
 describe('public share send dedupe', () => {
     it('suppresses the same message and attachments inside the dedupe window', () => {
@@ -22,5 +22,30 @@ describe('public share send dedupe', () => {
 
         expect(deduper.shouldSend(first, 1000)).toBe(true);
         expect(deduper.shouldSend(second, 1200)).toBe(true);
+    });
+
+    it('builds stable local ids for equivalent sends in the same idempotency window', () => {
+        const signature = buildPublicShareSendSignature('你好');
+
+        expect(buildPublicShareLocalId(signature, 1000)).toBe(buildPublicShareLocalId(signature, 5000));
+        expect(buildPublicShareLocalId(signature, 1000)).not.toBe(buildPublicShareLocalId(signature, 62001));
+    });
+
+    it('keeps the same local id for repeated equivalent sends during the idempotency window', () => {
+        const cache = createPublicShareLocalIdCache(60000);
+        const signature = buildPublicShareSendSignature('你好');
+
+        expect(cache.getOrCreate(signature, 1000)).toBe(buildPublicShareLocalId(signature, 1000));
+        expect(cache.getOrCreate(signature, 5000)).toBe(buildPublicShareLocalId(signature, 1000));
+        expect(cache.getOrCreate(signature, 62001)).toBe(buildPublicShareLocalId(signature, 62001));
+    });
+
+    it('uses the same stable local id after forgetting a failed send inside the same window', () => {
+        const cache = createPublicShareLocalIdCache(60000);
+        const signature = buildPublicShareSendSignature('你好');
+
+        expect(cache.getOrCreate(signature, 1000)).toBe(buildPublicShareLocalId(signature, 1000));
+        cache.forget(signature);
+        expect(cache.getOrCreate(signature, 1100)).toBe(buildPublicShareLocalId(signature, 1100));
     });
 });

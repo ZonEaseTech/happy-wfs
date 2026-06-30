@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { accessPublicShare, getPublicShareMessages, sendPublicShareMessage } from '@/sync/apiSharing';
+import { accessPublicShare, abortPublicShareSession, getPublicShareMessages, sendPublicShareMessage } from '@/sync/apiSharing';
 import type { PublicShareMessagePage } from '@/sync/apiSharing';
 import { decryptDataKeyFromPublicShare } from '@/sync/encryption/publicShareEncryption';
 import { AES256Encryption } from '@/sync/encryption/encryptor';
@@ -11,11 +11,10 @@ import { getServerUrl } from '@/sync/serverConfig';
 import { PublicShareNotFoundError, ConsentRequiredError, ShareUserProfile } from '@/sync/sharingTypes';
 import { Message } from '@/sync/typesMessage';
 import { Metadata, MetadataSchema } from '@/sync/storageTypes';
-import { randomUUID } from 'expo-crypto';
 import type { LocalImage } from '@/components/ImagePreview';
 import type { LocalFileAttachment } from '@/utils/fileAttachments';
 import { buildPublicShareUploadedFilesText, uploadPublicShareFile, uploadPublicShareImage } from '@/sync/uploadPublicShareAttachment';
-import { buildPublicShareSendSignature, createPublicShareSendDeduper } from './publicShareSendDedupe';
+import { buildPublicShareSendSignature, createPublicShareLocalIdCache, createPublicShareSendDeduper } from './publicShareSendDedupe';
 
 export type PublicShareState = 'loading' | 'loaded' | 'error' | 'consent-required' | 'not-found';
 export type PublicShareSendAttachments = {
@@ -69,6 +68,7 @@ export function usePublicShareSession(token: string) {
     const loadMoreInFlightRef = useRef(false);
     const sendInFlightRef = useRef(false);
     const sendDeduperRef = useRef(createPublicShareSendDeduper(2000));
+    const sendLocalIdCacheRef = useRef(createPublicShareLocalIdCache(60000));
 
     const load = useCallback(async (withConsent: boolean) => {
         try {
@@ -232,10 +232,10 @@ export function usePublicShareSession(token: string) {
 
         const sendSignature = buildPublicShareSendSignature(trimmed, images, fileAttachments);
         if (!sendDeduperRef.current.shouldSend(sendSignature)) {
-            return false;
+            return true;
         }
 
-        const localId = randomUUID();
+        const localId = sendLocalIdCacheRef.current.getOrCreate(sendSignature);
         sendInFlightRef.current = true;
         setIsSending(true);
         try {
@@ -306,6 +306,7 @@ export function usePublicShareSession(token: string) {
                 console.warn('[PublicShare] failed to send message:', e);
             }
             sendDeduperRef.current.forget(sendSignature);
+            sendLocalIdCacheRef.current.forget(sendSignature);
             return false;
         } finally {
             sendInFlightRef.current = false;
@@ -313,5 +314,24 @@ export function usePublicShareSession(token: string) {
         }
     }, [allowChat, refreshMessages, token]);
 
-    return { state, messages, metadata, owner, sessionId, allowChat, isSending, hasMore, isLoadingMore, loadMore, giveConsent, sendMessage };
+
+    const abortMessage = useCallback(async (): Promise<void> => {
+        const decryptor = decryptorRef.current;
+        if (!allowChat || !decryptor) {
+            return;
+        }
+
+        const [encrypted] = await decryptor.encrypt([{}]);
+        await abortPublicShareSession(getServerUrl(), token, {
+            params: encodeBase64(encrypted, 'base64'),
+            consent: consentRef.current || undefined,
+        });
+        setTimeout(() => {
+            refreshMessages().catch(() => {
+                // Best-effort refresh after aborting the public chat run.
+            });
+        }, 500);
+    }, [allowChat, refreshMessages, token]);
+
+    return { state, messages, metadata, owner, sessionId, allowChat, isSending, hasMore, isLoadingMore, loadMore, giveConsent, sendMessage, abortMessage };
 }

@@ -15,6 +15,7 @@ import { chatImageUpload } from "@/app/chat/chatImageUpload";
 import { s3bucket, s3client, getPublicUrl } from "@/storage/files";
 import { randomKey } from "@/utils/randomKey";
 import { buildPublicFileSharePath, sanitizePublicFileName } from "@/app/fileShare/publicFileShare";
+import { invokeUserRpc } from "@/app/api/socket/rpcRegistry";
 
 const PUBLIC_SHARE_FILE_MAX_BYTES = 100 * 1024 * 1024;
 
@@ -22,6 +23,14 @@ const sendPublicShareMessageBodySchema = z.object({
     content: z.string().min(1),
     localId: z.string().min(1),
 });
+
+const publicShareAbortBodySchema = z.object({
+    params: z.string().min(1),
+});
+
+function isUniqueConstraintError(error: unknown): boolean {
+    return !!error && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 'P2002';
+}
 
 function toPublicShareSendResponseMessage(message: {
     id: string;
@@ -894,19 +903,102 @@ export function publicShareRoutes(app: Fastify) {
             return reply.send({ message: toPublicShareSendResponseMessage(existing) });
         }
 
-        const dispatched = await dispatchSessionMessage({
-            ownerId: publicShare.session.accountId,
-            sessionId: publicShare.sessionId,
-            content,
-            localId,
-            sentBy: null,
-            sentByName: 'Public visitor',
-            trackCliDelivery: true,
-        });
+        try {
+            const dispatched = await dispatchSessionMessage({
+                ownerId: publicShare.session.accountId,
+                sessionId: publicShare.sessionId,
+                content,
+                localId,
+                sentBy: null,
+                sentByName: 'Public visitor',
+                trackCliDelivery: true,
+            });
 
-        return reply.send({
-            message: toPublicShareSendResponseMessage(dispatched.message),
-        });
+            return reply.send({
+                message: toPublicShareSendResponseMessage(dispatched.message),
+            });
+        } catch (error) {
+            if (!isUniqueConstraintError(error)) {
+                throw error;
+            }
+
+            const deduped = await db.sessionMessage.findFirst({
+                where: {
+                    sessionId: publicShare.sessionId,
+                    localId,
+                },
+                select: {
+                    id: true,
+                    seq: true,
+                    localId: true,
+                    sentBy: true,
+                    sentByName: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+
+            if (!deduped) {
+                throw error;
+            }
+
+            return reply.send({ message: toPublicShareSendResponseMessage(deduped) });
+        }
+    });
+
+
+    app.post('/v1/public-share/:token/abort', {
+        config: {
+            rateLimit: {
+                max: 10,
+                timeWindow: '1 minute'
+            }
+        },
+        schema: {
+            params: z.object({
+                token: z.string()
+            }),
+            querystring: z.object({
+                consent: z.coerce.boolean().optional()
+            }).optional(),
+            body: publicShareAbortBodySchema
+        }
+    }, async (request, reply) => {
+        const { token } = request.params;
+        const { consent } = request.query || {};
+        const { params } = request.body;
+
+        let userId: string | null = null;
+        if (request.headers.authorization) {
+            try {
+                await app.authenticate(request, reply);
+                userId = request.userId;
+            } catch {
+                // Not authenticated, continue as anonymous
+            }
+        }
+
+        const result = await loadPublicShareForChat(token, consent, userId);
+        if (!result.ok) {
+            return reply.code(result.code).send(result.body);
+        }
+
+        try {
+            const rpcResult = await invokeUserRpc(
+                result.publicShare.session.accountId,
+                `${result.publicShare.sessionId}:abort`,
+                params,
+                10000,
+            );
+            return reply.send({ ok: true, result: rpcResult });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'RPC call failed';
+            const isTimeout = message.includes('timeout');
+            return reply.code(isTimeout ? 504 : 502).send({
+                ok: false,
+                error: message,
+            });
+        }
     });
 
     /**
