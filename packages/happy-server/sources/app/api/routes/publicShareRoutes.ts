@@ -11,6 +11,12 @@ import { createHash } from "crypto";
 import { decodeBase64 } from "privacy-kit";
 import { touchSession } from "@/app/session/sessionTouch";
 import { dispatchSessionMessage } from "@/app/session/sessionMessageDispatch";
+import { chatImageUpload } from "@/app/chat/chatImageUpload";
+import { s3bucket, s3client, getPublicUrl } from "@/storage/files";
+import { randomKey } from "@/utils/randomKey";
+import { buildPublicFileSharePath, sanitizePublicFileName } from "@/app/fileShare/publicFileShare";
+
+const PUBLIC_SHARE_FILE_MAX_BYTES = 100 * 1024 * 1024;
 
 const sendPublicShareMessageBodySchema = z.object({
     content: z.string().min(1),
@@ -35,6 +41,70 @@ function toPublicShareSendResponseMessage(message: {
         createdAt: message.createdAt.getTime(),
         updatedAt: message.updatedAt.getTime(),
     };
+}
+
+function contentDispositionAttachment(fileName: string): string {
+    const asciiFallback = fileName.replace(/[\\"\r\n]/g, '_').replace(/[^\x20-\x7e]/g, '_') || 'file';
+    return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
+async function loadPublicShareForChat(token: string, consent: boolean | undefined, userId: string | null) {
+    const tokenHash = createHash('sha256').update(token, 'utf8').digest();
+    const publicShare = await db.publicSessionShare.findUnique({
+        where: { tokenHash },
+        select: {
+            id: true,
+            sessionId: true,
+            expiresAt: true,
+            maxUses: true,
+            useCount: true,
+            isConsentRequired: true,
+            allowChat: true,
+            session: {
+                select: {
+                    accountId: true
+                }
+            },
+            blockedUsers: userId ? {
+                where: { userId },
+                select: { id: true }
+            } : undefined
+        }
+    });
+
+    if (!publicShare || (publicShare.expiresAt && publicShare.expiresAt < new Date())) {
+        return { ok: false as const, code: 404, body: { error: 'Public share not found or expired' } };
+    }
+    if (publicShare.maxUses && publicShare.useCount >= publicShare.maxUses) {
+        return { ok: false as const, code: 404, body: { error: 'Public share not found or expired' } };
+    }
+    if (userId && publicShare.blockedUsers && publicShare.blockedUsers.length > 0) {
+        return { ok: false as const, code: 404, body: { error: 'Public share not found or expired' } };
+    }
+    if (publicShare.isConsentRequired && !consent) {
+        const session = await db.session.findUnique({
+            where: { id: publicShare.sessionId },
+            select: {
+                account: {
+                    select: PROFILE_SELECT
+                }
+            }
+        });
+        return {
+            ok: false as const,
+            code: 403,
+            body: {
+                error: 'Consent required',
+                requiresConsent: true,
+                sessionId: publicShare.sessionId,
+                owner: session?.account ? toShareUserProfile(session.account) : null
+            }
+        };
+    }
+    if (!publicShare.allowChat) {
+        return { ok: false as const, code: 403, body: { error: 'Public share chat is disabled' } };
+    }
+    return { ok: true as const, publicShare };
 }
 
 /**
@@ -566,6 +636,144 @@ export function publicShareRoutes(app: Fastify) {
                 updatedAt: v.updatedAt.getTime()
             })),
             hasMore
+        });
+    });
+
+    app.post('/v1/public-share/:token/upload-image', {
+        config: {
+            rateLimit: {
+                max: 20,
+                timeWindow: '1 minute'
+            }
+        },
+        schema: {
+            params: z.object({
+                token: z.string()
+            }),
+            querystring: z.object({
+                consent: z.coerce.boolean().optional()
+            }).optional()
+        }
+    }, async (request, reply) => {
+        const { token } = request.params;
+        const { consent } = request.query || {};
+
+        let userId: string | null = null;
+        if (request.headers.authorization) {
+            try {
+                await app.authenticate(request, reply);
+                userId = request.userId;
+            } catch {
+                // Public share upload remains available to anonymous visitors.
+            }
+        }
+
+        const access = await loadPublicShareForChat(token, consent, userId);
+        if (!access.ok) {
+            return reply.code(access.code).send(access.body);
+        }
+
+        let fileBuffer: Buffer | null = null;
+        let fileMimeType: string | null = null;
+        for await (const part of request.parts()) {
+            if (part.type === 'file' && part.fieldname === 'file') {
+                fileBuffer = await part.toBuffer();
+                fileMimeType = part.mimetype;
+            }
+        }
+
+        if (!fileBuffer) {
+            return reply.status(400).send({ error: 'No file uploaded' });
+        }
+
+        const mimeType = fileMimeType || 'image/jpeg';
+        if (mimeType !== 'image/jpeg' && mimeType !== 'image/png') {
+            return reply.status(400).send({ error: 'Only JPEG and PNG images are supported' });
+        }
+
+        const result = await chatImageUpload(
+            access.publicShare.session.accountId,
+            access.publicShare.sessionId,
+            fileBuffer,
+            mimeType,
+        );
+
+        return reply.send({
+            success: true,
+            data: result,
+        });
+    });
+
+    app.post('/v1/public-share/:token/upload-file', {
+        config: {
+            rateLimit: {
+                max: 10,
+                timeWindow: '1 minute'
+            }
+        },
+        schema: {
+            params: z.object({
+                token: z.string()
+            }),
+            querystring: z.object({
+                consent: z.coerce.boolean().optional()
+            }).optional()
+        }
+    }, async (request, reply) => {
+        const { token } = request.params;
+        const { consent } = request.query || {};
+
+        let userId: string | null = null;
+        if (request.headers.authorization) {
+            try {
+                await app.authenticate(request, reply);
+                userId = request.userId;
+            } catch {
+                // Public share upload remains available to anonymous visitors.
+            }
+        }
+
+        const access = await loadPublicShareForChat(token, consent, userId);
+        if (!access.ok) {
+            return reply.code(access.code).send(access.body);
+        }
+
+        let fileBuffer: Buffer | null = null;
+        let fileMimeType = 'application/octet-stream';
+        let fileName = 'file';
+        for await (const part of request.parts()) {
+            if (part.type === 'file' && part.fieldname === 'file') {
+                fileBuffer = await part.toBuffer();
+                fileMimeType = part.mimetype || fileMimeType;
+                fileName = sanitizePublicFileName(part.filename || fileName);
+            } else if (part.type === 'field' && part.fieldname === 'fileName' && typeof part.value === 'string') {
+                fileName = sanitizePublicFileName(part.value);
+            }
+        }
+
+        if (!fileBuffer) {
+            return reply.status(400).send({ error: 'No file uploaded' });
+        }
+        if (fileBuffer.length > PUBLIC_SHARE_FILE_MAX_BYTES) {
+            return reply.status(413).send({ error: 'File exceeds 100MB limit' });
+        }
+
+        const shareKey = randomKey('file', 20);
+        const objectPath = buildPublicFileSharePath(access.publicShare.session.accountId, shareKey, fileName);
+        await s3client.putObject(s3bucket, objectPath, fileBuffer, fileBuffer.length, {
+            'Content-Type': fileMimeType,
+            'Content-Disposition': contentDispositionAttachment(fileName),
+        });
+
+        return reply.send({
+            success: true,
+            data: {
+                url: getPublicUrl(objectPath),
+                path: objectPath,
+                fileName,
+                mimeType: fileMimeType,
+                size: fileBuffer.length,
+            },
         });
     });
 

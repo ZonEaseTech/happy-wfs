@@ -61,6 +61,23 @@ describe('desktop layout adjustments', () => {
         expect(api).toContain('hasMore: data.hasMore ?? false');
     });
 
+    it('allows public share visitors to send text, images, and files without duplicate taps', () => {
+        const page = read('app/(app)/share/[token].tsx');
+        expect(page).toContain('ImagePreview');
+        expect(page).toContain('FileAttachmentPreview');
+        expect(page).toContain('sendInFlightRef');
+        expect(page).toContain('images.length > 0 || fileAttachments.length > 0');
+        expect(page).toContain('styles.inputShell');
+        expect(page).toContain('maxWidth: 760');
+        expect(page).toContain('handleFileInputChange');
+
+        const hook = read('hooks/usePublicShareSession.ts');
+        expect(hook).toContain('uploadPublicShareImage');
+        expect(hook).toContain('uploadPublicShareFile');
+        expect(hook).toContain('buildPublicShareUploadedFilesText');
+        expect(hook).toContain('sendInFlightRef');
+    });
+
 
     it('does not show a false failure alert when pending send-now abort is already unavailable', () => {
         const source = read('-session/SessionView.tsx');

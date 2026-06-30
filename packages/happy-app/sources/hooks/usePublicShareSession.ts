@@ -12,8 +12,15 @@ import { PublicShareNotFoundError, ConsentRequiredError, ShareUserProfile } from
 import { Message } from '@/sync/typesMessage';
 import { Metadata, MetadataSchema } from '@/sync/storageTypes';
 import { randomUUID } from 'expo-crypto';
+import type { LocalImage } from '@/components/ImagePreview';
+import type { LocalFileAttachment } from '@/utils/fileAttachments';
+import { buildPublicShareUploadedFilesText, uploadPublicShareFile, uploadPublicShareImage } from '@/sync/uploadPublicShareAttachment';
 
 export type PublicShareState = 'loading' | 'loaded' | 'error' | 'consent-required' | 'not-found';
+export type PublicShareSendAttachments = {
+    images?: LocalImage[];
+    fileAttachments?: LocalFileAttachment[];
+};
 
 function minSeq(page: PublicShareMessagePage): number | null {
     if (page.messages.length === 0) {
@@ -59,6 +66,7 @@ export function usePublicShareSession(token: string) {
     const decryptorRef = useRef<AES256Encryption | null>(null);
     const oldestSeqRef = useRef<number | null>(null);
     const loadMoreInFlightRef = useRef(false);
+    const sendInFlightRef = useRef(false);
 
     const load = useCallback(async (withConsent: boolean) => {
         try {
@@ -211,33 +219,50 @@ export function usePublicShareSession(token: string) {
         return () => clearInterval(id);
     }, [allowChat, refreshMessages, state]);
 
-    const sendMessage = useCallback(async (text: string): Promise<boolean> => {
+    const sendMessage = useCallback(async (text: string, attachments: PublicShareSendAttachments = {}): Promise<boolean> => {
         const trimmed = text.trim();
         const decryptor = decryptorRef.current;
-        if (!trimmed || !allowChat || !decryptor) {
+        const images = attachments.images ?? [];
+        const fileAttachments = attachments.fileAttachments ?? [];
+        if ((!trimmed && images.length === 0 && fileAttachments.length === 0) || !allowChat || !decryptor || sendInFlightRef.current) {
             return false;
         }
 
         const localId = randomUUID();
-        const rawRecord: RawRecord = {
-            role: 'user',
-            content: {
-                type: 'text',
-                text: trimmed,
-            },
-            meta: {
-                sentFrom: 'public-share',
-                permissionMode: 'default',
-            },
-        };
-
+        sendInFlightRef.current = true;
         setIsSending(true);
         try {
+            const serverUrl = getServerUrl();
+            const consent = consentRef.current || undefined;
+            const uploadedFiles = fileAttachments.length > 0
+                ? await Promise.all(fileAttachments.map(file => uploadPublicShareFile(serverUrl, token, file, consent)))
+                : [];
+            const finalText = `${trimmed}${buildPublicShareUploadedFilesText(uploadedFiles)}`.trim();
+            const uploadedImages = images.length > 0
+                ? await Promise.all(images.map(image => uploadPublicShareImage(serverUrl, token, image, consent)))
+                : [];
+            const rawRecord: RawRecord = {
+                role: 'user',
+                content: uploadedImages.length > 0
+                    ? {
+                        type: 'mixed',
+                        text: finalText,
+                        images: uploadedImages,
+                    }
+                    : {
+                        type: 'text',
+                        text: finalText,
+                    },
+                meta: {
+                    sentFrom: 'public-share',
+                    permissionMode: 'default',
+                },
+            };
             const [encrypted] = await decryptor.encrypt([rawRecord]);
-            const sent = await sendPublicShareMessage(getServerUrl(), token, {
+            const sent = await sendPublicShareMessage(serverUrl, token, {
                 content: encodeBase64(encrypted, 'base64'),
                 localId,
-                consent: consentRef.current || undefined,
+                consent,
             });
 
             const sentMessage: Message = {
@@ -246,7 +271,8 @@ export function usePublicShareSession(token: string) {
                 localId: sent.localId ?? localId,
                 createdAt: sent.createdAt,
                 seq: sent.seq,
-                text: trimmed,
+                text: finalText,
+                ...(uploadedImages.length > 0 ? { images: uploadedImages } : {}),
                 meta: rawRecord.meta,
                 sentBy: null,
                 sentByName: sent.sentByName,
@@ -269,9 +295,12 @@ export function usePublicShareSession(token: string) {
             } else if (e instanceof ConsentRequiredError) {
                 setOwner(e.owner);
                 setState('consent-required');
+            } else {
+                console.warn('[PublicShare] failed to send message:', e);
             }
             return false;
         } finally {
+            sendInFlightRef.current = false;
             setIsSending(false);
         }
     }, [allowChat, refreshMessages, token]);
