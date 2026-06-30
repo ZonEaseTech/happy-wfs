@@ -18,6 +18,7 @@ import type { LocalFileAttachment } from '@/utils/fileAttachments';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { AgentInput } from '@/components/AgentInput';
+import { createPublicShareStaleTextSubmitGuard } from '@/hooks/publicShareSendDedupe';
 
 function getOwnerDisplayName(owner: { username: string | null; firstName: string | null; lastName: string | null }): string {
     return owner.username
@@ -103,19 +104,37 @@ function PublicShareAgentInput({
     const [pickerVisible, setPickerVisible] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const sendInFlightRef = useRef(false);
+    const latestTextRef = useRef('');
+    const staleTextSubmitGuardRef = useRef(createPublicShareStaleTextSubmitGuard());
+
+    const handleTextChange = useCallback((value: string) => {
+        latestTextRef.current = value;
+        if (value.trim()) {
+            staleTextSubmitGuardRef.current.clear();
+        }
+        setText(value);
+    }, []);
 
     const handleSend = useCallback(async (textSnapshot?: string) => {
-        const next = (textSnapshot ?? text).trim();
+        const currentText = latestTextRef.current;
+        const next = (textSnapshot ?? currentText).trim();
         if ((!next && images.length === 0 && fileAttachments.length === 0) || disabled || sendInFlightRef.current) return;
+        const draftIsEmpty = currentText.trim().length === 0 && images.length === 0 && fileAttachments.length === 0;
+        if (staleTextSubmitGuardRef.current.shouldBlock(next, draftIsEmpty)) return;
+
         const imagesSnapshot = images;
         const fileAttachmentsSnapshot = fileAttachments;
         sendInFlightRef.current = true;
+        staleTextSubmitGuardRef.current.markSubmitted(next);
+        latestTextRef.current = '';
         setText('');
         clearImages();
         clearFileAttachments();
         try {
             const sent = await onSend(next, { images: imagesSnapshot, fileAttachments: fileAttachmentsSnapshot });
             if (!sent) {
+                staleTextSubmitGuardRef.current.clear();
+                latestTextRef.current = next;
                 setText(next);
                 initImages(imagesSnapshot);
                 setFileAttachments(fileAttachmentsSnapshot);
@@ -123,7 +142,7 @@ function PublicShareAgentInput({
         } finally {
             sendInFlightRef.current = false;
         }
-    }, [clearFileAttachments, clearImages, disabled, fileAttachments, images, initImages, onSend, setFileAttachments, text]);
+    }, [clearFileAttachments, clearImages, disabled, fileAttachments, images, initImages, onSend, setFileAttachments]);
 
     const pickerItems: ActionMenuItem[] = useMemo(() => [
         { label: t('session.takePhoto'), onPress: pickFromCamera },
@@ -176,7 +195,7 @@ function PublicShareAgentInput({
             <AgentInput
                 value={text}
                 placeholder={t('session.sharing.publicChatPlaceholder')}
-                onChangeText={setText}
+                onChangeText={handleTextChange}
                 onSend={handleSend}
                 autocompletePrefixes={[]}
                 autocompleteSuggestions={autocompleteSuggestions}

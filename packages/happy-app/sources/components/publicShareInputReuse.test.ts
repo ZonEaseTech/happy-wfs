@@ -21,4 +21,12 @@ describe('public share input', () => {
         expect(inputSource).toContain('props.onAbort && props.showAbortButton');
         expect(inputSource).toContain('name="stop-circle-outline"');
     });
+
+    it('guards against stale shared input snapshots after sending', () => {
+        const source = readFileSync(join(process.cwd(), 'sources/app/(app)/share/[token].tsx'), 'utf8');
+
+        expect(source).toContain('createPublicShareStaleTextSubmitGuard');
+        expect(source).toContain('staleTextSubmitGuardRef.current.shouldBlock');
+        expect(source).toContain('latestTextRef.current = \'\';');
+    });
 });

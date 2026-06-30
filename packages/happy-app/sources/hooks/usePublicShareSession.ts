@@ -14,7 +14,7 @@ import { Metadata, MetadataSchema } from '@/sync/storageTypes';
 import type { LocalImage } from '@/components/ImagePreview';
 import type { LocalFileAttachment } from '@/utils/fileAttachments';
 import { buildPublicShareUploadedFilesText, uploadPublicShareFile, uploadPublicShareImage } from '@/sync/uploadPublicShareAttachment';
-import { buildPublicShareSendSignature, createPublicShareLocalIdCache, createPublicShareSendDeduper } from './publicShareSendDedupe';
+import { buildPublicShareSendSignature, createPublicShareLocalIdCache, createPublicShareSendDeduper, dedupePublicShareMessagesForDisplay } from './publicShareSendDedupe';
 
 export type PublicShareState = 'loading' | 'loaded' | 'error' | 'consent-required' | 'not-found';
 export type PublicShareSendAttachments = {
@@ -49,7 +49,11 @@ async function decryptMessagePage(page: PublicShareMessagePage, decryptor: AES25
 
     const result = reducer(createReducer(), normalizedMessages);
     result.messages.sort((a, b) => b.createdAt - a.createdAt);
-    return result.messages;
+    return dedupePublicShareMessagesForDisplay(result.messages);
+}
+
+function mergePublicShareMessages(current: Message[], incoming: Message[]): Message[] {
+    return dedupePublicShareMessagesForDisplay([...current, ...incoming]);
 }
 
 export function usePublicShareSession(token: string) {
@@ -156,12 +160,7 @@ export function usePublicShareSession(token: string) {
 
             const olderMessages = await decryptMessagePage(page, decryptorRef.current);
             if (olderMessages.length > 0) {
-                setMessages((current) => {
-                    const byId = new Map<string, Message>();
-                    for (const message of current) byId.set(message.id, message);
-                    for (const message of olderMessages) byId.set(message.id, message);
-                    return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
-                });
+                setMessages((current) => mergePublicShareMessages(current, olderMessages));
             }
         } catch {
             // Public share pages are read-only: keep currently loaded messages and allow retry on next scroll.
@@ -199,12 +198,7 @@ export function usePublicShareSession(token: string) {
             setHasMore(true);
         }
         if (latestMessages.length > 0) {
-            setMessages((current) => {
-                const byId = new Map<string, Message>();
-                for (const message of current) byId.set(message.id, message);
-                for (const message of latestMessages) byId.set(message.id, message);
-                return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
-            });
+            setMessages((current) => mergePublicShareMessages(current, latestMessages));
         }
     }, [token]);
 
@@ -284,12 +278,7 @@ export function usePublicShareSession(token: string) {
                 sentBy: null,
                 sentByName: sent.sentByName,
             };
-            setMessages((current) => {
-                const byId = new Map<string, Message>();
-                for (const message of current) byId.set(message.id, message);
-                byId.set(sentMessage.id, sentMessage);
-                return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
-            });
+            setMessages((current) => mergePublicShareMessages(current, [sentMessage]));
             setTimeout(() => {
                 refreshMessages().catch(() => {
                     // Best-effort refresh for the public chat view.

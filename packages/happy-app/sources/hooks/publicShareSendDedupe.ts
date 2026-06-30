@@ -1,3 +1,5 @@
+import type { Message } from '@/sync/typesMessage';
+
 export interface PublicShareAttachmentSignatureInput {
     name?: string | null;
     size?: number | null;
@@ -98,4 +100,82 @@ export function createPublicShareLocalIdCache(
             localIdsBySignature.delete(signature);
         },
     };
+}
+
+export function createPublicShareStaleTextSubmitGuard() {
+    let lastSubmittedText: string | null = null;
+
+    return {
+        markSubmitted(text: string): void {
+            const trimmed = text.trim();
+            lastSubmittedText = trimmed.length > 0 ? trimmed : null;
+        },
+        shouldBlock(text: string, draftIsEmpty: boolean): boolean {
+            const trimmed = text.trim();
+            return draftIsEmpty && trimmed.length > 0 && lastSubmittedText === trimmed;
+        },
+        clear(): void {
+            lastSubmittedText = null;
+        },
+    };
+}
+
+function publicShareMessageDuplicateKey(message: Message): string | null {
+    if (message.kind !== 'user-text') {
+        return null;
+    }
+    if (message.meta?.sentFrom !== 'public-share') {
+        return null;
+    }
+
+    const text = message.text.trim();
+    const images = (message.images ?? [])
+        .map(image => [
+            image.url ?? '',
+            image.mimeType ?? '',
+            image.width ?? '',
+            image.height ?? '',
+        ].join(':'))
+        .join('|');
+
+    return [
+        message.sentByName ?? '',
+        text,
+        images,
+    ].join('\u001f');
+}
+
+export function dedupePublicShareMessagesForDisplay(messages: Message[], duplicateWindowMs = 30_000): Message[] {
+    const result: Message[] = [];
+    const seenIds = new Set<string>();
+    const seenLocalIds = new Set<string>();
+    const keptAtByDuplicateKey = new Map<string, number>();
+
+    for (const message of [...messages].sort((a, b) => b.createdAt - a.createdAt)) {
+        if (seenIds.has(message.id)) {
+            continue;
+        }
+        seenIds.add(message.id);
+
+        const localId = 'localId' in message ? message.localId : null;
+        if (localId) {
+            if (seenLocalIds.has(localId)) {
+                continue;
+            }
+            seenLocalIds.add(localId);
+        }
+
+        const duplicateKey = publicShareMessageDuplicateKey(message);
+        if (duplicateKey) {
+            const keptAt = keptAtByDuplicateKey.get(duplicateKey);
+            if (keptAt !== undefined && Math.abs(keptAt - message.createdAt) <= duplicateWindowMs) {
+                continue;
+            }
+            keptAtByDuplicateKey.set(duplicateKey, message.createdAt);
+        }
+
+        result.push(message);
+    }
+
+    return result.sort((a, b) => b.createdAt - a.createdAt);
 }
