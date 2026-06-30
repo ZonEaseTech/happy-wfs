@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import { View, FlatList, ActivityIndicator, Pressable, TextInput, Platform } from 'react-native';
+import { View, FlatList, ActivityIndicator, Pressable, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
@@ -13,12 +13,11 @@ import { usePublicShareSession } from '@/hooks/usePublicShareSession';
 import { Message } from '@/sync/typesMessage';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useFileAttachments } from '@/hooks/useFileAttachments';
-import { ImagePreview } from '@/components/ImagePreview';
 import type { LocalImage } from '@/components/ImagePreview';
-import { FileAttachmentPreview } from '@/components/FileAttachmentPreview';
 import type { LocalFileAttachment } from '@/utils/fileAttachments';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
+import { AgentInput } from '@/components/AgentInput';
 
 function getOwnerDisplayName(owner: { username: string | null; firstName: string | null; lastName: string | null }): string {
     return owner.username
@@ -69,7 +68,7 @@ function ShareHeader({ owner }: { owner: { username: string | null; firstName: s
     );
 }
 
-function PublicChatInput({
+function PublicShareAgentInput({
     disabled,
     onSend,
 }: {
@@ -86,8 +85,8 @@ function PublicChatInput({
         pickFromGallery,
         pickFromCamera,
         addImageFromUri,
-        removeImage,
         clearImages,
+        initImages,
         canAddMore,
     } = useImagePicker({ maxImages: 4 });
     const {
@@ -101,8 +100,8 @@ function PublicChatInput({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const sendInFlightRef = useRef(false);
 
-    const handleSend = useCallback(async () => {
-        const next = text.trim();
+    const handleSend = useCallback(async (textSnapshot?: string) => {
+        const next = (textSnapshot ?? text).trim();
         if ((!next && images.length === 0 && fileAttachments.length === 0) || disabled || sendInFlightRef.current) return;
         sendInFlightRef.current = true;
         try {
@@ -117,6 +116,32 @@ function PublicChatInput({
         }
     }, [clearFileAttachments, clearImages, disabled, fileAttachments, images, onSend, text]);
 
+    const pickerItems: ActionMenuItem[] = useMemo(() => [
+        { label: t('session.takePhoto'), onPress: pickFromCamera },
+        { label: t('session.chooseFromLibrary'), onPress: pickFromGallery },
+        { label: t('dootask.chooseFromFile'), onPress: pickFiles },
+    ], [pickFiles, pickFromCamera, pickFromGallery]);
+
+    const addPickedFiles = useCallback((files: File[]) => {
+        let remainingImageSlots = canAddMore ? Math.max(0, 4 - images.length) : 0;
+        files.forEach(file => {
+            if (file.type.startsWith('image/') && remainingImageSlots > 0) {
+                remainingImageSlots -= 1;
+                const url = URL.createObjectURL(file);
+                void addImageFromUri(url, file.type);
+            } else {
+                void addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
+            }
+        });
+    }, [addFiles, addImageFromUri, canAddMore, images.length]);
+
+    const handleFileInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+        addPickedFiles(Array.from(files));
+        event.target.value = '';
+    }, [addPickedFiles]);
+
     const handleAttachmentPress = useCallback(() => {
         if (Platform.OS === 'web') {
             fileInputRef.current?.click();
@@ -125,29 +150,7 @@ function PublicChatInput({
         }
     }, []);
 
-    const pickerItems: ActionMenuItem[] = useMemo(() => [
-        { label: t('session.takePhoto'), onPress: pickFromCamera },
-        { label: t('session.chooseFromLibrary'), onPress: pickFromGallery },
-        { label: t('dootask.chooseFromFile'), onPress: pickFiles },
-    ], [pickFiles, pickFromCamera, pickFromGallery]);
-
-    const handleFileInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (!files || files.length === 0) return;
-
-        Array.from(files).forEach(file => {
-            if (file.type.startsWith('image/') && canAddMore) {
-                const url = URL.createObjectURL(file);
-                void addImageFromUri(url, file.type);
-            } else {
-                void addFiles([{ blob: file, name: file.name, size: file.size, mimeType: file.type }]);
-            }
-        });
-
-        event.target.value = '';
-    }, [addFiles, addImageFromUri, canAddMore]);
-
-    const canSend = (text.trim().length > 0 || images.length > 0 || fileAttachments.length > 0) && !disabled;
+    const autocompleteSuggestions = useCallback(async () => [], []);
 
     return (
         <View style={[styles.inputBar, { borderTopColor: theme.colors.divider, backgroundColor: theme.colors.surface }]}>
@@ -161,66 +164,33 @@ function PublicChatInput({
                     onChange={handleFileInputChange as any}
                 />
             )}
-            <View style={[styles.inputShell, { backgroundColor: theme.colors.surfaceHigh }]}>
-                <ImagePreview
-                    images={images}
-                    onRemove={removeImage}
-                    disabled={disabled}
+            <AgentInput
+                value={text}
+                placeholder={t('session.sharing.publicChatPlaceholder')}
+                onChangeText={setText}
+                onSend={handleSend}
+                autocompletePrefixes={[]}
+                autocompleteSuggestions={autocompleteSuggestions}
+                images={images}
+                onImagesChange={initImages}
+                fileAttachments={fileAttachments}
+                onFileAttachmentsChange={setFileAttachments}
+                onImageButtonPress={handleAttachmentPress}
+                supportsImages
+                onImageDrop={addPickedFiles}
+                isSending={disabled}
+                isSendDisabled={disabled}
+                hidePermissionSettings
+                minHeight={52}
+            />
+            {Platform.OS !== 'web' && (
+                <ActionMenuModal
+                    visible={pickerVisible}
+                    items={pickerItems}
+                    onClose={() => setPickerVisible(false)}
+                    deferItemPress
                 />
-                <FileAttachmentPreview
-                    attachments={fileAttachments}
-                    disabled={disabled}
-                    onRemove={(index) => setFileAttachments(fileAttachments.filter((_, i) => i !== index))}
-                />
-                <View style={styles.inputRow}>
-                    <Pressable
-                        onPress={handleAttachmentPress}
-                        disabled={disabled}
-                        style={styles.attachmentButton}
-                    >
-                        <Ionicons
-                            name="add-circle-outline"
-                            size={24}
-                            color={theme.colors.textSecondary}
-                        />
-                    </Pressable>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text }, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
-                        placeholder={t('session.sharing.publicChatPlaceholder')}
-                        placeholderTextColor={theme.colors.textSecondary}
-                        value={text}
-                        onChangeText={setText}
-                        multiline
-                        editable={!disabled}
-                    />
-                    <Pressable
-                        onPress={handleSend}
-                        disabled={!canSend}
-                        style={[
-                            styles.sendButton,
-                            { backgroundColor: canSend ? theme.colors.button.primary.background : theme.colors.surface },
-                        ]}
-                    >
-                        {disabled ? (
-                            <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-                        ) : (
-                            <Ionicons
-                                name="arrow-up"
-                                size={22}
-                                color={canSend ? theme.colors.button.primary.tint : theme.colors.textSecondary}
-                            />
-                        )}
-                    </Pressable>
-                </View>
-                {Platform.OS !== 'web' && (
-                    <ActionMenuModal
-                        visible={pickerVisible}
-                        items={pickerItems}
-                        onClose={() => setPickerVisible(false)}
-                        deferItemPress
-                    />
-                )}
-            </View>
+            )}
         </View>
     );
 }
@@ -334,7 +304,7 @@ export default memo(function PublicShareScreen() {
                 )}
             </View>
             {allowChat && (
-                <PublicChatInput disabled={isSending} onSend={sendMessage} />
+                <PublicShareAgentInput disabled={isSending} onSend={sendMessage} />
             )}
         </View>
     );
@@ -437,45 +407,5 @@ const styles = StyleSheet.create((theme) => ({
     },
     inputBar: {
         borderTopWidth: 0.5,
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-    },
-    inputShell: {
-        width: '100%',
-        maxWidth: 760,
-        borderRadius: 24,
-        overflow: 'hidden',
-    },
-    inputRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-    },
-    attachmentButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    input: {
-        ...Typography.default(),
-        flex: 1,
-        minHeight: 40,
-        maxHeight: 120,
-        paddingHorizontal: 4,
-        paddingVertical: 10,
-        fontSize: 16,
-        textAlignVertical: 'top',
-    },
-    sendButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
 }));

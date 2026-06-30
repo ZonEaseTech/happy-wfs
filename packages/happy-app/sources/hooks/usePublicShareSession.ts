@@ -15,6 +15,7 @@ import { randomUUID } from 'expo-crypto';
 import type { LocalImage } from '@/components/ImagePreview';
 import type { LocalFileAttachment } from '@/utils/fileAttachments';
 import { buildPublicShareUploadedFilesText, uploadPublicShareFile, uploadPublicShareImage } from '@/sync/uploadPublicShareAttachment';
+import { buildPublicShareSendSignature, createPublicShareSendDeduper } from './publicShareSendDedupe';
 
 export type PublicShareState = 'loading' | 'loaded' | 'error' | 'consent-required' | 'not-found';
 export type PublicShareSendAttachments = {
@@ -67,6 +68,7 @@ export function usePublicShareSession(token: string) {
     const oldestSeqRef = useRef<number | null>(null);
     const loadMoreInFlightRef = useRef(false);
     const sendInFlightRef = useRef(false);
+    const sendDeduperRef = useRef(createPublicShareSendDeduper(2000));
 
     const load = useCallback(async (withConsent: boolean) => {
         try {
@@ -228,6 +230,11 @@ export function usePublicShareSession(token: string) {
             return false;
         }
 
+        const sendSignature = buildPublicShareSendSignature(trimmed, images, fileAttachments);
+        if (!sendDeduperRef.current.shouldSend(sendSignature)) {
+            return false;
+        }
+
         const localId = randomUUID();
         sendInFlightRef.current = true;
         setIsSending(true);
@@ -298,6 +305,7 @@ export function usePublicShareSession(token: string) {
             } else {
                 console.warn('[PublicShare] failed to send message:', e);
             }
+            sendDeduperRef.current.forget(sendSignature);
             return false;
         } finally {
             sendInFlightRef.current = false;

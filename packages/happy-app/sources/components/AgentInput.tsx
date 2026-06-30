@@ -665,7 +665,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         selection: { start: 0, end: 0 }
     });
     const hasFileAttachments = (props.fileAttachments?.length ?? 0) > 0;
-    const hasText = inputState.text.trim().length > 0 || props.value.trim().length > 0 || hasFileAttachments;
+    const hasImageAttachments = (props.images?.length ?? 0) > 0;
+    const hasText = inputState.text.trim().length > 0 || props.value.trim().length > 0 || hasFileAttachments || hasImageAttachments;
 
     // Keep a latest text snapshot to avoid stale parent-state reads during fast click-after-type sends.
     const latestTextRef = React.useRef(props.value);
@@ -748,7 +749,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         }
         const textSnapshot = resolveSendSnapshot();
         log.log(`[SEND_DEBUG][INPUT] press hasText=${hasText} latestLen=${latestTextRef.current.trim().length} stateLen=${inputState.text.trim().length} propLen=${props.value.trim().length} pickedLen=${textSnapshot.trim().length} mic=${props.onMicPress ? 'yes' : 'no'} disabled=${props.isSendDisabled || props.isSending ? 'yes' : 'no'}`);
-        if (textSnapshot.trim() || hasFileAttachments) {
+        if (textSnapshot.trim() || hasFileAttachments || hasImageAttachments) {
             hapticsLight();
             props.onSend(textSnapshot);
             return;
@@ -757,7 +758,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             hapticsLight();
             props.onMicPress();
         }
-    }, [hasFileAttachments, hasText, inputState.text, props.isSendDisabled, props.isSending, props.onMicPress, props.onSend, props.value, resolveSendSnapshot]);
+    }, [hasFileAttachments, hasImageAttachments, hasText, inputState.text, props.isSendDisabled, props.isSending, props.onMicPress, props.onSend, props.value, resolveSendSnapshot]);
 
     const handleSendPressIn = React.useCallback(() => {
         if (!isCompactWeb) {
