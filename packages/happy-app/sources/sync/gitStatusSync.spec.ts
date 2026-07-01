@@ -57,11 +57,12 @@ function makeSession(machineId = MACHINE, path = PROJECT_PATH) {
 }
 
 /** Build a successful combined-command stdout that `fetchGitStatusForProject` expects. */
-function makeGitOutput() {
+function makeGitOutput(
+    status = '# branch.oid abc123\n# branch.head main',
+    diff = '',
+    cachedDiff = '',
+) {
     const revParse = 'true';
-    const status = '# branch.oid abc123\n# branch.head main';
-    const diff = '';
-    const cachedDiff = '';
     return [revParse, status, diff, cachedDiff].join(DELIM);
 }
 
@@ -240,6 +241,75 @@ describe('GitStatusSync', () => {
             // After cooldown, no fetch should fire.
             await vi.advanceTimersByTimeAsync(3_100);
             expect(sessionBash).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('non-git workspace folders', () => {
+        it('aggregates child repo status when the session cwd is not a git repository', async () => {
+            const sid = 'session-1';
+            const session = makeSession(MACHINE, '/workspace');
+            const applyGitStatus = vi.fn();
+            vi.mocked(getSession).mockImplementation((id) => (id === sid ? session as any : null));
+            vi.mocked(storage.getState).mockReturnValue({
+                sessions: { [sid]: session },
+                sharedSessions: {},
+                applyGitStatus,
+            } as any);
+
+            vi.mocked(sessionBash)
+                .mockResolvedValueOnce({
+                    success: false,
+                    exitCode: 128,
+                    stdout: '',
+                    stderr: 'fatal: not a git repository (or any of the parent directories): .git',
+                })
+                .mockResolvedValueOnce({
+                    success: true,
+                    exitCode: 0,
+                    stdout: '/workspace/ttpos-flutter/.git\n/workspace/ttpos-server-go/.git\n',
+                    stderr: '',
+                })
+                .mockResolvedValueOnce({
+                    success: true,
+                    exitCode: 0,
+                    stdout: makeGitOutput(
+                        '# branch.oid abc123\n# branch.head main\n1 .M N... 100644 100644 100644 abc123 abc123 src/file.ts',
+                        '2\t1\tsrc/file.ts',
+                    ),
+                    stderr: '',
+                })
+                .mockResolvedValueOnce({
+                    success: true,
+                    exitCode: 0,
+                    stdout: makeGitOutput(
+                        '# branch.oid def456\n# branch.head feature/work\n? new-file.ts',
+                    ),
+                    stderr: '',
+                });
+
+            sync.invalidate(sid);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(sessionBash).toHaveBeenCalledTimes(4);
+            expect(sessionBash).toHaveBeenNthCalledWith(
+                2,
+                sid,
+                expect.objectContaining({
+                    command: expect.stringContaining('-maxdepth 2'),
+                }),
+            );
+            expect(applyGitStatus).toHaveBeenCalledWith(
+                sid,
+                expect.objectContaining({
+                    isDirty: true,
+                    modifiedCount: 1,
+                    untrackedCount: 1,
+                    unstagedLinesAdded: 2,
+                    unstagedLinesRemoved: 1,
+                    linesAdded: 2,
+                    linesRemoved: 1,
+                }),
+            );
         });
     });
 });

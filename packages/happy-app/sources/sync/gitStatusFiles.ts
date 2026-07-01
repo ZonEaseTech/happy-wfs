@@ -208,7 +208,7 @@ export interface NearbyGitRepo {
  *
  * 6 个决策点（在 TODO 里实现你想要的策略）：
  *   1) 命令：推荐 find <cwd> -maxdepth N -name .git -print -prune
- *   2) 深度 N：1=直接子目录；2=能命中 我的/happy-ai；3+ 容易扫到 vendor/node_modules
+ *   2) 深度 N：2=只命中直接子目录里的 .git；3+ 会扫到孙级 repo
  *   3) 过滤：必排 /node_modules/ 与 /.git/（防止递归进 .git 内部）
  *   4) 超时：5000ms 起步，避免慢盘阻塞 UI
  *   5) 排序：字母序 vs 按 .git/HEAD 修改时间倒序（活跃优先）
@@ -223,7 +223,7 @@ export async function findNearbyGitRepos(
     // Git worktrees store `.git` as a file, not a directory. Do not filter by
     // `-type d`, otherwise a multi-repo worktree workspace whose metadata was
     // stripped cannot recover by scanning its child repos.
-    const cmd = `find ${shellEscape(cwd)} -maxdepth 3 \\( -name node_modules -o -name .cache -o -name vendor \\) -prune -o \\( -name .git -print -prune \\) 2>/dev/null`;
+    const cmd = `find ${shellEscape(cwd)} -maxdepth 2 \\( -name node_modules -o -name .cache -o -name vendor \\) -prune -o \\( -name .git -print -prune \\) 2>/dev/null`;
     const result = await sessionBash(sessionId, {
         command: cmd,
         cwd,

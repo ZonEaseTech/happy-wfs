@@ -455,6 +455,22 @@ export class GitStatusSync {
 
                 if (!result.success || result.exitCode !== 0) {
                     if (this.isNotGitRepositoryResult(result)) {
+                        const autoWorkspaceRepos = await this.findChildWorkspaceRepos(targetSessionId, metadata.path);
+                        if (autoWorkspaceRepos.length > 0) {
+                            const aggregated = await this.fetchMultiRepoGitStatus(targetSessionId, autoWorkspaceRepos);
+                            if (aggregated === 'retry') {
+                                this.scheduleRetry(projectKey);
+                                return;
+                            }
+                            storage.getState().applyGitStatus(targetSessionId, aggregated);
+                            this.markGitFetchSucceeded(projectKey);
+                            this.clearRetryState(projectKey);
+                            if (metadata.machineId) {
+                                const targetProjectKey = createProjectKey(metadata.machineId, metadata.path);
+                                projectManager.updateProjectGitStatus(targetProjectKey, aggregated);
+                            }
+                            return;
+                        }
                         this.handleNotGitRepository(projectKey, targetSessionId, metadata);
                         return;
                     }
@@ -572,6 +588,48 @@ export class GitStatusSync {
             lastUpdatedAt: Date.now(),
         };
         return aggregated;
+    }
+
+    /**
+     * If the session cwd is a workspace folder rather than a repo root, detect
+     * child git repositories so composer-level badges can use the same
+     * multi-repo aggregate as the Files panel.
+     */
+    private async findChildWorkspaceRepos(
+        sessionId: string,
+        cwd: string,
+    ): Promise<WorkspaceRepo[]> {
+        const command = `find ${shellEscape(cwd)} -maxdepth 2 \\( -name node_modules -o -name .cache -o -name vendor \\) -prune -o \\( -name .git -print -prune \\) 2>/dev/null`;
+        const result = await sessionBash(sessionId, {
+            command,
+            cwd,
+            timeout: 5000,
+        });
+
+        if (!result.success || result.exitCode !== 0) {
+            return [];
+        }
+
+        const seen = new Set<string>();
+        const repos: WorkspaceRepo[] = [];
+        for (const line of result.stdout.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed.endsWith('/.git')) continue;
+
+            const path = trimmed.replace(/\/\.git$/, '');
+            if (path === cwd || seen.has(path)) continue;
+
+            seen.add(path);
+            repos.push({
+                path,
+                basePath: path,
+                branchName: '',
+                displayName: path.split('/').pop() || path,
+            });
+        }
+
+        repos.sort((a, b) => a.path.localeCompare(b.path));
+        return repos.slice(0, 20);
     }
 
     /**
