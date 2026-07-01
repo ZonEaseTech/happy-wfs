@@ -519,6 +519,7 @@ class EventRouter {
                 .filter((connection) => (
                     connection.connectionType === 'session-scoped'
                     && connection.sessionId === singleCliSessionId
+                    && connection.supportsMessageReceipt
                     && connection !== params.skipSenderConnection
                 ))
                 .at(-1)

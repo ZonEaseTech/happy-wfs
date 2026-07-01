@@ -53,4 +53,40 @@ describe('eventRouter session delivery', () => {
             }
         }
     });
+
+    it('does not route app-origin user messages to a session viewer instead of the CLI', async () => {
+        const { eventRouter } = await import('./eventRouter');
+        const userId = `user-${Date.now()}-${Math.random()}`;
+        const sessionId = 'session-viewer-after-cli';
+        const userSocket = socket();
+        const cliSocket = socket();
+        const viewerSocket = socket();
+
+        const connections: ClientConnection[] = [
+            { connectionType: 'user-scoped', userId, socket: userSocket },
+            { connectionType: 'session-scoped', userId, sessionId, socket: cliSocket, supportsMessageReceipt: true },
+            { connectionType: 'session-scoped', userId, sessionId, socket: viewerSocket, supportsMessageReceipt: false },
+        ];
+
+        for (const connection of connections) {
+            eventRouter.addConnection(userId, connection);
+        }
+
+        try {
+            const stats = eventRouter.emitUpdate({
+                userId,
+                payload: { id: 'u1', seq: 1, body: { t: 'new-message' }, createdAt: 1 },
+                recipientFilter: { type: 'all-interested-in-session-single-cli', sessionId },
+            });
+
+            expect(stats).toEqual({ total: 2, sessionScoped: 1 });
+            expect(userSocket.emit).toHaveBeenCalledTimes(1);
+            expect(cliSocket.emit).toHaveBeenCalledTimes(1);
+            expect(viewerSocket.emit).not.toHaveBeenCalled();
+        } finally {
+            for (const connection of connections) {
+                eventRouter.removeConnection(userId, connection);
+            }
+        }
+    });
 });
