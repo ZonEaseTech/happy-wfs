@@ -843,7 +843,15 @@ function normalizeSessionEnvelope(
     return null;
 }
 
-export function normalizeRawMessage(id: string, localId: string | null, createdAt: number, raw: RawRecord): NormalizedMessage | null {
+export function normalizeRawMessage(id: string, localId: string | null, createdAt: number, raw: RawRecord, seq?: number | null): NormalizedMessage | null {
+    const normalized = normalizeRawMessageWithoutSeq(id, localId, createdAt, raw);
+    if (!normalized || seq === undefined) {
+        return normalized;
+    }
+    return { ...normalized, seq };
+}
+
+function normalizeRawMessageWithoutSeq(id: string, localId: string | null, createdAt: number, raw: RawRecord): NormalizedMessage | null {
     // Zod transform handles normalization during validation
     let parsed = rawRecordSchema.safeParse(raw);
     if (!parsed.success) {

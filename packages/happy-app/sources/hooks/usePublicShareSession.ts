@@ -43,7 +43,7 @@ async function decryptMessagePage(page: PublicShareMessagePage, decryptor: AES25
         .map((m, i) => {
             const content = decryptedContents[i];
             if (!content) return null;
-            return normalizeRawMessage(m.id, m.localId, m.createdAt, content);
+            return normalizeRawMessage(m.id, m.localId, m.createdAt, content, m.seq);
         })
         .filter((m): m is NonNullable<typeof m> => m !== null);
 

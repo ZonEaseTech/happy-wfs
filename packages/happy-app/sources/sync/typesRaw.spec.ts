@@ -1614,3 +1614,27 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
         });
     });
 });
+
+
+describe('normalizeRawMessage public share metadata', () => {
+    it('preserves the server seq so public-share polling can dedupe rebuilt UI messages', () => {
+        const normalized = normalizeRawMessage('msg-public-share', null, 1_000, {
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'assistant',
+                    uuid: 'assistant-output-uuid',
+                    message: {
+                        role: 'assistant',
+                        model: 'claude-opus-4-8',
+                        content: [{ type: 'text', text: '同一条服务端消息' }],
+                    },
+                },
+            },
+        }, 92);
+
+        expect(normalized).toBeTruthy();
+        expect(normalized?.seq).toBe(92);
+    });
+});
