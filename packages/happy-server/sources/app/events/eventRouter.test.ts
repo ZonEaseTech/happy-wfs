@@ -94,19 +94,19 @@ describe('eventRouter session delivery', () => {
         }
     });
 
-    it('falls back to only one legacy session-scoped client when no receipt-capable CLI is connected', async () => {
+    it('falls back to the newest legacy session-scoped client when no receipt-capable CLI is connected', async () => {
         const { eventRouter } = await import('./eventRouter');
         const userId = `user-${Date.now()}-${Math.random()}`;
         const sessionId = 'session-legacy-cli';
         const userSocket = socket();
-        const legacyCliSocket = socket();
-        const legacyViewerSocket = socket();
+        const staleLegacySocket = socket();
+        const latestLegacySocket = socket();
         const otherSessionSocket = socket();
 
         const connections: ClientConnection[] = [
             { connectionType: 'user-scoped', userId, socket: userSocket },
-            { connectionType: 'session-scoped', userId, sessionId, socket: legacyCliSocket, supportsMessageReceipt: false },
-            { connectionType: 'session-scoped', userId, sessionId, socket: legacyViewerSocket, supportsMessageReceipt: false },
+            { connectionType: 'session-scoped', userId, sessionId, socket: staleLegacySocket, supportsMessageReceipt: false },
+            { connectionType: 'session-scoped', userId, sessionId, socket: latestLegacySocket, supportsMessageReceipt: false },
             { connectionType: 'session-scoped', userId, sessionId: 'other-session', socket: otherSessionSocket, supportsMessageReceipt: false },
         ];
 
@@ -123,8 +123,8 @@ describe('eventRouter session delivery', () => {
 
             expect(stats).toEqual({ total: 2, sessionScoped: 1 });
             expect(userSocket.emit).toHaveBeenCalledTimes(1);
-            expect(legacyCliSocket.emit).toHaveBeenCalledTimes(1);
-            expect(legacyViewerSocket.emit).not.toHaveBeenCalled();
+            expect(staleLegacySocket.emit).not.toHaveBeenCalled();
+            expect(latestLegacySocket.emit).toHaveBeenCalledTimes(1);
             expect(otherSessionSocket.emit).not.toHaveBeenCalled();
         } finally {
             for (const connection of connections) {

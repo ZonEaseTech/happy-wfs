@@ -528,7 +528,7 @@ class EventRouter {
         const singleCliTarget = singleCliCandidates
             .filter((connection) => connection.supportsMessageReceipt)
             .at(-1);
-        const legacySingleCliTarget = singleCliTarget ? null : singleCliCandidates.at(0);
+        const legacySingleCliTarget = singleCliTarget ? null : singleCliCandidates.at(-1);
 
         let total = 0;
         let sessionScoped = 0;
