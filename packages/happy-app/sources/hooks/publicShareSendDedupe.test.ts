@@ -95,4 +95,27 @@ describe('public share send dedupe', () => {
         expect(dedupePublicShareMessagesForDisplay([duplicateNew, duplicateOld, normalRepeat]).map(m => m.id))
             .toEqual(['normal-repeat', 'new']);
     });
+
+    it('deduplicates the same assistant message when public-share polling rebuilds random UI ids', () => {
+        const firstPoll: Message = {
+            kind: 'agent-text',
+            id: 'random-id-from-first-reducer',
+            localId: null,
+            createdAt: 1_000,
+            seq: 12,
+            text: '哈哈,这次连接断断续续,工具还被打断,让你觉得坎坷了吧 😅',
+        };
+        const secondPoll: Message = {
+            ...firstPoll,
+            id: 'random-id-from-second-reducer',
+        };
+        const distinctSameRawMessageBlock: Message = {
+            ...firstPoll,
+            id: 'different-text-block-from-same-raw-message',
+            text: '要不咱把最省事的一件先落地——我把 SRE + PM 两份招聘文案存成文件放到工作目录,你直接拿走用。',
+        };
+
+        expect(dedupePublicShareMessagesForDisplay([firstPoll, secondPoll, distinctSameRawMessageBlock]).map(m => m.id))
+            .toEqual(['random-id-from-first-reducer', 'different-text-block-from-same-raw-message']);
+    });
 });

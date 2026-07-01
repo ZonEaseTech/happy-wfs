@@ -145,10 +145,29 @@ function publicShareMessageDuplicateKey(message: Message): string | null {
     ].join('\u001f');
 }
 
+function publicShareStableDisplayKey(message: Message): string | null {
+    if (message.seq === undefined || message.seq === null) {
+        return null;
+    }
+
+    if (message.kind === 'agent-text') {
+        return [
+            'seq',
+            message.seq,
+            message.kind,
+            message.isThinking ? 'thinking' : 'text',
+            message.text.trim(),
+        ].join('\u001f');
+    }
+
+    return null;
+}
+
 export function dedupePublicShareMessagesForDisplay(messages: Message[], duplicateWindowMs = 30_000): Message[] {
     const result: Message[] = [];
     const seenIds = new Set<string>();
     const seenLocalIds = new Set<string>();
+    const seenStableDisplayKeys = new Set<string>();
     const keptAtByDuplicateKey = new Map<string, number>();
 
     for (const message of [...messages].sort((a, b) => b.createdAt - a.createdAt)) {
@@ -163,6 +182,14 @@ export function dedupePublicShareMessagesForDisplay(messages: Message[], duplica
                 continue;
             }
             seenLocalIds.add(localId);
+        }
+
+        const stableDisplayKey = publicShareStableDisplayKey(message);
+        if (stableDisplayKey) {
+            if (seenStableDisplayKeys.has(stableDisplayKey)) {
+                continue;
+            }
+            seenStableDisplayKeys.add(stableDisplayKey);
         }
 
         const duplicateKey = publicShareMessageDuplicateKey(message);
