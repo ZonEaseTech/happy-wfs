@@ -400,11 +400,15 @@ class EventRouter {
             where: { sessionId: params.sessionId },
             select: { sharedWithUserId: true }
         });
+        const sharedRecipientFilter = params.recipientFilter?.type === 'all-interested-in-session-single-cli'
+            ? { type: 'user-scoped-only' } as const
+            : params.recipientFilter;
         for (const share of shares) {
             const seq = await allocateUserSeq(share.sharedWithUserId);
             this.emitUpdate({
                 userId: share.sharedWithUserId,
-                payload: params.buildPayload(share.sharedWithUserId, seq)
+                payload: params.buildPayload(share.sharedWithUserId, seq),
+                recipientFilter: sharedRecipientFilter
             });
         }
 
@@ -524,6 +528,7 @@ class EventRouter {
         const singleCliTarget = singleCliCandidates
             .filter((connection) => connection.supportsMessageReceipt)
             .at(-1);
+        const legacySingleCliTarget = singleCliTarget ? null : singleCliCandidates.at(0);
 
         let total = 0;
         let sessionScoped = 0;
@@ -540,6 +545,10 @@ class EventRouter {
                 if (connection.connectionType === 'session-scoped') {
                     if (singleCliTarget) {
                         if (connection !== singleCliTarget) {
+                            continue;
+                        }
+                    } else if (legacySingleCliTarget) {
+                        if (connection !== legacySingleCliTarget) {
                             continue;
                         }
                     } else if (connection.sessionId !== params.recipientFilter.sessionId) {

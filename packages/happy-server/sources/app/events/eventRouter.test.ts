@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { db } from '@/storage/db';
 import type { ClientConnection } from './eventRouter';
 
 vi.mock('@/storage/files', () => ({
@@ -8,6 +9,9 @@ vi.mock('@/storage/db', () => ({
     db: {
         sessionShare: { findMany: vi.fn(async () => []) },
     },
+}));
+vi.mock('@/storage/seq', () => ({
+    allocateUserSeq: vi.fn(async () => 1),
 }));
 
 function socket() {
@@ -90,7 +94,7 @@ describe('eventRouter session delivery', () => {
         }
     });
 
-    it('falls back to legacy session-scoped clients when no receipt-capable CLI is connected', async () => {
+    it('falls back to only one legacy session-scoped client when no receipt-capable CLI is connected', async () => {
         const { eventRouter } = await import('./eventRouter');
         const userId = `user-${Date.now()}-${Math.random()}`;
         const sessionId = 'session-legacy-cli';
@@ -117,10 +121,10 @@ describe('eventRouter session delivery', () => {
                 recipientFilter: { type: 'all-interested-in-session-single-cli', sessionId },
             });
 
-            expect(stats).toEqual({ total: 3, sessionScoped: 2 });
+            expect(stats).toEqual({ total: 2, sessionScoped: 1 });
             expect(userSocket.emit).toHaveBeenCalledTimes(1);
             expect(legacyCliSocket.emit).toHaveBeenCalledTimes(1);
-            expect(legacyViewerSocket.emit).toHaveBeenCalledTimes(1);
+            expect(legacyViewerSocket.emit).not.toHaveBeenCalled();
             expect(otherSessionSocket.emit).not.toHaveBeenCalled();
         } finally {
             for (const connection of connections) {
@@ -129,4 +133,48 @@ describe('eventRouter session delivery', () => {
         }
     });
 
+    it('does not deliver shared session user messages to shared users session-scoped agents', async () => {
+        const { eventRouter } = await import('./eventRouter');
+        const ownerId = `owner-${Date.now()}-${Math.random()}`;
+        const sharedUserId = `shared-${Date.now()}-${Math.random()}`;
+        const sessionId = 'session-shared-single-agent';
+        const ownerUserSocket = socket();
+        const ownerCliSocket = socket();
+        const sharedUserSocket = socket();
+        const sharedCliSocket = socket();
+
+        vi.mocked(db.sessionShare.findMany).mockResolvedValueOnce([
+            { sharedWithUserId: sharedUserId },
+        ] as any);
+
+        const connections: ClientConnection[] = [
+            { connectionType: 'user-scoped', userId: ownerId, socket: ownerUserSocket },
+            { connectionType: 'session-scoped', userId: ownerId, sessionId, socket: ownerCliSocket, supportsMessageReceipt: true },
+            { connectionType: 'user-scoped', userId: sharedUserId, socket: sharedUserSocket },
+            { connectionType: 'session-scoped', userId: sharedUserId, sessionId, socket: sharedCliSocket, supportsMessageReceipt: true },
+        ];
+
+        for (const connection of connections) {
+            eventRouter.addConnection(connection.userId, connection);
+        }
+
+        try {
+            const result = await eventRouter.emitToSessionSubscribers({
+                ownerId,
+                sessionId,
+                buildPayload: (_uid, seq) => ({ id: `u${seq}`, seq, body: { t: 'new-message' }, createdAt: 1 }),
+                recipientFilter: { type: 'all-interested-in-session-single-cli', sessionId },
+            });
+
+            expect(result.ownerDelivery).toEqual({ total: 2, sessionScoped: 1 });
+            expect(ownerUserSocket.emit).toHaveBeenCalledTimes(1);
+            expect(ownerCliSocket.emit).toHaveBeenCalledTimes(1);
+            expect(sharedUserSocket.emit).toHaveBeenCalledTimes(1);
+            expect(sharedCliSocket.emit).not.toHaveBeenCalled();
+        } finally {
+            for (const connection of connections) {
+                eventRouter.removeConnection(connection.userId, connection);
+            }
+        }
+    });
 });
