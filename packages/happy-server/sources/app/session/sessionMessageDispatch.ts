@@ -89,7 +89,7 @@ export async function dispatchSessionMessage(params: DispatchSessionMessageParam
         ownerId: params.ownerId,
         sessionId: params.sessionId,
         buildPayload: (_uid, seq) => buildNewMessageUpdate(payloadMessage, params.sessionId, seq, randomKeyNaked(12)),
-        recipientFilter: { type: 'all-interested-in-session', sessionId: params.sessionId },
+        recipientFilter: { type: 'all-interested-in-session-single-cli', sessionId: params.sessionId },
     });
 
     if (params.trackCliDelivery && emitResult.ownerDelivery.sessionScoped === 0) {
@@ -112,7 +112,7 @@ export async function dispatchSessionMessage(params: DispatchSessionMessageParam
             ownerId: params.ownerId,
             sessionId: params.sessionId,
             payload: buildMessageDeliveryErrorEphemeral(params.sessionId, createdMessage.id, createdMessage.localId ?? null, 'no_cli_connection'),
-            recipientFilter: { type: 'all-interested-in-session', sessionId: params.sessionId },
+            recipientFilter: { type: 'all-interested-in-session-single-cli', sessionId: params.sessionId },
         });
     }
 

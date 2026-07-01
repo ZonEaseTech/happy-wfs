@@ -35,6 +35,7 @@ export type ClientConnection = SessionScopedConnection | UserScopedConnection | 
 
 export type RecipientFilter =
     | { type: 'all-interested-in-session'; sessionId: string }
+    | { type: 'all-interested-in-session-single-cli'; sessionId: string }
     | { type: 'user-scoped-only' }
     | { type: 'machine-scoped-only'; machineId: string }  // For update-machine: sends to user-scoped + only the specific machine
     | { type: 'all-user-authenticated-connections' };
@@ -510,6 +511,19 @@ class EventRouter {
             return { total: 0, sessionScoped: 0 };
         }
 
+        const singleCliSessionId = params.recipientFilter.type === 'all-interested-in-session-single-cli'
+            ? params.recipientFilter.sessionId
+            : null;
+        const singleCliTarget = singleCliSessionId
+            ? [...connections]
+                .filter((connection) => (
+                    connection.connectionType === 'session-scoped'
+                    && connection.sessionId === singleCliSessionId
+                    && connection !== params.skipSenderConnection
+                ))
+                .at(-1)
+            : null;
+
         let total = 0;
         let sessionScoped = 0;
         for (const connection of connections) {
@@ -518,8 +532,14 @@ class EventRouter {
                 continue;
             }
 
-            // Apply recipient filter
-            if (!this.shouldSendToConnection(connection, params.recipientFilter)) {
+            if (params.recipientFilter.type === 'all-interested-in-session-single-cli') {
+                if (connection.connectionType === 'machine-scoped') {
+                    continue;
+                }
+                if (connection.connectionType === 'session-scoped' && connection !== singleCliTarget) {
+                    continue;
+                }
+            } else if (!this.shouldSendToConnection(connection, params.recipientFilter)) {
                 continue;
             }
 

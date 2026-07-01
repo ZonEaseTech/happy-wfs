@@ -553,7 +553,9 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                     ownerId: userId,
                     sessionId: sid,
                     buildPayload: (_uid, seq) => buildNewMessageUpdate(msg, sid, seq, randomKeyNaked(12)),
-                    recipientFilter: { type: 'all-interested-in-session', sessionId: sid },
+                    recipientFilter: connection.connectionType === 'user-scoped'
+                        ? { type: 'all-interested-in-session-single-cli', sessionId: sid }
+                        : { type: 'all-interested-in-session', sessionId: sid },
                     skipSenderConnection: connection
                 });
 
