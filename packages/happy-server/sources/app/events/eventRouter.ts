@@ -514,16 +514,16 @@ class EventRouter {
         const singleCliSessionId = params.recipientFilter.type === 'all-interested-in-session-single-cli'
             ? params.recipientFilter.sessionId
             : null;
-        const singleCliTarget = singleCliSessionId
-            ? [...connections]
-                .filter((connection) => (
-                    connection.connectionType === 'session-scoped'
-                    && connection.sessionId === singleCliSessionId
-                    && connection.supportsMessageReceipt
-                    && connection !== params.skipSenderConnection
-                ))
-                .at(-1)
-            : null;
+        const singleCliCandidates = singleCliSessionId
+            ? [...connections].filter((connection): connection is SessionScopedConnection => (
+                connection.connectionType === 'session-scoped'
+                && connection.sessionId === singleCliSessionId
+                && connection !== params.skipSenderConnection
+            ))
+            : [];
+        const singleCliTarget = singleCliCandidates
+            .filter((connection) => connection.supportsMessageReceipt)
+            .at(-1);
 
         let total = 0;
         let sessionScoped = 0;
@@ -537,8 +537,14 @@ class EventRouter {
                 if (connection.connectionType === 'machine-scoped') {
                     continue;
                 }
-                if (connection.connectionType === 'session-scoped' && connection !== singleCliTarget) {
-                    continue;
+                if (connection.connectionType === 'session-scoped') {
+                    if (singleCliTarget) {
+                        if (connection !== singleCliTarget) {
+                            continue;
+                        }
+                    } else if (connection.sessionId !== params.recipientFilter.sessionId) {
+                        continue;
+                    }
                 }
             } else if (!this.shouldSendToConnection(connection, params.recipientFilter)) {
                 continue;

@@ -89,4 +89,44 @@ describe('eventRouter session delivery', () => {
             }
         }
     });
+
+    it('falls back to legacy session-scoped clients when no receipt-capable CLI is connected', async () => {
+        const { eventRouter } = await import('./eventRouter');
+        const userId = `user-${Date.now()}-${Math.random()}`;
+        const sessionId = 'session-legacy-cli';
+        const userSocket = socket();
+        const legacyCliSocket = socket();
+        const legacyViewerSocket = socket();
+        const otherSessionSocket = socket();
+
+        const connections: ClientConnection[] = [
+            { connectionType: 'user-scoped', userId, socket: userSocket },
+            { connectionType: 'session-scoped', userId, sessionId, socket: legacyCliSocket, supportsMessageReceipt: false },
+            { connectionType: 'session-scoped', userId, sessionId, socket: legacyViewerSocket, supportsMessageReceipt: false },
+            { connectionType: 'session-scoped', userId, sessionId: 'other-session', socket: otherSessionSocket, supportsMessageReceipt: false },
+        ];
+
+        for (const connection of connections) {
+            eventRouter.addConnection(userId, connection);
+        }
+
+        try {
+            const stats = eventRouter.emitUpdate({
+                userId,
+                payload: { id: 'u1', seq: 1, body: { t: 'new-message' }, createdAt: 1 },
+                recipientFilter: { type: 'all-interested-in-session-single-cli', sessionId },
+            });
+
+            expect(stats).toEqual({ total: 3, sessionScoped: 2 });
+            expect(userSocket.emit).toHaveBeenCalledTimes(1);
+            expect(legacyCliSocket.emit).toHaveBeenCalledTimes(1);
+            expect(legacyViewerSocket.emit).toHaveBeenCalledTimes(1);
+            expect(otherSessionSocket.emit).not.toHaveBeenCalled();
+        } finally {
+            for (const connection of connections) {
+                eventRouter.removeConnection(userId, connection);
+            }
+        }
+    });
+
 });
