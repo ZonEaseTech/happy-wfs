@@ -65,7 +65,7 @@ interface FriendMentionProps {
     displayName: string;
 }
 
-export const FriendMentionSuggestion = React.memo(({ username, displayName }: FriendMentionProps) => {
+function PersonMentionSuggestion({ username, displayName, label }: FriendMentionProps & { label: string }) {
     return (
         <View style={styles.suggestionContainer}>
             <View style={styles.iconContainer}>
@@ -90,11 +90,19 @@ export const FriendMentionSuggestion = React.memo(({ username, displayName }: Fr
                 </Text>
             </View>
             <Text style={styles.labelText}>
-                {t('agentInput.suggestion.friendLabel')}
+                {label}
             </Text>
         </View>
     );
-});
+}
+
+export const FriendMentionSuggestion = React.memo((props: FriendMentionProps) => (
+    <PersonMentionSuggestion {...props} label={t('agentInput.suggestion.friendLabel')} />
+));
+
+export const CoworkerMentionSuggestion = React.memo((props: FriendMentionProps) => (
+    <PersonMentionSuggestion {...props} label={t('agentInput.suggestion.coworkerLabel')} />
+));
 
 const styles = StyleSheet.create((theme) => ({
     suggestionContainer: {

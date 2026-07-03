@@ -12,6 +12,16 @@ export function getMentionShareTargets(mentionedFriends: UserProfile[], existing
     return mentionedFriends.filter(friend => !alreadySharedUserIds.has(friend.id));
 }
 
+export type MentionShareFailure = {
+    target: UserProfile;
+    error: string;
+};
+
+export type MentionShareResult = {
+    succeeded: UserProfile[];
+    failed: MentionShareFailure[];
+};
+
 interface ShareMentionDeps {
     getCredentials: () => AuthCredentials;
     getSessionDataKey: (sessionId: string) => Uint8Array | null;
@@ -24,9 +34,11 @@ export async function shareSessionWithMentionedFriendsWithDeps(
     sessionId: string,
     targets: UserProfile[],
     deps: ShareMentionDeps,
-): Promise<void> {
+): Promise<MentionShareResult> {
+    const result: MentionShareResult = { succeeded: [], failed: [] };
+
     if (targets.length === 0) {
-        return;
+        return result;
     }
 
     const credentials = deps.getCredentials();
@@ -36,30 +48,40 @@ export async function shareSessionWithMentionedFriendsWithDeps(
     }
 
     for (const friend of targets) {
-        if (!friend.contentPublicKey || !friend.contentPublicKeySig) {
-            throw new HappyError(t('session.sharing.recipientMissingKeys'), false);
-        }
+        try {
+            if (!friend.contentPublicKey || !friend.contentPublicKeySig) {
+                throw new HappyError(t('session.sharing.recipientMissingKeys'), false);
+            }
 
-        const isValidBinding = deps.verifyBinding({
-            signingPublicKeyHex: friend.publicKey,
-            contentPublicKeyB64: friend.contentPublicKey,
-            contentPublicKeySigB64: friend.contentPublicKeySig,
-        });
-        if (!isValidBinding) {
-            throw new HappyError(t('errors.operationFailed'), false);
-        }
+            const isValidBinding = deps.verifyBinding({
+                signingPublicKeyHex: friend.publicKey,
+                contentPublicKeyB64: friend.contentPublicKey,
+                contentPublicKeySigB64: friend.contentPublicKeySig,
+            });
+            if (!isValidBinding) {
+                throw new HappyError(t('errors.operationFailed'), false);
+            }
 
-        const encryptedDataKey = deps.encryptDataKey(dataKey, friend.contentPublicKey);
-        await deps.createShare(credentials, sessionId, {
-            userId: friend.id,
-            accessLevel: 'edit',
-            encryptedDataKey,
-        });
+            const encryptedDataKey = deps.encryptDataKey(dataKey, friend.contentPublicKey);
+            await deps.createShare(credentials, sessionId, {
+                userId: friend.id,
+                accessLevel: 'edit',
+                encryptedDataKey,
+            });
+            result.succeeded.push(friend);
+        } catch (error) {
+            result.failed.push({
+                target: friend,
+                error: error instanceof Error ? error.message : t('errors.operationFailed'),
+            });
+        }
     }
+
+    return result;
 }
 
-export async function shareSessionWithMentionedFriends(sessionId: string, targets: UserProfile[]): Promise<void> {
-    await shareSessionWithMentionedFriendsWithDeps(sessionId, targets, {
+export async function shareSessionWithMentionedFriends(sessionId: string, targets: UserProfile[]): Promise<MentionShareResult> {
+    return shareSessionWithMentionedFriendsWithDeps(sessionId, targets, {
         getCredentials: () => sync.getCredentials(),
         getSessionDataKey: sync.getSessionDataKey.bind(sync),
         verifyBinding: verifyRecipientContentPublicKeyBinding,

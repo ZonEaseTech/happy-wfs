@@ -1,4 +1,5 @@
 import { randomUUID } from 'expo-crypto';
+import type { LocalImage } from '@/components/ImagePreview';
 
 export interface TempDataEntry {
     data: any;
@@ -33,6 +34,8 @@ export interface NewSessionData {
     }>;
     sessionTitle?: string;
     sessionIcon?: string;
+    initialImages?: LocalImage[];
+    onCreatedContext?: { type: 'happy-bug'; bugId: string };
 }
 
 // In-memory store for temporary data

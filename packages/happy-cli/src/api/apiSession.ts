@@ -47,6 +47,14 @@ function normalizeAutoReviewTextForDedupe(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
 }
 
+function isHumanOnlyMessageRecord(value: any): boolean {
+    const meta = value?.meta;
+    if (!meta || typeof meta !== 'object') return false;
+    return meta.humanOnly === true
+        || meta.skipAiContext === true
+        || meta.collaboration?.kind === 'mention';
+}
+
 /** Tools whose tool_use.input should be trimmed and saved to diffStore */
 const INPUT_TRIMMABLE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
 
@@ -298,7 +306,9 @@ export class ApiSessionClient extends EventEmitter {
                         // messages to the server and the server broadcasts them back.
                         // Without this check the CLI would treat its own echo as an
                         // incoming app message and switch from local to remote mode.
-                        if (userResult.data.meta?.sentFrom === 'cli') {
+                        if (isHumanOnlyMessageRecord(body)) {
+                            logger.debug('[SOCKET] [UPDATE] Ignoring human-only collaboration message');
+                        } else if (userResult.data.meta?.sentFrom === 'cli') {
                             logger.debug('[SOCKET] [UPDATE] Ignoring echo of CLI-originated user message');
                         } else if (this.pendingMessageCallback) {
                             // Title seed for Codex/Gemini remote mode — their user messages don't re-echo through buildMessageContent
@@ -826,6 +836,9 @@ export class ApiSessionClient extends EventEmitter {
 
             try {
                 const decrypted = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(encrypted));
+                if (isHumanOnlyMessageRecord(decrypted)) {
+                    continue;
+                }
                 const role = decrypted?.role === 'user' ? 'user' : decrypted?.role === 'agent' ? 'agent' : 'system';
                 const text = extractPlainTextForAutoReview(decrypted);
                 if (text) result.push({ role, text });

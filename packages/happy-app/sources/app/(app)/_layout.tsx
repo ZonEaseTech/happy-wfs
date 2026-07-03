@@ -46,6 +46,13 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="bug/index"
+                options={{
+                    headerShown: false,
+                    headerTitle: t('bug.boardTitle')
+                }}
+            />
+            <Stack.Screen
                 name="inbox/index"
                 options={{
                     headerShown: false,

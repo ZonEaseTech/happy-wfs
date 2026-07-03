@@ -45,24 +45,6 @@ async function selectConfiguredOwnerAccountId(): Promise<string | null> {
 
 export async function ensureDefaultCompanyMemberships() {
     const company = await ensureDefaultCompany();
-    const accounts = await db.account.findMany({ select: { id: true } });
-
-    for (const account of accounts) {
-        await db.companyMembership.upsert({
-            where: {
-                companyId_accountId: {
-                    companyId: company.id,
-                    accountId: account.id,
-                },
-            },
-            update: {},
-            create: {
-                companyId: company.id,
-                accountId: account.id,
-                role: CompanyRole.member,
-            },
-        });
-    }
 
     const ownerCount = await db.companyMembership.count({
         where: { companyId: company.id, role: CompanyRole.owner },
@@ -70,14 +52,19 @@ export async function ensureDefaultCompanyMemberships() {
     if (ownerCount === 0) {
         const ownerAccountId = await selectConfiguredOwnerAccountId();
         if (ownerAccountId) {
-            await db.companyMembership.update({
+            await db.companyMembership.upsert({
                 where: {
                     companyId_accountId: {
                         companyId: company.id,
                         accountId: ownerAccountId,
                     },
                 },
-                data: { role: CompanyRole.owner },
+                update: { role: CompanyRole.owner },
+                create: {
+                    companyId: company.id,
+                    accountId: ownerAccountId,
+                    role: CompanyRole.owner,
+                },
             });
             log({ module: 'company', level: 'info' }, `Selected default company owner account ${ownerAccountId}`);
         } else {

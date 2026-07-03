@@ -85,4 +85,29 @@ describe('compactSessionMessages', () => {
         expect(result.turns).toHaveLength(1);
         expect(result.turns[0].user?.text).toBe('second');
     });
+
+    it('skips human-only collaboration mention messages', () => {
+        const result = compactSessionMessages([
+            msg({
+                seq: 1,
+                role: 'user',
+                content: { type: 'text', text: '@BenDaye please check this' },
+                meta: {
+                    humanOnly: true,
+                    skipAiContext: true,
+                    collaboration: { kind: 'mention', targetUserIds: ['u1'], targetUsernames: ['BenDaye'] },
+                },
+            }),
+            msg({ seq: 2, role: 'user', content: { type: 'text', text: 'normal prompt' } }),
+        ], {
+            textLimit: 200,
+            maxTurns: 10,
+            includeTools: true,
+            maxToolsPerTurn: 5,
+        });
+
+        expect(result.compactedCount).toBe(1);
+        expect(result.turns).toHaveLength(1);
+        expect(result.turns[0].user?.text).toBe('normal prompt');
+    });
 });

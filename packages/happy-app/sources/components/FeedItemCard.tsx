@@ -139,6 +139,23 @@ export const FeedItemCard = React.memo(({ item, showDivider }: FeedItemCardProps
                     />
                 );
 
+            case 'session_mention': {
+                const body = item.body as Extract<FeedItem['body'], { kind: 'session_mention' }>;
+                return (
+                    <Item
+                        title={body.actorName
+                            ? t('feed.sessionMentionTitle', { name: body.actorName })
+                            : t('feed.sessionMentionFallback')}
+                        subtitle={body.sessionTitle ?? getTimeAgo(item.createdAt)}
+                        icon={<Ionicons name="at" size={20} color={theme.colors.textLink} />}
+                        iconContainerStyle={{ marginRight: 20 }}
+                        onPress={() => router.push(`/session/${body.sessionId}` as any)}
+                        showChevron={true}
+                        showDivider={showDivider}
+                    />
+                );
+            }
+
             default:
                 return null;
         }

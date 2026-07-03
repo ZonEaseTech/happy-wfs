@@ -106,7 +106,17 @@ const { state, dbMock, resetState } = vi.hoisted(() => {
                 state.memberships.push(membership);
                 return membership;
             }),
-            upsert: vi.fn(),
+            upsert: vi.fn(async (args: any) => {
+                const key = args.where.companyId_accountId;
+                let membership = state.memberships.find((item) => item.companyId === key.companyId && item.accountId === key.accountId);
+                if (membership) {
+                    Object.assign(membership, args.update, { updatedAt: new Date(10) });
+                    return membership;
+                }
+                const created: MembershipRow = { ...args.create, joinedAt: new Date(20), createdAt: new Date(20), updatedAt: new Date(20) };
+                state.memberships.push(created);
+                return created;
+            }),
         },
         companyInvite: {
             create: vi.fn(async (args: any) => {
@@ -169,6 +179,7 @@ import {
     revokeCompanyInvite,
     updateCompanyMember,
 } from './companyService';
+import { ensureDefaultCompanyMemberships } from './companyBootstrap';
 
 function seedAccount(id: string, role: CompanyRole) {
     const account = {
@@ -197,6 +208,40 @@ describe('companyService', () => {
     beforeEach(() => {
         resetState();
         vi.clearAllMocks();
+    });
+
+
+
+    it('does not backfill all accounts when ensuring the default company owner', async () => {
+        const previousOwnerId = process.env.HAPPY_COMPANY_OWNER_ACCOUNT_ID;
+        const previousOwnerUsername = process.env.HAPPY_COMPANY_OWNER_USERNAME;
+        delete process.env.HAPPY_COMPANY_OWNER_ACCOUNT_ID;
+        delete process.env.HAPPY_COMPANY_OWNER_USERNAME;
+        state.accounts.push({ id: 'owner-1', publicKey: 'owner-1-pk', username: 'owner-1', firstName: null, lastName: null, avatar: null, createdAt: new Date(1), updatedAt: new Date(1) });
+        state.accounts.push({ id: 'other-1', publicKey: 'other-1-pk', username: 'other-1', firstName: null, lastName: null, avatar: null, createdAt: new Date(2), updatedAt: new Date(2) });
+
+        try {
+            await ensureDefaultCompanyMemberships();
+        } finally {
+            if (previousOwnerId === undefined) {
+                delete process.env.HAPPY_COMPANY_OWNER_ACCOUNT_ID;
+            } else {
+                process.env.HAPPY_COMPANY_OWNER_ACCOUNT_ID = previousOwnerId;
+            }
+            if (previousOwnerUsername === undefined) {
+                delete process.env.HAPPY_COMPANY_OWNER_USERNAME;
+            } else {
+                process.env.HAPPY_COMPANY_OWNER_USERNAME = previousOwnerUsername;
+            }
+        }
+
+        expect(state.memberships).toHaveLength(1);
+        expect(state.memberships[0]).toMatchObject({
+            companyId: 'company_default',
+            accountId: 'owner-1',
+            role: CompanyRole.owner,
+        });
+        expect(dbMock.companyMembership.upsert).toHaveBeenCalledTimes(1);
     });
 
     it('returns overview for a member', async () => {

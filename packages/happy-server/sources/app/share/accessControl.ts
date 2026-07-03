@@ -175,6 +175,58 @@ export async function areFriends(
     return relationship !== null;
 }
 
+
+/**
+ * Check if two users share at least one company membership.
+ *
+ * @param userId1 - First user ID
+ * @param userId2 - Second user ID
+ * @returns True if users are members of the same company
+ */
+export async function areCompanyMembers(
+    userId1: string,
+    userId2: string
+): Promise<boolean> {
+    const memberships = await db.companyMembership.findMany({
+        where: {
+            accountId: { in: [userId1, userId2] }
+        },
+        select: {
+            accountId: true,
+            companyId: true
+        }
+    });
+
+    const user1CompanyIds = new Set(
+        memberships
+            .filter(membership => membership.accountId === userId1)
+            .map(membership => membership.companyId)
+    );
+
+    return memberships.some(membership => (
+        membership.accountId === userId2 && user1CompanyIds.has(membership.companyId)
+    ));
+}
+
+/**
+ * Check if one user can directly share a session with another user.
+ *
+ * Direct share is allowed for friends or coworkers in the same company.
+ *
+ * @param userId1 - Sharing user ID
+ * @param userId2 - Target user ID
+ * @returns True if direct sharing is allowed
+ */
+export async function canDirectShareWithUser(
+    userId1: string,
+    userId2: string
+): Promise<boolean> {
+    if (await areFriends(userId1, userId2)) {
+        return true;
+    }
+    return areCompanyMembers(userId1, userId2);
+}
+
 /**
  * Check public share access with blocking and limits
  *

@@ -23,6 +23,7 @@ import { registerPushToken } from './apiPush';
 import { Platform, AppState } from 'react-native';
 import { isRunningOnMac } from '@/utils/platform';
 import { NormalizedMessage, normalizeRawMessage, RawRecord, RawRecordSchema, ImageContent } from './typesRaw';
+import type { MessageMeta } from './typesMessageMeta';
 import { uploadChatImage } from './uploadChatImage';
 import { LocalImage } from '@/components/ImagePreview';
 import { applySettings, mergeSettings, Settings, settingsDefaults, settingsParse, SUPPORTED_SCHEMA_VERSION } from './settings';
@@ -603,7 +604,8 @@ class Sync {
         displayText?: string,
         images?: LocalImage[],
         existingLocalId?: string,
-        uploadedImages?: ImageContent[]
+        uploadedImages?: ImageContent[],
+        metaOverrides?: Partial<MessageMeta>
     ): Promise<PreparedOutgoingMessage | { error: string; localId: string }> {
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) {
@@ -675,7 +677,8 @@ class Sync {
                 reasoningEffort,
                 fallbackModel,
                 appendSystemPrompt: this.buildSystemPrompt(sessionId),
-                ...(displayText && { displayText })
+                ...(displayText && { displayText }),
+                ...metaOverrides,
             }
         };
 
@@ -773,6 +776,104 @@ class Sync {
             return { success: true, localId };
         } catch (error) {
             log.log(`[SEND_DEBUG][SYNC] fail sid=${sessionId} localId=${localId} via=v3-exception error=${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.pendingSendCallbacks.delete(localId);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', localId };
+        }
+    }
+
+    async sendCollaborationMentionMessage(input: {
+        sessionId: string;
+        text: string;
+        targetUserIds: string[];
+        targetUsernames: string[];
+        images?: LocalImage[];
+        existingLocalId?: string;
+        onBeforeApply?: () => void;
+    }): Promise<SendMessageResult> {
+        if (!this.credentials) {
+            return { success: false, error: 'Not authenticated', localId: '' };
+        }
+
+        const prepared = await this.prepareOutgoingMessage(
+            input.sessionId,
+            input.text,
+            undefined,
+            input.images,
+            input.existingLocalId,
+            undefined,
+            {
+                humanOnly: true,
+                skipAiContext: true,
+                collaboration: {
+                    kind: 'mention',
+                    targetUserIds: input.targetUserIds,
+                    targetUsernames: input.targetUsernames,
+                },
+            },
+        );
+        if ('error' in prepared) {
+            return { success: false, error: prepared.error, localId: prepared.localId };
+        }
+
+        const { localId, encryptedRawRecord, normalizedMessage } = prepared;
+        if (input.onBeforeApply) {
+            this.pendingSendCallbacks.set(localId, input.onBeforeApply);
+        }
+
+        try {
+            const API_ENDPOINT = getServerUrl();
+            const response = await fetch(
+                `${API_ENDPOINT}/v3/sessions/${input.sessionId}/messages`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.credentials.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        messages: [{
+                            content: encryptedRawRecord,
+                            localId,
+                            trackCliDelivery: false,
+                            mentionTargetUserIds: input.targetUserIds,
+                        }]
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                this.pendingSendCallbacks.delete(localId);
+                return { success: false, error: `Send failed: ${response.status}`, localId };
+            }
+
+            const pending = this.pendingSendCallbacks.get(localId);
+            if (pending) {
+                this.pendingSendCallbacks.delete(localId);
+                pending();
+            }
+
+            if (normalizedMessage) {
+                const msg = normalizedMessage;
+                void this.enqueueSessionMessageDispatch(input.sessionId, 'sendCollaborationMentionMessage:local-ack', async () => {
+                    this.applyMessages(input.sessionId, [msg]);
+                });
+            }
+
+            try {
+                const responseData = await response.json();
+                if (responseData.messages?.length > 0) {
+                    const maxSeq = Math.max(...responseData.messages.map((m: any) => m.seq));
+                    const currentSeq = this.sessionLastSeq.get(input.sessionId) ?? 0;
+                    if (maxSeq > currentSeq) {
+                        this.sessionLastSeq.set(input.sessionId, maxSeq);
+                    }
+                }
+            } catch {
+                // no-op
+            }
+
+            return { success: true, localId };
+        } catch (error) {
             this.pendingSendCallbacks.delete(localId);
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error', localId };
         }
