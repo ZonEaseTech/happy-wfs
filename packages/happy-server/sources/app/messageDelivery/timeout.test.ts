@@ -4,6 +4,7 @@ const {
     state,
     dbMock,
     emitEphemeralToSessionSubscribersMock,
+    dispatchNextPendingIfPossibleMock,
     resetState
 } = vi.hoisted(() => {
     const state = {
@@ -67,11 +68,13 @@ const {
     };
 
     const emitEphemeralToSessionSubscribersMock = vi.fn(async () => undefined);
+    const dispatchNextPendingIfPossibleMock = vi.fn(async () => ({ dispatched: false }));
 
     return {
         state,
         dbMock,
         emitEphemeralToSessionSubscribersMock,
+        dispatchNextPendingIfPossibleMock,
         resetState
     };
 });
@@ -93,12 +96,23 @@ vi.mock("@/app/events/eventRouter", () => ({
     }))
 }));
 
+vi.mock("@/app/session/pendingMessageAutoDispatch", () => ({
+    dispatchNextPendingIfPossible: dispatchNextPendingIfPossibleMock
+}));
+
+import {
+    __resetSessionTurnRuntimeForTests,
+    getSessionTurnState,
+    markDispatched
+} from "@/app/presence/sessionTurnRuntime";
 import { markTimedOutDeliveryIssues } from "./timeout";
 
 describe("messageDelivery timeout", () => {
     beforeEach(() => {
+        __resetSessionTurnRuntimeForTests();
         resetState();
         emitEphemeralToSessionSubscribersMock.mockClear();
+        dispatchNextPendingIfPossibleMock.mockClear();
     });
 
     it("marks waiting issue older than 60s as error/ack_timeout", async () => {
@@ -116,6 +130,21 @@ describe("messageDelivery timeout", () => {
             }
         ]);
         expect(emitEphemeralToSessionSubscribersMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears awaiting turn state and tries pending dispatch when ack times out", async () => {
+        state.sessions.push({ id: "session-1", accountId: "user-1" });
+        state.messages.push({ id: "msg-1", sessionId: "session-1", createdAt: new Date(1000) });
+        state.deliveryIssues.push({ sessionMessageId: "msg-1", status: "waiting", reason: null });
+        markDispatched("session-1");
+
+        await markTimedOutDeliveryIssues(Date.now() + 61_000);
+
+        expect(getSessionTurnState("session-1").awaitingTurnStart).toBe(false);
+        expect(dispatchNextPendingIfPossibleMock).toHaveBeenCalledWith({
+            ownerId: "user-1",
+            sessionId: "session-1"
+        });
     });
 
     it("keeps waiting issue unchanged when not timed out", async () => {

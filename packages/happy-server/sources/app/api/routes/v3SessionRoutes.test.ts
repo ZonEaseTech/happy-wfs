@@ -1,7 +1,7 @@
 import fastify from "fastify";
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from "fastify-type-provider-zod";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { __resetSessionTurnRuntimeForTests, markTurnStarted } from "@/app/presence/sessionTurnRuntime";
+import { __resetSessionTurnRuntimeForTests, getSessionTurnState, markTurnStarted } from "@/app/presence/sessionTurnRuntime";
 import { type Fastify } from "../types";
 
 type SessionRecord = {
@@ -1151,6 +1151,46 @@ describe("v3SessionRoutes", () => {
         expect(body.mode).toBe("sent");
         expect(state.messages).toHaveLength(1);
         expect(state.messages[0].localId).toBe("direct-send");
+    });
+
+    it("keeps /send dispatchable when no CLI connection received the message", async () => {
+        seedSession({ id: "session-1", accountId: "user-1", seq: 1 });
+        state.emitOwnerSessionScoped = 0;
+        app = await createApp();
+
+        const firstResponse = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/send",
+            headers: { "x-user-id": "user-1" },
+            payload: {
+                localId: "missed-by-cli-1",
+                content: "enc-content-1",
+                trackCliDelivery: true,
+            },
+        });
+
+        expect(firstResponse.statusCode).toBe(200);
+        expect(firstResponse.json().mode).toBe("sent");
+        expect(getSessionTurnState("session-1").awaitingTurnStart).toBe(false);
+
+        const secondResponse = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/send",
+            headers: { "x-user-id": "user-1" },
+            payload: {
+                localId: "missed-by-cli-2",
+                content: "enc-content-2",
+                trackCliDelivery: true,
+            },
+        });
+
+        expect(secondResponse.statusCode).toBe(200);
+        expect(secondResponse.json().mode).toBe("sent");
+        expect(state.pendingMessages).toHaveLength(0);
+        expect(state.messages.map((message) => message.localId)).toEqual([
+            "missed-by-cli-1",
+            "missed-by-cli-2",
+        ]);
     });
 
     it("routes /send to queued mode when session is busy (thinking/awaiting)", async () => {

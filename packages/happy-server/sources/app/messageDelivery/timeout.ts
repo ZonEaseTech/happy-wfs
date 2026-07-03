@@ -1,4 +1,6 @@
 import { buildMessageDeliveryErrorEphemeral, eventRouter } from "@/app/events/eventRouter";
+import { updateThinkingState } from "@/app/presence/sessionTurnRuntime";
+import { dispatchNextPendingIfPossible } from "@/app/session/pendingMessageAutoDispatch";
 import { db } from "@/storage/db";
 import { delay } from "@/utils/delay";
 import { forever } from "@/utils/forever";
@@ -69,6 +71,14 @@ export async function markTimedOutDeliveryIssues(nowMs: number = Date.now()) {
                 sessionId: issue.sessionMessage.sessionId
             }
         });
+
+        const thinkingState = updateThinkingState(issue.sessionMessage.sessionId, false, nowMs);
+        if (thinkingState.turnEnded) {
+            await dispatchNextPendingIfPossible({
+                ownerId: issue.sessionMessage.session.accountId,
+                sessionId: issue.sessionMessage.sessionId
+            });
+        }
     }
 }
 

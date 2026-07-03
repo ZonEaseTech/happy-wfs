@@ -5,9 +5,11 @@
 
 import { apiSocket } from './apiSocket';
 import { sync } from './sync';
-import { MetadataSchema, type MachineMetadata, type Metadata } from './storageTypes';
+import { storage } from './storage';
+import { MetadataSchema, type Machine, type MachineMetadata, type Metadata } from './storageTypes';
 import { normalizeSessionMetadataForWrite } from './metadataNormalization';
 import type { AutoReviewGuardSettings } from './settings';
+import { isMachineOnline } from '@/utils/machineUtils';
 
 // Strict type definitions for all operations
 
@@ -190,6 +192,38 @@ function buildEmergencySessionMetadataBase(source: Record<string, unknown>): Rec
     copyMarkedAt(base, 'reviewPending');
 
     return base;
+}
+
+function isMachineRpcUnavailable(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    return /RPC method not available|No RPC listeners registered|Machine encryption not found for/i.test(message);
+}
+
+function getFallbackMachineId(machineId: string): string | null {
+    const machines = Object.values(storage.getState().machines) as Machine[];
+    const original = machines.find(machine => machine.id === machineId);
+    const onlineMachines = machines.filter(machine => machine.id !== machineId && isMachineOnline(machine));
+    const sameHostMachines = original?.metadata?.host
+        ? onlineMachines.filter(machine => machine.metadata?.host === original.metadata?.host)
+        : [];
+    const candidates = sameHostMachines.length > 0 ? sameHostMachines : onlineMachines;
+
+    if (candidates.length !== 1) {
+        return null;
+    }
+    return candidates[0].id;
+}
+
+async function withMachineFallback<T>(machineId: string, action: (targetMachineId: string) => Promise<T>): Promise<T> {
+    try {
+        return await action(machineId);
+    } catch (error) {
+        const fallbackMachineId = isMachineRpcUnavailable(error) ? getFallbackMachineId(machineId) : null;
+        if (!fallbackMachineId) {
+            throw error;
+        }
+        return action(fallbackMachineId);
+    }
 }
 
 function buildMinimalSessionSummaryMetadata(metadata: Metadata, newSummaryText: string, pinned?: boolean): Metadata {
@@ -514,9 +548,10 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
     const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, intent, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
 
     try {
-        const result = await apiSocket.machineSpawnHTTP<SpawnSessionResult>(
-            machineId,
+        const result = await withMachineFallback(machineId, targetMachineId => apiSocket.machineSpawnHTTP<SpawnSessionResult>(
+            targetMachineId,
             { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, intent, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
+        )
         );
         return result;
     } catch (error) {
@@ -1554,17 +1589,19 @@ export async function machineForkClaudeSession(
     const timeoutMs = options?.timeoutMs ?? 90000;
 
     try {
-        const rpcPromise = apiSocket.machineRPC<any, { sessionId: string }>(
-            machineId,
-            'claude-fork-session',
-            { sessionId: claudeSessionId }
-        );
+        const result = await withMachineFallback(machineId, targetMachineId => {
+            const rpcPromise = apiSocket.machineRPC<any, { sessionId: string }>(
+                targetMachineId,
+                'claude-fork-session',
+                { sessionId: claudeSessionId }
+            );
 
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+            });
+
+            return Promise.race([rpcPromise, timeoutPromise]);
         });
-
-        const result = await Promise.race([rpcPromise, timeoutPromise]);
 
         if (!result) {
             return { success: false, errorMessage: 'RPC returned empty response' };
@@ -1673,17 +1710,19 @@ export async function machineForkGeminiSession(
     const timeoutMs = options?.timeoutMs ?? 90000;
 
     try {
-        const rpcPromise = apiSocket.machineRPC<any, { sessionId: string }>(
-            machineId,
-            'gemini-fork-session',
-            { sessionId }
-        );
+        const result = await withMachineFallback(machineId, targetMachineId => {
+            const rpcPromise = apiSocket.machineRPC<any, { sessionId: string }>(
+                targetMachineId,
+                'gemini-fork-session',
+                { sessionId }
+            );
 
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+            });
+
+            return Promise.race([rpcPromise, timeoutPromise]);
         });
-
-        const result = await Promise.race([rpcPromise, timeoutPromise]);
 
         if (!result) {
             return { success: false, errorMessage: 'RPC returned empty response' };
@@ -1792,17 +1831,19 @@ export async function machineForkCodexSession(
     const timeoutMs = options?.timeoutMs ?? 90000;
 
     try {
-        const rpcPromise = apiSocket.machineRPC<any, { codexSessionId: string }>(
-            machineId,
-            'codex-fork-session',
-            { codexSessionId }
-        );
+        const result = await withMachineFallback(machineId, targetMachineId => {
+            const rpcPromise = apiSocket.machineRPC<any, { codexSessionId: string }>(
+                targetMachineId,
+                'codex-fork-session',
+                { codexSessionId }
+            );
 
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+            });
+
+            return Promise.race([rpcPromise, timeoutPromise]);
         });
-
-        const result = await Promise.race([rpcPromise, timeoutPromise]);
 
         if (!result) {
             return { success: false, errorMessage: 'RPC returned empty response' };

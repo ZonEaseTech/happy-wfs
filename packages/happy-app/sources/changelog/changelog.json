@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 9,
+      "date": "2026-07-03",
+      "summary": "Session restore is more resilient after CLI re-authentication or machine ID rotation.",
+      "changes": [
+        "Session restore: fall back to the matching/current online machine when an older saved machine ID no longer has RPC listeners, so archived sessions can resume after re-login.",
+        "New session: show friendly machine names in the status strip, avoid raw UUID labels when a host name is available, and render status as `name · online` without a trailing colon."
+      ],
+      "rawMarkdown": "## Version 9 - 2026-07-03\n\n\nSession restore is more resilient after CLI re-authentication or machine ID rotation.\n\n- Session restore: fall back to the matching/current online machine when an older saved machine ID no longer has RPC listeners, so archived sessions can resume after re-login.\n- New session: show friendly machine names in the status strip, avoid raw UUID labels when a host name is available, and render status as `name · online` without a trailing colon."
+    },
+    {
       "version": 8,
       "date": "2026-04-24",
       "summary": "OpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.",
@@ -122,5 +132,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 8
+  "latestVersion": 9
 }

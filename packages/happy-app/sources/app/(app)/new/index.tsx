@@ -39,6 +39,7 @@ import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { MultiTextInput } from '@/components/MultiTextInput';
 import { isMachineOnline } from '@/utils/machineUtils';
+import { getMachineDisplayName } from '@/utils/machineDisplay';
 import { StatusDot } from '@/components/StatusDot';
 import { SearchableListSelector } from '@/components/SearchableListSelector';
 import { clearNewSessionDraft, loadNewSessionDraft, saveNewSessionDraft } from '@/sync/persistence';
@@ -1633,10 +1634,10 @@ function NewSessionWizard() {
         setSelectedPath(bestPath);
     }, [recentMachinePaths]);
 
-    const selectedMachineTitle = selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host || selectedMachine?.id || 'Machine';
+    const selectedMachineTitle = getMachineDisplayName(selectedMachine);
 
     const machineMenuItems = React.useMemo<ActionMenuItem[]>(() => machines.map((machine) => {
-        const title = machine.metadata?.displayName || machine.metadata?.host || machine.id;
+        const title = getMachineDisplayName(machine);
         const offline = !isMachineOnline(machine);
         return {
             label: `${title} · ${offline ? 'offline' : 'online'}`,
@@ -1806,7 +1807,7 @@ function NewSessionWizard() {
                                 fastMode={fastMode}
                                 onFastModeChange={handleFastModeChange}
                                 connectionStatus={connectionStatus}
-                                machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
+                                machineName={selectedMachine ? getMachineDisplayName(selectedMachine) : undefined}
                                 onMachineClick={handleMachineClick}
                                 currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
                                 onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
@@ -1943,7 +1944,10 @@ function NewSessionWizard() {
                                     <Ionicons name="desktop-outline" size={16} color={theme.colors.textSecondary} />
                                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: STATUS_ITEM_GAP, flexWrap: 'wrap' }}>
                                         <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {selectedMachineTitle}:
+                                            {selectedMachineTitle}
+                                        </Text>
+                                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                            ·
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                             <StatusDot
@@ -2383,7 +2387,7 @@ function NewSessionWizard() {
                             fastMode={fastMode}
                             onFastModeChange={handleFastModeChange}
                             connectionStatus={connectionStatus}
-                            machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
+                            machineName={selectedMachine ? getMachineDisplayName(selectedMachine) : undefined}
                             onMachineClick={handleAgentInputMachineClick}
                             currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
                             onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handleAgentInputPathClick}

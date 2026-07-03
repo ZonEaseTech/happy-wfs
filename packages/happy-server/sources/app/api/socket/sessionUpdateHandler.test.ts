@@ -173,7 +173,11 @@ vi.mock("@/app/session/pendingMessageAutoDispatch", () => ({
 }));
 
 import { sessionUpdateHandler } from "./sessionUpdateHandler";
-import { __resetSessionTurnRuntimeForTests } from "@/app/presence/sessionTurnRuntime";
+import {
+    __resetSessionTurnRuntimeForTests,
+    getSessionTurnState,
+    markDispatched
+} from "@/app/presence/sessionTurnRuntime";
 
 describe("sessionUpdateHandler message-receipt", () => {
     beforeEach(() => {
@@ -221,6 +225,7 @@ describe("sessionUpdateHandler message-receipt", () => {
         state.sessions.push({ id: "session-1", accountId: "user-1" });
         state.messages.push({ id: "msg-1", sessionId: "session-1", localId: "l1" });
         state.deliveryIssues.push({ sessionMessageId: "msg-1", status: "waiting", reason: null });
+        markDispatched("session-1");
 
         const { socket, trigger } = createSocket();
         sessionUpdateHandler("user-1", socket, createConnection(socket));
@@ -241,6 +246,11 @@ describe("sessionUpdateHandler message-receipt", () => {
             }
         ]);
         expect(emitEphemeralToSessionSubscribersMock).toHaveBeenCalledTimes(1);
+        expect(getSessionTurnState("session-1").awaitingTurnStart).toBe(false);
+        expect(dispatchNextPendingIfPossibleMock).toHaveBeenCalledWith({
+            ownerId: "user-1",
+            sessionId: "session-1"
+        });
     });
 
     it("ignores invalid sid/messageId without mutating data", async () => {

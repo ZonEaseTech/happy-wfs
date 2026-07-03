@@ -21,10 +21,6 @@ export async function replayFirstMessageToCliWhenConnected(params: {
     maxWaitMs?: number;
     pollIntervalMs?: number;
 }): Promise<boolean> {
-    if (params.message.seq !== 1) {
-        return false;
-    }
-
     const maxWaitMs = params.maxWaitMs ?? 15000;
     const pollIntervalMs = params.pollIntervalMs ?? 500;
     const attempts = Math.max(1, Math.ceil(maxWaitMs / pollIntervalMs));

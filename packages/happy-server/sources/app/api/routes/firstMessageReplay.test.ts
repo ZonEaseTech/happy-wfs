@@ -122,7 +122,7 @@ describe("replayFirstMessageToCliWhenConnected", () => {
         );
     });
 
-    it("does not replay non-first messages", async () => {
+    it("replays later messages when session-scoped connection appears later", async () => {
         const replayed = await replayFirstMessageToCliWhenConnected({
             sessionId: "session-1",
             ownerId: "owner-1",
@@ -131,9 +131,9 @@ describe("replayFirstMessageToCliWhenConnected", () => {
             pollIntervalMs: 100,
         });
 
-        expect(replayed).toBe(false);
-        expect(allocateUserSeqMock).not.toHaveBeenCalled();
-        expect(emitMock).not.toHaveBeenCalled();
+        expect(replayed).toBe(true);
+        expect(allocateUserSeqMock).toHaveBeenCalledWith("owner-1");
+        expect(emitMock).toHaveBeenCalledTimes(1);
     });
 
     it("does not allocate seq when connections exist but no matching session-scoped target", async () => {

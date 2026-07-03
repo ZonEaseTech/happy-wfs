@@ -347,7 +347,7 @@ export function v3SessionRoutes(app: Fastify) {
                 trackCliDelivery: message.trackCliDelivery,
             });
 
-            if (dispatched.message.seq === 1 && dispatched.ownerSessionScopedDeliveries === 0) {
+            if (dispatched.ownerSessionScopedDeliveries === 0) {
                 scheduleFirstMessageReplay({
                     ownerId,
                     sessionId,
@@ -473,7 +473,7 @@ export function v3SessionRoutes(app: Fastify) {
             trackCliDelivery,
         });
 
-        if (dispatched.message.seq === 1 && dispatched.ownerSessionScopedDeliveries === 0) {
+        if (dispatched.ownerSessionScopedDeliveries === 0) {
             scheduleFirstMessageReplay({
                 ownerId,
                 sessionId,
@@ -487,10 +487,13 @@ export function v3SessionRoutes(app: Fastify) {
             });
         }
 
-        // Direct send doesn't pass through the auto-dispatch worker, but we still
-        // mark the runtime as awaiting turn start so subsequent /send calls queue
-        // until we observe the next thinking=true heartbeat.
-        markDispatched(sessionId);
+        // Direct send doesn't pass through the auto-dispatch worker. Only mark
+        // the runtime as awaiting turn start after a CLI actually received the
+        // message; otherwise later user messages would queue behind a turn that
+        // can never start.
+        if (dispatched.ownerSessionScopedDeliveries > 0) {
+            markDispatched(sessionId);
+        }
 
         return reply.send({
             mode,

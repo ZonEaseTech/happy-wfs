@@ -325,6 +325,14 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                 payload: buildMessageDeliveryErrorEphemeral(sid, message.id, message.localId, reason),
                 recipientFilter: { type: 'all-interested-in-session', sessionId: sid }
             });
+
+            const thinkingState = updateThinkingState(sid, false, Date.now());
+            if (thinkingState.turnEnded) {
+                await dispatchNextPendingIfPossible({
+                    ownerId: userId,
+                    sessionId: sid
+                });
+            }
         } catch (error) {
             log({ module: 'websocket', level: 'error' }, `Error in message-receipt: ${error}`);
         }

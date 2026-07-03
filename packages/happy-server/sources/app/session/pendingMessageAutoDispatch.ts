@@ -64,9 +64,11 @@ export async function dispatchNextPendingIfPossible(params: {
             trackCliDelivery: pending.trackCliDelivery,
         });
 
-        markDispatched(params.sessionId);
+        if (dispatched.ownerSessionScopedDeliveries > 0) {
+            markDispatched(params.sessionId);
+        }
 
-        if (dispatched.message.seq === 1 && dispatched.ownerSessionScopedDeliveries === 0) {
+        if (dispatched.ownerSessionScopedDeliveries === 0) {
             scheduleFirstMessageReplay({
                 ownerId: params.ownerId,
                 sessionId: params.sessionId,

@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 9 - 2026-07-03
+
+Session restore is more resilient after CLI re-authentication or machine ID rotation.
+
+- Session restore: fall back to the matching/current online machine when an older saved machine ID no longer has RPC listeners, so archived sessions can resume after re-login.
+- New session: show friendly machine names in the status strip, avoid raw UUID labels when a host name is available, and render status as `name · online` without a trailing colon.
+
 ## Version 8 - 2026-04-24
 
 OpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.

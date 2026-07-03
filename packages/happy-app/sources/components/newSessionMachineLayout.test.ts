@@ -15,4 +15,10 @@ describe('new session machine selector layout', () => {
         expect(newSessionSource).toContain('>2.</Text>');
         expect(newSessionSource).toContain('>3.</Text>');
     });
+
+    it('formats the selected machine status strip without a trailing colon', () => {
+        expect(newSessionSource).not.toContain('{selectedMachineTitle}:');
+        expect(newSessionSource).toContain('{selectedMachineTitle}');
+        expect(newSessionSource).toContain('·');
+    });
 });
