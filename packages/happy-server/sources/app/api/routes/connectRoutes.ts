@@ -8,6 +8,7 @@ import { githubConnect } from "@/app/github/githubConnect";
 import { githubDisconnect } from "@/app/github/githubDisconnect";
 import { Context } from "@/context";
 import { db } from "@/storage/db";
+import { GITHUB_OAUTH_SCOPE } from "./githubOAuthScope";
 
 export function connectRoutes(app: Fastify) {
 
@@ -79,8 +80,9 @@ export function connectRoutes(app: Fastify) {
             client_id: clientId,
             redirect_uri: redirectUri,
             // repo is required to read private repository issues for the
-            // Happy "pending GitHub issues" task inbox.
-            scope: 'read:user,user:email,read:org,codespace,repo,read:project',
+            // Happy "pending GitHub issues" task inbox. project is required
+            // to update GitHub ProjectV2 fields such as Status.
+            scope: GITHUB_OAUTH_SCOPE,
             state: state
         });
 

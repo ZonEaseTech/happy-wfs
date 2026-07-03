@@ -641,7 +641,7 @@ function NewSessionWizard() {
         clearImages,
         initImages,
         canAddMore,
-    } = useImagePicker({ maxImages: 4 });
+    } = useImagePicker();
     const {
         fileAttachments,
         setFileAttachments,

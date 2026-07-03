@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 9,
+      "date": "2026-07-03",
+      "summary": "GitHub permissions, chat uploads, and clean-repository file browsing are more predictable.",
+      "changes": [
+        "GitHub: request writable project scope and tell users to reconnect GitHub when Project status updates need it.",
+        "Chat uploads: allow up to 10 images in one message.",
+        "Files: show a clean working tree state instead of listing every normal project file when a repository has no changes."
+      ],
+      "rawMarkdown": "## Version 9 - 2026-07-03\n\n\nGitHub permissions, chat uploads, and clean-repository file browsing are more predictable.\n\n- GitHub: request writable project scope and tell users to reconnect GitHub when Project status updates need it.\n- Chat uploads: allow up to 10 images in one message.\n- Files: show a clean working tree state instead of listing every normal project file when a repository has no changes."
+    },
+    {
       "version": 8,
       "date": "2026-04-24",
       "summary": "OpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.",
@@ -122,5 +133,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 8
+  "latestVersion": 9
 }

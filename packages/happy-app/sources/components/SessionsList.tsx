@@ -35,6 +35,7 @@ import { storeTempData } from '@/utils/tempDataStore';
 import { ActionMenuModal } from './ActionMenuModal';
 import { ActionMenuItem } from './ActionMenu';
 import { buildGitHubIssueStartPrompt } from './githubIssueStartPrompt';
+import { GITHUB_PROJECT_RECONNECT_MESSAGE, GITHUB_PROJECT_RECONNECT_TITLE, isGitHubProjectPermissionError } from '@/utils/githubProjectPermission';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -721,10 +722,7 @@ function isGitHubBadCredentialsMessage(message: string | undefined | null): bool
     const normalized = message.toLowerCase();
     return normalized.includes('bad credentials')
         || normalized.includes('status 401')
-        || normalized.includes('responded with 401')
-        || normalized.includes('insufficient_scopes')
-        || normalized.includes('required scopes')
-        || normalized.includes('read:project');
+        || normalized.includes('responded with 401');
 }
 
 export function SessionsList() {
@@ -778,7 +776,7 @@ export function SessionsList() {
         try {
             const token = await Modal.prompt(
                 'GitHub token 已失效',
-                'GitHub 返回 Bad credentials。请输入新的 Personal Access Token（需要 repo / read:org / read:project 权限），保存后会自动重试读取 Issues。',
+                'GitHub 返回 Bad credentials。请输入新的 Personal Access Token（需要 repo / read:org / project 权限），保存后会自动重试读取 Issues。',
                 {
                     placeholder: 'github_pat_...',
                     inputType: 'secure-text',
@@ -802,6 +800,9 @@ export function SessionsList() {
             githubTokenPromptOpenRef.current = false;
         }
     }, [auth.credentials]);
+    const promptForGitHubReconnect = React.useCallback(() => {
+        Modal.alert(GITHUB_PROJECT_RECONNECT_TITLE, GITHUB_PROJECT_RECONNECT_MESSAGE);
+    }, []);
     const startExactGitHubIssueSearch = React.useCallback((args: { issueNumber: number; requestKey: string }) => {
         if (!auth.credentials) return;
         const repositories = getGitHubIssueExactSearchRepositories(githubIssueInboxFilters.projects);
@@ -847,7 +848,10 @@ export function SessionsList() {
         }
         try {
             let result = await listGitHubIssues(auth.credentials, requestOptions);
-            if (isGitHubBadCredentialsMessage(result.warning)) {
+            if (isGitHubProjectPermissionError(result.warning)) {
+                setPendingIssuesError(result.warning ?? null);
+                promptForGitHubReconnect();
+            } else if (isGitHubBadCredentialsMessage(result.warning)) {
                 setPendingIssuesError(result.warning ?? null);
                 const saved = await promptForGitHubToken();
                 if (saved) {
@@ -867,7 +871,9 @@ export function SessionsList() {
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setPendingIssuesError(message);
-            if (isGitHubBadCredentialsMessage(message)) {
+            if (isGitHubProjectPermissionError(message)) {
+                promptForGitHubReconnect();
+            } else if (isGitHubBadCredentialsMessage(message)) {
                 const saved = await promptForGitHubToken();
                 if (saved) {
                     const result = await listGitHubIssues(auth.credentials, requestOptions);
@@ -884,7 +890,7 @@ export function SessionsList() {
         } finally {
             setPendingIssuesLoading(false);
         }
-    }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueCacheKey, pendingIssueSearchText, pendingIssueServerQuery, promptForGitHubToken, setGithubIssueInboxCache, startExactGitHubIssueSearch]);
+    }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueCacheKey, pendingIssueSearchText, pendingIssueServerQuery, promptForGitHubReconnect, promptForGitHubToken, setGithubIssueInboxCache, startExactGitHubIssueSearch]);
     const loadPendingIssueBaseline = React.useCallback(async (showSpinner: boolean = false) => {
         if (!auth.credentials) return;
         if (showSpinner) setPendingIssuesLoading(true);
@@ -1571,7 +1577,12 @@ const GitHubIssueDetailModal = React.memo(({ issue, onStart, onClose, onIssueUpd
             setCurrentIssue(result.issue);
             onIssueUpdated?.(result.issue);
         } catch (error) {
-            Modal.alert('修改 GitHub 状态失败', error instanceof Error ? error.message : String(error));
+            const message = error instanceof Error ? error.message : String(error);
+            if (isGitHubProjectPermissionError(message)) {
+                Modal.alert(GITHUB_PROJECT_RECONNECT_TITLE, GITHUB_PROJECT_RECONNECT_MESSAGE);
+            } else {
+                Modal.alert('修改 GitHub 状态失败', message);
+            }
         } finally {
             setUpdatingStatus(false);
         }

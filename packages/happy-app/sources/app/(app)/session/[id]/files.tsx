@@ -102,13 +102,13 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     const [showViewer, setShowViewer] = React.useState(false);
     const [viewerPath, setViewerPath] = React.useState<string | undefined>(undefined);
     // Tracks whether the file the modal opened for came from staged/unstaged
-    // sections (= diff-able vs HEAD) or from search results / a clean-repo
+    // sections (= diff-able vs HEAD) or from search results
     // file listing (no diff anchor). Drives the modal's default diff mode.
     const [viewerFromGit, setViewerFromGit] = React.useState<'unstaged' | 'staged' | undefined>(undefined);
     // When the modal opens for a staged/unstaged entry we restrict its left
     // tree to just the changed files (staged + unstaged) instead of letting
-    // it browse the whole project. Search results / clean-repo file listings
-    // leave this undefined so the modal falls back to listDirectory.
+    // it browse the whole project. Search results leave this undefined so
+    // the modal falls back to listDirectory.
     const [viewerRestrictPaths, setViewerRestrictPaths] = React.useState<string[] | undefined>(undefined);
     // Per-file +/− line counts surfaced as chips in the modal's left tree.
     // Same key shape as restrictPaths (absolute path).
@@ -159,7 +159,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         });
     }, []);
 
-    // Track whether initial data has been fully loaded (git status + file list if clean)
+    // Track whether initial git status data has been fully loaded.
     const initialLoadDone = React.useRef(false);
 
     // Load git status files
@@ -183,17 +183,10 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             }
             const result = await getGitStatusFiles(sessionId, effectiveRepoPath);
             setGitStatusFiles(result);
-            // For repos with changes, initial load is done after git status
-            if (result && (result.totalStaged > 0 || result.totalUnstaged > 0)) {
-                initialLoadDone.current = true;
-                setIsLoading(false);
-            } else if (!result) {
-                // Not a git repo (or git command failed) — stop loading so the
-                // empty-state UI ("not a git repository" + nearby repos) can render.
-                initialLoadDone.current = true;
-                setIsLoading(false);
-            }
-            // For clean repos (result exists but no changes), keep isLoading=true until file list loads (handled in search effect)
+            // Git status is enough for the default view. Do not load and
+            // display every project file just because the repo is clean.
+            initialLoadDone.current = true;
+            setIsLoading(false);
         } catch (error) {
             console.error('Failed to load git status files:', error);
             // Only clear data on initial load failure
@@ -411,11 +404,10 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             }
         };
 
-        // Load files when searching or when repo is clean
-        const isCleanRepo = gitStatusFiles?.totalStaged === 0 && gitStatusFiles?.totalUnstaged === 0;
-        const shouldShowAllFiles = searchQuery || isCleanRepo;
-
-        if (shouldShowAllFiles && gitStatusFiles) {
+        // Only load file-list results for an explicit search. Clean repos
+        // should show the clean working tree state instead of listing every
+        // normal project file.
+        if (searchQuery && gitStatusFiles) {
             loadFiles();
         } else if (!searchQuery) {
             setSearchResults([]);
@@ -442,11 +434,11 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
             setViewerPath(absolutePath);
             // staged === true → file lives in the staged section; staged === false
             // (passed by unstaged section) → 'unstaged'; staged === undefined
-            // (search results / clean repo file list) → no git anchor.
+            // (search results) → no git anchor.
             setViewerFromGit(staged === true ? 'staged' : staged === false ? 'unstaged' : undefined);
             // Restrict the modal's tree to the staged + unstaged change set
-            // when the click came from a git section. Search results / clean
-            // repo entries (staged === undefined) keep the full listDirectory
+            // when the click came from a git section. Search results
+            // (staged === undefined) keep the full listDirectory
             // tree so the user can still navigate to nearby files.
             if ((staged === true || staged === false) && gitStatusFiles) {
                 const all = [...gitStatusFiles.stagedFiles, ...gitStatusFiles.unstagedFiles];
@@ -942,8 +934,8 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                             </View>
                         )}
                     </View>
-                ) : searchQuery || (gitStatusFiles.totalStaged === 0 && gitStatusFiles.totalUnstaged === 0) ? (
-                    // Show search results or all files when clean repo
+                ) : searchQuery ? (
+                    // Show search results
                     // Only show searching indicator on first load (no existing results)
                     isSearching && searchResults.length === 0 ? (
                         <View style={{
@@ -971,7 +963,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                             paddingTop: 40,
                             paddingHorizontal: 20
                         }}>
-                            <Octicons name={searchQuery ? "search" : "file-directory"} size={48} color={theme.colors.textSecondary} />
+                            <Octicons name="search" size={48} color={theme.colors.textSecondary} />
                             <Text style={{
                                 fontSize: 16,
                                 color: theme.colors.textSecondary,
@@ -981,39 +973,35 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                             }}>
                                 {searchQuery ? t('files.noFilesFound') : t('files.noFilesInProject')}
                             </Text>
-                            {searchQuery && (
-                                <Text style={{
-                                    fontSize: 14,
-                                    color: theme.colors.textSecondary,
-                                    textAlign: 'center',
-                                    marginTop: 8,
-                                    ...Typography.default()
-                                }}>
-                                    {t('files.tryDifferentTerm')}
-                                </Text>
-                            )}
+                            <Text style={{
+                                fontSize: 14,
+                                color: theme.colors.textSecondary,
+                                textAlign: 'center',
+                                marginTop: 8,
+                                ...Typography.default()
+                            }}>
+                                {t('files.tryDifferentTerm')}
+                            </Text>
                         </View>
                     ) : (
-                        // Show search results or all files
+                        // Show search results
                         <>
-                            {searchQuery && (
-                                <View style={{
-                                    backgroundColor: theme.colors.surfaceHigh,
-                                    paddingHorizontal: 16,
-                                    paddingVertical: 12,
-                                    borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
-                                    borderBottomColor: theme.colors.divider
+                            <View style={{
+                                backgroundColor: theme.colors.surfaceHigh,
+                                paddingHorizontal: 16,
+                                paddingVertical: 12,
+                                borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                                borderBottomColor: theme.colors.divider
+                            }}>
+                                <Text style={{
+                                    fontSize: 14,
+                                    fontWeight: '600',
+                                    color: theme.colors.textLink,
+                                    ...Typography.default()
                                 }}>
-                                    <Text style={{
-                                        fontSize: 14,
-                                        fontWeight: '600',
-                                        color: theme.colors.textLink,
-                                        ...Typography.default()
-                                    }}>
-                                        {t('files.searchResults', { count: searchResults.length })}
-                                    </Text>
-                                </View>
-                            )}
+                                    {t('files.searchResults', { count: searchResults.length })}
+                                </Text>
+                            </View>
                             {searchResults.map((file, index) => (
                                 <Item
                                     key={`file-${file.fullPath}-${index}`}
@@ -1025,10 +1013,30 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                     {...compactItemProps}
                                 />
                             ))}
-                        </>
+                            </>
                     )
                 ) : (
-                    <>
+                    gitStatusFiles.stagedFiles.length === 0 && gitStatusFiles.unstagedFiles.length === 0 ? (
+                        <View style={{
+                            flex: 1,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            paddingTop: 40,
+                            paddingHorizontal: 20
+                        }}>
+                            <Octicons name="check-circle" size={48} color={theme.colors.textSecondary} />
+                            <Text style={{
+                                fontSize: 16,
+                                color: theme.colors.textSecondary,
+                                textAlign: 'center',
+                                marginTop: 16,
+                                ...Typography.default()
+                            }}>
+                                {t('files.noChanges')}
+                            </Text>
+                        </View>
+                    ) : (
+                        <>
                         {/* Staged Changes Section */}
                         {gitStatusFiles.stagedFiles.length > 0 && (
                             <>
@@ -1134,7 +1142,8 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
                                 }
                             </>
                         )}
-                    </>
+                        </>
+                    )
                 )}
             </ItemList>
             <ActionMenuModal visible={menuVisible} items={menuItems} onClose={() => setMenuVisible(false)} />

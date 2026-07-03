@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 9 - 2026-07-03
+
+GitHub permissions, chat uploads, and clean-repository file browsing are more predictable.
+
+- GitHub: request writable project scope and tell users to reconnect GitHub when Project status updates need it.
+- Chat uploads: allow up to 10 images in one message.
+- Files: show a clean working tree state instead of listing every normal project file when a repository has no changes.
+
 ## Version 8 - 2026-04-24
 
 OpenClaw renders rich AI content blocks, Claude Opus 4.7 and GPT-5.5 support, image upload quality, session title polish, and Claude 4.x compatibility fixes.

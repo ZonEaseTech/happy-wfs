@@ -981,7 +981,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         clearImages,
         initImages,
         canAddMore,
-    } = useImagePicker({ maxImages: 4 });
+    } = useImagePicker();
     const {
         fileAttachments,
         setFileAttachments,
