@@ -175,6 +175,11 @@ function UserTextBlock(props: {
 
   const isAiSentUserMessage = typeof props.message.localId === 'string' && props.message.localId.startsWith('auto-review-');
 
+  const isCollaborationMessage = React.useMemo(() => {
+    const meta = props.message.meta as any;
+    return meta?.collaboration?.kind === 'mention' || !!meta?.humanOnly || !!meta?.skipAiContext;
+  }, [props.message.meta]);
+
   const senderLabel = React.useMemo(() => {
     if (!props.isSharedSession || !props.showSenderName || !props.message.sentBy) return null;
     if (props.message.sentBy === props.currentUserId) return t('message.you');
@@ -193,9 +198,14 @@ function UserTextBlock(props: {
           <Text style={styles.aiUserMessageBadgeText}>AI</Text>
         </View>
       )}
+      {isCollaborationMessage && (
+        <View style={styles.collaborationBadge}>
+          <Text style={styles.collaborationBadgeText}>{t('message.collaborationBadge')}</Text>
+        </View>
+      )}
       {actionsOverlay}
       <Pressable
-        style={styles.userMessageBubble}
+        style={[styles.userMessageBubble, isCollaborationMessage && styles.collaborationMessageBubble]}
         // @ts-ignore — RN-Web supports onContextMenu via host div forwarding.
         onContextMenu={onContextMenu}
         // PC long-press: try to capture pointer coords from the press event so
@@ -479,5 +489,24 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 8,
     marginBottom: 8,
     gap: 12,
+  },
+  collaborationBadge: {
+    alignSelf: 'flex-end',
+    backgroundColor: theme.colors.surfaceHigh,
+    borderColor: theme.colors.divider,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 4,
+  },
+  collaborationBadgeText: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+  },
+  collaborationMessageBubble: {
+    borderWidth: 1,
+    borderColor: theme.colors.divider,
+    backgroundColor: theme.colors.surfaceHigh,
   },
 }));

@@ -33,6 +33,8 @@ import { notificationRoutes } from "./routes/notificationRoutes";
 import { memoryRoutes } from "./routes/memoryRoutes";
 import { githubRoutes } from "./routes/githubRoutes";
 import { fileShareRoutes } from "./routes/fileShareRoutes";
+import { bugRoutes } from "./routes/bugRoutes";
+import { bugPublicRoutes } from "./routes/bugPublicRoutes";
 import { ensureDefaultCompanyMemberships } from "@/app/company/companyBootstrap";
 
 export async function startApi() {
@@ -52,7 +54,7 @@ export async function startApi() {
     });
     app.register(import('@fastify/multipart'), {
         limits: {
-            fileSize: 10 * 1024 * 1024, // 10MB max file size
+            fileSize: 20 * 1024 * 1024, // 20MB max file size for Bug screenshots
         }
     });
     app.get('/', function (request, reply) {
@@ -97,6 +99,8 @@ export async function startApi() {
     memoryRoutes(typed);
     githubRoutes(typed);
     fileShareRoutes(typed);
+    bugRoutes(typed);
+    bugPublicRoutes(typed);
 
     // Start HTTP
     const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3005;

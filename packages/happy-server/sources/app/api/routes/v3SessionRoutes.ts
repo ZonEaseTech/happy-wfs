@@ -14,7 +14,9 @@ import {
 } from "@/app/session/pendingMessageService";
 import { dispatchNextPendingIfPossible } from "@/app/session/pendingMessageAutoDispatch";
 import { dispatchSessionMessage } from "@/app/session/sessionMessageDispatch";
+import { notifySessionMentionRecipients } from "@/app/session/sessionMentionNotification";
 import { db } from "@/storage/db";
+import { inTx } from "@/storage/inTx";
 import { z } from "zod";
 import { type Fastify } from "../types";
 import { scheduleFirstMessageReplay } from "./firstMessageReplay";
@@ -30,6 +32,7 @@ const sendMessagesBodySchema = z.object({
         content: z.string(),
         localId: z.string().min(1),
         trackCliDelivery: z.boolean().optional().default(false),
+        mentionTargetUserIds: z.array(z.string()).max(20).optional().default([]),
     })).min(1).max(200),
 });
 
@@ -151,6 +154,38 @@ async function getSenderName(userId: string): Promise<string | null> {
     });
 
     return senderAccount?.firstName || senderAccount?.username || null;
+}
+
+async function filterMentionTargetsWithSessionAccess(
+    sessionId: string,
+    targetUserIds: string[],
+    actorId: string,
+): Promise<string[]> {
+    const uniqueTargetUserIds = Array.from(new Set(targetUserIds)).filter((userId) => userId && userId !== actorId);
+    if (uniqueTargetUserIds.length === 0) {
+        return [];
+    }
+
+    const session = await db.session.findUnique({
+        where: { id: sessionId },
+        select: {
+            accountId: true,
+            shares: {
+                where: {
+                    sharedWithUserId: { in: uniqueTargetUserIds },
+                },
+                select: {
+                    sharedWithUserId: true,
+                },
+            },
+        },
+    });
+    if (!session) {
+        return [];
+    }
+
+    const sharedUserIds = new Set(session.shares.map((share) => share.sharedWithUserId));
+    return uniqueTargetUserIds.filter((userId) => userId === session.accountId || sharedUserIds.has(userId));
 }
 
 async function findExistingSentMessageByLocalId(sessionId: string, localId: string): Promise<ExistingSendMessage | null> {
@@ -299,7 +334,7 @@ export function v3SessionRoutes(app: Fastify) {
 
         const sentByName = await getSenderName(userId);
 
-        const firstMessageByLocalId = new Map<string, { localId: string; content: string; trackCliDelivery: boolean }>();
+        const firstMessageByLocalId = new Map<string, { localId: string; content: string; trackCliDelivery: boolean; mentionTargetUserIds: string[] }>();
         for (const message of messages) {
             if (!firstMessageByLocalId.has(message.localId)) {
                 firstMessageByLocalId.set(message.localId, message);
@@ -347,7 +382,7 @@ export function v3SessionRoutes(app: Fastify) {
                 trackCliDelivery: message.trackCliDelivery,
             });
 
-            if (dispatched.message.seq === 1 && dispatched.ownerSessionScopedDeliveries === 0) {
+            if (message.mentionTargetUserIds.length === 0 && dispatched.message.seq === 1 && dispatched.ownerSessionScopedDeliveries === 0) {
                 scheduleFirstMessageReplay({
                     ownerId,
                     sessionId,
@@ -359,6 +394,31 @@ export function v3SessionRoutes(app: Fastify) {
                         },
                     },
                 });
+            }
+
+            if (message.mentionTargetUserIds.length > 0) {
+                const recipientUserIds = await filterMentionTargetsWithSessionAccess(
+                    sessionId,
+                    message.mentionTargetUserIds,
+                    userId,
+                );
+                if (recipientUserIds.length > 0) {
+                    const sessionForNotification = await db.session.findUnique({
+                        where: { id: sessionId },
+                        select: { tag: true },
+                    });
+                    await inTx(async (tx) => {
+                        await notifySessionMentionRecipients(tx, {
+                            recipientUserIds,
+                            actorId: userId,
+                            actorName: sentByName,
+                            sessionId,
+                            messageLocalId: message.localId,
+                            sessionTitle: sessionForNotification?.tag ?? null,
+                            preview: "Mentioned you in a session",
+                        });
+                    });
+                }
             }
 
             responseMessages.push(dispatched.message);

@@ -1,8 +1,8 @@
-import { CommandSuggestion, FileMentionSuggestion, FriendMentionSuggestion } from '@/components/AgentInputSuggestionView';
+import { CommandSuggestion, CoworkerMentionSuggestion, FileMentionSuggestion, FriendMentionSuggestion } from '@/components/AgentInputSuggestionView';
 import * as React from 'react';
 import { searchFiles, FileItem } from '@/sync/suggestionFile';
 import { searchCommands, CommandItem } from '@/sync/suggestionCommands';
-import { getDisplayName, type UserProfile } from '@/sync/friendTypes';
+import { getMentionableDisplayName, type MentionableUser } from '@/utils/chatFriendMentions';
 
 export interface AgentInputSuggestion {
     key: string;
@@ -11,7 +11,8 @@ export interface AgentInputSuggestion {
 }
 
 interface GetSuggestionsOptions {
-    friends?: UserProfile[];
+    friends?: MentionableUser[];
+    companyMembers?: MentionableUser[];
     includeFriends?: boolean;
 }
 
@@ -65,24 +66,43 @@ export async function getFileMentionSuggestions(sessionId: string, query: string
     }
 }
 
-export function getFriendMentionSuggestions(query: string, friends: UserProfile[]): AgentInputSuggestion[] {
+function matchesMentionSearch(person: MentionableUser, searchTerm: string): boolean {
+    if (!searchTerm) {
+        return true;
+    }
+    const displayName = getMentionableDisplayName(person).toLowerCase();
+    return person.username.toLowerCase().includes(searchTerm) || displayName.includes(searchTerm);
+}
+
+export function getFriendMentionSuggestions(query: string, friends: MentionableUser[]): AgentInputSuggestion[] {
     const searchTerm = query.slice(1).trim().toLowerCase();
 
     return friends
-        .filter((friend) => {
-            if (!searchTerm) {
-                return true;
-            }
-            const displayName = getDisplayName(friend).toLowerCase();
-            return friend.username.toLowerCase().includes(searchTerm) || displayName.includes(searchTerm);
-        })
+        .filter(friend => matchesMentionSearch(friend, searchTerm))
         .slice(0, 5)
         .map(friend => ({
             key: `friend-${friend.id}`,
             text: `@${friend.username}`,
             component: () => React.createElement(FriendMentionSuggestion, {
                 username: friend.username,
-                displayName: getDisplayName(friend),
+                displayName: getMentionableDisplayName(friend),
+            })
+        }));
+}
+
+export function getCoworkerMentionSuggestions(query: string, coworkers: MentionableUser[], friendIds: Set<string>): AgentInputSuggestion[] {
+    const searchTerm = query.slice(1).trim().toLowerCase();
+
+    return coworkers
+        .filter(coworker => !friendIds.has(coworker.id))
+        .filter(coworker => matchesMentionSearch(coworker, searchTerm))
+        .slice(0, 5)
+        .map(coworker => ({
+            key: `coworker-${coworker.id}`,
+            text: `@${coworker.username}`,
+            component: () => React.createElement(CoworkerMentionSuggestion, {
+                username: coworker.username,
+                displayName: getMentionableDisplayName(coworker),
             })
         }));
 }
@@ -116,11 +136,16 @@ export async function getSuggestions(sessionId: string, query: string, options: 
     // Check if it's a friend/file mention (starts with @)
     if (query.startsWith('@')) {
         console.log('💡 getSuggestions: Friend/file mention detected');
+        const friends = options.friends ?? [];
         const friendSuggestions = options.includeFriends === false
             ? []
-            : getFriendMentionSuggestions(query, options.friends ?? []);
+            : getFriendMentionSuggestions(query, friends);
+        const friendIds = new Set(friends.map(friend => friend.id));
+        const coworkerSuggestions = options.includeFriends === false
+            ? []
+            : getCoworkerMentionSuggestions(query, options.companyMembers ?? [], friendIds);
         const fileSuggestions = await getFileMentionSuggestions(sessionId, query);
-        const result = [...friendSuggestions, ...fileSuggestions];
+        const result = [...friendSuggestions, ...coworkerSuggestions, ...fileSuggestions];
         console.log('💡 getSuggestions: Mention suggestions:', JSON.stringify(result.map(r => ({
             key: r.key,
             text: r.text,

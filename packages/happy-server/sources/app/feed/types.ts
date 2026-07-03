@@ -5,6 +5,14 @@ export const FeedBodySchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('friend_accepted'), uid: z.string() }),
     z.object({ kind: z.literal('text'), text: z.string() }),
     z.object({ kind: z.literal('notice'), title: z.string(), text: z.string() }),
+    z.object({
+        kind: z.literal('session_mention'),
+        sessionId: z.string(),
+        actorId: z.string(),
+        actorName: z.string().nullable(),
+        sessionTitle: z.string().nullable(),
+        preview: z.string(),
+    }),
 ]);
 
 export type FeedBody = z.infer<typeof FeedBodySchema>;

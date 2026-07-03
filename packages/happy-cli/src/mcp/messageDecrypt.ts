@@ -36,6 +36,7 @@ export interface DecryptedMessage {
     seq: number;
     role: 'user' | 'agent' | 'unknown';
     content: DecryptedUserContent | DecryptedAgentContent | null;
+    meta?: Record<string, unknown> | null;
     /** Convenience: a string preview of the message body for cards/inspect. */
     textPreview: string;
     sentBy: string | null;
@@ -107,6 +108,7 @@ export function decryptMessage(
         seq: raw.seq,
         role,
         content,
+        meta: decrypted?.meta ?? null,
         textPreview: buildPreview(content),
         sentBy: raw.sentBy,
         sentByName: raw.sentByName,

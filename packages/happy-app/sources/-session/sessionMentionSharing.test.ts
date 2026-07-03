@@ -73,7 +73,7 @@ describe('session mention sharing', () => {
         const credentials = { token: 'token' } as never;
         const dataKey = new Uint8Array([1, 2, 3]);
 
-        await shareSessionWithMentionedFriendsWithDeps('session-1', [friend('u1', 'alice')], {
+        const result = await shareSessionWithMentionedFriendsWithDeps('session-1', [friend('u1', 'alice')], {
             getCredentials: () => credentials,
             getSessionDataKey: () => dataKey,
             verifyBinding: vi.fn().mockReturnValue(true),
@@ -81,10 +81,36 @@ describe('session mention sharing', () => {
             createShare,
         });
 
+        expect(result.succeeded.map(item => item.id)).toEqual(['u1']);
+        expect(result.failed).toEqual([]);
         expect(createShare).toHaveBeenCalledWith(credentials, 'session-1', {
             userId: 'u1',
             accessLevel: 'edit',
             encryptedDataKey: 'encrypted-key',
         });
+    });
+
+    it('continues sharing when one mention target fails', async () => {
+        const createShare = vi.fn()
+            .mockRejectedValueOnce(new Error('no keys'))
+            .mockResolvedValueOnce(share('u2'));
+        const credentials = { token: 'token' } as never;
+        const dataKey = new Uint8Array([1, 2, 3]);
+
+        const result = await shareSessionWithMentionedFriendsWithDeps(
+            'session-1',
+            [friend('u1', 'alice'), friend('u2', 'bob')],
+            {
+                getCredentials: () => credentials,
+                getSessionDataKey: () => dataKey,
+                verifyBinding: vi.fn().mockReturnValue(true),
+                encryptDataKey: vi.fn().mockReturnValue('encrypted-key'),
+                createShare,
+            },
+        );
+
+        expect(result.succeeded.map(item => item.id)).toEqual(['u2']);
+        expect(result.failed.map(item => item.target.id)).toEqual(['u1']);
+        expect(createShare).toHaveBeenCalledTimes(2);
     });
 });

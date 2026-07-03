@@ -14,6 +14,8 @@ import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { buildPendingQueueBatchPrompt, extractPendingUploadedImages } from '@/components/pendingQueueBatchPrompt';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
+import { BugReportDetailModal } from '@/components/BugReportDetailModal';
+import type { LocalImage } from '@/components/ImagePreview';
 import { getMentionShareTargets, shareSessionWithMentionedFriends } from '@/-session/sessionMentionSharing';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
@@ -26,8 +28,12 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
+import { addBugComment, changeBugStatus, getBug, uploadBugAttachment } from '@/sync/apiBugs';
+import type { BugReportDetail, BugStatus } from '@/sync/bugTypes';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { getSessionShares } from '@/sync/apiSharing';
+import { listCompanyMembers } from '@/sync/apiCompany';
+import { getUserProfiles } from '@/sync/apiFriends';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -61,7 +67,7 @@ import { CustomQuickActionSchema } from '@/sync/localSettings';
 import { useAutoReviewGuard } from '@/sync/autoReviewGuard';
 import { AutoReviewGuardSettingsModal } from '@/components/AutoReviewGuardSettingsModal';
 import { getDisplayName } from '@/sync/friendTypes';
-import { resolveMentionedFriends } from '@/utils/chatFriendMentions';
+import { getMentionableDisplayName, resolveMentionedFriends, type MentionableUser } from '@/utils/chatFriendMentions';
 
 const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
@@ -114,6 +120,22 @@ function buildLinkedGitHubIssue(session: Session | null | undefined): GitHubIssu
         assignees: readStringArray(extra.assignees),
         projectStatuses: readStringArray(extra.projectStatuses),
         projectTitles: readStringArray(extra.projectTitles),
+    };
+}
+
+function buildLinkedHappyBug(session: Session | null | undefined): { id: string; title: string } | null {
+    const context = session?.metadata?.externalContext;
+    if (!context || context.source !== 'happy-bug' || context.resourceType !== 'bug') {
+        return null;
+    }
+    const extra = context.extra && typeof context.extra === 'object'
+        ? context.extra as Record<string, unknown>
+        : {};
+    const bugId = readString(extra.bugId) || context.resourceId;
+    if (!bugId) return null;
+    return {
+        id: bugId,
+        title: readString(context.title) || readString(extra.displayId) || bugId,
     };
 }
 
@@ -203,6 +225,43 @@ export const SessionView = React.memo((props: { id: string }) => {
             },
         });
     }, [linkedGitHubIssue]);
+    const linkedHappyBug = React.useMemo(() => buildLinkedHappyBug(session), [session]);
+    const handleOpenLinkedHappyBug = React.useCallback(async () => {
+        if (!linkedHappyBug) return;
+        const credentials = sync.getCredentials();
+        if (!credentials) return;
+        try {
+            const uploadBugImages = async (bugId: string, images: LocalImage[], commentId?: string): Promise<BugReportDetail> => {
+                let updated: BugReportDetail | null = null;
+                for (const image of images) {
+                    updated = await uploadBugAttachment(credentials, bugId, image, commentId);
+                }
+                return updated ?? await getBug(credentials, bugId);
+            };
+            const bug = await getBug(credentials, linkedHappyBug.id);
+            Modal.show({
+                component: BugReportDetailModal,
+                props: {
+                    bug,
+                    onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[]) => {
+                        const result = await addBugComment(credentials, current.id, body);
+                        if (images.length > 0) {
+                            return await uploadBugImages(current.id, images, result.commentId);
+                        }
+                        return result.bug;
+                    },
+                    onUploadImages: async (current: BugReportDetail, images: LocalImage[], commentId?: string) => (
+                        await uploadBugImages(current.id, images, commentId)
+                    ),
+                    onChangeStatus: async (current: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => (
+                        await changeBugStatus(credentials, current.id, { status, action })
+                    ),
+                },
+            });
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [linkedHappyBug]);
 
     // Track if we've confirmed the session doesn't exist after data loads
     const [sessionNotFound, setSessionNotFound] = React.useState(false);
@@ -345,6 +404,24 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         }}
                                     >
                                         <Ionicons name="ticket-outline" size={21} color={theme.colors.header.tint} />
+                                    </Pressable>
+                                )}
+                                {linkedHappyBug && (
+                                    <Pressable
+                                        {...webTooltip(t('bug.openBugDetail'))}
+                                        onPress={() => { void handleOpenLinkedHappyBug(); }}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('bug.openBugDetail')}
+                                        style={{
+                                            width: 38,
+                                            height: 38,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons name="bug-outline" size={21} color={theme.colors.header.tint} />
                                     </Pressable>
                                 )}
                                 <Pressable
@@ -547,7 +624,78 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
     const pendingMessages = useSessionPendingMessages(sessionId);
     const acceptedFriends = useAcceptedFriends();
+    const canEdit = !session.accessLevel || session.accessLevel !== 'view';
+    const canManageSharing = !session.accessLevel || session.accessLevel === 'admin';
+    const [companyMentionMembers, setCompanyMentionMembers] = React.useState<MentionableUser[]>([]);
     const acknowledgedCliVersions = useLocalSetting('acknowledgedCliVersions');
+
+    React.useEffect(() => {
+        let cancelled = false;
+        if (!canManageSharing) {
+            setCompanyMentionMembers([]);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        listCompanyMembers(sync.getCredentials(), { limit: 50 })
+            .then((response) => {
+                if (cancelled) return;
+                const currentUserId = sync.serverID;
+                const members = response.members
+                    .map((member): MentionableUser | null => {
+                        const username = member.profile.username?.trim();
+                        if (!username || member.profile.id === currentUserId) {
+                            return null;
+                        }
+                        return {
+                            id: member.profile.id,
+                            username,
+                            firstName: member.profile.firstName,
+                            lastName: member.profile.lastName,
+                        };
+                    })
+                    .filter((member): member is MentionableUser => Boolean(member));
+                setCompanyMentionMembers(members);
+            })
+            .catch((error) => {
+                console.warn('Failed to load company mention members', error);
+                if (!cancelled) {
+                    setCompanyMentionMembers([]);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [canManageSharing]);
+
+    const acceptedFriendsById = React.useMemo(() => new Map(acceptedFriends.map(friend => [friend.id, friend])), [acceptedFriends]);
+    const mentionCandidates = React.useMemo(() => {
+        const byId = new Map<string, MentionableUser>();
+        const currentUserId = sync.serverID;
+        for (const friend of acceptedFriends) {
+            if (friend.id !== currentUserId) {
+                byId.set(friend.id, friend);
+            }
+        }
+        for (const member of companyMentionMembers) {
+            if (member.id !== currentUserId && !byId.has(member.id)) {
+                byId.set(member.id, member);
+            }
+        }
+        return Array.from(byId.values());
+    }, [acceptedFriends, companyMentionMembers]);
+    const resolveMentionTargetProfiles = React.useCallback(async (mentionedPeople: MentionableUser[]) => {
+        const missingProfileIds = mentionedPeople
+            .filter(person => !acceptedFriendsById.has(person.id))
+            .map(person => person.id);
+        const fetchedProfiles = await getUserProfiles(sync.getCredentials(), missingProfileIds);
+        const fetchedById = new Map(fetchedProfiles.map(profile => [profile.id, profile]));
+        return mentionedPeople
+            .map(person => acceptedFriendsById.get(person.id) ?? fetchedById.get(person.id) ?? null)
+            .filter((profile): profile is NonNullable<typeof profile> => Boolean(profile));
+    }, [acceptedFriendsById]);
 
     // Check if CLI version is outdated and not already acknowledged
     const cliVersion = session.metadata?.version;
@@ -1270,48 +1418,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         </>
     ) : null;
 
-    const canEdit = !session.accessLevel || session.accessLevel !== 'view';
-    const canManageSharing = !session.accessLevel || session.accessLevel === 'admin';
-
-    const confirmAndShareMentionedFriends = React.useCallback(async (messageText: string): Promise<boolean> => {
-        if (!canManageSharing || !messageText) {
-            return true;
-        }
-
-        const mentionedFriends = resolveMentionedFriends(messageText, acceptedFriends);
-        if (mentionedFriends.length === 0) {
-            return true;
-        }
-
-        try {
-            const shares = await getSessionShares(sync.getCredentials(), sessionId);
-            const targets = getMentionShareTargets(mentionedFriends, shares);
-            if (targets.length === 0) {
-                return true;
-            }
-
-            const names = targets.map(friend => getDisplayName(friend)).join(', ');
-            const confirmed = await Modal.confirm(
-                t('session.sharing.mentionShareConfirmTitle'),
-                t('session.sharing.mentionShareConfirmMessage', { names }),
-                {
-                    cancelText: t('common.cancel'),
-                    confirmText: t('session.sharing.mentionShareConfirmAction'),
-                },
-            );
-            if (!confirmed) {
-                return false;
-            }
-
-            await shareSessionWithMentionedFriends(sessionId, targets);
-            return true;
-        } catch (error) {
-            const message = error instanceof Error ? error.message : t('session.sharing.mentionShareFailed');
-            Modal.alert(t('common.error'), message);
-            return false;
-        }
-    }, [acceptedFriends, canManageSharing, sessionId]);
-
     const handleSendNowPending = React.useCallback(async (pendingId: string) => {
         if (pendingMessages.length > 1) {
             const batchPrompt = buildPendingQueueBatchPrompt(pendingMessages, pendingId);
@@ -1427,11 +1533,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                         return;
                     }
 
-                    const mentionSharingReady = await confirmAndShareMentionedFriends(messageToSend);
-                    if (!mentionSharingReady) {
-                        return;
-                    }
-
                     const imagesToSend = images.length > 0 ? [...images] : undefined;
                     const filesToSend = fileAttachments.length > 0 ? [...fileAttachments] : [];
                     const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []) + JSON.stringify(filesToSend.map(file => ({ name: file.name, size: file.size })));
@@ -1440,6 +1541,119 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                     const existingLocalId = failedMessageRef.current?.content === contentForRetry
                         ? failedMessageRef.current.localId
                         : undefined;
+
+                    const mentionedPeople = resolveMentionedFriends(messageToSend, mentionCandidates);
+                    if (mentionedPeople.length > 0) {
+                        if (!canManageSharing) {
+                            Modal.alert(t('common.error'), t('session.sharing.mentionShareFailed'));
+                            return;
+                        }
+
+                        const mentionedNames = mentionedPeople.map(person => getMentionableDisplayName(person)).join(', ');
+                        const confirmed = await Modal.confirm(
+                            t('session.sharing.mentionShareConfirmTitle'),
+                            t('session.sharing.mentionShareConfirmMessage', { names: mentionedNames }),
+                            {
+                                cancelText: t('common.cancel'),
+                                confirmText: t('session.sharing.mentionShareConfirmAction'),
+                            },
+                        );
+                        if (!confirmed) {
+                            return;
+                        }
+
+                        setIsSending(true);
+                        if (imagesToSend || filesToSend.length > 0) {
+                            setIsUploadingImages(true);
+                        }
+
+                        try {
+                            const mentionedFriends = await resolveMentionTargetProfiles(mentionedPeople);
+                            const resolvedProfileIds = new Set(mentionedFriends.map(friend => friend.id));
+                            const unresolvedPeople = mentionedPeople.filter(person => !resolvedProfileIds.has(person.id));
+                            if (mentionedFriends.length === 0) {
+                                const failedNames = unresolvedPeople.map(person => getMentionableDisplayName(person)).join(', ') || mentionedNames;
+                                Modal.alert(
+                                    t('sessionInfo.mentions.partialFailureTitle'),
+                                    t('sessionInfo.mentions.partialFailureMessage', { names: failedNames }),
+                                );
+                                return;
+                            }
+
+                            const shares = await getSessionShares(sync.getCredentials(), sessionId);
+                            const targetsToShare = getMentionShareTargets(mentionedFriends, shares);
+                            const existingShareUserIds = new Set(shares.map(share => share.sharedWithUser.id));
+                            const alreadyReachableTargets = mentionedFriends.filter(friend => existingShareUserIds.has(friend.id));
+                            const shareResult = await shareSessionWithMentionedFriends(sessionId, targetsToShare);
+                            const reachableById = new Map<string, typeof mentionedFriends[number]>();
+                            for (const friend of alreadyReachableTargets) {
+                                reachableById.set(friend.id, friend);
+                            }
+                            for (const friend of shareResult.succeeded) {
+                                reachableById.set(friend.id, friend);
+                            }
+
+                            const reachableTargets = Array.from(reachableById.values());
+                            if (reachableTargets.length === 0) {
+                                const failedNames = [
+                                    ...unresolvedPeople.map(person => getMentionableDisplayName(person)),
+                                    ...shareResult.failed.map(item => getDisplayName(item.target)),
+                                ].join(', ') || mentionedNames;
+                                Modal.alert(
+                                    t('sessionInfo.mentions.partialFailureTitle'),
+                                    t('sessionInfo.mentions.partialFailureMessage', { names: failedNames }),
+                                );
+                                return;
+                            }
+
+                            const uploadedFiles = filesToSend.length > 0
+                                ? await Promise.all(filesToSend.map(file => uploadChatFileToCli(sessionId, file)))
+                                : [];
+                            const finalMessage = `${messageToSend}${buildUploadedFilesText(uploadedFiles)}`;
+                            const result = await sync.sendCollaborationMentionMessage({
+                                sessionId,
+                                text: finalMessage,
+                                targetUserIds: reachableTargets.map(friend => friend.id),
+                                targetUsernames: reachableTargets.map(friend => friend.username),
+                                images: imagesToSend,
+                                existingLocalId,
+                                onBeforeApply: () => {
+                                    setMessage('');
+                                    clearDraft();
+                                    clearImages();
+                                    clearFileAttachments();
+                                },
+                            });
+
+                            log.log(`[SEND_DEBUG][UI] collaboration_send_result sid=${sessionId} success=${result.success} localId=${result.localId} error=${result.success ? 'none' : (result.error || 'none')}`);
+                            if (result.success) {
+                                failedMessageRef.current = null;
+                                trackMessageSent();
+                                if (shareResult.failed.length > 0 || unresolvedPeople.length > 0) {
+                                    const failedNames = [
+                                        ...unresolvedPeople.map(person => getMentionableDisplayName(person)),
+                                        ...shareResult.failed.map(item => getDisplayName(item.target)),
+                                    ].join(', ');
+                                    Modal.alert(
+                                        t('sessionInfo.mentions.partialFailureTitle'),
+                                        t('sessionInfo.mentions.partialFailureMessage', { names: failedNames }),
+                                    );
+                                }
+                            } else {
+                                failedMessageRef.current = { localId: result.localId, content: contentForRetry };
+                                log.log(`[SEND_DEBUG][UI] record_retry sid=${sessionId} localId=${result.localId}`);
+                            }
+                        } catch (error) {
+                            const message = error instanceof Error ? error.message : t('status.operationFailed');
+                            console.error('Failed to send collaboration mention', error);
+                            log.log(`[SEND_DEBUG][UI] collaboration_send_error sid=${sessionId} error=${message}`);
+                            Modal.alert(t('common.error'), message);
+                        } finally {
+                            setIsSending(false);
+                            setIsUploadingImages(false);
+                        }
+                        return;
+                    }
 
                     // Set sending state
                     setIsSending(true);
@@ -1513,6 +1727,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             autocompletePrefixes={['@', '/', '$']}
             autocompleteSuggestions={(query) => getSuggestions(sessionId, query, {
                 friends: acceptedFriends,
+                companyMembers: companyMentionMembers,
                 includeFriends: canManageSharing,
             })}
             usageData={sessionUsage ? {

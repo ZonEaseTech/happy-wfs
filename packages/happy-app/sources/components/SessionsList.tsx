@@ -31,9 +31,17 @@ import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { useAuth } from '@/auth/AuthContext';
 import { listGitHubIssues, saveGitHubToken, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
+import { addBugComment, changeBugStatus, createBug, createOrRotateBugShareConfig, getBug, getBugShareConfig, listBugs, uploadBugAttachment } from '@/sync/apiBugs';
+import { BUG_IMAGE_LIMITS, matchesBugSearch, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
+import type { LocalImage } from '@/components/ImagePreview';
 import { storeTempData } from '@/utils/tempDataStore';
 import { ActionMenuModal } from './ActionMenuModal';
 import { ActionMenuItem } from './ActionMenu';
+import { BugReportCreateModal } from './BugReportCreateModal';
+import { BugReportDetailModal } from './BugReportDetailModal';
+import { BugReportItem } from './BugReportItem';
+import { BugShareSettingsModal } from './BugShareSettingsModal';
+import { buildBugInitialImages, buildBugReportStartPrompt } from './bugReportStartPrompt';
 import { buildGitHubIssueStartPrompt } from './githubIssueStartPrompt';
 import { GITHUB_PROJECT_RECONNECT_MESSAGE, GITHUB_PROJECT_RECONNECT_TITLE, isGitHubProjectPermissionError } from '@/utils/githubProjectPermission';
 
@@ -254,15 +262,51 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     filterChipText: {
         fontSize: 13,
         ...Typography.default(),
     },
+    filterBadge: {
+        minWidth: 18,
+        height: 18,
+        paddingHorizontal: 5,
+        borderRadius: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.status.error,
+        marginLeft: 6,
+    },
+    filterBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        ...Typography.default('semiBold'),
+    },
     pendingSearchSection: {
         paddingHorizontal: 16,
         paddingTop: 10,
         paddingBottom: 12,
+        gap: 8,
+    },
+    pendingTypeFilterRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    pendingTypeChip: {
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+    },
+    pendingTypeChipText: {
+        fontSize: 13,
+        ...Typography.default('semiBold'),
+    },
+    pendingActionRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 8,
     },
     pendingSearchBox: {
@@ -480,6 +524,10 @@ const stylesheet = StyleSheet.create((theme) => ({
 type SessionTab = 'active' | 'closure' | 'inactive' | 'shared' | 'sharedByMe';
 type SidebarTab = 'pending' | SessionTab;
 type SidebarTabItem = { key: SidebarTab; label: string };
+type PendingItemType = 'all' | 'github' | 'bug';
+type PendingListItem =
+    | { type: 'github'; issue: GitHubIssue; sortTime: number }
+    | { type: 'bug'; bug: BugReportSummary; sortTime: number };
 
 // Persists selected tab across navigation (survives component unmount/remount)
 let lastActiveTab: SidebarTab = 'active';
@@ -489,25 +537,45 @@ const SessionsListHeader = React.memo(({
     visibleTabs,
     pendingIssueSearchText,
     pendingIssuesLoading,
+    pendingItemType,
+    pendingBugCount,
     projectFilterLabel,
     onTabPress,
     onPendingIssueSearchChange,
     onClearPendingIssueSearch,
     onConfigurePending,
+    onPendingItemTypeChange,
+    onCreateBug,
+    onConfigureBugShare,
 }: {
     activeTab: SidebarTab;
     visibleTabs: SidebarTabItem[];
     pendingIssueSearchText: string;
     pendingIssuesLoading: boolean;
+    pendingItemType: PendingItemType;
+    pendingBugCount: number;
     projectFilterLabel: string;
     onTabPress: (tab: SidebarTab) => void;
     onPendingIssueSearchChange: (value: string) => void;
     onClearPendingIssueSearch: () => void;
     onConfigurePending: () => void;
+    onPendingItemTypeChange: (value: PendingItemType) => void;
+    onCreateBug: () => void;
+    onConfigureBugShare: () => void;
 }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const showFilterRow = visibleTabs.length > 1;
+    const pendingTypes = React.useMemo<Array<{ key: PendingItemType; label: string }>>(() => [
+        { key: 'all', label: t('bug.typeAll') },
+        { key: 'github', label: t('bug.typeGithub') },
+        { key: 'bug', label: t('bug.typeBug') },
+    ], []);
+    const searchPlaceholder = pendingItemType === 'bug'
+        ? t('bug.searchBugPlaceholder')
+        : pendingItemType === 'github'
+            ? t('bug.searchGithubPlaceholder')
+            : t('bug.searchAllPlaceholder');
 
     return (
         <>
@@ -530,6 +598,11 @@ const SessionsListHeader = React.memo(({
                                 ]}>
                                     {tab.label}
                                 </Text>
+                                {tab.key === 'pending' && pendingBugCount > 0 && (
+                                    <View style={styles.filterBadge}>
+                                        <Text style={styles.filterBadgeText}>{pendingBugCount > 99 ? '99+' : String(pendingBugCount)}</Text>
+                                    </View>
+                                )}
                             </Pressable>
                         ))}
                     </View>
@@ -537,13 +610,37 @@ const SessionsListHeader = React.memo(({
             )}
             {activeTab === 'pending' && (
                 <View style={styles.pendingSearchSection}>
+                    <View style={styles.pendingTypeFilterRow}>
+                        {pendingTypes.map((type) => {
+                            const active = pendingItemType === type.key;
+                            return (
+                                <Pressable
+                                    key={type.key}
+                                    style={[
+                                        styles.pendingTypeChip,
+                                        { backgroundColor: active ? theme.colors.button.primary.background : theme.colors.surface },
+                                    ]}
+                                    onPress={() => onPendingItemTypeChange(type.key)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.pendingTypeChipText,
+                                            { color: active ? theme.colors.button.primary.tint : theme.colors.text },
+                                        ]}
+                                    >
+                                        {type.label}
+                                    </Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                     <View style={styles.pendingSearchBox}>
                         <Ionicons name="search-outline" size={18} color={theme.colors.textSecondary} />
                         <TextInput
                             style={styles.pendingSearchInput}
                             value={pendingIssueSearchText}
                             onChangeText={onPendingIssueSearchChange}
-                            placeholder="搜索 #1212 / 标题 / 仓库"
+                            placeholder={searchPlaceholder}
                             placeholderTextColor={theme.colors.textSecondary}
                             autoCorrect={false}
                             autoCapitalize="none"
@@ -566,16 +663,44 @@ const SessionsListHeader = React.memo(({
                             </Pressable>
                         )}
                     </View>
-                    <Pressable
-                        onPress={onConfigurePending}
-                        style={styles.pendingProjectFilterButton}
-                    >
-                        <Ionicons name="albums-outline" size={17} color={theme.colors.textSecondary} />
-                        <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
-                            {projectFilterLabel}
-                        </Text>
-                        <Ionicons name="options-outline" size={17} color={theme.colors.textSecondary} />
-                    </Pressable>
+                    <View style={styles.pendingActionRow}>
+                        {pendingItemType !== 'bug' && (
+                            <Pressable
+                                onPress={onConfigurePending}
+                                style={[styles.pendingProjectFilterButton, { flex: 1, minWidth: 180 }]}
+                            >
+                                <Ionicons name="albums-outline" size={17} color={theme.colors.textSecondary} />
+                                <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
+                                    {projectFilterLabel}
+                                </Text>
+                                <Ionicons name="options-outline" size={17} color={theme.colors.textSecondary} />
+                            </Pressable>
+                        )}
+                        {pendingItemType !== 'github' && (
+                            <>
+                                <Pressable
+                                    onPress={onCreateBug}
+                                    style={[styles.pendingProjectFilterButton, { flex: 1, minWidth: 140 }]}
+                                >
+                                    <Ionicons name="bug-outline" size={17} color={theme.colors.textSecondary} />
+                                    <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
+                                        {t('bug.newBug')}
+                                    </Text>
+                                    <Ionicons name="add-outline" size={17} color={theme.colors.textSecondary} />
+                                </Pressable>
+                                <Pressable
+                                    onPress={onConfigureBugShare}
+                                    style={[styles.pendingProjectFilterButton, { flex: 1, minWidth: 140 }]}
+                                >
+                                    <Ionicons name="key-outline" size={17} color={theme.colors.textSecondary} />
+                                    <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
+                                        {t('bug.shareSettings')}
+                                    </Text>
+                                    <Ionicons name="options-outline" size={17} color={theme.colors.textSecondary} />
+                                </Pressable>
+                            </>
+                        )}
+                    </View>
                 </View>
             )}
         </>
@@ -725,6 +850,24 @@ function isGitHubBadCredentialsMessage(message: string | undefined | null): bool
         || normalized.includes('responded with 401');
 }
 
+function bugDetailToSummary(bug: BugReportDetail): BugReportSummary {
+    return {
+        id: bug.id,
+        displayNumber: bug.displayNumber,
+        displayId: bug.displayId,
+        title: bug.title,
+        description: bug.description,
+        status: bug.status,
+        visibility: bug.visibility,
+        createdByNickname: bug.createdByNickname,
+        attachmentCount: bug.attachmentCount,
+        commentCount: bug.commentCount,
+        lastActivityAt: bug.lastActivityAt,
+        createdAt: bug.createdAt,
+        updatedAt: bug.updatedAt,
+    };
+}
+
 export function SessionsList() {
     const styles = stylesheet;
     const safeArea = useSafeAreaInsets();
@@ -743,11 +886,17 @@ export function SessionsList() {
     const [pendingIssueBaselineIssues, setPendingIssueBaselineIssues] = React.useState<GitHubIssue[]>([]);
     const [pendingIssuesLoading, setPendingIssuesLoading] = React.useState(false);
     const [pendingIssuesError, setPendingIssuesError] = React.useState<string | null>(null);
+    const [pendingBugs, setPendingBugs] = React.useState<BugReportSummary[]>([]);
+    const [pendingBugsLoading, setPendingBugsLoading] = React.useState(false);
+    const [pendingBugsError, setPendingBugsError] = React.useState<string | null>(null);
+    const [pendingBugCount, setPendingBugCount] = React.useState(0);
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
     const [pendingIssueSearchText, setPendingIssueSearchText] = useLocalSettingMutable('githubIssueInboxSearchText');
     const [githubIssueInboxCache, setGithubIssueInboxCache] = useLocalSettingMutable('githubIssueInboxCache');
+    const [pendingItemType, setPendingItemType] = useLocalSettingMutable('pendingItemType');
     const lastPendingIssuesLoadKeyRef = React.useRef<string | null>(null);
     const lastPendingIssueBaselineKeyRef = React.useRef<string | null>(null);
+    const lastPendingBugsLoadKeyRef = React.useRef<string | null>(null);
     const githubTokenPromptOpenRef = React.useRef(false);
     const pathname = usePathname();
     const isTablet = useIsTablet();
@@ -911,21 +1060,43 @@ export function SessionsList() {
             if (showSpinner) setPendingIssuesLoading(false);
         }
     }, [auth.credentials, githubIssueInboxCache, githubIssueInboxFilters.keywords, githubIssueInboxFilters.projects, pendingIssueBaselineCacheKey, setGithubIssueInboxCache]);
+    const loadPendingBugs = React.useCallback(async (showSpinner: boolean = true, queryOverride?: string) => {
+        if (!auth.credentials) return;
+        if (showSpinner) setPendingBugsLoading(true);
+        setPendingBugsError(null);
+        try {
+            const query = queryOverride ?? pendingIssueSearchText.trim();
+            const result = await listBugs(auth.credentials, {
+                query: query || undefined,
+                limit: 100,
+            });
+            setPendingBugs(result.bugs);
+            setPendingBugCount(result.pendingCount);
+        } catch (error) {
+            setPendingBugsError(error instanceof Error ? error.message : String(error));
+        } finally {
+            if (showSpinner) setPendingBugsLoading(false);
+        }
+    }, [auth.credentials, pendingIssueSearchText]);
     const handleRefresh = React.useCallback(async () => {
         setRefreshing(true);
         try {
             if (activeTab === 'pending') {
-                await loadPendingIssues(false);
+                const jobs: Array<Promise<void>> = [];
+                if (pendingItemType !== 'bug') jobs.push(loadPendingIssues(false));
+                if (pendingItemType !== 'github') jobs.push(loadPendingBugs(false));
+                await Promise.all(jobs);
                 return;
             }
             await sync.refreshSessions();
         } finally {
             setRefreshing(false);
         }
-    }, [activeTab, loadPendingIssues]);
+    }, [activeTab, loadPendingBugs, loadPendingIssues, pendingItemType]);
 
     React.useEffect(() => {
         if (activeTab !== 'pending') return;
+        if (pendingItemType === 'bug') return;
         const loadKey = pendingIssueCacheKey;
         if (lastPendingIssuesLoadKeyRef.current === loadKey) return;
         lastPendingIssuesLoadKeyRef.current = loadKey;
@@ -949,7 +1120,24 @@ export function SessionsList() {
             void loadPendingIssues(!cached && !baselineCached);
         }, pendingIssueSearchText.trim() ? 350 : 0);
         return () => clearTimeout(timeout);
-    }, [activeTab, githubIssueInboxCache, pendingIssueBaselineCacheKey, pendingIssueCacheKey, pendingIssueSearchText, loadPendingIssueBaseline, loadPendingIssues]);
+    }, [activeTab, githubIssueInboxCache, pendingIssueBaselineCacheKey, pendingIssueCacheKey, pendingIssueSearchText, loadPendingIssueBaseline, loadPendingIssues, pendingItemType]);
+    React.useEffect(() => {
+        if (!auth.credentials) return;
+        void listBugs(auth.credentials, { status: 'pending', limit: 1 })
+            .then((result) => setPendingBugCount(result.pendingCount))
+            .catch(() => undefined);
+    }, [auth.credentials]);
+    React.useEffect(() => {
+        if (activeTab !== 'pending') return;
+        if (pendingItemType === 'github') return;
+        const loadKey = JSON.stringify([auth.credentials?.token ?? '', pendingIssueSearchText.trim()]);
+        if (lastPendingBugsLoadKeyRef.current === loadKey) return;
+        lastPendingBugsLoadKeyRef.current = loadKey;
+        const timeout = setTimeout(() => {
+            void loadPendingBugs(true);
+        }, pendingIssueSearchText.trim() ? 250 : 0);
+        return () => clearTimeout(timeout);
+    }, [activeTab, auth.credentials?.token, loadPendingBugs, pendingIssueSearchText, pendingItemType]);
     const pendingIssueFilterKeywords = React.useMemo(() => {
         return splitGitHubIssueFilterValues(githubIssueInboxFilters.keywords);
     }, [githubIssueInboxFilters.keywords]);
@@ -992,6 +1180,24 @@ export function SessionsList() {
             return true;
         });
     }, [pendingIssueFilterKeywords, pendingIssueLocalSearchSource, pendingIssueProjectFilters, pendingIssueSearchKeyword, pendingIssueSearchNumber]);
+    const filteredPendingBugs = React.useMemo(() => {
+        return pendingBugs.filter((bug) => matchesBugSearch(bug, pendingIssueSearchText));
+    }, [pendingBugs, pendingIssueSearchText]);
+    const pendingListItems = React.useMemo<PendingListItem[]>(() => {
+        const items: PendingListItem[] = [];
+        if (pendingItemType !== 'bug') {
+            for (const issue of filteredPendingIssues) {
+                const time = new Date(issue.updatedAt).getTime();
+                items.push({ type: 'github', issue, sortTime: Number.isFinite(time) ? time : 0 });
+            }
+        }
+        if (pendingItemType !== 'github') {
+            for (const bug of filteredPendingBugs) {
+                items.push({ type: 'bug', bug, sortTime: bug.lastActivityAt });
+            }
+        }
+        return items.sort((a, b) => b.sortTime - a.sortTime);
+    }, [filteredPendingBugs, filteredPendingIssues, pendingItemType]);
     // Reset to 'active' tab if current tab's data becomes empty.
     // Closure tab is exempt — it's an affordance (the user needs to see
     // *where* to mark sessions for closure), so it stays visible and
@@ -1162,12 +1368,144 @@ export function SessionsList() {
         });
     }, [handleStartIssue]);
 
-    const renderPendingIssue = React.useCallback(({ item }: { item: GitHubIssue }) => (
-        <GitHubIssueItem issue={item} onPress={handleOpenIssueDetails} />
-    ), [handleOpenIssueDetails]);
+    const updatePendingBug = React.useCallback((bug: BugReportDetail | BugReportSummary) => {
+        const summary = 'comments' in bug ? bugDetailToSummary(bug) : bug;
+        setPendingBugs((current) => {
+            const without = current.filter((item) => item.id !== summary.id);
+            return [summary, ...without].sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+        });
+        if (auth.credentials) {
+            void listBugs(auth.credentials, { status: 'pending', limit: 1 })
+                .then((result) => setPendingBugCount(result.pendingCount))
+                .catch(() => undefined);
+        }
+    }, [auth.credentials]);
+
+    const uploadBugImages = React.useCallback(async (bugId: string, images: LocalImage[], commentId?: string): Promise<BugReportDetail> => {
+        if (!auth.credentials) throw new Error('Missing credentials');
+        let updated: BugReportDetail | null = null;
+        for (const image of images.slice(0, BUG_IMAGE_LIMITS.maxImages)) {
+            updated = await uploadBugAttachment(auth.credentials, bugId, image, commentId);
+        }
+        if (!updated) updated = await getBug(auth.credentials, bugId);
+        updatePendingBug(updated);
+        return updated;
+    }, [auth.credentials, updatePendingBug]);
+
+    const handleStartBug = React.useCallback((bug: BugReportDetail) => {
+        const prompt = buildBugReportStartPrompt(bug);
+        const dataId = storeTempData({
+            prompt,
+            agentType: 'codex',
+            sessionType: 'worktree',
+            sessionTitle: `${bug.displayId} ${bug.title}`,
+            sessionIcon: '🐞',
+            initialImages: buildBugInitialImages(bug),
+            externalContext: {
+                source: 'happy-bug',
+                resourceType: 'bug',
+                resourceId: bug.id,
+                title: `${bug.displayId} ${bug.title}`,
+                extra: {
+                    bugId: bug.id,
+                    displayId: bug.displayId,
+                    displayNumber: bug.displayNumber,
+                    status: bug.status,
+                    description: bug.description,
+                    attachments: bug.attachments,
+                    comments: bug.comments,
+                    statusHistory: bug.statusHistory,
+                },
+            },
+            onCreatedContext: { type: 'happy-bug', bugId: bug.id },
+        });
+        router.push(`/new?dataId=${encodeURIComponent(dataId)}`);
+    }, [router]);
+
+    const handleOpenBugDetails = React.useCallback(async (bug: BugReportSummary | BugReportDetail) => {
+        if (!auth.credentials) return;
+        try {
+            const detail = 'comments' in bug ? bug : await getBug(auth.credentials, bug.id);
+            Modal.show({
+                component: BugReportDetailModal,
+                props: {
+                    bug: detail,
+                    onBugUpdated: updatePendingBug,
+                    onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[]) => {
+                        if (!auth.credentials) throw new Error('Missing credentials');
+                        const result = await addBugComment(auth.credentials, current.id, body);
+                        let updated = result.bug;
+                        if (images.length > 0) {
+                            updated = await uploadBugImages(current.id, images, result.commentId);
+                        }
+                        updatePendingBug(updated);
+                        return updated;
+                    },
+                    onUploadImages: async (current: BugReportDetail, images: LocalImage[], commentId?: string) => (
+                        await uploadBugImages(current.id, images, commentId)
+                    ),
+                    onChangeStatus: async (current: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => {
+                        if (!auth.credentials) throw new Error('Missing credentials');
+                        const updated = await changeBugStatus(auth.credentials, current.id, { status, action });
+                        updatePendingBug(updated);
+                        return updated;
+                    },
+                    onStartSession: handleStartBug,
+                },
+            });
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [auth.credentials, handleStartBug, updatePendingBug, uploadBugImages]);
+
+    const handleCreateBug = React.useCallback(() => {
+        if (!auth.credentials) return;
+        Modal.show({
+            component: BugReportCreateModal,
+            props: {
+                onCreate: async (description: string, images: LocalImage[]) => {
+                    if (!auth.credentials) throw new Error('Missing credentials');
+                    let bug = await createBug(auth.credentials, { description, visibility: 'shared' });
+                    updatePendingBug(bug);
+                    if (images.length > 0) {
+                        bug = await uploadBugImages(bug.id, images);
+                    }
+                    setTimeout(() => { void handleOpenBugDetails(bug); }, 0);
+                    return bug;
+                },
+            },
+        });
+    }, [auth.credentials, handleOpenBugDetails, updatePendingBug, uploadBugImages]);
+
+    const handleConfigureBugShare = React.useCallback(async () => {
+        if (!auth.credentials) return;
+        let currentUrl = '/bug';
+        try {
+            const config = await getBugShareConfig(auth.credentials);
+            currentUrl = config?.url || currentUrl;
+        } catch {
+            // The modal can still create the first share config.
+        }
+        Modal.show({
+            component: BugShareSettingsModal,
+            props: {
+                currentUrl,
+                onRotate: async (accessCode?: string) => {
+                    if (!auth.credentials) throw new Error('Missing credentials');
+                    return await createOrRotateBugShareConfig(auth.credentials, accessCode ? { accessCode } : undefined);
+                },
+            },
+        });
+    }, [auth.credentials]);
+
+    const renderPendingItem = React.useCallback(({ item }: { item: PendingListItem }) => (
+        item.type === 'github'
+            ? <GitHubIssueItem issue={item.issue} onPress={handleOpenIssueDetails} />
+            : <BugReportItem bug={item.bug} onPress={handleOpenBugDetails} />
+    ), [handleOpenBugDetails, handleOpenIssueDetails]);
     const handleConfigurePending = React.useCallback(async () => {
         const value = await Modal.prompt(
-            'GitHub Issues 过滤',
+            t('bug.githubFilters'),
             '同时配置 GitHub Project 和状态/标题过滤。示例：\n项目：TTPOS\n状态：Todo\n留空显示全部。',
             {
                 defaultValue: formatGitHubIssueFilterConfig(githubIssueInboxFilters),
@@ -1224,32 +1562,44 @@ export function SessionsList() {
 
     const handlePendingIssueSearchChange = React.useCallback((value: string) => {
         setPendingIssueSearchText(value);
-    }, []);
+    }, [setPendingIssueSearchText]);
 
     const handleClearPendingIssueSearch = React.useCallback(() => {
         setPendingIssueSearchText('');
-    }, []);
+    }, [setPendingIssueSearchText]);
 
     const headerElement = React.useMemo(() => (
         <SessionsListHeader
             activeTab={activeTab}
             visibleTabs={visibleTabs}
             pendingIssueSearchText={pendingIssueSearchText}
-            pendingIssuesLoading={pendingIssuesLoading}
+            pendingIssuesLoading={(pendingItemType !== 'bug' && pendingIssuesLoading) || (pendingItemType !== 'github' && pendingBugsLoading)}
+            pendingItemType={pendingItemType}
+            pendingBugCount={pendingBugCount}
             projectFilterLabel={projectFilterLabel}
             onTabPress={setActiveTab}
             onPendingIssueSearchChange={handlePendingIssueSearchChange}
             onClearPendingIssueSearch={handleClearPendingIssueSearch}
             onConfigurePending={handleConfigurePending}
+            onPendingItemTypeChange={setPendingItemType}
+            onCreateBug={handleCreateBug}
+            onConfigureBugShare={handleConfigureBugShare}
         />
     ), [
         activeTab,
+        handleConfigureBugShare,
         handleClearPendingIssueSearch,
         handleConfigurePending,
+        handleCreateBug,
         handlePendingIssueSearchChange,
+        pendingBugCount,
+        pendingBugsLoading,
+        pendingIssuesLoading,
         pendingIssueSearchText,
+        pendingItemType,
         projectFilterLabel,
         setActiveTab,
+        setPendingItemType,
         visibleTabs,
     ]);
 
@@ -1264,27 +1614,35 @@ export function SessionsList() {
 
     const PendingEmptyComponent = React.useCallback(() => (
         <View style={styles.emptyContainer}>
-            <Ionicons name="logo-github" size={48} color={theme.colors.textSecondary} style={{ marginBottom: 12, opacity: 0.5 }} />
+            <Ionicons name={pendingItemType === 'bug' ? 'bug-outline' : pendingItemType === 'github' ? 'logo-github' : 'albums-outline'} size={48} color={theme.colors.textSecondary} style={{ marginBottom: 12, opacity: 0.5 }} />
             <Text style={styles.emptyText}>
-                {pendingIssuesLoading ? '正在读取 GitHub Issues…' : pendingIssuesError || ((pendingIssueFilterKeywords.length > 0 || pendingIssueProjectFilters.length > 0 || pendingIssueSearchKeyword) ? '没有匹配条件的 GitHub Issues' : '没有待处理的 GitHub Issues')}
+                {pendingItemType === 'bug'
+                    ? (pendingBugsLoading ? t('bug.loadingBugs') : pendingBugsError || (pendingIssueSearchKeyword ? t('bug.noMatchingBugs') : t('bug.noBugs')))
+                    : pendingItemType === 'github'
+                        ? (pendingIssuesLoading ? t('bug.loadingGithub') : pendingIssuesError || ((pendingIssueFilterKeywords.length > 0 || pendingIssueProjectFilters.length > 0 || pendingIssueSearchKeyword) ? t('bug.noMatchingGithub') : t('bug.noGithub')))
+                        : ((pendingIssuesLoading || pendingBugsLoading)
+                            ? t('bug.loadingPending')
+                            : pendingIssuesError || pendingBugsError || ((pendingIssueFilterKeywords.length > 0 || pendingIssueProjectFilters.length > 0 || pendingIssueSearchKeyword) ? t('bug.noMatchingPending') : t('bug.noPendingItems')))}
             </Text>
         </View>
-    ), [theme, pendingIssuesLoading, pendingIssuesError, pendingIssueFilterKeywords.length, pendingIssueProjectFilters.length, pendingIssueSearchKeyword]);
+    ), [pendingBugsError, pendingBugsLoading, pendingIssuesError, pendingIssuesLoading, pendingIssueFilterKeywords.length, pendingIssueProjectFilters.length, pendingIssueSearchKeyword, pendingItemType, theme]);
 
     if (activeTab === 'pending') {
         return (
             <View style={styles.container}>
                 <View style={styles.contentContainer}>
                     <FlatList
-                        data={filteredPendingIssues}
-                        renderItem={renderPendingIssue}
-                        keyExtractor={(item) => `github-issue-${item.repository}-${item.number}`}
+                        data={pendingListItems}
+                        renderItem={renderPendingItem}
+                        keyExtractor={(item) => item.type === 'github'
+                            ? `github-issue-${item.issue.repository}-${item.issue.number}`
+                            : `bug-${item.bug.id}`}
                         contentContainerStyle={{ paddingBottom: safeArea.bottom + 128, maxWidth: layout.maxWidth }}
                         ListHeaderComponent={headerElement}
                         ListEmptyComponent={PendingEmptyComponent}
                         refreshControl={
                             <RefreshControl
-                                refreshing={refreshing || pendingIssuesLoading}
+                                refreshing={refreshing || (pendingItemType !== 'bug' && pendingIssuesLoading) || (pendingItemType !== 'github' && pendingBugsLoading)}
                                 onRefresh={handleRefresh}
                                 tintColor={theme.colors.textSecondary}
                             />

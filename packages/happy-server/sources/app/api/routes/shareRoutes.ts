@@ -1,7 +1,7 @@
 import { Fastify } from "../types";
 import { db } from "@/storage/db";
 import { z } from "zod";
-import { canManageSharing, areFriends } from "@/app/share/accessControl";
+import { canManageSharing, canDirectShareWithUser } from "@/app/share/accessControl";
 import { PROFILE_SELECT, toShareUserProfile } from "@/app/share/types";
 import { eventRouter, buildSessionSharedUpdate, buildSessionShareUpdatedUpdate, buildSessionShareRevokedUpdate } from "@/app/events/eventRouter";
 import { allocateUserSeq } from "@/storage/seq";
@@ -125,9 +125,9 @@ export function shareRoutes(app: Fastify) {
             return reply.code(404).send({ error: 'User not found' });
         }
 
-        // Check if users are friends
-        if (!await areFriends(ownerId, userId)) {
-            return reply.code(403).send({ error: 'Can only share with friends' });
+        // Check if users can directly share by friendship or company membership
+        if (!await canDirectShareWithUser(ownerId, userId)) {
+            return reply.code(403).send({ error: 'Can only share with friends or company members' });
         }
 
         let encryptedDataKeyBytes: ReturnType<Uint8Array['slice']>;

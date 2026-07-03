@@ -71,6 +71,12 @@ model Account {
   blockedFromShares   PublicShareBlockedUser[]
   companyMemberships  CompanyMembership[]
   companyInvitesCreated CompanyInvite[]        @relation("CompanyInviteCreatedBy")
+  ownedBugReports        BugReport[]           @relation("OwnedBugReports")
+  bugReportsCreatedBy    BugReport[]           @relation("BugReportsCreatedBy")
+  bugComments            BugComment[]          @relation("BugCommentsByUser")
+  bugAttachments         BugAttachment[]       @relation("BugAttachmentsByUser")
+  bugStatusHistory       BugStatusHistory[]    @relation("BugStatusHistoryByUser")
+  bugShareConfig         BugShareConfig?
 }
 
 enum CompanyRole {
@@ -180,6 +186,7 @@ model Session {
   accessKeys        AccessKey[]
   shares            SessionShare[]
   publicShare       PublicSessionShare?
+  linkedBugReports  BugReport[]
   controllerRuns    OrchestratorRun[]       @relation("ControllerRuns")
   workerExecutions  OrchestratorExecution[] @relation("WorkerExecutions")
 
@@ -351,6 +358,102 @@ model GithubOrganization {
   profile   Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+//
+// Bug Reports
+//
+
+model BugReport {
+  id                String             @id @default(cuid())
+  displayNumber     Int                @unique @default(autoincrement())
+  ownerId           String
+  owner             Account            @relation("OwnedBugReports", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdByUserId   String?
+  createdByUser     Account?           @relation("BugReportsCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByNickname String?
+  sessionId         String?
+  session           Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  title             String
+  description       String
+  status            String             @default("pending")
+  visibility        String             @default("shared")
+  lastActivityAt    DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  comments          BugComment[]
+  attachments       BugAttachment[]
+  statusHistory     BugStatusHistory[]
+
+  @@index([ownerId, status, lastActivityAt(sort: Desc)])
+  @@index([ownerId, lastActivityAt(sort: Desc)])
+  @@index([sessionId])
+}
+
+model BugComment {
+  id             String          @id @default(cuid())
+  bugId          String
+  bug            BugReport       @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  authorUserId   String?
+  authorUser     Account?        @relation("BugCommentsByUser", fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorNickname String?
+  body           String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  attachments    BugAttachment[]
+
+  @@index([bugId, createdAt])
+}
+
+model BugAttachment {
+  id                 String      @id @default(cuid())
+  bugId              String
+  bug                BugReport   @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  commentId          String?
+  comment            BugComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploadedByUserId   String?
+  uploadedByUser     Account?    @relation("BugAttachmentsByUser", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  uploadedByNickname String?
+  path               String
+  url                String
+  mimeType           String
+  sizeBytes          Int
+  width              Int?
+  height             Int?
+  thumbhash          String?
+  createdAt          DateTime    @default(now())
+
+  @@index([bugId, createdAt])
+  @@index([commentId])
+}
+
+model BugStatusHistory {
+  id             String    @id @default(cuid())
+  bugId          String
+  bug            BugReport @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  actorUserId    String?
+  actorUser      Account?  @relation("BugStatusHistoryByUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorNickname  String?
+  action         String
+  fromStatus     String?
+  toStatus       String
+  note           String?
+  createdAt      DateTime  @default(now())
+
+  @@index([bugId, createdAt])
+}
+
+model BugShareConfig {
+  id                String   @id @default(cuid())
+  ownerId           String   @unique
+  owner             Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  accessCodeHash    Bytes    @unique
+  accessCodeVersion Int      @default(1)
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([enabled])
 }
 
 //

@@ -12,10 +12,10 @@ const JPEG_QUALITY = 0.8;
 const DEFAULT_MAX_IMAGES = MAX_CHAT_IMAGES;
 const DEFAULT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-function shouldPassthrough(mimeType: string, width: number, height: number, fileSize?: number): boolean {
+function shouldPassthrough(mimeType: string, width: number, height: number, fileSize: number | undefined, maxSizeBytes: number): boolean {
     if (mimeType !== 'image/jpeg' && mimeType !== 'image/png') return false;
     if (width > MAX_DIMENSION || height > MAX_DIMENSION) return false;
-    if (fileSize != null && fileSize > MAX_SIZE_BYTES) return false;
+    if (fileSize != null && fileSize > maxSizeBytes) return false;
     return true;
 }
 
@@ -94,6 +94,7 @@ async function compressImage(
 export function useImagePicker(options: UseImagePickerOptions = {}): UseImagePickerReturn {
     const {
         maxImages = DEFAULT_MAX_IMAGES,
+        maxSizeBytes = MAX_SIZE_BYTES,
         allowedTypes = DEFAULT_ALLOWED_TYPES,
     } = options;
 
@@ -111,8 +112,12 @@ export function useImagePicker(options: UseImagePickerOptions = {}): UseImagePic
             if (!allowedTypes.includes(mimeType)) {
                 continue;
             }
+            if (img.fileSize != null && img.fileSize > maxSizeBytes) {
+                Modal.alert('Image Too Large', `Each image must be ${Math.floor(maxSizeBytes / 1024 / 1024)}MB or smaller`);
+                continue;
+            }
 
-            if (shouldPassthrough(mimeType, img.width, img.height, img.fileSize)) {
+            if (shouldPassthrough(mimeType, img.width, img.height, img.fileSize, maxSizeBytes)) {
                 processed.push({
                     uri: img.uri,
                     width: img.width,
@@ -142,7 +147,7 @@ export function useImagePicker(options: UseImagePickerOptions = {}): UseImagePic
         }
 
         setImages(prev => [...prev, ...processed]);
-    }, [images.length, maxImages, allowedTypes]);
+    }, [images.length, maxImages, allowedTypes, maxSizeBytes]);
 
     const pickFromGallery = React.useCallback(async () => {
         if (!canAddMore) {
@@ -228,7 +233,7 @@ export function useImagePicker(options: UseImagePickerOptions = {}): UseImagePic
             const width = img.naturalWidth;
             const height = img.naturalHeight;
 
-            if (shouldPassthrough(mimeType, width, height)) {
+            if (shouldPassthrough(mimeType, width, height, undefined, maxSizeBytes)) {
                 setImages(prev => [...prev, {
                     uri,
                     width,
@@ -253,7 +258,7 @@ export function useImagePicker(options: UseImagePickerOptions = {}): UseImagePic
                 mimeType,
             }]);
         }
-    }, [canAddMore, maxImages, allowedTypes]);
+    }, [canAddMore, maxImages, allowedTypes, maxSizeBytes]);
 
     const removeImage = React.useCallback((index: number) => {
         setImages(prev => prev.filter((_, i) => i !== index));

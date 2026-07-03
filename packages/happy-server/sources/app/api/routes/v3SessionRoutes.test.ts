@@ -48,9 +48,11 @@ const {
     emitToSessionSubscribersMock,
     canSendMessagesMock,
     replayFirstMessageToCliWhenConnectedMock,
+    notifySessionMentionRecipientsMock,
     dbMock,
     resetState,
     seedSession,
+    seedShare,
     seedMessage,
     seedPendingMessage,
     seedDeliveryIssue
@@ -61,6 +63,7 @@ const {
         pendingMessages: [] as PendingMessageRecord[],
         deliveryIssues: [] as DeliveryIssueRecord[],
         accounts: [] as Array<{ id: string; firstName: string | null; username: string | null }>,
+        shares: [] as Array<{ sessionId: string; sharedWithUserId: string }>,
         accountSeqById: new Map<string, number>(),
         nextMessageId: 1,
         nextPendingMessageId: 1,
@@ -82,6 +85,7 @@ const {
         state.pendingMessages = [];
         state.deliveryIssues = [];
         state.accounts = [];
+        state.shares = [];
         state.accountSeqById = new Map<string, number>();
         state.nextMessageId = 1;
         state.nextPendingMessageId = 1;
@@ -107,6 +111,10 @@ const {
                 username: `user-${input.accountId}`
             });
         }
+    };
+
+    const seedShare = (input: { sessionId: string; sharedWithUserId: string }) => {
+        state.shares.push(input);
     };
 
     const seedMessage = (input: {
@@ -212,7 +220,15 @@ const {
         if (!row) {
             return null;
         }
-        return selectFields(row as unknown as Record<string, unknown>, args?.select);
+        const selected = selectFields(row as unknown as Record<string, unknown>, args?.select) as Record<string, unknown>;
+        if (args?.select?.shares) {
+            const targetIds = args.select.shares.where?.sharedWithUserId?.in as string[] | undefined;
+            selected.shares = state.shares
+                .filter((share) => share.sessionId === row.id)
+                .filter((share) => !targetIds || targetIds.includes(share.sharedWithUserId))
+                .map((share) => selectFields(share as unknown as Record<string, unknown>, args.select.shares.select));
+        }
+        return selected;
     });
 
     const sessionUpdate = vi.fn(async (args: any) => {
@@ -538,15 +554,18 @@ const {
         return state.sessions.some((session) => session.id === sessionId && session.accountId === userId);
     });
     const replayFirstMessageToCliWhenConnectedMock = vi.fn(async () => false);
+    const notifySessionMentionRecipientsMock = vi.fn(async () => undefined);
 
     return {
         state,
         emitToSessionSubscribersMock,
         canSendMessagesMock,
         replayFirstMessageToCliWhenConnectedMock,
+        notifySessionMentionRecipientsMock,
         dbMock,
         resetState,
         seedSession,
+        seedShare,
         seedMessage,
         seedPendingMessage,
         seedDeliveryIssue
@@ -608,6 +627,10 @@ vi.mock("./firstMessageReplay", () => ({
     scheduleFirstMessageReplay: vi.fn(),
 }));
 
+vi.mock("@/app/session/sessionMentionNotification", () => ({
+    notifySessionMentionRecipients: notifySessionMentionRecipientsMock,
+}));
+
 import { v3SessionRoutes } from "./v3SessionRoutes";
 
 async function createApp() {
@@ -642,6 +665,7 @@ describe("v3SessionRoutes", () => {
         emitToSessionSubscribersMock.mockClear();
         canSendMessagesMock.mockClear();
         replayFirstMessageToCliWhenConnectedMock.mockClear();
+        notifySessionMentionRecipientsMock.mockClear();
     });
 
     afterEach(async () => {
@@ -857,6 +881,57 @@ describe("v3SessionRoutes", () => {
         expect(body.messages.map((message: any) => message.seq)).toEqual([1, 2]);
         expect(state.messages).toHaveLength(2);
         expect(emitToSessionSubscribersMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("notifies only accessible mention targets for new /messages rows", async () => {
+        seedSession({ id: "session-1", accountId: "user-1", seq: 0 });
+        seedShare({ sessionId: "session-1", sharedWithUserId: "shared-user" });
+
+        app = await createApp();
+        const response = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/messages",
+            headers: { "x-user-id": "user-1" },
+            payload: {
+                messages: [
+                    {
+                        localId: "mention-1",
+                        content: "enc-content",
+                        mentionTargetUserIds: ["shared-user", "stranger-user", "user-1", "shared-user"],
+                    }
+                ]
+            }
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(notifySessionMentionRecipientsMock).toHaveBeenCalledTimes(1);
+        expect(notifySessionMentionRecipientsMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+            recipientUserIds: ["shared-user"],
+            actorId: "user-1",
+            sessionId: "session-1",
+            sessionTitle: null,
+        }));
+    });
+
+    it("does not notify mention targets when localId is a duplicate", async () => {
+        seedSession({ id: "session-1", accountId: "user-1", seq: 1 });
+        seedShare({ sessionId: "session-1", sharedWithUserId: "shared-user" });
+        seedMessage({ sessionId: "session-1", seq: 1, localId: "existing", content: { t: "encrypted", c: "old" } });
+
+        app = await createApp();
+        const response = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/messages",
+            headers: { "x-user-id": "user-1" },
+            payload: {
+                messages: [
+                    { localId: "existing", content: "ignored", mentionTargetUserIds: ["shared-user"] }
+                ]
+            }
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(notifySessionMentionRecipientsMock).not.toHaveBeenCalled();
     });
 
     it("creates waiting delivery issue when trackCliDelivery=true and cli is connected", async () => {

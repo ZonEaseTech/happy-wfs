@@ -33,6 +33,10 @@ export const sessionMessagesInputSchema = {
         .min(0)
         .optional()
         .describe('Return messages with seq > this value (paginate forwards). Mutually exclusive with beforeSeq.'),
+    includeHumanOnly: z
+        .boolean()
+        .optional()
+        .describe('Include human-only collaboration notes. Default: false.'),
 };
 
 interface SessionMessagesInput {
@@ -40,6 +44,7 @@ interface SessionMessagesInput {
     limit?: number;
     beforeSeq?: number;
     afterSeq?: number;
+    includeHumanOnly?: boolean;
 }
 
 interface SessionMessagesResult {
@@ -50,6 +55,15 @@ interface SessionMessagesResult {
     hasMore: boolean;
     nextBeforeSeq: number | null;
     nextAfterSeq: number | null;
+}
+
+function isHumanOnlyMessage(message: DecryptedMessage): boolean {
+    const meta = message.meta;
+    if (!meta || typeof meta !== 'object') return false;
+    const collaboration = (meta as any).collaboration;
+    return (meta as any).humanOnly === true
+        || (meta as any).skipAiContext === true
+        || collaboration?.kind === 'mention';
 }
 
 export async function runSessionMessages(
@@ -80,9 +94,9 @@ export async function runSessionMessages(
         },
     );
 
-    const decrypted = response.data.messages.map((raw) =>
-        decryptMessage(raw, session.encryptionKey, session.encryptionVariant),
-    );
+    const decrypted = response.data.messages
+        .map((raw) => decryptMessage(raw, session.encryptionKey, session.encryptionVariant))
+        .filter((message) => input.includeHumanOnly === true || !isHumanOnlyMessage(message));
 
     // Server returns asc when after_seq is set, otherwise desc. Surface seq
     // boundaries so callers can keep paging without re-deriving them.

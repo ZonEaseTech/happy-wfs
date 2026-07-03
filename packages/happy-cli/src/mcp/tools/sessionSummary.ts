@@ -150,6 +150,15 @@ function imageCount(content: any): number {
     return Array.isArray(content?.images) ? content.images.length : 0;
 }
 
+function isHumanOnlyMessage(message: DecryptedMessage): boolean {
+    const meta = message.meta;
+    if (!meta || typeof meta !== 'object') return false;
+    const collaboration = (meta as any).collaboration;
+    return (meta as any).humanOnly === true
+        || (meta as any).skipAiContext === true
+        || collaboration?.kind === 'mention';
+}
+
 function assistantContentItems(messageData: any): any[] {
     if (Array.isArray(messageData?.message?.content)) {
         return messageData.message.content;
@@ -236,6 +245,10 @@ export function compactSessionMessages(
     let compactedCount = 0;
 
     for (const message of chronological) {
+        if (isHumanOnlyMessage(message)) {
+            continue;
+        }
+
         if (message.role === 'user') {
             const content = message.content as any;
             const text = typeof content?.text === 'string' ? trimText(content.text, options.textLimit) : '';

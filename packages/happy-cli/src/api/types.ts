@@ -233,6 +233,12 @@ export type SessionMessage = WireSessionMessage
 /**
  * Message metadata schema
  */
+const CollaborationMentionMetaSchema = z.object({
+  kind: z.literal('mention'),
+  targetUserIds: z.array(z.string()).default([]),
+  targetUsernames: z.array(z.string()).default([]),
+})
+
 export const MessageMetaSchema = z.object({
   sentFrom: z.string().optional(), // Source identifier
   permissionMode: z.enum(['default', 'acceptEdits', 'bypassPermissions', 'plan', 'read-only', 'safe-yolo', 'yolo']).optional(), // Permission mode for this message
@@ -242,7 +248,11 @@ export const MessageMetaSchema = z.object({
   customSystemPrompt: z.string().nullable().optional(), // Custom system prompt for this message (null = reset)
   appendSystemPrompt: z.string().nullable().optional(), // Append to system prompt for this message (null = reset)
   allowedTools: z.array(z.string()).nullable().optional(), // Allowed tools for this message (null = reset)
-  disallowedTools: z.array(z.string()).nullable().optional() // Disallowed tools for this message (null = reset)
+  disallowedTools: z.array(z.string()).nullable().optional(), // Disallowed tools for this message (null = reset)
+  displayText: z.string().optional(),
+  humanOnly: z.boolean().optional(),
+  skipAiContext: z.boolean().optional(),
+  collaboration: CollaborationMentionMetaSchema.optional(),
 })
 
 export type MessageMeta = z.infer<typeof MessageMetaSchema>

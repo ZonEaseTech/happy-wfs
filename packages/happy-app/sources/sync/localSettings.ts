@@ -45,6 +45,7 @@ export const LocalSettingsSchema = z.object({
         issues: z.array(z.any()),
         updatedAt: z.number(),
     })).describe('Device-local cached GitHub issue inbox results keyed by filters'),
+    pendingItemType: z.enum(['all', 'github', 'bug']).describe('Device-local pending list type filter'),
 });
 
 //
@@ -74,6 +75,7 @@ export const localSettingsDefaults: LocalSettings = {
     githubIssueInboxFilters: { keywords: '', projects: '' },
     githubIssueInboxSearchText: '',
     githubIssueInboxCache: {},
+    pendingItemType: 'all',
 };
 Object.freeze(localSettingsDefaults);
 

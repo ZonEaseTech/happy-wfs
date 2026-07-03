@@ -54,6 +54,7 @@ import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { buildUploadedFilesText } from '@/utils/fileAttachments';
 import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
+import { linkBugSession } from '@/sync/apiBugs';
 
 // Simple temporary state for passing selections back from picker screens
 let onMachineSelected: (machineId: string) => void = () => { };
@@ -652,6 +653,10 @@ function NewSessionWizard() {
 
     // Restore images from persisted draft on mount
     React.useEffect(() => {
+        if (tempSessionData?.initialImages && tempSessionData.initialImages.length > 0) {
+            initImages(tempSessionData.initialImages);
+            return;
+        }
         if (persistedDraft?.images && persistedDraft.images.length > 0) {
             initImages(persistedDraft.images);
         }
@@ -1554,6 +1559,14 @@ function NewSessionWizard() {
                         }
                     } else {
                         console.warn('Session metadata not available after refresh, external context not written for session:', result.sessionId);
+                    }
+                }
+
+                if (tempSessionData?.onCreatedContext?.type === 'happy-bug') {
+                    const credentials = sync.getCredentials();
+                    if (credentials) {
+                        await linkBugSession(credentials, tempSessionData.onCreatedContext.bugId, result.sessionId)
+                            .catch(e => console.warn('Failed to link bug session:', e));
                     }
                 }
 
