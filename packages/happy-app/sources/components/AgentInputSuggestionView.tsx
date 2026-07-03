@@ -60,6 +60,42 @@ export const FileMentionSuggestion = React.memo(({ fileName, filePath, fileType 
     );
 });
 
+interface FriendMentionProps {
+    username: string;
+    displayName: string;
+}
+
+export const FriendMentionSuggestion = React.memo(({ username, displayName }: FriendMentionProps) => {
+    return (
+        <View style={styles.suggestionContainer}>
+            <View style={styles.iconContainer}>
+                <Ionicons
+                    name="person-circle"
+                    size={20}
+                    color={styles.iconColor.color}
+                />
+            </View>
+            <View style={styles.friendTextContainer}>
+                <Text
+                    style={styles.friendDisplayNameText}
+                    numberOfLines={1}
+                >
+                    {displayName}
+                </Text>
+                <Text
+                    style={styles.friendUsernameText}
+                    numberOfLines={1}
+                >
+                    @{username}
+                </Text>
+            </View>
+            <Text style={styles.labelText}>
+                {t('agentInput.suggestion.friendLabel')}
+            </Text>
+        </View>
+    );
+});
+
 const styles = StyleSheet.create((theme) => ({
     suggestionContainer: {
         flexDirection: 'row',
@@ -95,6 +131,21 @@ const styles = StyleSheet.create((theme) => ({
     fileNameText: {
         flex: 1,
         fontSize: 14,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
+    friendTextContainer: {
+        flex: 1,
+        minWidth: 0,
+    },
+    friendDisplayNameText: {
+        fontSize: 14,
+        color: theme.colors.text,
+        ...Typography.default('semiBold'),
+    },
+    friendUsernameText: {
+        marginTop: 2,
+        fontSize: 12,
         color: theme.colors.textSecondary,
         ...Typography.default(),
     },

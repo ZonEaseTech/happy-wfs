@@ -414,6 +414,9 @@ const {
             }
             return { count: rows.length };
         }),
+        count: vi.fn(async (args: any) => {
+            return state.runs.filter((item) => matchesRun(item, args?.where)).length;
+        }),
     };
 
     const taskApi = {

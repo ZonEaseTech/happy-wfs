@@ -348,6 +348,12 @@ export const SettingsView = React.memo(function SettingsView() {
                     onPress={() => openDesktop('/settings/account', { title: t('settings.account') })}
                 />
                 <Item
+                    title={t('company.title')}
+                    subtitle={t('company.subtitle')}
+                    icon={<Ionicons name="business-outline" size={29} color="#007AFF" />}
+                    onPress={() => openDesktop('/settings/company', { title: t('company.title') })}
+                />
+                <Item
                     title={t('settings.appearance')}
                     subtitle={t('settings.appearanceSubtitle')}
                     icon={<Ionicons name="color-palette-outline" size={29} color="#5856D6" />}

@@ -178,6 +178,27 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="settings/company"
+                options={{
+                    headerTitle: t('company.title'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="settings/company/members"
+                options={{
+                    headerTitle: t('company.members'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="settings/company/invites"
+                options={{
+                    headerTitle: t('company.invites'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
                 name="settings/appearance"
                 options={{
                     headerTitle: t('settings.appearance'),
@@ -345,6 +366,13 @@ export default function RootLayout() {
                 name="share/html"
                 options={{
                     headerShown: false,
+                }}
+            />
+            <Stack.Screen
+                name="company/join/[token]"
+                options={{
+                    headerTitle: t('company.joinCompany'),
+                    headerBackTitle: t('common.back'),
                 }}
             />
             <Stack.Screen

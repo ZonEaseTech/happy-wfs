@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 10 - 2026-07-03
+
+Team sharing, company management, and repository-aware history browsing make collaboration smoother.
+
+- Chat sharing: mention accepted friends directly with `@username`, confirm session sharing before sending, and grant edit access automatically.
+- Companies: manage company membership, invite links, join flows, and role-aware member lists from Settings.
+- Commits: when a session path is not a Git repository, surface nearby repositories so users can jump to the right history.
+- Settings: add company routes across mobile and desktop layouts.
+
 ## Version 9 - 2026-07-03
 
 GitHub permissions, chat uploads, and clean-repository file browsing are more predictable.

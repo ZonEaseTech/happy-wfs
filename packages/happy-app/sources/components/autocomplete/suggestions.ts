@@ -1,13 +1,21 @@
-import { CommandSuggestion, FileMentionSuggestion } from '@/components/AgentInputSuggestionView';
+import { CommandSuggestion, FileMentionSuggestion, FriendMentionSuggestion } from '@/components/AgentInputSuggestionView';
 import * as React from 'react';
 import { searchFiles, FileItem } from '@/sync/suggestionFile';
 import { searchCommands, CommandItem } from '@/sync/suggestionCommands';
+import { getDisplayName, type UserProfile } from '@/sync/friendTypes';
 
-export async function getCommandSuggestions(sessionId: string, query: string, kind?: 'command' | 'skill'): Promise<{
+export interface AgentInputSuggestion {
     key: string;
     text: string;
     component: React.ComponentType;
-}[]> {
+}
+
+interface GetSuggestionsOptions {
+    friends?: UserProfile[];
+    includeFriends?: boolean;
+}
+
+export async function getCommandSuggestions(sessionId: string, query: string, kind?: 'command' | 'skill'): Promise<AgentInputSuggestion[]> {
     // Remove the "/" prefix for searching
     const searchTerm = query.slice(1);
     
@@ -32,11 +40,7 @@ export async function getCommandSuggestions(sessionId: string, query: string, ki
     }
 }
 
-export async function getFileMentionSuggestions(sessionId: string, query: string): Promise<{
-    key: string;
-    text: string;
-    component: React.ComponentType;
-}[]> {
+export async function getFileMentionSuggestions(sessionId: string, query: string): Promise<AgentInputSuggestion[]> {
     // Remove the "@" prefix for searching
     const searchTerm = query.slice(1);
     
@@ -61,11 +65,29 @@ export async function getFileMentionSuggestions(sessionId: string, query: string
     }
 }
 
-export async function getSuggestions(sessionId: string, query: string): Promise<{
-    key: string;
-    text: string;
-    component: React.ComponentType;
-}[]> {
+export function getFriendMentionSuggestions(query: string, friends: UserProfile[]): AgentInputSuggestion[] {
+    const searchTerm = query.slice(1).trim().toLowerCase();
+
+    return friends
+        .filter((friend) => {
+            if (!searchTerm) {
+                return true;
+            }
+            const displayName = getDisplayName(friend).toLowerCase();
+            return friend.username.toLowerCase().includes(searchTerm) || displayName.includes(searchTerm);
+        })
+        .slice(0, 5)
+        .map(friend => ({
+            key: `friend-${friend.id}`,
+            text: `@${friend.username}`,
+            component: () => React.createElement(FriendMentionSuggestion, {
+                username: friend.username,
+                displayName: getDisplayName(friend),
+            })
+        }));
+}
+
+export async function getSuggestions(sessionId: string, query: string, options: GetSuggestionsOptions = {}): Promise<AgentInputSuggestion[]> {
     console.log('💡 getSuggestions called with query:', JSON.stringify(query));
     
     if (!query || query.length === 0) {
@@ -91,11 +113,15 @@ export async function getSuggestions(sessionId: string, query: string): Promise<
         return getCommandSuggestions(sessionId, query, 'skill');
     }
     
-    // Check if it's a file mention (starts with @)
+    // Check if it's a friend/file mention (starts with @)
     if (query.startsWith('@')) {
-        console.log('💡 getSuggestions: File mention detected');
-        const result = await getFileMentionSuggestions(sessionId, query);
-        console.log('💡 getSuggestions: File suggestions:', JSON.stringify(result.map(r => ({
+        console.log('💡 getSuggestions: Friend/file mention detected');
+        const friendSuggestions = options.includeFriends === false
+            ? []
+            : getFriendMentionSuggestions(query, options.friends ?? []);
+        const fileSuggestions = await getFileMentionSuggestions(sessionId, query);
+        const result = [...friendSuggestions, ...fileSuggestions];
+        console.log('💡 getSuggestions: Mention suggestions:', JSON.stringify(result.map(r => ({
             key: r.key,
             text: r.text,
             component: '[Function]'

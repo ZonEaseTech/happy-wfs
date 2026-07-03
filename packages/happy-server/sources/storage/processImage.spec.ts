@@ -1,10 +1,17 @@
-import * as fs from 'fs';
+import sharp from 'sharp';
 import { processImage } from './processImage';
 import { describe, it } from 'vitest';
 
 describe('processImage', () => {
     it('should resize image', async () => {
-        let img = fs.readFileSync(__dirname + '/__testdata__/image.jpg');
-        let result = await processImage(img);
+        let img = await sharp({
+            create: {
+                width: 200,
+                height: 100,
+                channels: 3,
+                background: '#ff0000',
+            },
+        }).jpeg().toBuffer();
+        await processImage(img);
     });
 });

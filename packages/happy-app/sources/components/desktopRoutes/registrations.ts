@@ -8,6 +8,9 @@ import { registerDesktopRoute } from './registry';
 /** Title key (i18n path) for each registered route — used by deep-link redirector. */
 export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
     '/memory': 'memory.title',
+    '/settings/company': 'company.title',
+    '/settings/company/members': 'company.members',
+    '/settings/company/invites': 'company.invites',
     '/settings/worktree-config': 'worktreeConfig.title',
     '/settings/account': 'settings.account',
     '/settings/appearance': 'settings.appearance',
@@ -28,6 +31,9 @@ export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
 };
 
 registerDesktopRoute('/memory', () => import('@/app/(app)/memory'));
+registerDesktopRoute('/settings/company', () => import('@/app/(app)/settings/company'));
+registerDesktopRoute('/settings/company/members', () => import('@/app/(app)/settings/company/members'));
+registerDesktopRoute('/settings/company/invites', () => import('@/app/(app)/settings/company/invites'));
 registerDesktopRoute('/settings/worktree-config', () => import('@/app/(app)/settings/worktree-config'));
 registerDesktopRoute('/settings/account', () => import('@/app/(app)/settings/account'));
 registerDesktopRoute('/settings/appearance', () => import('@/app/(app)/settings/appearance'));

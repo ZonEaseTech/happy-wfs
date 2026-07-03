@@ -19,6 +19,7 @@ import { enableMonitoring } from "./utils/enableMonitoring";
 import { enableErrorHandlers } from "./utils/enableErrorHandlers";
 import { enableAuthentication } from "./utils/enableAuthentication";
 import { userRoutes } from "./routes/userRoutes";
+import { companyRoutes } from "./routes/companyRoutes";
 import { feedRoutes } from "./routes/feedRoutes";
 import { kvRoutes } from "./routes/kvRoutes";
 import { chatRoutes } from "./routes/chatRoutes";
@@ -32,6 +33,7 @@ import { notificationRoutes } from "./routes/notificationRoutes";
 import { memoryRoutes } from "./routes/memoryRoutes";
 import { githubRoutes } from "./routes/githubRoutes";
 import { fileShareRoutes } from "./routes/fileShareRoutes";
+import { ensureDefaultCompanyMemberships } from "@/app/company/companyBootstrap";
 
 export async function startApi() {
 
@@ -66,6 +68,7 @@ export async function startApi() {
     enableMonitoring(typed);
     enableErrorHandlers(typed);
     enableAuthentication(typed);
+    await ensureDefaultCompanyMemberships();
 
     // Routes
     authRoutes(typed);
@@ -80,6 +83,7 @@ export async function startApi() {
     versionRoutes(typed);
     voiceRoutes(typed);
     userRoutes(typed);
+    companyRoutes(typed);
     feedRoutes(typed);
     kvRoutes(typed);
     chatRoutes(typed);

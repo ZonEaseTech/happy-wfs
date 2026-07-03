@@ -14,6 +14,7 @@ import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { buildPendingQueueBatchPrompt, extractPendingUploadedImages } from '@/components/pendingQueueBatchPrompt';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
+import { getMentionShareTargets, shareSessionWithMentionedFriends } from '@/-session/sessionMentionSharing';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useFileAttachments } from '@/hooks/useFileAttachments';
@@ -25,14 +26,13 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
-import { storage, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
+import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
+import { getSessionShares } from '@/sync/apiSharing';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
-import { InjectedMemoriesModal } from '@/components/InjectedMemoriesModal';
-import * as Clipboard from 'expo-clipboard';
 import { hapticsLight } from '@/components/haptics';
-import { showCopiedToast, showToast } from '@/components/Toast';
+import { showToast } from '@/components/Toast';
 import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -60,6 +60,8 @@ import { useUnistyles } from 'react-native-unistyles';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
 import { useAutoReviewGuard } from '@/sync/autoReviewGuard';
 import { AutoReviewGuardSettingsModal } from '@/components/AutoReviewGuardSettingsModal';
+import { getDisplayName } from '@/sync/friendTypes';
+import { resolveMentionedFriends } from '@/utils/chatFriendMentions';
 
 const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
@@ -190,15 +192,6 @@ export const SessionView = React.memo((props: { id: string }) => {
         setAutoReviewSettingsOpen(true);
     }, []);
 
-    // Header memory chip — count of memories actually injected into THIS session's
-    // system prompt (not total user memories). Tap opens the same modal as the
-    // Info-panel chip so semantics stay aligned across both surfaces.
-    const injectedMemoryIds = React.useMemo(
-        () => session?.metadata?.injectedMemoryIds ?? [],
-        [session?.metadata?.injectedMemoryIds],
-    );
-    const memoryCount = injectedMemoryIds.length;
-    const [injectedMemoriesOpen, setInjectedMemoriesOpen] = React.useState(false);
     const linkedGitHubIssue = React.useMemo(() => buildLinkedGitHubIssue(session), [session]);
     const handleOpenLinkedGitHubIssue = React.useCallback(() => {
         if (!linkedGitHubIssue) return;
@@ -334,30 +327,8 @@ export const SessionView = React.memo((props: { id: string }) => {
                         {...headerProps}
                         onBackPress={() => router.back()}
                         headerRight={session ? () => {
-                            const copyId = async (id: string) => {
-                                await Clipboard.setStringAsync(id);
-                                hapticsLight();
-                                showCopiedToast();
-                            };
                             return (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {/* Quick copy: Happy session ID (always present). */}
-                                <Pressable
-                                    {...webTooltip(t('sessionInfo.happySessionId'))}
-                                    onPress={() => copyId(session.id)}
-                                    hitSlop={15}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={t('sessionInfo.happySessionId')}
-                                    style={{
-                                        width: 38,
-                                        height: 38,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: 2,
-                                    }}
-                                >
-                                    <Ionicons name="finger-print-outline" size={20} color={theme.colors.header.tint} />
-                                </Pressable>
                                 {linkedGitHubIssue && (
                                     <Pressable
                                         {...webTooltip(t('sessionInfo.relatedTask'))}
@@ -409,35 +380,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         }} />
                                     )}
                                 </Pressable>
-                                {/* Injected-memories badge — count = memories actually merged into
-                                    THIS session's system prompt. Tap opens the same modal as the
-                                    Info-panel chip (mute toggles + manage-all link). */}
-                                {memoryCount > 0 && (
-                                    <Pressable
-                                        onPress={() => setInjectedMemoriesOpen(true)}
-                                        hitSlop={15}
-                                        accessibilityRole="button"
-                                        accessibilityLabel="Memories"
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            gap: 3,
-                                            paddingHorizontal: 8,
-                                            height: 38,
-                                            justifyContent: 'center',
-                                            marginRight: 2,
-                                        }}
-                                    >
-                                        <Ionicons name="library-outline" size={18} color={theme.colors.header.tint} />
-                                        <Text style={{
-                                            fontSize: 12,
-                                            fontWeight: '600',
-                                            color: theme.colors.header.tint,
-                                        }}>
-                                            {memoryCount}
-                                        </Text>
-                                    </Pressable>
-                                )}
                                 <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
@@ -573,13 +515,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                     onTypeChange={setRightPanelType}
                 />
             )}
-            {/* Injected-memories modal — opened by the header memory chip */}
-            <InjectedMemoriesModal
-                visible={injectedMemoriesOpen}
-                onClose={() => setInjectedMemoriesOpen(false)}
-                sessionId={sessionId}
-                injectedMemoryIds={injectedMemoryIds}
-            />
             <AutoReviewGuardSettingsModal
                 visible={autoReviewSettingsOpen}
                 onClose={() => setAutoReviewSettingsOpen(false)}
@@ -611,6 +546,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
     const pendingMessages = useSessionPendingMessages(sessionId);
+    const acceptedFriends = useAcceptedFriends();
     const acknowledgedCliVersions = useLocalSetting('acknowledgedCliVersions');
 
     // Check if CLI version is outdated and not already acknowledged
@@ -1335,6 +1271,46 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     ) : null;
 
     const canEdit = !session.accessLevel || session.accessLevel !== 'view';
+    const canManageSharing = !session.accessLevel || session.accessLevel === 'admin';
+
+    const confirmAndShareMentionedFriends = React.useCallback(async (messageText: string): Promise<boolean> => {
+        if (!canManageSharing || !messageText) {
+            return true;
+        }
+
+        const mentionedFriends = resolveMentionedFriends(messageText, acceptedFriends);
+        if (mentionedFriends.length === 0) {
+            return true;
+        }
+
+        try {
+            const shares = await getSessionShares(sync.getCredentials(), sessionId);
+            const targets = getMentionShareTargets(mentionedFriends, shares);
+            if (targets.length === 0) {
+                return true;
+            }
+
+            const names = targets.map(friend => getDisplayName(friend)).join(', ');
+            const confirmed = await Modal.confirm(
+                t('session.sharing.mentionShareConfirmTitle'),
+                t('session.sharing.mentionShareConfirmMessage', { names }),
+                {
+                    cancelText: t('common.cancel'),
+                    confirmText: t('session.sharing.mentionShareConfirmAction'),
+                },
+            );
+            if (!confirmed) {
+                return false;
+            }
+
+            await shareSessionWithMentionedFriends(sessionId, targets);
+            return true;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('session.sharing.mentionShareFailed');
+            Modal.alert(t('common.error'), message);
+            return false;
+        }
+    }, [acceptedFriends, canManageSharing, sessionId]);
 
     const handleSendNowPending = React.useCallback(async (pendingId: string) => {
         if (pendingMessages.length > 1) {
@@ -1451,6 +1427,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                         return;
                     }
 
+                    const mentionSharingReady = await confirmAndShareMentionedFriends(messageToSend);
+                    if (!mentionSharingReady) {
+                        return;
+                    }
+
                     const imagesToSend = images.length > 0 ? [...images] : undefined;
                     const filesToSend = fileAttachments.length > 0 ? [...fileAttachments] : [];
                     const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []) + JSON.stringify(filesToSend.map(file => ({ name: file.name, size: file.size })));
@@ -1530,7 +1511,10 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             }}
             // Autocomplete configuration
             autocompletePrefixes={['@', '/', '$']}
-            autocompleteSuggestions={(query) => getSuggestions(sessionId, query)}
+            autocompleteSuggestions={(query) => getSuggestions(sessionId, query, {
+                friends: acceptedFriends,
+                includeFriends: canManageSharing,
+            })}
             usageData={sessionUsage ? {
                 inputTokens: sessionUsage.inputTokens,
                 outputTokens: sessionUsage.outputTokens,

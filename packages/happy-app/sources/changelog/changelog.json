@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": 10,
+      "date": "2026-07-03",
+      "summary": "Team sharing, company management, and repository-aware history browsing make collaboration smoother.",
+      "changes": [
+        "Chat sharing: mention accepted friends directly with `@username`, confirm session sharing before sending, and grant edit access automatically.",
+        "Companies: manage company membership, invite links, join flows, and role-aware member lists from Settings.",
+        "Commits: when a session path is not a Git repository, surface nearby repositories so users can jump to the right history.",
+        "Settings: add company routes across mobile and desktop layouts."
+      ],
+      "rawMarkdown": "## Version 10 - 2026-07-03\n\n\nTeam sharing, company management, and repository-aware history browsing make collaboration smoother.\n\n- Chat sharing: mention accepted friends directly with `@username`, confirm session sharing before sending, and grant edit access automatically.\n- Companies: manage company membership, invite links, join flows, and role-aware member lists from Settings.\n- Commits: when a session path is not a Git repository, surface nearby repositories so users can jump to the right history.\n- Settings: add company routes across mobile and desktop layouts."
+    },
+    {
       "version": 9,
       "date": "2026-07-03",
       "summary": "GitHub permissions, chat uploads, and clean-repository file browsing are more predictable.",
@@ -133,5 +145,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 9
+  "latestVersion": 10
 }

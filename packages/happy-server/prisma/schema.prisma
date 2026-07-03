@@ -69,6 +69,58 @@ model Account {
   publicSessionShares PublicSessionShare[]     @relation("PublicSessionShares")
   memories            Memory[]
   blockedFromShares   PublicShareBlockedUser[]
+  companyMemberships  CompanyMembership[]
+  companyInvitesCreated CompanyInvite[]        @relation("CompanyInviteCreatedBy")
+}
+
+enum CompanyRole {
+  owner
+  admin
+  member
+}
+
+model Company {
+  id          String              @id @default(cuid())
+  name        String
+  slug        String              @unique
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  memberships CompanyMembership[]
+  invites     CompanyInvite[]
+}
+
+model CompanyMembership {
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  role      CompanyRole @default(member)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  joinedAt  DateTime    @default(now())
+
+  @@id([companyId, accountId])
+  @@index([accountId])
+  @@index([companyId, role])
+}
+
+model CompanyInvite {
+  id              String      @id @default(cuid())
+  companyId       String
+  company         Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tokenHash       String      @unique
+  role            CompanyRole @default(member)
+  createdByUserId String
+  createdByUser   Account     @relation("CompanyInviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  expiresAt       DateTime?
+  maxUses         Int?
+  useCount        Int         @default(0)
+  revokedAt       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([companyId, revokedAt, expiresAt])
+  @@index([createdByUserId])
 }
 
 model TerminalAuthRequest {
