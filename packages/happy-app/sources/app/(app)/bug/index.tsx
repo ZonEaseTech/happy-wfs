@@ -630,9 +630,9 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     desktopShell: {
         width: '100%',
-        maxWidth: 1380,
+        maxWidth: 1160,
         flex: 1,
-        paddingHorizontal: 28,
+        paddingHorizontal: 20,
         paddingTop: 28,
         paddingBottom: 28,
     },
@@ -645,7 +645,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     desktopColumns: {
         flex: 1,
         flexDirection: 'row',
-        gap: 24,
+        gap: 16,
         minHeight: 0,
     },
     leftPanel: {
@@ -889,7 +889,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     detailHeader: {
         minHeight: 150,
-        paddingHorizontal: 28,
+        paddingHorizontal: 20,
         paddingVertical: 24,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.divider,
