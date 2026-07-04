@@ -168,6 +168,20 @@ export class ApiSessionClient extends EventEmitter {
     /** Whether the "first user message → title" seeding has already fired (idempotent guard). */
     private initialTitleSet = false;
 
+    private queueOrDeliverUserMessage(message: UserMessage, source: string): boolean {
+        if (isHumanOnlyMessageRecord(message)) {
+            logger.debug(`[API] Ignoring human-only collaboration message from ${source}`);
+            return false;
+        }
+
+        if (this.pendingMessageCallback) {
+            this.pendingMessageCallback(message);
+        } else {
+            this.pendingMessages.push(message);
+        }
+        return true;
+    }
+
     constructor(token: string, session: Session) {
         super()
         this.token = token;
@@ -310,25 +324,17 @@ export class ApiSessionClient extends EventEmitter {
                             logger.debug('[SOCKET] [UPDATE] Ignoring human-only collaboration message');
                         } else if (userResult.data.meta?.sentFrom === 'cli') {
                             logger.debug('[SOCKET] [UPDATE] Ignoring echo of CLI-originated user message');
-                        } else if (this.pendingMessageCallback) {
+                        } else {
                             // Title seed for Codex/Gemini remote mode — their user messages don't re-echo through buildMessageContent
                             this.maybeSetInitialTitleFromUserText(userResult.data.content.text);
-                            this.pendingMessageCallback(userResult.data);
-                            emitMessageReceipt({
-                                sid: data.body.sid,
-                                messageId: data.body.message.id,
-                                localId: data.body.message.localId ?? null,
-                                ok: true,
-                            });
-                        } else {
-                            this.maybeSetInitialTitleFromUserText(userResult.data.content.text);
-                            this.pendingMessages.push(userResult.data);
-                            emitMessageReceipt({
-                                sid: data.body.sid,
-                                messageId: data.body.message.id,
-                                localId: data.body.message.localId ?? null,
-                                ok: true,
-                            });
+                            if (this.queueOrDeliverUserMessage(userResult.data, 'socket-update')) {
+                                emitMessageReceipt({
+                                    sid: data.body.sid,
+                                    messageId: data.body.message.id,
+                                    localId: data.body.message.localId ?? null,
+                                    ok: true,
+                                });
+                            }
                         }
                     } else {
                         // If not a user message, it might be a permission response or other message type
@@ -512,7 +518,7 @@ export class ApiSessionClient extends EventEmitter {
     onUserMessage(callback: (data: UserMessage) => void) {
         this.pendingMessageCallback = callback;
         while (this.pendingMessages.length > 0) {
-            callback(this.pendingMessages.shift()!);
+            this.queueOrDeliverUserMessage(this.pendingMessages.shift()!, 'pending-queue');
         }
     }
 

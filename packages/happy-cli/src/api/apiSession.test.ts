@@ -415,3 +415,76 @@ describe('ApiSessionClient message receipt', () => {
         });
     });
 });
+
+describe('ApiSessionClient human-only collaboration guard', () => {
+    let mockSocket: any;
+    let mockSession: any;
+
+    beforeEach(() => {
+        mockSocket = {
+            connect: vi.fn(),
+            on: vi.fn(),
+            off: vi.fn(),
+            close: vi.fn(),
+            disconnect: vi.fn(),
+            emit: vi.fn(),
+            connected: true
+        };
+
+        mockIo.mockReturnValue(mockSocket);
+
+        mockSession = {
+            id: 'test-session-id',
+            seq: 0,
+            metadata: {
+                path: '/tmp',
+                host: 'localhost',
+                homeDir: '/home/user',
+                happyHomeDir: '/home/user/.happy',
+                happyLibDir: '/home/user/.happy/lib',
+                happyToolsDir: '/home/user/.happy/tools'
+            },
+            metadataVersion: 0,
+            agentState: null,
+            agentStateVersion: 0,
+            encryptionKey: new Uint8Array(32),
+            encryptionVariant: 'legacy' as const
+        };
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('does not deliver queued human-only collaboration notes to agent callbacks', () => {
+        const client = new ApiSessionClient('fake-token', mockSession) as any;
+        const onMessage = vi.fn();
+
+        client.pendingMessages.push({
+            role: 'user',
+            content: { type: 'text', text: '@youthqx 来回答问题' },
+            meta: {
+                humanOnly: true,
+                skipAiContext: true,
+                collaboration: {
+                    kind: 'mention',
+                    targetUserIds: ['user-1'],
+                    targetUsernames: ['youthqx'],
+                },
+            },
+        });
+        client.pendingMessages.push({
+            role: 'user',
+            content: { type: 'text', text: 'normal message' },
+            meta: { sentFrom: 'web' },
+        });
+
+        client.onUserMessage(onMessage);
+
+        expect(onMessage).toHaveBeenCalledTimes(1);
+        expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({
+            content: { type: 'text', text: 'normal message' },
+        }));
+        expect(client.pendingMessages).toEqual([]);
+    });
+});
