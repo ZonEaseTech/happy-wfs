@@ -204,11 +204,11 @@ export interface NearbyGitRepo {
 }
 
 /**
- * 扫描 cwd 的子目录，返回内含 .git 的目录列表
+ * 扫描 cwd 的直接子目录，返回内含 .git 的目录列表
  *
  * 6 个决策点（在 TODO 里实现你想要的策略）：
- *   1) 命令：推荐 find <cwd> -maxdepth N -name .git -print -prune
- *   2) 深度 N：1=直接子目录；2=能命中 我的/happy-ai；3+ 容易扫到 vendor/node_modules
+ *   1) 命令：find <cwd> -maxdepth 2 -name .git -print -prune
+ *   2) 深度 2：只命中 cwd/子目录/.git，避免把 cwd/二级目录/仓库 显示成一级项目
  *   3) 过滤：必排 /node_modules/ 与 /.git/（防止递归进 .git 内部）
  *   4) 超时：5000ms 起步，避免慢盘阻塞 UI
  *   5) 排序：字母序 vs 按 .git/HEAD 修改时间倒序（活跃优先）
@@ -223,7 +223,7 @@ export async function findNearbyGitRepos(
     // Git worktrees store `.git` as a file, not a directory. Do not filter by
     // `-type d`, otherwise a multi-repo worktree workspace whose metadata was
     // stripped cannot recover by scanning its child repos.
-    const cmd = `find ${shellEscape(cwd)} -maxdepth 3 \\( -name node_modules -o -name .cache -o -name vendor \\) -prune -o \\( -name .git -print -prune \\) 2>/dev/null`;
+    const cmd = `find ${shellEscape(cwd)} -maxdepth 2 \\( -name node_modules -o -name .cache -o -name vendor \\) -prune -o \\( -name .git -print -prune \\) 2>/dev/null`;
     const result = await sessionBash(sessionId, {
         command: cmd,
         cwd,
@@ -238,10 +238,23 @@ export async function findNearbyGitRepos(
         const trimmed = line.trim();
         if (!trimmed.endsWith('/.git')) continue;
         const path = trimmed.replace(/\/\.git$/, '');
+        if (!isDirectChildPath(cwd, path)) continue;
         if (path === cwd || seen.has(path)) continue;
         seen.add(path);
         repos.push({ path, name: path.split('/').pop() || path });
     }
     repos.sort((a, b) => a.path.localeCompare(b.path));
     return repos.slice(0, 20);
+}
+
+function isDirectChildPath(parentPath: string, childPath: string): boolean {
+    const parent = parentPath.replace(/\/+$/, '') || '/';
+    const child = childPath.replace(/\/+$/, '');
+    if (child === parent) return false;
+
+    const prefix = parent === '/' ? '/' : `${parent}/`;
+    if (!child.startsWith(prefix)) return false;
+
+    const relative = child.slice(prefix.length);
+    return relative.length > 0 && !relative.includes('/');
 }
