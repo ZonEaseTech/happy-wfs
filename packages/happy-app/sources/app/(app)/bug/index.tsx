@@ -585,41 +585,41 @@ function PublicBugDetailPane({
                         </Pressable>
                     </View>
                     {Platform.OS === 'web' && <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />}
-                </ScrollView>
 
-                <View style={styles.detailSide}>
-                    <Text style={styles.sectionTitle}>{t('bug.statusFlow')}</Text>
-                    {bug.status !== 'pending' && (
-                        <Pressable style={styles.statusActionRow} disabled={busy} onPress={() => handleStatus('pending', 'return_to_pending')}>
-                            <View style={[styles.statusDot, { backgroundColor: STATUS_ACCENTS.pending }]} />
-                            <Text style={styles.statusActionText}>{t('bug.returnToPending')}</Text>
-                        </Pressable>
-                    )}
-                    {STATUS_OPTIONS.map(status => (
-                        <Pressable
-                            key={status}
-                            style={[styles.statusActionRow, bug.status === status && styles.statusActionRowCurrent]}
-                            disabled={busy || bug.status === status}
-                            onPress={() => handleStatus(status)}
-                        >
-                            <View style={[styles.statusDot, { backgroundColor: STATUS_ACCENTS[status] }]} />
-                            <Text style={styles.statusActionText}>{bugStatusLabel(status)}</Text>
-                            <Text style={styles.statusActionMeta}>{bug.status === status ? t('bug.currentStatus') : t('bug.changeToThisStatus')}</Text>
-                        </Pressable>
-                    ))}
-
-                    <Text style={styles.sectionTitle}>{t('bug.statusHistory')}</Text>
-                    <View style={styles.historyList}>
-                        {bug.statusHistory.map(entry => (
-                            <View key={entry.id} style={styles.historyEvent}>
-                                <View style={[styles.historyDot, { backgroundColor: STATUS_ACCENTS[entry.toStatus] }]} />
-                                <View style={styles.historyCard}>
-                                    <Text style={styles.historyText}>{formatBugStatusHistoryAction(entry)}</Text>
-                                </View>
-                            </View>
+                    <View style={styles.detailSide}>
+                        <Text style={styles.sectionTitle}>{t('bug.statusFlow')}</Text>
+                        {bug.status !== 'pending' && (
+                            <Pressable style={styles.statusActionRow} disabled={busy} onPress={() => handleStatus('pending', 'return_to_pending')}>
+                                <View style={[styles.statusDot, { backgroundColor: STATUS_ACCENTS.pending }]} />
+                                <Text style={styles.statusActionText}>{t('bug.returnToPending')}</Text>
+                            </Pressable>
+                        )}
+                        {STATUS_OPTIONS.map(status => (
+                            <Pressable
+                                key={status}
+                                style={[styles.statusActionRow, bug.status === status && styles.statusActionRowCurrent]}
+                                disabled={busy || bug.status === status}
+                                onPress={() => handleStatus(status)}
+                            >
+                                <View style={[styles.statusDot, { backgroundColor: STATUS_ACCENTS[status] }]} />
+                                <Text style={styles.statusActionText}>{bugStatusLabel(status)}</Text>
+                                <Text style={styles.statusActionMeta}>{bug.status === status ? t('bug.currentStatus') : t('bug.changeToThisStatus')}</Text>
+                            </Pressable>
                         ))}
+
+                        <Text style={styles.sectionTitle}>{t('bug.statusHistory')}</Text>
+                        <View style={styles.historyList}>
+                            {bug.statusHistory.map(entry => (
+                                <View key={entry.id} style={styles.historyEvent}>
+                                    <View style={[styles.historyDot, { backgroundColor: STATUS_ACCENTS[entry.toStatus] }]} />
+                                    <View style={styles.historyCard}>
+                                        <Text style={styles.historyText}>{formatBugStatusHistoryAction(entry)}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
                     </View>
-                </View>
+                </ScrollView>
             </View>
             {busy && <View style={styles.busyOverlay}><ActivityIndicator /></View>}
         </View>
@@ -943,7 +943,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     detailBody: {
         flex: 1,
         minHeight: 0,
-        flexDirection: 'row',
     },
     detailMain: {
         flex: 1,
@@ -954,10 +953,13 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingBottom: 48,
     },
     detailSide: {
-        width: 286,
-        borderLeftWidth: 1,
-        borderLeftColor: '#ECE7E0',
-        padding: 22,
+        borderTopWidth: 1,
+        borderTopColor: '#ECE7E0',
+        marginTop: 10,
+        paddingTop: 24,
+        paddingHorizontal: 18,
+        paddingBottom: 18,
+        borderRadius: 20,
         backgroundColor: '#FAFAF9',
     },
     sectionTitle: {

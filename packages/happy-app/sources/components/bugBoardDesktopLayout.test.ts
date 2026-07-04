@@ -20,14 +20,15 @@ describe('bug board desktop layout', () => {
         expect(source).toContain('styles.desktopEmptyPanel');
     });
 
-    it('matches the V5 calm reading layout tokens', () => {
+    it('keeps the desktop detail pane readable instead of squeezing it into a nested right rail', () => {
         const source = readFileSync(sourcePath, 'utf8');
 
         expect(source).toContain("backgroundColor: '#F5F5F4'");
         expect(source).toContain('borderRadius: 28');
-        expect(source).toContain('width: 286');
         expect(source).toContain("backgroundColor: '#FBFBFA'");
-        expect(source).toContain('statusActionRowCurrent');
+        expect(source).toContain('borderTopWidth: 1');
+        expect(source).not.toContain('width: 286');
+        expect(source).not.toContain('borderLeftWidth: 1');
         expect(source).toContain('historyCard');
     });
 
