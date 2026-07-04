@@ -124,7 +124,7 @@ export async function getBugForOwner(ownerId: string, bugId: string, input: { pu
     return presentBugDetail(row);
 }
 
-export async function createBugForOwner(ownerId: string, actor: BugActor, input: { description: string; visibility?: string }) {
+export async function createBugForOwner(ownerId: string, actor: BugActor, input: { description: string; contentJson?: unknown; visibility?: string }) {
     const description = input.description.trim();
     if (!description) throw errorWithStatus(400, 'description is required');
     const visibility = BugVisibilitySchema.parse(input.visibility ?? 'shared');
@@ -138,6 +138,7 @@ export async function createBugForOwner(ownerId: string, actor: BugActor, input:
                 createdByNickname: nickname,
                 title: buildBugTitle(description),
                 description,
+                ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson }),
                 status: 'pending',
                 visibility,
                 lastActivityAt: new Date(),
@@ -153,6 +154,26 @@ export async function createBugForOwner(ownerId: string, actor: BugActor, input:
             },
         });
         return await bugDb(tx).bugReport.findUnique({ where: { id: bug.id }, include: detailInclude });
+    });
+    return presentBugDetail(row);
+}
+
+export async function updateBugContent(ownerId: string, bugId: string, actor: BugActor, input: { description: string; contentJson?: unknown | null; publicOnly?: boolean }) {
+    const description = input.description.trim();
+    if (!description) throw errorWithStatus(400, 'description is required');
+    const row = await inTx(async (tx) => {
+        const bug = await findBugRowForOwner(tx, ownerId, bugId);
+        if (input.publicOnly && bug.visibility !== 'shared') throw errorWithStatus(404, 'Bug not found');
+        await bugDb(tx).bugReport.update({
+            where: { id: bugId },
+            data: {
+                title: buildBugTitle(description),
+                description,
+                ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson }),
+                lastActivityAt: new Date(),
+            },
+        });
+        return await bugDb(tx).bugReport.findUnique({ where: { id: bugId }, include: detailInclude });
     });
     return presentBugDetail(row);
 }

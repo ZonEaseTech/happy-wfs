@@ -1,4 +1,4 @@
-import { stripBugImageMarkers } from './bugRichContent';
+import { stripBugImageMarkers, type BugTiptapDoc } from './bugRichContent';
 export const BUG_IMAGE_LIMITS = {
     maxImages: 10,
     maxSizeBytes: 20 * 1024 * 1024,
@@ -44,6 +44,7 @@ export interface BugReportSummary {
     displayId: string;
     title: string;
     description: string;
+    contentJson: BugTiptapDoc | null;
     status: BugStatus;
     visibility: BugVisibility;
     createdByNickname: string | null;

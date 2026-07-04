@@ -8,6 +8,7 @@ const bug: BugReportDetail = {
     displayId: 'BUG-1042',
     title: '提交订单后页面一直转圈',
     description: '提交订单后页面一直转圈，无法完成支付。',
+    contentJson: null,
     status: 'verify',
     visibility: 'shared',
     createdByNickname: '测试李',

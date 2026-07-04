@@ -9,9 +9,11 @@ import {
     getPublicBug,
     listPublicBugs,
     loginBugShare,
+    updatePublicBugContent,
     uploadPublicBugAttachment,
 } from '@/sync/apiBugs';
 import type { BugReportDetail, BugReportSummary, BugStatus } from '@/sync/bugTypes';
+import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { t } from '@/text';
 
 const STORAGE_KEY = 'happy.bugShareSession.v1';
@@ -56,6 +58,7 @@ function toSummary(bug: BugReportDetail): BugReportSummary {
         displayId: bug.displayId,
         title: bug.title,
         description: bug.description,
+        contentJson: bug.contentJson,
         status: bug.status,
         visibility: bug.visibility,
         createdByNickname: bug.createdByNickname,
@@ -162,10 +165,10 @@ export function useBugShareBoard() {
         return updated;
     }, [requireToken, updateBugInList]);
 
-    const createBugWithImages = React.useCallback(async (description: string, images: LocalImage[]): Promise<BugReportDetail> => {
+    const createBugWithImages = React.useCallback(async (description: string, images: LocalImage[], contentJson?: BugTiptapDoc): Promise<BugReportDetail> => {
         const token = requireToken();
         try {
-            let bug = await createPublicBug(token, { description });
+            let bug = await createPublicBug(token, { description, contentJson });
             updateBugInList(bug);
             if (images.length > 0) {
                 bug = await uploadImages(bug.id, images);
@@ -184,6 +187,22 @@ export function useBugShareBoard() {
             let bug = result.bug;
             if (images.length > 0) {
                 bug = await uploadImages(bugId, images, result.commentId);
+            }
+            updateBugInList(bug);
+            return bug;
+        } catch (errorValue) {
+            handleError(errorValue);
+            throw errorValue;
+        }
+    }, [handleError, requireToken, updateBugInList, uploadImages]);
+
+    const updateContentWithImages = React.useCallback(async (bugId: string, description: string, contentJson: BugTiptapDoc | null | undefined, images: LocalImage[]): Promise<BugReportDetail> => {
+        const token = requireToken();
+        try {
+            let bug = await updatePublicBugContent(token, bugId, { description, contentJson });
+            updateBugInList(bug);
+            if (images.length > 0) {
+                bug = await uploadImages(bugId, images);
             }
             updateBugInList(bug);
             return bug;
@@ -217,6 +236,7 @@ export function useBugShareBoard() {
         refresh,
         getBug,
         createBugWithImages,
+        updateContentWithImages,
         addCommentWithImages,
         uploadImages,
         changeStatus,

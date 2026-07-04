@@ -11,13 +11,21 @@ import {
     getValidBugShareConfig,
     listBugsForOwner,
     recordBugAttachment,
+    updateBugContent,
 } from '@/app/bugs/bugService';
 
 const loginBody = z.object({
     accessCode: z.string().trim().min(1),
     nickname: z.string().trim().min(1).max(40),
 });
-const createBody = z.object({ description: z.string().trim().min(1) });
+const createBody = z.object({
+    description: z.string().trim().min(1),
+    contentJson: z.unknown().optional(),
+});
+const contentBody = z.object({
+    description: z.string().trim().min(1),
+    contentJson: z.unknown().nullable().optional(),
+});
 const commentBody = z.object({ body: z.string().trim().min(1) });
 const statusBody = z.object({
     status: z.enum(['pending', 'in_progress', 'verify', 'closed']),
@@ -100,7 +108,11 @@ export function bugPublicRoutes(app: Fastify) {
         const context = await getPublicContext(request, reply);
         if (!context) return;
         try {
-            const bug = await createBugForOwner(context.ownerId, { nickname: context.nickname }, { description: request.body.description, visibility: 'shared' });
+            const bug = await createBugForOwner(context.ownerId, { nickname: context.nickname }, {
+                description: request.body.description,
+                ...(request.body.contentJson === undefined ? {} : { contentJson: request.body.contentJson }),
+                visibility: 'shared',
+            });
             return reply.code(201).send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -140,6 +152,23 @@ export function bugPublicRoutes(app: Fastify) {
         if (!context) return;
         try {
             const bug = await changeBugStatus(context.ownerId, request.params.bugId, { nickname: context.nickname }, { ...request.body, publicOnly: true });
+            return reply.send({ bug });
+        } catch (error) {
+            return handleRouteError(reply, error);
+        }
+    });
+
+    app.patch('/v1/bug-share/bugs/:bugId/content', {
+        schema: { params: z.object({ bugId: z.string() }), body: contentBody },
+    }, async (request, reply) => {
+        const context = await getPublicContext(request, reply);
+        if (!context) return;
+        try {
+            const bug = await updateBugContent(context.ownerId, request.params.bugId, { nickname: context.nickname }, {
+                description: request.body.description,
+                ...(request.body.contentJson === undefined ? {} : { contentJson: request.body.contentJson }),
+                publicOnly: true,
+            });
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);

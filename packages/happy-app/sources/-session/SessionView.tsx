@@ -28,8 +28,9 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
-import { addBugComment, changeBugStatus, deleteBug, getBug, uploadBugAttachment } from '@/sync/apiBugs';
+import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
 import type { BugReportDetail, BugStatus } from '@/sync/bugTypes';
+import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { getSessionShares } from '@/sync/apiSharing';
 import { listCompanyMembers } from '@/sync/apiCompany';
@@ -253,6 +254,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                     onUploadImages: async (current: BugReportDetail, images: LocalImage[], commentId?: string) => (
                         await uploadBugImages(current.id, images, commentId)
                     ),
+                    onUpdateContent: async (current: BugReportDetail, description: string, contentJson: BugTiptapDoc | null | undefined, images: LocalImage[]) => {
+                        let updated = await updateBugContent(credentials, current.id, { description, contentJson });
+                        if (images.length > 0) {
+                            updated = await uploadBugImages(current.id, images);
+                        }
+                        return updated;
+                    },
                     onChangeStatus: async (current: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => (
                         await changeBugStatus(credentials, current.id, { status, action })
                     ),

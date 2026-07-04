@@ -9,9 +9,11 @@ import { t } from '@/text';
 import { Modal } from '@/modal';
 import type { LocalImage } from '@/components/ImagePreview';
 import { BUG_IMAGE_LIMITS, type BugReportDetail } from '@/sync/bugTypes';
-import { getBugRichPlainText, insertBugImageAtSelection, serializeBugRichContent, type BugEditorBlock } from '@/sync/bugRichContent';
+import { getBugRichPlainText, insertBugImageAtSelection, serializeBugRichContent, type BugEditorBlock, type BugTiptapDoc } from '@/sync/bugRichContent';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { getBugCreateRemainingImageSlots, isBugCreateSubmitEnabled, shouldShowBugCreateEmptyHint } from './bugReportCreatePresentation';
+import { BugTiptapEditor } from './BugTiptapEditor';
+import type { BugTiptapEditorHandle, BugTiptapEditorSnapshot } from './BugTiptapEditor.types';
 
 let bugEditorBlockId = 0;
 function createBlockId(prefix: string): string {
@@ -41,12 +43,21 @@ function countImageBlocks(blocks: BugEditorBlock<LocalImage>[]): number {
     return blocks.filter(block => block.type === 'image').length;
 }
 
+const emptyTiptapSnapshot: BugTiptapEditorSnapshot = {
+    doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+    contentJson: { type: 'doc', content: [{ type: 'paragraph' }] },
+    plainText: '',
+    imageCount: 0,
+    description: '',
+    images: [],
+};
+
 export function BugReportCreateModal({
     onClose,
     onCreate,
 }: {
     onClose: () => void;
-    onCreate: (description: string, images: LocalImage[]) => Promise<BugReportDetail>;
+    onCreate: (description: string, images: LocalImage[], contentJson?: BugTiptapDoc) => Promise<BugReportDetail>;
 }) {
     const styles = stylesheet;
     const { width, height } = useWindowDimensions();
@@ -55,19 +66,24 @@ export function BugReportCreateModal({
     const modalMaxHeight = Math.min(isWide ? 800 : height - 28, Math.max(520, height - (isWide ? 72 : 28)));
     const firstTextBlockId = React.useRef(createBlockId('text'));
     const [blocks, setBlocks] = React.useState<BugEditorBlock<LocalImage>[]>(() => [{ id: firstTextBlockId.current, type: 'text', text: '' }]);
+    const [tiptapSnapshot, setTiptapSnapshot] = React.useState<BugTiptapEditorSnapshot>(emptyTiptapSnapshot);
     const [submitting, setSubmitting] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const tiptapEditorRef = React.useRef<BugTiptapEditorHandle>(null);
     const textInputRefs = React.useRef<Record<string, React.ElementRef<typeof TextInput> | null>>({});
     const activeTextBlockIdRef = React.useRef(firstTextBlockId.current);
     const selectionRef = React.useRef<Record<string, { start: number; end: number }>>({
         [firstTextBlockId.current]: { start: 0, end: 0 },
     });
 
-    const imageCount = countImageBlocks(blocks);
-    const plainText = getBugRichPlainText(blocks);
+    const useTiptapEditor = Platform.OS === 'web';
+    const nativeImageCount = countImageBlocks(blocks);
+    const nativePlainText = getBugRichPlainText(blocks);
+    const imageCount = useTiptapEditor ? tiptapSnapshot.imageCount : nativeImageCount;
+    const plainText = useTiptapEditor ? tiptapSnapshot.plainText : nativePlainText;
     const canSubmit = isBugCreateSubmitEnabled(plainText, submitting);
     const remainingImageSlots = getBugCreateRemainingImageSlots(imageCount, BUG_IMAGE_LIMITS.maxImages);
-    const showEmptyHint = shouldShowBugCreateEmptyHint(plainText, imageCount);
+    const showEmptyHint = shouldShowBugCreateEmptyHint(nativePlainText, nativeImageCount);
 
     const focusTextBlock = React.useCallback((id: string) => {
         activeTextBlockIdRef.current = id;
@@ -136,22 +152,47 @@ export function BugReportCreateModal({
         selectedFiles.forEach(file => { void addImageFile(file); });
     }, [addImageFile, blocks]);
 
+    const addTiptapImageFiles = React.useCallback((files: FileList | File[]) => {
+        const remaining = getBugCreateRemainingImageSlots(tiptapSnapshot.imageCount, BUG_IMAGE_LIMITS.maxImages);
+        if (remaining <= 0) {
+            Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
+            return;
+        }
+        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        const selectedFiles = imageFiles.slice(0, remaining);
+        if (imageFiles.length > remaining) {
+            Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
+        }
+        selectedFiles.forEach(file => {
+            if (file.size > BUG_IMAGE_LIMITS.maxSizeBytes) {
+                Modal.alert(t('common.error'), t('bug.imageTooLarge'));
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            void localImageFromUri(url, file.type || 'image/jpeg').then(image => {
+                tiptapEditorRef.current?.insertImages([image]);
+            });
+        });
+    }, [tiptapSnapshot.imageCount]);
+
     const handleSubmit = React.useCallback(async () => {
-        const serialized = serializeBugRichContent(blocks);
-        if (!isBugCreateSubmitEnabled(getBugRichPlainText(blocks), submitting)) {
+        const tiptapCurrentSnapshot = useTiptapEditor ? (tiptapEditorRef.current?.getSnapshot() ?? tiptapSnapshot) : null;
+        const serialized = tiptapCurrentSnapshot ?? serializeBugRichContent(blocks);
+        const currentPlainText = tiptapCurrentSnapshot?.plainText ?? getBugRichPlainText(blocks);
+        if (!isBugCreateSubmitEnabled(currentPlainText, submitting)) {
             Modal.alert(t('common.error'), t('bug.contentRequiredHint'));
             return;
         }
         setSubmitting(true);
         try {
-            await onCreate(serialized.description, serialized.images);
+            await onCreate(serialized.description, serialized.images, tiptapCurrentSnapshot?.contentJson);
             onClose();
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         } finally {
             setSubmitting(false);
         }
-    }, [blocks, onClose, onCreate, submitting]);
+    }, [blocks, onClose, onCreate, submitting, tiptapSnapshot, useTiptapEditor]);
 
     const handleUploadPress = React.useCallback(async () => {
         if (remainingImageSlots <= 0) {
@@ -188,9 +229,13 @@ export function BugReportCreateModal({
     const handleFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files) return;
-        addImageFiles(files);
+        if (useTiptapEditor) {
+            addTiptapImageFiles(files);
+        } else {
+            addImageFiles(files);
+        }
         event.target.value = '';
-    }, [addImageFiles]);
+    }, [addImageFiles, addTiptapImageFiles, useTiptapEditor]);
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
         await handleImagePasteEvent(event, {
@@ -219,11 +264,11 @@ export function BugReportCreateModal({
     }, [addImageFiles]);
 
     React.useEffect(() => {
-        if (Platform.OS !== 'web') return;
+        if (Platform.OS !== 'web' || useTiptapEditor) return;
         const pasteListener = (event: Event) => { void handlePaste(event as ClipboardEvent); };
         document.addEventListener('paste', pasteListener);
         return () => document.removeEventListener('paste', pasteListener);
-    }, [handlePaste]);
+    }, [handlePaste, useTiptapEditor]);
 
     return (
         <View style={[styles.modal, { width: modalWidth, height: modalMaxHeight, maxHeight: modalMaxHeight }, !isWide && styles.modalCompact]}>
@@ -245,50 +290,58 @@ export function BugReportCreateModal({
                     <Text style={styles.label}>{t('bug.description')} <Text style={styles.requiredMark}>*</Text></Text>
                     <Text style={styles.imageCount}>{t('bug.imageCounter', { count: imageCount, max: BUG_IMAGE_LIMITS.maxImages })}</Text>
                 </View>
-                <ScrollView {...paperWebDropProps} style={styles.paper} contentContainerStyle={styles.paperContent} keyboardShouldPersistTaps="handled">
-                    {blocks.map((block, index) => {
-                        if (block.type === 'image') {
+                {useTiptapEditor ? (
+                    <View style={[styles.paper, { overflowY: 'auto' } as any]}>
+                        <View style={styles.paperContent}>
+                            <BugTiptapEditor ref={tiptapEditorRef} onChange={setTiptapSnapshot} />
+                        </View>
+                    </View>
+                ) : (
+                    <ScrollView {...paperWebDropProps} style={styles.paper} contentContainerStyle={styles.paperContent} keyboardShouldPersistTaps="handled">
+                        {blocks.map((block, index) => {
+                            if (block.type === 'image') {
+                                return (
+                                    <View key={block.id} style={styles.noteImageWrap}>
+                                        <Image source={{ uri: block.image.uri }} style={styles.noteImage} contentFit="cover" />
+                                        <Pressable style={styles.removeImageButton} onPress={() => removeImageBlock(block.id)} hitSlop={8}>
+                                            <Ionicons name="close" size={16} color="#fff" />
+                                        </Pressable>
+                                    </View>
+                                );
+                            }
                             return (
-                                <View key={block.id} style={styles.noteImageWrap}>
-                                    <Image source={{ uri: block.image.uri }} style={styles.noteImage} contentFit="cover" />
-                                    <Pressable style={styles.removeImageButton} onPress={() => removeImageBlock(block.id)} hitSlop={8}>
-                                        <Ionicons name="close" size={16} color="#fff" />
-                                    </Pressable>
-                                </View>
+                                <TextInput
+                                    key={block.id}
+                                    ref={(node) => { textInputRefs.current[block.id] = node; }}
+                                    style={[
+                                        styles.noteTextInput,
+                                        index === 0 && showEmptyHint && styles.emptyNoteTextInput,
+                                        Platform.OS === 'web' && {
+                                            outlineStyle: 'none',
+                                            outline: 'none',
+                                            outlineWidth: 0,
+                                            outlineColor: 'transparent',
+                                            boxShadow: 'none',
+                                            resize: 'none',
+                                            borderWidth: 0,
+                                        } as any,
+                                    ]}
+                                    value={block.text}
+                                    onFocus={() => { activeTextBlockIdRef.current = block.id; }}
+                                    onChangeText={(value) => updateTextBlock(block.id, value)}
+                                    onSelectionChange={(event) => {
+                                        const selection = event.nativeEvent.selection;
+                                        selectionRef.current[block.id] = { start: selection.start, end: selection.end };
+                                    }}
+                                    placeholder={index === 0 && showEmptyHint ? t('bug.noteStylePlaceholder') : ''}
+                                    placeholderTextColor={styles.placeholder.color}
+                                    multiline
+                                    textAlignVertical="top"
+                                />
                             );
-                        }
-                        return (
-                            <TextInput
-                                key={block.id}
-                                ref={(node) => { textInputRefs.current[block.id] = node; }}
-                                style={[
-                                    styles.noteTextInput,
-                                    index === 0 && showEmptyHint && styles.emptyNoteTextInput,
-                                    Platform.OS === 'web' && {
-                                        outlineStyle: 'none',
-                                        outline: 'none',
-                                        outlineWidth: 0,
-                                        outlineColor: 'transparent',
-                                        boxShadow: 'none',
-                                        resize: 'none',
-                                        borderWidth: 0,
-                                    } as any,
-                                ]}
-                                value={block.text}
-                                onFocus={() => { activeTextBlockIdRef.current = block.id; }}
-                                onChangeText={(value) => updateTextBlock(block.id, value)}
-                                onSelectionChange={(event) => {
-                                    const selection = event.nativeEvent.selection;
-                                    selectionRef.current[block.id] = { start: selection.start, end: selection.end };
-                                }}
-                                placeholder={index === 0 && showEmptyHint ? t('bug.noteStylePlaceholder') : ''}
-                                placeholderTextColor={styles.placeholder.color}
-                                multiline
-                                textAlignVertical="top"
-                            />
-                        );
-                    })}
-                </ScrollView>
+                        })}
+                    </ScrollView>
+                )}
                 {Platform.OS === 'web' && <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />}
             </View>
 

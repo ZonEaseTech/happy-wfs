@@ -1,26 +1,33 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { StyleSheet } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 import type { BugAttachment } from '@/sync/bugTypes';
-import { parseBugRichContent } from '@/sync/bugRichContent';
+import { bugTiptapDocToRichContent, parseBugRichContent, type BugTiptapDoc } from '@/sync/bugRichContent';
 
 export function BugRichContentView({
     description,
+    contentJson,
     attachments,
     emptyText = '-',
     compact = false,
     noteStyle = false,
+    onImagePress,
 }: {
     description: string;
+    contentJson?: BugTiptapDoc | null;
     attachments: BugAttachment[];
     emptyText?: string;
     compact?: boolean;
     noteStyle?: boolean;
+    onImagePress?: (attachment: BugAttachment) => void;
 }) {
     const styles = stylesheet;
-    const blocks = React.useMemo(() => parseBugRichContent(description, attachments), [attachments, description]);
+    const blocks = React.useMemo(
+        () => contentJson?.content?.length ? bugTiptapDocToRichContent(contentJson, attachments) : parseBugRichContent(description, attachments),
+        [attachments, contentJson, description],
+    );
 
     if (blocks.length === 0) {
         return <Text style={styles.muted}>{emptyText}</Text>;
@@ -32,13 +39,19 @@ export function BugRichContentView({
                 if (block.type === 'text') {
                     return <Text key={`text-${index}`} style={[styles.textBlock, compact && styles.textBlockCompact, noteStyle && styles.textBlockNote]} selectable>{block.text}</Text>;
                 }
-                return (
+                const image = (
                     <Image
                         key={`image-${block.attachment.id}-${index}`}
                         source={{ uri: block.attachment.url }}
                         style={[styles.imageBlock, compact && styles.imageBlockCompact, noteStyle && styles.imageBlockNote]}
                         contentFit="cover"
                     />
+                );
+                if (!onImagePress) return image;
+                return (
+                    <Pressable key={`image-press-${block.attachment.id}-${index}`} onPress={() => onImagePress(block.attachment)}>
+                        {image}
+                    </Pressable>
                 );
             })}
         </View>

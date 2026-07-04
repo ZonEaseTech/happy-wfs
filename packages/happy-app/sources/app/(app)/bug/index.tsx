@@ -16,10 +16,21 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Text } from "@/components/StyledText";
 import { BugReportCreateModal } from "@/components/BugReportCreateModal";
 import { BugReportDetailModal } from "@/components/BugReportDetailModal";
+import { BugImagePreviewModal } from "@/components/BugImagePreviewModal";
 import { BugRichContentView } from "@/components/BugRichContentView";
+import { BugTiptapEditor } from "@/components/BugTiptapEditor";
+import type {
+  BugTiptapEditorHandle,
+  BugTiptapEditorSnapshot,
+} from "@/components/BugTiptapEditor.types";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import type { ActionMenuItem } from "@/components/ActionMenu";
 import type { LocalImage } from "@/components/ImagePreview";
+import {
+  bugRichContentToTiptapDoc,
+  bugTiptapDocWithAttachmentUrls,
+  type BugTiptapDoc,
+} from "@/sync/bugRichContent";
 import { ImagePreview } from "@/components/ImagePreview";
 import { Typography } from "@/constants/Typography";
 import { useBugShareBoard } from "@/hooks/useBugShareBoard";
@@ -39,6 +50,7 @@ import {
   getBugShareBoardCounts,
   type BugShareBoardFilter,
 } from "@/utils/bugShareBoardPresentation";
+import { buildBugPreviewImages, findBugPreviewImageIndex } from "@/components/bugImagePreview";
 
 const STATUS_OPTIONS: BugStatus[] = [
   "pending",
@@ -181,6 +193,18 @@ export default function PublicBugBoardPage() {
               images: LocalImage[],
               commentId?: string,
             ) => await board.uploadImages(current.id, images, commentId),
+            onUpdateContent: async (
+              current: BugReportDetail,
+              description: string,
+              contentJson: BugTiptapDoc | null | undefined,
+              images: LocalImage[],
+            ) =>
+              await board.updateContentWithImages(
+                current.id,
+                description,
+                contentJson,
+                images,
+              ),
             onChangeStatus: async (
               current: BugReportDetail,
               status: BugStatus,
@@ -202,8 +226,16 @@ export default function PublicBugBoardPage() {
     Modal.show({
       component: BugReportCreateModal,
       props: {
-        onCreate: async (description: string, images: LocalImage[]) => {
-          const bug = await board.createBugWithImages(description, images);
+        onCreate: async (
+          description: string,
+          images: LocalImage[],
+          contentJson?: BugTiptapDoc,
+        ) => {
+          const bug = await board.createBugWithImages(
+            description,
+            images,
+            contentJson,
+          );
           setFilter("open");
           setTimeout(() => {
             void showBugDetail(bug);
@@ -348,6 +380,19 @@ export default function PublicBugBoardPage() {
                 }
                 onUploadImages={async (current, images, commentId) =>
                   board.uploadImages(current.id, images, commentId)
+                }
+                onUpdateContent={async (
+                  current,
+                  description,
+                  contentJson,
+                  images,
+                ) =>
+                  board.updateContentWithImages(
+                    current.id,
+                    description,
+                    contentJson,
+                    images,
+                  )
                 }
                 onChangeStatus={async (current, status, action) =>
                   board.changeStatus(current.id, status, action)
@@ -655,6 +700,7 @@ function PublicBugDetailPane({
   onBugUpdated,
   onAddComment,
   onUploadImages,
+  onUpdateContent,
   onChangeStatus,
 }: {
   bug: BugReportDetail | null;
@@ -669,6 +715,12 @@ function PublicBugDetailPane({
     bug: BugReportDetail,
     images: LocalImage[],
     commentId?: string,
+  ) => Promise<BugReportDetail>;
+  onUpdateContent: (
+    bug: BugReportDetail,
+    description: string,
+    contentJson: BugTiptapDoc | null | undefined,
+    images: LocalImage[],
   ) => Promise<BugReportDetail>;
   onChangeStatus: (
     bug: BugReportDetail,
@@ -686,10 +738,18 @@ function PublicBugDetailPane({
   });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const commentInputRef = React.useRef<TextInput>(null);
+  const contentEditorRef = React.useRef<BugTiptapEditorHandle>(null);
   const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
+  const [contentEditing, setContentEditing] = React.useState(false);
+  const [contentSnapshot, setContentSnapshot] =
+    React.useState<BugTiptapEditorSnapshot | null>(null);
+  const [previewVisible, setPreviewVisible] = React.useState(false);
+  const [previewIndex, setPreviewIndex] = React.useState(0);
 
   React.useEffect(() => {
     setComment("");
+    setContentEditing(false);
+    setContentSnapshot(null);
     picker.clearImages();
   }, [bug?.id]);
 
@@ -725,6 +785,45 @@ function PublicBugDetailPane({
     void run(() => onUploadImages(bug, picker.images));
   }, [bug, onUploadImages, picker.images, run]);
 
+  const contentInitialDoc = React.useMemo(() => {
+    if (!bug) return { type: "doc", content: [{ type: "paragraph" }] } as BugTiptapDoc;
+    return bug.contentJson?.content?.length
+      ? bugTiptapDocWithAttachmentUrls(bug.contentJson, bug.attachments)
+      : bugRichContentToTiptapDoc(bug.description, bug.attachments);
+  }, [bug]);
+  const contentAttachmentUrls = React.useMemo(
+    () => bug?.attachments.map((attachment) => attachment.url) ?? [],
+    [bug?.attachments],
+  );
+
+  const handleSaveContent = React.useCallback(async () => {
+    if (!bug) return;
+    const snapshot = contentEditorRef.current?.getSnapshot() ?? contentSnapshot;
+    if (!snapshot || !snapshot.plainText.trim()) {
+      Modal.alert(t("common.error"), t("bug.contentRequiredHint"));
+      return;
+    }
+    setBusy(true);
+    try {
+      const updated = await onUpdateContent(
+        bug,
+        snapshot.description,
+        snapshot.contentJson,
+        snapshot.images,
+      );
+      onBugUpdated(updated);
+      setContentEditing(false);
+      setContentSnapshot(null);
+    } catch (error) {
+      Modal.alert(
+        t("common.error"),
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [bug, contentSnapshot, onBugUpdated, onUpdateContent]);
+
   const handleStatus = React.useCallback(
     (status: BugStatus, action?: "return_to_pending") => {
       if (!bug) return;
@@ -753,6 +852,18 @@ function PublicBugDetailPane({
     }
     return items;
   }, [bug, handleStatus]);
+
+  const previewImages = React.useMemo(
+    () => bug ? buildBugPreviewImages(bug) : [],
+    [bug],
+  );
+  const openBugImagePreview = React.useCallback((attachment: { url: string }) => {
+    setPreviewIndex(findBugPreviewImageIndex(previewImages, attachment.url));
+    setPreviewVisible(true);
+  }, [previewImages]);
+  const handleCommentImagePress = React.useCallback((attachment: { url: string }) => {
+    openBugImagePreview(attachment);
+  }, [openBugImagePreview]);
 
   const handleFileChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -854,13 +965,85 @@ function PublicBugDetailPane({
           style={styles.detailMain}
           contentContainerStyle={styles.detailMainContent}
         >
-          <Text style={styles.sectionTitle}>{t("bug.description")}</Text>
-          <View style={styles.descriptionBox}>
-            <BugRichContentView
-              description={bug.description}
-              attachments={bug.attachments}
-            />
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>{t("bug.description")}</Text>
+            {Platform.OS === "web" && (
+              <Pressable
+                style={styles.editTextButton}
+                disabled={busy}
+                onPress={() => {
+                  setContentSnapshot(null);
+                  setContentEditing((value) => !value);
+                }}
+              >
+                <Ionicons
+                  name={contentEditing ? "close-outline" : "create-outline"}
+                  size={16}
+                  color={theme.colors.text}
+                />
+                <Text style={styles.editTextButtonText}>
+                  {contentEditing ? t("common.cancel") : t("bug.editContent")}
+                </Text>
+              </Pressable>
+            )}
           </View>
+          {contentEditing && Platform.OS === "web" ? (
+              <View style={[styles.descriptionBox, styles.descriptionBoxEditing]}>
+                <View style={styles.contentEditToolbar}>
+                  <Text style={styles.contentEditTitle}>
+                    {t("bug.editingContent")}
+                  </Text>
+                  <View style={styles.contentEditToolbarActions}>
+                    <Pressable
+                      style={styles.secondaryButton}
+                      disabled={busy}
+                      onPress={() => setContentEditing(false)}
+                    >
+                      <Text style={styles.secondaryButtonText}>
+                        {t("common.cancel")}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.smallPrimaryButton,
+                        (!(contentSnapshot?.plainText.trim()) || busy) && {
+                          opacity: 0.55,
+                        },
+                      ]}
+                      disabled={!(contentSnapshot?.plainText.trim()) || busy}
+                      onPress={handleSaveContent}
+                    >
+                      {busy ? (
+                        <Text style={styles.primaryButtonText}>
+                          {t("bug.savingContent")}
+                        </Text>
+                      ) : (
+                        <Text style={styles.primaryButtonText}>
+                          {t("common.save")}
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+                <BugTiptapEditor
+                  ref={contentEditorRef}
+                  initialDoc={contentInitialDoc}
+                  initialContentKey={`${bug.id}:${bug.updatedAt}`}
+                  attachmentImageUrls={contentAttachmentUrls}
+                  onChange={setContentSnapshot}
+                  variant="detail"
+                />
+              </View>
+          ) : (
+            <View style={styles.descriptionBox}>
+              <BugRichContentView
+                description={bug.description}
+                contentJson={bug.contentJson}
+                attachments={bug.attachments}
+                onImagePress={openBugImagePreview}
+              />
+            </View>
+          )}
 
           <Text style={styles.sectionTitle}>{t("bug.comment")}</Text>
           {bug.comments.length === 0 && <Text style={styles.muted}>-</Text>}
@@ -873,12 +1056,16 @@ function PublicBugDetailPane({
               {item.attachments.length > 0 && (
                 <View style={styles.attachmentGrid}>
                   {item.attachments.map((attachment) => (
-                    <Image
+                    <Pressable
                       key={attachment.id}
-                      source={{ uri: attachment.url }}
-                      style={styles.commentImage}
-                      contentFit="cover"
-                    />
+                      onPress={() => handleCommentImagePress(attachment)}
+                    >
+                      <Image
+                        source={{ uri: attachment.url }}
+                        style={styles.commentImage}
+                        contentFit="cover"
+                      />
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -975,6 +1162,12 @@ function PublicBugDetailPane({
         title={`${t("bug.changeStatus")}：${bugStatusLabel(bug.status)}`}
         items={statusMenuItems}
         onClose={() => setStatusMenuVisible(false)}
+      />
+      <BugImagePreviewModal
+        images={previewImages}
+        initialIndex={previewIndex}
+        visible={previewVisible}
+        onClose={() => setPreviewVisible(false)}
       />
       {busy && (
         <View style={styles.busyOverlay}>
@@ -1173,6 +1366,23 @@ const stylesheet = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: "#E8E3DC",
   },
+  editTextButton: {
+    minHeight: 34,
+    borderRadius: 17,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#F5F3F0",
+    borderWidth: 1,
+    borderColor: "#E8E3DC",
+  },
+  editTextButtonText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    ...Typography.default("semiBold"),
+  },
   bugItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1329,6 +1539,12 @@ const stylesheet = StyleSheet.create((theme) => ({
     marginTop: 8,
     ...Typography.default("semiBold"),
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
   descriptionBox: {
     color: theme.colors.text,
     lineHeight: 24,
@@ -1339,6 +1555,29 @@ const stylesheet = StyleSheet.create((theme) => ({
     padding: 20,
     marginBottom: 22,
     ...Typography.default(),
+  },
+  descriptionBoxEditing: {
+    padding: 16,
+  },
+  contentEditToolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EFE8DC",
+  },
+  contentEditTitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    ...Typography.default("semiBold"),
+  },
+  contentEditToolbarActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   muted: {
     color: theme.colors.textSecondary,

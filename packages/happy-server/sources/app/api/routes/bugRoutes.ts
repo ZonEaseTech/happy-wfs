@@ -12,10 +12,12 @@ import {
     listBugsForOwner,
     recordBugAttachment,
     softDeleteBugForOwner,
+    updateBugContent,
 } from '@/app/bugs/bugService';
 
 const createBugBody = z.object({
     description: z.string().trim().min(1),
+    contentJson: z.unknown().optional(),
     visibility: z.enum(['shared', 'private']).optional(),
 });
 
@@ -26,6 +28,11 @@ const statusBody = z.object({
 
 const commentBody = z.object({
     body: z.string().trim().min(1),
+});
+
+const contentBody = z.object({
+    description: z.string().trim().min(1),
+    contentJson: z.unknown().nullable().optional(),
 });
 
 const shareBody = z.object({
@@ -124,6 +131,18 @@ export function bugRoutes(app: Fastify) {
     }, async (request, reply) => {
         try {
             const bug = await changeBugStatus(request.userId, request.params.bugId, happyActor(request.userId), request.body);
+            return reply.send({ bug });
+        } catch (error) {
+            return handleRouteError(reply, error);
+        }
+    });
+
+    app.patch('/v1/bugs/:bugId/content', {
+        preHandler: app.authenticate,
+        schema: { params: z.object({ bugId: z.string() }), body: contentBody },
+    }, async (request, reply) => {
+        try {
+            const bug = await updateBugContent(request.userId, request.params.bugId, happyActor(request.userId), request.body);
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);

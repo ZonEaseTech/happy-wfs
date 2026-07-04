@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const sourcePath = resolve(__dirname, './BugReportCreateModal.tsx');
+const webEditorPath = resolve(__dirname, './BugTiptapEditor.web.tsx');
 
 describe('bug report create modal style', () => {
     it('uses the V5 Mac Notes inspired editor surface tokens', () => {
@@ -21,5 +22,18 @@ describe('bug report create modal style', () => {
         expect(source).toContain("placeholder={index === 0 && showEmptyHint ? t('bug.noteStylePlaceholder') : ''}");
         expect(source).toContain("outlineStyle: 'none'");
         expect(source).toContain("boxShadow: 'none'");
+    });
+
+    it('uses Tiptap for the web rich text bug editor', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+        const webEditorSource = readFileSync(webEditorPath, 'utf8');
+
+        expect(source).toContain('BugTiptapEditor');
+        expect(source).toContain("Platform.OS === 'web'");
+        expect(webEditorSource).toContain('EditorContent');
+        expect(webEditorSource).toContain('StarterKit');
+        expect(webEditorSource).toContain('ImageExtension');
+        expect(webEditorSource).toContain('Placeholder');
+        expect(webEditorSource).toContain('happy-bug-tiptap-editor detail');
     });
 });

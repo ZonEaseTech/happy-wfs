@@ -4,6 +4,7 @@ import type { LocalImage } from '@/components/ImagePreview';
 import { HappyError } from '@/utils/errors';
 import { getServerUrl } from './serverConfig';
 import type { BugReportDetail, BugReportSummary, BugStatus, BugVisibility } from './bugTypes';
+import type { BugTiptapDoc } from './bugRichContent';
 
 export class BugShareExpiredError extends Error {
     constructor() {
@@ -84,13 +85,18 @@ export async function listBugs(credentials: AuthCredentials, options?: { status?
     return await readJson(response);
 }
 
-export async function createBug(credentials: AuthCredentials, input: { description: string; visibility?: BugVisibility }): Promise<BugReportDetail> {
+export async function createBug(credentials: AuthCredentials, input: { description: string; contentJson?: BugTiptapDoc; visibility?: BugVisibility }): Promise<BugReportDetail> {
     const response = await fetch(`${getServerUrl()}/v1/bugs`, { method: 'POST', headers: authHeaders(credentials), body: JSON.stringify(input) });
     return bugFromResponse(await readJson(response));
 }
 
 export async function getBug(credentials: AuthCredentials, bugId: string): Promise<BugReportDetail> {
     const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}`, { method: 'GET', headers: authHeaders(credentials) });
+    return bugFromResponse(await readJson(response));
+}
+
+export async function updateBugContent(credentials: AuthCredentials, bugId: string, input: { description: string; contentJson?: BugTiptapDoc | null }): Promise<BugReportDetail> {
+    const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}/content`, { method: 'PATCH', headers: authHeaders(credentials), body: JSON.stringify(input) });
     return bugFromResponse(await readJson(response));
 }
 
@@ -139,13 +145,18 @@ export async function listPublicBugs(token: string, options?: { status?: BugStat
     return await readJson(response);
 }
 
-export async function createPublicBug(token: string, input: { description: string }): Promise<BugReportDetail> {
+export async function createPublicBug(token: string, input: { description: string; contentJson?: BugTiptapDoc }): Promise<BugReportDetail> {
     const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs`, { method: 'POST', headers: publicHeaders(token), body: JSON.stringify(input) });
     return bugFromResponse(await readJson(response));
 }
 
 export async function getPublicBug(token: string, bugId: string): Promise<BugReportDetail> {
     const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs/${encodeURIComponent(bugId)}`, { method: 'GET', headers: publicHeaders(token) });
+    return bugFromResponse(await readJson(response));
+}
+
+export async function updatePublicBugContent(token: string, bugId: string, input: { description: string; contentJson?: BugTiptapDoc | null }): Promise<BugReportDetail> {
+    const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs/${encodeURIComponent(bugId)}/content`, { method: 'PATCH', headers: publicHeaders(token), body: JSON.stringify(input) });
     return bugFromResponse(await readJson(response));
 }
 

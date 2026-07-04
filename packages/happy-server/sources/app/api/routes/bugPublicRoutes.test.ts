@@ -10,6 +10,7 @@ const serviceMock = vi.hoisted(() => ({
     listBugsForOwner: vi.fn(),
     createBugForOwner: vi.fn(),
     getBugForOwner: vi.fn(),
+    updateBugContent: vi.fn(),
     addBugComment: vi.fn(),
     changeBugStatus: vi.fn(),
     recordBugAttachment: vi.fn(),
@@ -66,5 +67,39 @@ describe('bugPublicRoutes', () => {
         const res = await app.inject({ method: 'POST', url: '/v1/bug-share/bugs', headers: { authorization: `Bearer ${token}` }, payload: { description: '页面空白' } });
         expect(res.statusCode).toBe(201);
         expect(serviceMock.createBugForOwner).toHaveBeenCalledWith('owner-1', { nickname: '测试李' }, { description: '页面空白', visibility: 'shared' });
+    });
+
+    it('public create forwards Tiptap contentJson', async () => {
+        const contentJson = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '页面空白' }] }] };
+        serviceMock.getValidBugShareConfig.mockResolvedValue({ id: 'cfg-1', ownerId: 'owner-1', accessCodeVersion: 2, enabled: true });
+        serviceMock.createBugForOwner.mockResolvedValue({ id: 'bug-1' });
+        const token = createBugShareToken({ configId: 'cfg-1', ownerId: 'owner-1', nickname: '测试李', version: 2 });
+
+        const res = await app.inject({
+            method: 'POST',
+            url: '/v1/bug-share/bugs',
+            headers: { authorization: `Bearer ${token}` },
+            payload: { description: '页面空白', contentJson },
+        });
+
+        expect(res.statusCode).toBe(201);
+        expect(serviceMock.createBugForOwner).toHaveBeenCalledWith('owner-1', { nickname: '测试李' }, { description: '页面空白', visibility: 'shared', contentJson });
+    });
+
+    it('public edit forwards Tiptap contentJson with public visibility guard', async () => {
+        const contentJson = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '更新后的说明' }] }] };
+        serviceMock.getValidBugShareConfig.mockResolvedValue({ id: 'cfg-1', ownerId: 'owner-1', accessCodeVersion: 2, enabled: true });
+        serviceMock.updateBugContent.mockResolvedValue({ id: 'bug-1' });
+        const token = createBugShareToken({ configId: 'cfg-1', ownerId: 'owner-1', nickname: '测试李', version: 2 });
+
+        const res = await app.inject({
+            method: 'PATCH',
+            url: '/v1/bug-share/bugs/bug-1/content',
+            headers: { authorization: `Bearer ${token}` },
+            payload: { description: '更新后的说明', contentJson },
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(serviceMock.updateBugContent).toHaveBeenCalledWith('owner-1', 'bug-1', { nickname: '测试李' }, { description: '更新后的说明', contentJson, publicOnly: true });
     });
 });

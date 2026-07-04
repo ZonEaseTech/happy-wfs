@@ -7,6 +7,7 @@ const serviceMock = vi.hoisted(() => ({
     listBugsForOwner: vi.fn(),
     createBugForOwner: vi.fn(),
     getBugForOwner: vi.fn(),
+    updateBugContent: vi.fn(),
     addBugComment: vi.fn(),
     changeBugStatus: vi.fn(),
     createOrRotateBugShareConfig: vi.fn(),
@@ -61,11 +62,39 @@ describe('bugRoutes', () => {
         expect(serviceMock.createBugForOwner).not.toHaveBeenCalled();
     });
 
+    it('POST /v1/bugs forwards Tiptap contentJson for structured bug descriptions', async () => {
+        const contentJson = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '页面空白' }] }] };
+        serviceMock.createBugForOwner.mockResolvedValue({ id: 'bug-1' });
+
+        const res = await app.inject({
+            method: 'POST',
+            url: '/v1/bugs',
+            payload: { description: '页面空白', visibility: 'shared', contentJson },
+        });
+
+        expect(res.statusCode).toBe(201);
+        expect(serviceMock.createBugForOwner).toHaveBeenCalledWith('user-1', { userId: 'user-1', nickname: 'Happy 用户' }, { description: '页面空白', visibility: 'shared', contentJson });
+    });
+
     it('PATCH /v1/bugs/:bugId/status forwards return-to-pending action', async () => {
         serviceMock.changeBugStatus.mockResolvedValue({ id: 'bug-1' });
         const res = await app.inject({ method: 'PATCH', url: '/v1/bugs/bug-1/status', payload: { status: 'pending', action: 'return_to_pending' } });
         expect(res.statusCode).toBe(200);
         expect(serviceMock.changeBugStatus).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' }, { status: 'pending', action: 'return_to_pending' });
+    });
+
+    it('PATCH /v1/bugs/:bugId/content forwards edited description and contentJson', async () => {
+        const contentJson = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '更新后的说明' }] }] };
+        serviceMock.updateBugContent.mockResolvedValue({ id: 'bug-1' });
+
+        const res = await app.inject({
+            method: 'PATCH',
+            url: '/v1/bugs/bug-1/content',
+            payload: { description: '更新后的说明', contentJson },
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(serviceMock.updateBugContent).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' }, { description: '更新后的说明', contentJson });
     });
 
     it('DELETE /v1/bugs/:bugId soft-deletes the bug for the Happy owner', async () => {

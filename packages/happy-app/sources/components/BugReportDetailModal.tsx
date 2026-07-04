@@ -12,8 +12,13 @@ import { useImagePicker } from '@/hooks/useImagePicker';
 import { BUG_IMAGE_LIMITS, bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { BugRichContentView } from '@/components/BugRichContentView';
+import { BugImagePreviewModal } from '@/components/BugImagePreviewModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
+import { BugTiptapEditor } from './BugTiptapEditor';
+import type { BugTiptapEditorHandle, BugTiptapEditorSnapshot } from './BugTiptapEditor.types';
+import { bugRichContentToTiptapDoc, bugTiptapDocWithAttachmentUrls, type BugTiptapDoc } from '@/sync/bugRichContent';
+import { buildBugPreviewImages, findBugPreviewImageIndex } from './bugImagePreview';
 
 const STATUS_OPTIONS: BugStatus[] = ['pending', 'in_progress', 'verify', 'closed'];
 
@@ -39,6 +44,7 @@ export function BugReportDetailModal({
     onBugUpdated,
     onAddComment,
     onUploadImages,
+    onUpdateContent,
     onChangeStatus,
     onStartSession,
     onDelete,
@@ -49,6 +55,7 @@ export function BugReportDetailModal({
     onBugUpdated?: (bug: BugReportDetail) => void;
     onAddComment?: (bug: BugReportDetail, body: string, images: LocalImage[]) => Promise<BugReportDetail>;
     onUploadImages?: (bug: BugReportDetail, images: LocalImage[], commentId?: string) => Promise<BugReportDetail>;
+    onUpdateContent?: (bug: BugReportDetail, description: string, contentJson: BugTiptapDoc | null | undefined, images: LocalImage[]) => Promise<BugReportDetail>;
     onChangeStatus?: (bug: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => Promise<BugReportDetail>;
     onStartSession?: (bug: BugReportDetail) => void;
     onDelete?: (bug: BugReportDetail) => Promise<void>;
@@ -59,10 +66,15 @@ export function BugReportDetailModal({
     const [currentBug, setCurrentBug] = React.useState<BugReportDetail>(() => bugSummaryToDetail(bug));
     const [detailLoading, setDetailLoading] = React.useState(() => !isBugReportDetail(bug) && !!loadBug);
     const [comment, setComment] = React.useState('');
+    const [contentEditing, setContentEditing] = React.useState(false);
+    const [contentSnapshot, setContentSnapshot] = React.useState<BugTiptapEditorSnapshot | null>(null);
     const [busy, setBusy] = React.useState(false);
     const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
+    const [previewVisible, setPreviewVisible] = React.useState(false);
+    const [previewIndex, setPreviewIndex] = React.useState(0);
     const picker = useImagePicker({ maxImages: BUG_IMAGE_LIMITS.maxImages, maxSizeBytes: BUG_IMAGE_LIMITS.maxSizeBytes });
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const contentEditorRef = React.useRef<BugTiptapEditorHandle>(null);
 
     const updateBug = React.useCallback((updated: BugReportDetail) => {
         setCurrentBug(updated);
@@ -72,6 +84,8 @@ export function BugReportDetailModal({
     React.useEffect(() => {
         setCurrentBug(bugSummaryToDetail(bug));
         setDetailLoading(!isBugReportDetail(bug) && !!loadBug);
+        setContentEditing(false);
+        setContentSnapshot(null);
     }, [bug, loadBug]);
 
     React.useEffect(() => {
@@ -136,6 +150,38 @@ export function BugReportDetailModal({
         void run(() => onUploadImages(currentBug, picker.images));
     }, [currentBug, onUploadImages, picker.images, run]);
 
+    const contentInitialDoc = React.useMemo(
+        () => currentBug.contentJson?.content?.length
+            ? bugTiptapDocWithAttachmentUrls(currentBug.contentJson, currentBug.attachments)
+            : bugRichContentToTiptapDoc(currentBug.description, currentBug.attachments),
+        [currentBug.attachments, currentBug.contentJson, currentBug.description],
+    );
+    const contentAttachmentUrls = React.useMemo(
+        () => currentBug.attachments.map(attachment => attachment.url),
+        [currentBug.attachments],
+    );
+    const canEditContent = Platform.OS === 'web' && !!onUpdateContent && !detailLoading;
+
+    const handleSaveContent = React.useCallback(async () => {
+        if (!onUpdateContent || busy) return;
+        const snapshot = contentEditorRef.current?.getSnapshot() ?? contentSnapshot;
+        if (!snapshot || !snapshot.plainText.trim()) {
+            Modal.alert(t('common.error'), t('bug.contentRequiredHint'));
+            return;
+        }
+        setBusy(true);
+        try {
+            const updated = await onUpdateContent(currentBug, snapshot.description, snapshot.contentJson, snapshot.images);
+            updateBug(updated);
+            setContentEditing(false);
+            setContentSnapshot(null);
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        } finally {
+            setBusy(false);
+        }
+    }, [busy, contentSnapshot, currentBug, onUpdateContent, updateBug]);
+
     const handleDelete = React.useCallback(async () => {
         if (!onDelete || busy) return;
         const confirmed = await Modal.confirm(
@@ -180,6 +226,7 @@ export function BugReportDetailModal({
     }, [picker]);
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
+        if (contentEditing) return;
         await handleImagePasteEvent(event, {
             isScreenFocused: true,
             canAddMore: picker.canAddMore,
@@ -193,7 +240,7 @@ export function BugReportDetailModal({
                 await picker.addImageFromUri(url, mimeType);
             },
         });
-    }, [picker]);
+    }, [contentEditing, picker]);
 
     React.useEffect(() => {
         if (Platform.OS !== 'web') return;
@@ -221,6 +268,18 @@ export function BugReportDetailModal({
         return items;
     }, [currentBug.status, handleStatus]);
 
+    const previewImages = React.useMemo(
+        () => buildBugPreviewImages(currentBug),
+        [currentBug],
+    );
+    const openBugImagePreview = React.useCallback((attachment: { url: string }) => {
+        setPreviewIndex(findBugPreviewImageIndex(previewImages, attachment.url));
+        setPreviewVisible(true);
+    }, [previewImages]);
+    const handleCommentImagePress = React.useCallback((attachment: { url: string }) => {
+        openBugImagePreview(attachment);
+    }, [openBugImagePreview]);
+
     return (
         <View style={[styles.modal, detailModalLayout.modal]}>
             <View style={styles.header}>
@@ -233,9 +292,25 @@ export function BugReportDetailModal({
             <ScrollView style={[styles.body, detailModalLayout.body]} keyboardShouldPersistTaps="handled">
                 <View style={styles.fieldHeader}>
                     <Text style={styles.sectionTitle}>{t('bug.description')}</Text>
-                    <Text style={styles.imageCount}>
-                        {t('bug.imageCounter', { count: currentBug.attachments.length, max: BUG_IMAGE_LIMITS.maxImages })}
-                    </Text>
+                    <View style={styles.fieldHeaderActions}>
+                        <Text style={styles.imageCount}>
+                            {t('bug.imageCounter', { count: contentEditing ? (contentSnapshot?.imageCount ?? currentBug.attachments.length) : currentBug.attachments.length, max: BUG_IMAGE_LIMITS.maxImages })}
+                        </Text>
+                        {canEditContent && (
+                            <Pressable
+                                style={styles.editTextButton}
+                                disabled={busy}
+                                onPress={() => {
+                                    setContentSnapshot(null);
+                                    setContentEditing(value => !value);
+                                }}
+                                hitSlop={8}
+                            >
+                                <Ionicons name={contentEditing ? 'close-outline' : 'create-outline'} size={16} color={styles.editTextButtonText.color} />
+                                <Text style={styles.editTextButtonText}>{contentEditing ? t('common.cancel') : t('bug.editContent')}</Text>
+                            </Pressable>
+                        )}
+                    </View>
                 </View>
                 {detailLoading && (
                     <View style={styles.detailLoading}>
@@ -243,9 +318,35 @@ export function BugReportDetailModal({
                         <Text style={styles.loadingText}>{t('bug.loadingBugs')}</Text>
                     </View>
                 )}
-                <View style={styles.notePaper}>
-                    <BugRichContentView description={currentBug.description} attachments={currentBug.attachments} noteStyle />
-                </View>
+                {contentEditing && canEditContent ? (
+                    <View style={[styles.notePaper, styles.notePaperEditing]}>
+                        <View style={styles.contentEditToolbar}>
+                            <Text style={styles.contentEditTitle}>{t('bug.editingContent')}</Text>
+                            <View style={styles.contentEditToolbarActions}>
+                                <Pressable style={styles.secondaryButton} disabled={busy} onPress={() => setContentEditing(false)}>
+                                    <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
+                                </Pressable>
+                                <Pressable style={styles.primaryButtonSmall} disabled={busy || !(contentSnapshot?.plainText.trim())} onPress={() => { void handleSaveContent(); }}>
+                                    {busy
+                                        ? <Text style={styles.primaryButtonText}>{t('bug.savingContent')}</Text>
+                                        : <Text style={styles.primaryButtonText}>{t('common.save')}</Text>}
+                                </Pressable>
+                            </View>
+                        </View>
+                        <BugTiptapEditor
+                            ref={contentEditorRef}
+                            initialDoc={contentInitialDoc}
+                            initialContentKey={`${currentBug.id}:${currentBug.updatedAt}`}
+                            attachmentImageUrls={contentAttachmentUrls}
+                            onChange={setContentSnapshot}
+                            variant="detail"
+                        />
+                    </View>
+                ) : (
+                    <View style={styles.notePaper}>
+                        <BugRichContentView description={currentBug.description} contentJson={currentBug.contentJson} attachments={currentBug.attachments} noteStyle onImagePress={openBugImagePreview} />
+                    </View>
+                )}
 
                 <Text style={styles.sectionTitle}>{t('bug.comment')}</Text>
                 {currentBug.comments.map(item => (
@@ -253,7 +354,11 @@ export function BugReportDetailModal({
                         <Text style={styles.commentAuthor}>{item.authorNickname ?? t('bug.anonymousUser')}</Text>
                         <Text style={styles.commentBody}>{item.body}</Text>
                         {item.attachments.length > 0 && (
-                            <View style={styles.grid}>{item.attachments.map(attachment => <Image key={attachment.id} source={{ uri: attachment.url }} style={styles.smallImage} contentFit="cover" />)}</View>
+                            <View style={styles.grid}>{item.attachments.map(attachment => (
+                                <Pressable key={attachment.id} onPress={() => handleCommentImagePress(attachment)}>
+                                    <Image source={{ uri: attachment.url }} style={styles.smallImage} contentFit="cover" />
+                                </Pressable>
+                            ))}</View>
                         )}
                     </View>
                 ))}
@@ -312,6 +417,12 @@ export function BugReportDetailModal({
                 items={statusMenuItems}
                 onClose={() => setStatusMenuVisible(false)}
             />
+            <BugImagePreviewModal
+                images={previewImages}
+                initialIndex={previewIndex}
+                visible={previewVisible}
+                onClose={() => setPreviewVisible(false)}
+            />
             {busy && <View style={styles.busy}><ActivityIndicator /></View>}
         </View>
     );
@@ -350,6 +461,26 @@ const stylesheet = StyleSheet.create((theme) => ({
         gap: 12,
         marginBottom: 10,
     },
+    fieldHeaderActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    editTextButton: {
+        minHeight: 32,
+        borderRadius: 16,
+        paddingHorizontal: 11,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        justifyContent: 'center',
+        backgroundColor: '#F3EFE7',
+    },
+    editTextButtonText: {
+        color: theme.colors.text,
+        fontSize: 13,
+        ...Typography.default('semiBold'),
+    },
     sectionTitle: { color: theme.colors.text, fontSize: 15, marginTop: 14, marginBottom: 8, ...Typography.default('semiBold') },
     imageCount: {
         color: theme.colors.textSecondary,
@@ -376,6 +507,30 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 26,
         paddingVertical: 24,
         marginBottom: 18,
+    },
+    notePaperEditing: {
+        paddingHorizontal: 18,
+        paddingVertical: 18,
+    },
+    contentEditToolbar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 14,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#EFE8DC',
+    },
+    contentEditTitle: {
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        ...Typography.default('semiBold'),
+    },
+    contentEditToolbarActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     description: { color: theme.colors.text, lineHeight: 22, ...Typography.default() },
     muted: { color: theme.colors.textSecondary, ...Typography.default() },

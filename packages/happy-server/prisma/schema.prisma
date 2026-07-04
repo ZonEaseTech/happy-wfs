@@ -376,6 +376,7 @@ model BugReport {
   session           Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   title             String
   description       String
+  contentJson       Json?
   status            String             @default("pending")
   visibility        String             @default("shared")
   lastActivityAt    DateTime           @default(now())

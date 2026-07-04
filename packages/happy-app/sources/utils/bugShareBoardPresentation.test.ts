@@ -13,6 +13,7 @@ function bug(overrides: Partial<BugReportSummary> & Pick<BugReportSummary, 'id' 
         displayId: `BUG-${overrides.displayNumber}`,
         title: overrides.title ?? `Bug ${overrides.displayNumber}`,
         description: overrides.description ?? '',
+        contentJson: overrides.contentJson ?? null,
         status: overrides.status,
         visibility: 'shared',
         createdByNickname: overrides.createdByNickname ?? 'Happy 用户',

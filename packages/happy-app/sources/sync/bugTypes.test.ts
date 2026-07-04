@@ -40,6 +40,7 @@ describe('bugTypes', () => {
             displayId: 'BUG-1042',
             title: '提交订单后页面一直转圈',
             description: '支付成功后没有跳转',
+            contentJson: null,
             status: 'pending',
             visibility: 'shared',
             createdByNickname: '测试李',

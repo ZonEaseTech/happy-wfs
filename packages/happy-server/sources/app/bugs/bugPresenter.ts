@@ -25,6 +25,7 @@ export function presentBugSummary(row: any) {
         displayId: bugDisplayId(row.displayNumber),
         title: row.title,
         description: row.description,
+        contentJson: row.contentJson ?? null,
         status: row.status as BugStatus,
         visibility: row.visibility as BugVisibility,
         createdByNickname: row.createdByNickname ?? null,

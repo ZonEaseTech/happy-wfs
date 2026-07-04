@@ -31,8 +31,9 @@ import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { useAuth } from '@/auth/AuthContext';
 import { listGitHubIssues, saveGitHubToken, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
-import { addBugComment, changeBugStatus, createBug, createOrRotateBugShareConfig, deleteBug, getBug, getBugShareConfig, listBugs, uploadBugAttachment } from '@/sync/apiBugs';
+import { addBugComment, changeBugStatus, createBug, createOrRotateBugShareConfig, deleteBug, getBug, getBugShareConfig, listBugs, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
 import { BUG_IMAGE_LIMITS, matchesBugSearch, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
+import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import type { LocalImage } from '@/components/ImagePreview';
 import { storeTempData } from '@/utils/tempDataStore';
 import { ActionMenuModal } from './ActionMenuModal';
@@ -857,6 +858,7 @@ function bugDetailToSummary(bug: BugReportDetail): BugReportSummary {
         displayId: bug.displayId,
         title: bug.title,
         description: bug.description,
+        contentJson: bug.contentJson,
         status: bug.status,
         visibility: bug.visibility,
         createdByNickname: bug.createdByNickname,
@@ -1452,6 +1454,15 @@ export function SessionsList() {
                     onUploadImages: async (current: BugReportDetail, images: LocalImage[], commentId?: string) => (
                         await uploadBugImages(current.id, images, commentId)
                     ),
+                    onUpdateContent: async (current: BugReportDetail, description: string, contentJson: BugTiptapDoc | null | undefined, images: LocalImage[]) => {
+                        if (!auth.credentials) throw new Error('Missing credentials');
+                        let updated = await updateBugContent(auth.credentials, current.id, { description, contentJson });
+                        if (images.length > 0) {
+                            updated = await uploadBugImages(current.id, images);
+                        }
+                        updatePendingBug(updated);
+                        return updated;
+                    },
                     onChangeStatus: async (current: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => {
                         if (!auth.credentials) throw new Error('Missing credentials');
                         const updated = await changeBugStatus(auth.credentials, current.id, { status, action });
@@ -1476,9 +1487,9 @@ export function SessionsList() {
         Modal.show({
             component: BugReportCreateModal,
             props: {
-                onCreate: async (description: string, images: LocalImage[]) => {
+                onCreate: async (description: string, images: LocalImage[], contentJson?: BugTiptapDoc) => {
                     if (!auth.credentials) throw new Error('Missing credentials');
-                    let bug = await createBug(auth.credentials, { description, visibility: 'shared' });
+                    let bug = await createBug(auth.credentials, { description, contentJson, visibility: 'shared' });
                     updatePendingBug(bug);
                     if (images.length > 0) {
                         bug = await uploadBugImages(bug.id, images);
