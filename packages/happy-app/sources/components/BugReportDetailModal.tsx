@@ -10,6 +10,7 @@ import { ImagePreview, type LocalImage } from '@/components/ImagePreview';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { BUG_IMAGE_LIMITS, bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
+import { BugRichContentView } from '@/components/BugRichContentView';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
 
@@ -169,16 +170,7 @@ export function BugReportDetailModal({
             </View>
             <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
                 <Text style={styles.sectionTitle}>{t('bug.description')}</Text>
-                <Text style={styles.description} selectable>{currentBug.description}</Text>
-
-                <Text style={styles.sectionTitle}>{t('bug.screenshots')}</Text>
-                {currentBug.attachments.length === 0 ? <Text style={styles.muted}>-</Text> : (
-                    <View style={styles.grid}>
-                        {currentBug.attachments.map(attachment => (
-                            <Image key={attachment.id} source={{ uri: attachment.url }} style={styles.image} contentFit="cover" />
-                        ))}
-                    </View>
-                )}
+                <BugRichContentView description={currentBug.description} attachments={currentBug.attachments} />
 
                 <Text style={styles.sectionTitle}>{t('bug.comment')}</Text>
                 {currentBug.comments.map(item => (

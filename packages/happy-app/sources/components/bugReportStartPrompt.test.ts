@@ -33,6 +33,17 @@ describe('bugReportStartPrompt', () => {
         expect(prompt).toContain('请勿提交任何代码，让我检查通过再说');
     });
 
+
+    it('removes rich content image markers from the AI prompt body', () => {
+        const prompt = buildBugReportStartPrompt({
+            ...bug,
+            description: '第一段说明\n\n[[bug-image:1]]\n\n第二段说明',
+        });
+        expect(prompt).toContain('第一段说明');
+        expect(prompt).toContain('第二段说明');
+        expect(prompt).not.toContain('[[bug-image:1]]');
+    });
+
     it('builds initial images from Bug attachments', () => {
         expect(buildBugInitialImages(bug)).toEqual([{ uri: 'https://files.example/a.png', width: 800, height: 600, mimeType: 'image/png' }]);
     });

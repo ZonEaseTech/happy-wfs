@@ -2,21 +2,44 @@ import React from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ExpoImagePicker from 'expo-image-picker';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { Modal } from '@/modal';
-import { ImagePreview, type LocalImage } from '@/components/ImagePreview';
-import { useImagePicker } from '@/hooks/useImagePicker';
-import { BUG_IMAGE_LIMITS, bugStatusLabel, type BugReportDetail } from '@/sync/bugTypes';
+import type { LocalImage } from '@/components/ImagePreview';
+import { BUG_IMAGE_LIMITS, type BugReportDetail } from '@/sync/bugTypes';
+import { getBugRichPlainText, insertBugImageAtSelection, serializeBugRichContent, type BugEditorBlock } from '@/sync/bugRichContent';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
-import {
-    getBugCreateImageCountLabel,
-    getBugCreatePreviewTitle,
-    getBugCreateRemainingImageSlots,
-    isBugCreateSubmitEnabled,
-} from './bugReportCreatePresentation';
+import { getBugCreateRemainingImageSlots, isBugCreateSubmitEnabled } from './bugReportCreatePresentation';
 
-const PENDING_STATUS_COLOR = '#F59E0B';
+let bugEditorBlockId = 0;
+function createBlockId(prefix: string): string {
+    bugEditorBlockId += 1;
+    return `${prefix}-${Date.now()}-${bugEditorBlockId}`;
+}
+
+async function localImageFromUri(uri: string, mimeType: string): Promise<LocalImage> {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.Image === 'function') {
+        const image = new window.Image();
+        image.src = uri;
+        await new Promise<void>((resolve, reject) => {
+            image.onload = () => resolve();
+            image.onerror = reject;
+        });
+        return {
+            uri,
+            width: image.naturalWidth || 512,
+            height: image.naturalHeight || 512,
+            mimeType,
+        };
+    }
+    return { uri, width: 512, height: 512, mimeType };
+}
+
+function countImageBlocks(blocks: BugEditorBlock<LocalImage>[]): number {
+    return blocks.filter(block => block.type === 'image').length;
+}
 
 export function BugReportCreateModal({
     onClose,
@@ -27,37 +50,109 @@ export function BugReportCreateModal({
 }) {
     const styles = stylesheet;
     const { width, height } = useWindowDimensions();
-    const isWide = width >= 900;
-    const modalWidth = Math.min(isWide ? 1120 : 720, Math.max(320, width - (isWide ? 72 : 28)));
-    const modalMaxHeight = Math.min(isWide ? 800 : height - 28, Math.max(460, height - (isWide ? 72 : 28)));
-    const [description, setDescription] = React.useState('');
+    const isWide = width >= 760;
+    const modalWidth = Math.min(isWide ? 940 : 720, Math.max(320, width - (isWide ? 72 : 28)));
+    const modalMaxHeight = Math.min(isWide ? 800 : height - 28, Math.max(520, height - (isWide ? 72 : 28)));
+    const firstTextBlockId = React.useRef(createBlockId('text'));
+    const [blocks, setBlocks] = React.useState<BugEditorBlock<LocalImage>[]>(() => [{ id: firstTextBlockId.current, type: 'text', text: '' }]);
     const [submitting, setSubmitting] = React.useState(false);
-    const picker = useImagePicker({ maxImages: BUG_IMAGE_LIMITS.maxImages, maxSizeBytes: BUG_IMAGE_LIMITS.maxSizeBytes });
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const textInputRefs = React.useRef<Record<string, React.ElementRef<typeof TextInput> | null>>({});
+    const activeTextBlockIdRef = React.useRef(firstTextBlockId.current);
+    const selectionRef = React.useRef<Record<string, { start: number; end: number }>>({
+        [firstTextBlockId.current]: { start: 0, end: 0 },
+    });
 
-    const canSubmit = isBugCreateSubmitEnabled(description, submitting);
-    const previewTitle = getBugCreatePreviewTitle(description, t('bug.previewTitlePlaceholder'));
-    const imageCountLabel = getBugCreateImageCountLabel(picker.images.length, BUG_IMAGE_LIMITS.maxImages);
-    const remainingImageSlots = getBugCreateRemainingImageSlots(picker.images.length, BUG_IMAGE_LIMITS.maxImages);
+    const imageCount = countImageBlocks(blocks);
+    const plainText = getBugRichPlainText(blocks);
+    const canSubmit = isBugCreateSubmitEnabled(plainText, submitting);
+    const remainingImageSlots = getBugCreateRemainingImageSlots(imageCount, BUG_IMAGE_LIMITS.maxImages);
+
+    const focusTextBlock = React.useCallback((id: string) => {
+        activeTextBlockIdRef.current = id;
+        setTimeout(() => textInputRefs.current[id]?.focus(), 0);
+    }, []);
+
+    const updateTextBlock = React.useCallback((id: string, text: string) => {
+        setBlocks(current => current.map(block => block.id === id && block.type === 'text' ? { ...block, text } : block));
+    }, []);
+
+    const removeImageBlock = React.useCallback((id: string) => {
+        setBlocks(current => current.filter(block => block.id !== id));
+    }, []);
+
+    const insertImageAtCursor = React.useCallback((image: LocalImage) => {
+        const nextTextId = createBlockId('text');
+        setBlocks((current) => {
+            const fallbackText = [...current].reverse().find(block => block.type === 'text');
+            const textBlockId = activeTextBlockIdRef.current || fallbackText?.id || firstTextBlockId.current;
+            const textBlock = current.find(block => block.id === textBlockId && block.type === 'text');
+            const fallbackCursor = textBlock && textBlock.type === 'text' ? textBlock.text.length : 0;
+            const selection = selectionRef.current[textBlockId] ?? { start: fallbackCursor, end: fallbackCursor };
+            activeTextBlockIdRef.current = nextTextId;
+            selectionRef.current[nextTextId] = { start: 0, end: 0 };
+            return insertBugImageAtSelection(current, {
+                textBlockId,
+                selectionStart: selection.start,
+                selectionEnd: selection.end,
+                image,
+                createTextId: () => nextTextId,
+                createImageId: () => createBlockId('image'),
+            });
+        });
+        focusTextBlock(nextTextId);
+    }, [focusTextBlock]);
+
+    const addImageFromUri = React.useCallback(async (uri: string, mimeType: string) => {
+        if (countImageBlocks(blocks) >= BUG_IMAGE_LIMITS.maxImages) {
+            Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
+            return;
+        }
+        const image = await localImageFromUri(uri, mimeType || 'image/jpeg');
+        insertImageAtCursor(image);
+    }, [blocks, insertImageAtCursor]);
+
+    const addImageFile = React.useCallback(async (file: File, mimeType?: string) => {
+        if (file.size > BUG_IMAGE_LIMITS.maxSizeBytes) {
+            Modal.alert(t('common.error'), t('bug.imageTooLarge'));
+            return;
+        }
+        const url = URL.createObjectURL(file);
+        await addImageFromUri(url, mimeType || file.type || 'image/jpeg');
+    }, [addImageFromUri]);
+
+    const addImageFiles = React.useCallback((files: FileList | File[]) => {
+        const remaining = getBugCreateRemainingImageSlots(countImageBlocks(blocks), BUG_IMAGE_LIMITS.maxImages);
+        if (remaining <= 0) {
+            Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
+            return;
+        }
+        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        const selectedFiles = imageFiles.slice(0, remaining);
+        if (imageFiles.length > remaining) {
+            Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
+        }
+        selectedFiles.forEach(file => { void addImageFile(file); });
+    }, [addImageFile, blocks]);
 
     const handleSubmit = React.useCallback(async () => {
-        const trimmed = description.trim();
-        if (!isBugCreateSubmitEnabled(trimmed, submitting)) {
+        const serialized = serializeBugRichContent(blocks);
+        if (!isBugCreateSubmitEnabled(getBugRichPlainText(blocks), submitting)) {
             Modal.alert(t('common.error'), t('bug.contentRequiredHint'));
             return;
         }
         setSubmitting(true);
         try {
-            await onCreate(trimmed, picker.images);
+            await onCreate(serialized.description, serialized.images);
             onClose();
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         } finally {
             setSubmitting(false);
         }
-    }, [description, onClose, onCreate, picker.images, submitting]);
+    }, [blocks, onClose, onCreate, submitting]);
 
-    const handleUploadPress = React.useCallback(() => {
+    const handleUploadPress = React.useCallback(async () => {
         if (remainingImageSlots <= 0) {
             Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
             return;
@@ -66,48 +161,61 @@ export function BugReportCreateModal({
             fileInputRef.current?.click();
             return;
         }
-        void picker.pickFromGallery();
-    }, [picker, remainingImageSlots]);
+        const permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) return;
+        const result = await ExpoImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsMultipleSelection: true,
+            selectionLimit: remainingImageSlots,
+            quality: 0.9,
+        });
+        if (result.canceled) return;
+        for (const asset of result.assets.slice(0, remainingImageSlots)) {
+            if (asset.fileSize != null && asset.fileSize > BUG_IMAGE_LIMITS.maxSizeBytes) {
+                Modal.alert(t('common.error'), t('bug.imageTooLarge'));
+                continue;
+            }
+            insertImageAtCursor({
+                uri: asset.uri,
+                width: asset.width || 512,
+                height: asset.height || 512,
+                mimeType: asset.mimeType || 'image/jpeg',
+            });
+        }
+    }, [insertImageAtCursor, remainingImageSlots]);
 
     const handleFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files) return;
-        const remaining = getBugCreateRemainingImageSlots(picker.images.length, BUG_IMAGE_LIMITS.maxImages);
-        if (remaining <= 0) {
-            Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
-            event.target.value = '';
-            return;
-        }
-        const selectedFiles = Array.from(files).slice(0, remaining);
-        if (files.length > remaining) {
-            Modal.alert(t('common.error'), t('bug.imageLimitReached', { max: BUG_IMAGE_LIMITS.maxImages }));
-        }
-        selectedFiles.forEach(file => {
-            if (file.size > BUG_IMAGE_LIMITS.maxSizeBytes) {
-                Modal.alert(t('common.error'), t('bug.imageTooLarge'));
-                return;
-            }
-            const url = URL.createObjectURL(file);
-            void picker.addImageFromUri(url, file.type || 'image/jpeg');
-        });
+        addImageFiles(files);
         event.target.value = '';
-    }, [picker]);
+    }, [addImageFiles]);
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
         await handleImagePasteEvent(event, {
             isScreenFocused: true,
-            canAddMore: picker.canAddMore,
+            canAddMore: countImageBlocks(blocks) < BUG_IMAGE_LIMITS.maxImages,
             supportsImages: true,
             onImageFile: async (file, mimeType) => {
-                if (file.size > BUG_IMAGE_LIMITS.maxSizeBytes) {
-                    Modal.alert(t('common.error'), t('bug.imageTooLarge'));
-                    return;
-                }
-                const url = URL.createObjectURL(file);
-                await picker.addImageFromUri(url, mimeType);
+                await addImageFile(file, mimeType);
             },
         });
-    }, [picker]);
+    }, [addImageFile, blocks]);
+
+    const paperWebDropProps = React.useMemo(() => {
+        if (Platform.OS !== 'web') return {};
+        return {
+            onDragOver: (event: React.DragEvent) => {
+                event.preventDefault();
+            },
+            onDrop: (event: React.DragEvent) => {
+                event.preventDefault();
+                if (event.dataTransfer.files.length > 0) {
+                    addImageFiles(event.dataTransfer.files);
+                }
+            },
+        };
+    }, [addImageFiles]);
 
     React.useEffect(() => {
         if (Platform.OS !== 'web') return;
@@ -116,122 +224,78 @@ export function BugReportCreateModal({
         return () => document.removeEventListener('paste', pasteListener);
     }, [handlePaste]);
 
-    const footer = (
-        <View style={[styles.footer, !isWide && styles.footerCompact]}>
-            <Text style={styles.footerHint} numberOfLines={isWide ? 2 : 3}>{t('bug.submitSuccessHint')}</Text>
-            <View style={[styles.footerActions, !isWide && styles.footerActionsCompact]}>
-                <Pressable style={styles.cancelButton} disabled={submitting} onPress={onClose}>
-                    <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
-                </Pressable>
-                <Pressable
-                    style={[styles.primaryButton, !canSubmit && styles.primaryButtonDisabled]}
-                    disabled={!canSubmit}
-                    onPress={() => { void handleSubmit(); }}
-                >
-                    {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>{t('bug.submit')}</Text>}
-                </Pressable>
-            </View>
-        </View>
-    );
-
     return (
         <View style={[styles.modal, { width: modalWidth, height: modalMaxHeight, maxHeight: modalMaxHeight }, !isWide && styles.modalCompact]}>
             <View style={styles.header}>
                 <View style={styles.headerText}>
-                    <Text style={styles.title}>{t('bug.newBug')}</Text>
-                    <Text style={styles.subtitle}>{t('bug.createSubtitle')}</Text>
+                    <View style={styles.titleRow}>
+                        <Text style={styles.title}>{t('bug.newBug')}</Text>
+                        <Text style={styles.statusTag}>{t('bug.statusPending')}</Text>
+                    </View>
+                    <Text style={styles.subtitle}>{t('bug.noteStyleSubtitle')}</Text>
                 </View>
                 <Pressable style={styles.closeButton} onPress={onClose} hitSlop={10}>
                     <Ionicons name="close" size={22} color={styles.title.color} />
                 </Pressable>
             </View>
 
-            <View style={[styles.body, !isWide && styles.bodyCompact]}>
-                <ScrollView style={styles.mainScroll} contentContainerStyle={styles.mainContent} keyboardShouldPersistTaps="handled">
-                    <View style={styles.fieldHeader}>
-                        <Text style={styles.label}>{t('bug.content')} <Text style={styles.requiredMark}>*</Text></Text>
-                        <Text style={styles.imageCount}>{t('bug.imageCounter', { count: picker.images.length, max: BUG_IMAGE_LIMITS.maxImages })}</Text>
-                    </View>
-                    <View style={styles.composer}>
-                        <TextInput
-                            style={styles.input}
-                            value={description}
-                            onChangeText={setDescription}
-                            placeholder={t('bug.createPlaceholderDetailed')}
-                            placeholderTextColor={styles.placeholder.color}
-                            multiline
-                            textAlignVertical="top"
-                        />
-                        <Pressable style={styles.dropZone} onPress={handleUploadPress}>
-                            <View style={styles.dropHeader}>
-                                <View style={styles.dropHeaderText}>
-                                    <Text style={styles.dropTitle}>{t('bug.imageDropTitle')}</Text>
-                                    <Text style={styles.dropHint}>{t('bug.imageDropHint')}</Text>
+            <View style={styles.body}>
+                <View style={styles.fieldHeader}>
+                    <Text style={styles.label}>{t('bug.description')} <Text style={styles.requiredMark}>*</Text></Text>
+                    <Text style={styles.imageCount}>{t('bug.imageCounter', { count: imageCount, max: BUG_IMAGE_LIMITS.maxImages })}</Text>
+                </View>
+                <ScrollView {...paperWebDropProps} style={styles.paper} contentContainerStyle={styles.paperContent} keyboardShouldPersistTaps="handled">
+                    {blocks.map((block, index) => {
+                        if (block.type === 'image') {
+                            return (
+                                <View key={block.id} style={styles.noteImageWrap}>
+                                    <Image source={{ uri: block.image.uri }} style={styles.noteImage} contentFit="cover" />
+                                    <Pressable style={styles.removeImageButton} onPress={() => removeImageBlock(block.id)} hitSlop={8}>
+                                        <Ionicons name="close" size={16} color="#fff" />
+                                    </Pressable>
                                 </View>
-                                {Platform.OS === 'web' && <Text style={styles.shortcut}>{t('bug.pasteShortcut')}</Text>}
-                            </View>
-                            {picker.images.length > 0 ? (
-                                <ImagePreview images={picker.images} onRemove={picker.removeImage} maxImages={BUG_IMAGE_LIMITS.maxImages} />
-                            ) : (
-                                <View style={styles.emptyImageRow}>
-                                    <Ionicons name="image-outline" size={20} color={styles.emptyImageText.color} />
-                                    <Text style={styles.emptyImageText}>{t('bug.clickToUpload')}</Text>
-                                </View>
-                            )}
-                            <View style={styles.helperChips}>
-                                <Text style={styles.helperChip}>{t('bug.autoTitleHint')}</Text>
-                                <Text style={styles.helperChip}>{t('bug.defaultStatusHint')}</Text>
-                                <Text style={styles.helperChip}>{t('bug.sortHint')}</Text>
-                            </View>
-                        </Pressable>
-                    </View>
-                    {!isWide && (
-                        <View style={styles.mobilePreview}>
-                            <PreviewPanel previewTitle={previewTitle} imageCountLabel={imageCountLabel} />
-                        </View>
-                    )}
-                    {Platform.OS === 'web' && <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />}
+                            );
+                        }
+                        return (
+                            <TextInput
+                                key={block.id}
+                                ref={(node) => { textInputRefs.current[block.id] = node; }}
+                                style={styles.noteTextInput}
+                                value={block.text}
+                                onFocus={() => { activeTextBlockIdRef.current = block.id; }}
+                                onChangeText={(value) => updateTextBlock(block.id, value)}
+                                onSelectionChange={(event) => {
+                                    const selection = event.nativeEvent.selection;
+                                    selectionRef.current[block.id] = { start: selection.start, end: selection.end };
+                                }}
+                                placeholder={index === 0 ? t('bug.noteStylePlaceholder') : t('bug.noteStyleContinuePlaceholder')}
+                                placeholderTextColor={styles.placeholder.color}
+                                multiline
+                                textAlignVertical="top"
+                            />
+                        );
+                    })}
                 </ScrollView>
-
-                {isWide && (
-                    <View style={styles.sidePanel}>
-                        <PreviewPanel previewTitle={previewTitle} imageCountLabel={imageCountLabel} />
-                    </View>
-                )}
+                {Platform.OS === 'web' && <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />}
             </View>
-            {footer}
-        </View>
-    );
-}
 
-function PreviewPanel({ previewTitle, imageCountLabel }: { previewTitle: string; imageCountLabel: string }) {
-    const styles = stylesheet;
-    return (
-        <>
-            <Text style={styles.sideTitle}>{t('bug.previewBeforeSubmit')}</Text>
-            <View style={styles.previewCard}>
-                <Text style={styles.previewKicker}>{t('bug.pendingNewDisplayId')}</Text>
-                <Text style={styles.previewTitle} numberOfLines={3}>{previewTitle}</Text>
-                <View style={styles.previewMetaRow}>
-                    <View style={styles.statusPill}>
-                        <View style={styles.statusDot} />
-                        <Text style={styles.statusPillText}>{bugStatusLabel('pending')}</Text>
-                    </View>
-                    <Text style={styles.previewMetaText}>{imageCountLabel} · 0 {t('bug.comment')}</Text>
+            <View style={[styles.footer, !isWide && styles.footerCompact]}>
+                <View style={styles.footerLeft}>
+                    <Pressable style={styles.imageButton} onPress={() => { void handleUploadPress(); }} disabled={remainingImageSlots <= 0 || submitting}>
+                        <Ionicons name="image-outline" size={19} color={styles.imageButtonIcon.color} />
+                    </Pressable>
+                    <Text style={styles.footerHint}>{t('bug.noteStyleFooterHint')}</Text>
+                </View>
+                <View style={styles.footerActions}>
+                    <Pressable style={styles.cancelButton} disabled={submitting} onPress={onClose}>
+                        <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+                    </Pressable>
+                    <Pressable style={[styles.primaryButton, !canSubmit && styles.primaryButtonDisabled]} disabled={!canSubmit} onPress={() => { void handleSubmit(); }}>
+                        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>{t('bug.submit')}</Text>}
+                    </Pressable>
                 </View>
             </View>
-
-            <View style={styles.keyValueList}>
-                <View style={styles.keyValueRow}><Text style={styles.keyText}>{t('bug.submitter')}</Text><Text style={styles.valueText}>{t('bug.currentNickname')}</Text></View>
-                <View style={styles.keyValueRow}><Text style={styles.keyText}>{t('bug.visibility')}</Text><Text style={styles.valueText}>{t('bug.sharedMembers')}</Text></View>
-                <View style={styles.keyValueRow}><Text style={styles.keyText}>{t('bug.initialStatus')}</Text><Text style={styles.valueText}>{bugStatusLabel('pending')}</Text></View>
-                <View style={styles.keyValueRow}><Text style={styles.keyText}>{t('bug.afterSubmit')}</Text><Text style={styles.valueText}>{t('bug.openDetail')}</Text></View>
-            </View>
-
-            <View style={styles.sideNote}>
-                <Text style={styles.sideNoteText}>{t('bug.contentRequiredHint')}</Text>
-            </View>
-        </>
+        </View>
     );
 }
 
@@ -245,12 +309,13 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 22,
     },
     header: {
+        minHeight: 94,
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: 16,
-        paddingHorizontal: 28,
-        paddingVertical: 22,
+        paddingHorizontal: 32,
+        paddingVertical: 24,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.divider,
     },
@@ -258,16 +323,31 @@ const stylesheet = StyleSheet.create((theme) => ({
         flex: 1,
         minWidth: 0,
     },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
     title: {
         color: theme.colors.text,
-        fontSize: 28,
+        fontSize: 30,
+        ...Typography.default('semiBold'),
+    },
+    statusTag: {
+        color: '#854D0E',
+        backgroundColor: '#FFF2C7',
+        borderRadius: 999,
+        paddingHorizontal: 9,
+        paddingVertical: 5,
+        overflow: 'hidden',
+        fontSize: 12,
         ...Typography.default('semiBold'),
     },
     subtitle: {
         color: theme.colors.textSecondary,
         fontSize: 14,
         lineHeight: 20,
-        marginTop: 6,
+        marginTop: 8,
         ...Typography.default(),
     },
     closeButton: {
@@ -276,29 +356,20 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: theme.colors.surfaceHigh,
     },
     body: {
-        flexDirection: 'row',
+        flex: 1,
         minHeight: 0,
-        flex: 1,
-    },
-    bodyCompact: {
-        flexDirection: 'column',
-    },
-    mainScroll: {
-        flex: 1,
-        minWidth: 0,
-    },
-    mainContent: {
-        padding: 28,
-        gap: 12,
+        paddingHorizontal: 32,
+        paddingTop: 24,
+        paddingBottom: 16,
     },
     fieldHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 12,
+        marginBottom: 12,
     },
     label: {
         color: theme.colors.text,
@@ -313,213 +384,51 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 13,
         ...Typography.default('semiBold'),
     },
-    composer: {
-        minHeight: 520,
-        borderWidth: 2,
-        borderColor: theme.colors.text,
+    paper: {
+        flex: 1,
+        minHeight: 0,
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
         borderRadius: 22,
-        backgroundColor: theme.colors.input.background,
-        overflow: 'hidden',
+        backgroundColor: theme.colors.surface,
     },
-    input: {
-        minHeight: 270,
-        paddingHorizontal: 22,
-        paddingTop: 22,
-        paddingBottom: 10,
+    paperContent: {
+        paddingHorizontal: 26,
+        paddingVertical: 24,
+        gap: 12,
+    },
+    noteTextInput: {
+        minHeight: 34,
         color: theme.colors.text,
-        fontSize: 17,
-        lineHeight: 26,
+        fontSize: 18,
+        lineHeight: 29,
+        padding: 0,
         ...Typography.default(),
     },
     placeholder: {
         color: theme.colors.textSecondary,
     },
-    dropZone: {
-        marginHorizontal: 18,
-        marginBottom: 18,
-        padding: 16,
-        borderWidth: 1,
-        borderStyle: 'dashed',
-        borderColor: theme.colors.divider,
-        borderRadius: 18,
+    noteImageWrap: {
+        position: 'relative',
+        borderRadius: 16,
+        overflow: 'hidden',
         backgroundColor: theme.colors.surfaceHigh,
     },
-    dropHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 14,
-        marginBottom: 12,
+    noteImage: {
+        width: '100%',
+        height: 240,
+        backgroundColor: theme.colors.surfaceHigh,
     },
-    dropHeaderText: {
-        flex: 1,
-        minWidth: 0,
-    },
-    dropTitle: {
-        color: theme.colors.text,
-        fontSize: 15,
-        ...Typography.default('semiBold'),
-    },
-    dropHint: {
-        color: theme.colors.textSecondary,
-        fontSize: 13,
-        lineHeight: 18,
-        marginTop: 4,
-        ...Typography.default(),
-    },
-    shortcut: {
-        color: theme.colors.button.primary.tint,
-        backgroundColor: theme.colors.button.primary.background,
-        borderRadius: 8,
-        paddingHorizontal: 9,
-        paddingVertical: 5,
-        fontSize: 12,
-        overflow: 'hidden',
-        ...Typography.default('semiBold'),
-    },
-    emptyImageRow: {
-        minHeight: 58,
+    removeImageButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        width: 28,
+        height: 28,
         borderRadius: 14,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        flexDirection: 'row',
+        backgroundColor: 'rgba(0,0,0,0.72)',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-    },
-    emptyImageText: {
-        color: theme.colors.textSecondary,
-        ...Typography.default('semiBold'),
-    },
-    helperChips: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        marginTop: 12,
-    },
-    helperChip: {
-        color: theme.colors.textSecondary,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        borderRadius: 999,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        fontSize: 12,
-        overflow: 'hidden',
-        ...Typography.default('semiBold'),
-    },
-    sidePanel: {
-        width: 300,
-        borderLeftWidth: 1,
-        borderLeftColor: theme.colors.divider,
-        backgroundColor: theme.colors.surfaceHigh,
-        padding: 24,
-    },
-    mobilePreview: {
-        marginTop: 4,
-        padding: 16,
-        borderRadius: 18,
-        backgroundColor: theme.colors.surfaceHigh,
-    },
-    sideTitle: {
-        color: theme.colors.text,
-        fontSize: 17,
-        marginBottom: 14,
-        ...Typography.default('semiBold'),
-    },
-    previewCard: {
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        borderRadius: 18,
-        padding: 16,
-        marginBottom: 14,
-    },
-    previewKicker: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        ...Typography.default('semiBold'),
-    },
-    previewTitle: {
-        color: theme.colors.text,
-        fontSize: 18,
-        lineHeight: 24,
-        marginTop: 8,
-        marginBottom: 12,
-        ...Typography.default('semiBold'),
-    },
-    previewMetaRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: 8,
-    },
-    statusPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 9,
-        paddingVertical: 5,
-        borderRadius: 999,
-        backgroundColor: '#FFF2C7',
-    },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: PENDING_STATUS_COLOR,
-    },
-    statusPillText: {
-        color: '#854D0E',
-        fontSize: 12,
-        ...Typography.default('semiBold'),
-    },
-    previewMetaText: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        ...Typography.default('semiBold'),
-    },
-    keyValueList: {
-        gap: 10,
-    },
-    keyValueRow: {
-        minHeight: 42,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        backgroundColor: theme.colors.surface,
-    },
-    keyText: {
-        color: theme.colors.textSecondary,
-        fontSize: 13,
-        ...Typography.default(),
-    },
-    valueText: {
-        color: theme.colors.text,
-        fontSize: 13,
-        textAlign: 'right',
-        ...Typography.default('semiBold'),
-    },
-    sideNote: {
-        marginTop: 16,
-        borderWidth: 1,
-        borderColor: '#F0DEA3',
-        backgroundColor: '#FFF8DB',
-        borderRadius: 14,
-        padding: 13,
-    },
-    sideNoteText: {
-        color: '#745000',
-        fontSize: 13,
-        lineHeight: 19,
-        ...Typography.default('semiBold'),
     },
     footer: {
         minHeight: 74,
@@ -527,7 +436,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 16,
-        paddingHorizontal: 28,
+        paddingHorizontal: 32,
         paddingVertical: 16,
         borderTopWidth: 1,
         borderTopColor: theme.colors.divider,
@@ -536,6 +445,26 @@ const stylesheet = StyleSheet.create((theme) => ({
     footerCompact: {
         alignItems: 'stretch',
         flexDirection: 'column',
+    },
+    footerLeft: {
+        flex: 1,
+        minWidth: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    imageButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
+        backgroundColor: theme.colors.surface,
+    },
+    imageButtonIcon: {
+        color: theme.colors.text,
     },
     footerHint: {
         flex: 1,
@@ -547,10 +476,8 @@ const stylesheet = StyleSheet.create((theme) => ({
     footerActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-    },
-    footerActionsCompact: {
         justifyContent: 'flex-end',
+        gap: 12,
     },
     cancelButton: {
         borderRadius: 15,
@@ -564,7 +491,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         ...Typography.default('semiBold'),
     },
     primaryButton: {
-        minWidth: 168,
+        minWidth: 148,
         minHeight: 48,
         borderRadius: 15,
         alignItems: 'center',

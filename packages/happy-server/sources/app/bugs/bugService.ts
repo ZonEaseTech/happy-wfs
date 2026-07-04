@@ -34,8 +34,15 @@ function actorNickname(actor: BugActor): string {
     return actor.nickname.trim() || '匿名用户';
 }
 
+function stripBugImageMarkers(description: string): string {
+    return description
+        .replace(/\[\[bug-image:\d+\]\]/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 export function buildBugTitle(description: string): string {
-    const normalized = description.trim().replace(/\s+/g, ' ');
+    const normalized = stripBugImageMarkers(description).replace(/\s+/g, ' ');
     if (normalized.length <= 36) return normalized;
     return `${normalized.slice(0, 36)}…`;
 }

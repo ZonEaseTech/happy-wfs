@@ -7,6 +7,10 @@ describe('bugService pure helpers', () => {
         expect(buildBugTitle('测'.repeat(50))).toBe(`${'测'.repeat(36)}…`);
     });
 
+    it('removes rich content image markers from generated titles', () => {
+        expect(buildBugTitle('支付后订单状态没有刷新\n\n[[bug-image:1]]\n\n补充说明')).toBe('支付后订单状态没有刷新 补充说明');
+    });
+
     it('normalizes return-to-pending as a pending status with explicit action', () => {
         expect(normalizeBugStatusChange('verify', { status: 'pending', action: 'return_to_pending' })).toEqual({
             fromStatus: 'verify',

@@ -29,6 +29,10 @@ describe('bugTypes', () => {
         expect(buildBugTitle('a'.repeat(80))).toBe(`${'a'.repeat(36)}…`);
     });
 
+    it('does not include rich image markers in generated titles', () => {
+        expect(buildBugTitle('支付后订单状态没有刷新\n\n[[bug-image:1]]\n\n补充说明')).toBe('支付后订单状态没有刷新 补充说明');
+    });
+
     it('matches bug search by display id, title, description, nickname, and status label', () => {
         const bug: BugReportSummary = {
             id: 'bug-1',

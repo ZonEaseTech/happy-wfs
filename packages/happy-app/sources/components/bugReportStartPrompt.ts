@@ -1,4 +1,5 @@
 import type { LocalImage } from '@/components/ImagePreview';
+import { stripBugImageMarkers } from '@/sync/bugRichContent';
 import { bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail } from '@/sync/bugTypes';
 
 export function buildBugInitialImages(bug: BugReportDetail): LocalImage[] {
@@ -29,7 +30,7 @@ export function buildBugReportStartPrompt(bug: BugReportDetail): string {
         `提交人：${bug.createdByNickname ?? '匿名用户'}`,
         '',
         '问题说明：',
-        bug.description,
+        stripBugImageMarkers(bug.description),
         '',
         '截图附件：',
         attachmentLines.length > 0 ? attachmentLines.join('\n') : '- 无',

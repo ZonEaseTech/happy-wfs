@@ -1,3 +1,4 @@
+import { stripBugImageMarkers } from './bugRichContent';
 export const BUG_IMAGE_LIMITS = {
     maxImages: 10,
     maxSizeBytes: 20 * 1024 * 1024,
@@ -74,7 +75,7 @@ export function bugStatusLabel(status: BugStatus): string {
 }
 
 export function buildBugTitle(description: string): string {
-    const normalized = description.trim().replace(/\s+/g, ' ');
+    const normalized = stripBugImageMarkers(description).replace(/\s+/g, ' ');
     if (normalized.length <= 36) return normalized;
     return `${normalized.slice(0, 36)}…`;
 }

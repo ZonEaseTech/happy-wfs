@@ -6,6 +6,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Text } from '@/components/StyledText';
 import { BugReportCreateModal } from '@/components/BugReportCreateModal';
 import { BugReportDetailModal } from '@/components/BugReportDetailModal';
+import { BugRichContentView } from '@/components/BugRichContentView';
 import type { LocalImage } from '@/components/ImagePreview';
 import { ImagePreview } from '@/components/ImagePreview';
 import { Typography } from '@/constants/Typography';
@@ -537,14 +538,9 @@ function PublicBugDetailPane({
             <View style={styles.detailBody}>
                 <ScrollView style={styles.detailMain} contentContainerStyle={styles.detailMainContent}>
                     <Text style={styles.sectionTitle}>{t('bug.description')}</Text>
-                    <Text style={styles.descriptionBox} selectable>{bug.description}</Text>
-
-                    <Text style={styles.sectionTitle}>{t('bug.screenshots')}</Text>
-                    {bug.attachments.length === 0 ? <Text style={styles.muted}>-</Text> : (
-                        <View style={styles.attachmentGrid}>
-                            {bug.attachments.map(attachment => <Image key={attachment.id} source={{ uri: attachment.url }} style={styles.attachmentImage} contentFit="cover" />)}
-                        </View>
-                    )}
+                    <View style={styles.descriptionBox}>
+                        <BugRichContentView description={bug.description} attachments={bug.attachments} />
+                    </View>
 
                     <Text style={styles.sectionTitle}>{t('bug.comment')}</Text>
                     {bug.comments.length === 0 && <Text style={styles.muted}>-</Text>}
@@ -601,11 +597,16 @@ function PublicBugDetailPane({
                     ))}
 
                     <Text style={styles.sectionTitle}>{t('bug.statusHistory')}</Text>
-                    {bug.statusHistory.map(entry => (
-                        <View key={entry.id} style={[styles.historyEvent, { backgroundColor: STATUS_ACCENTS[entry.toStatus] }]}>
-                            <Text style={styles.historyText}>{formatBugStatusHistoryAction(entry)}</Text>
-                        </View>
-                    ))}
+                    <View style={styles.historyList}>
+                        {bug.statusHistory.map(entry => (
+                            <View key={entry.id} style={styles.historyEvent}>
+                                <View style={[styles.historyDot, { backgroundColor: STATUS_ACCENTS[entry.toStatus] }]} />
+                                <View style={styles.historyCard}>
+                                    <Text style={styles.historyText}>{formatBugStatusHistoryAction(entry)}</Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
                 </View>
             </View>
             {busy && <View style={styles.busyOverlay}><ActivityIndicator /></View>}
@@ -633,7 +634,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         maxWidth: 1160,
         flex: 1,
         paddingHorizontal: 20,
-        paddingTop: 28,
+        paddingTop: 36,
         paddingBottom: 28,
     },
     desktopTopBar: {
@@ -649,10 +650,10 @@ const stylesheet = StyleSheet.create((theme) => ({
         minHeight: 0,
     },
     leftPanel: {
-        width: 470,
+        width: 440,
         flexShrink: 0,
         backgroundColor: theme.colors.surface,
-        borderRadius: 26,
+        borderRadius: 28,
         borderWidth: 1,
         borderColor: theme.colors.divider,
     },
@@ -663,7 +664,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         flex: 1,
         minWidth: 0,
         backgroundColor: theme.colors.surface,
-        borderRadius: 26,
+        borderRadius: 28,
         borderWidth: 1,
         borderColor: theme.colors.divider,
         overflow: 'hidden',
@@ -889,8 +890,8 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     detailHeader: {
         minHeight: 150,
-        paddingHorizontal: 20,
-        paddingVertical: 24,
+        paddingHorizontal: 30,
+        paddingVertical: 26,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.divider,
     },
@@ -901,8 +902,8 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     detailTitle: {
         color: theme.colors.text,
-        fontSize: 28,
-        lineHeight: 34,
+        fontSize: 31,
+        lineHeight: 38,
         marginTop: 12,
         ...Typography.default('semiBold'),
     },
@@ -920,10 +921,11 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingBottom: 48,
     },
     detailSide: {
-        width: 300,
+        width: 280,
         borderLeftWidth: 1,
         borderLeftColor: theme.colors.divider,
         padding: 22,
+        backgroundColor: theme.colors.surfaceHigh,
     },
     sectionTitle: {
         color: theme.colors.text,
@@ -938,8 +940,8 @@ const stylesheet = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.surfaceHigh,
         borderWidth: 1,
         borderColor: theme.colors.divider,
-        borderRadius: 16,
-        padding: 16,
+        borderRadius: 20,
+        padding: 18,
         marginBottom: 18,
         ...Typography.default(),
     },
@@ -951,7 +953,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     attachmentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
     attachmentImage: { width: 118, height: 88, borderRadius: 12, backgroundColor: theme.colors.surfaceHigh },
     commentImage: { width: 74, height: 58, borderRadius: 9, backgroundColor: theme.colors.surfaceHigh, marginTop: 8 },
-    commentCard: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 14, padding: 12, marginBottom: 8 },
+    commentCard: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 16, padding: 14, marginBottom: 10 },
     commentAuthor: { color: theme.colors.textSecondary, fontSize: 12, ...Typography.default('semiBold') },
     commentBody: { color: theme.colors.text, marginTop: 6, lineHeight: 20, ...Typography.default() },
     commentInput: { minHeight: 76, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 14, padding: 12, color: theme.colors.text, backgroundColor: theme.colors.input.background, ...Typography.default() },
@@ -964,7 +966,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        borderRadius: 13,
+        borderRadius: 15,
         borderWidth: 1,
         borderColor: theme.colors.divider,
         paddingHorizontal: 12,
@@ -976,16 +978,33 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     statusActionText: { color: theme.colors.text, flex: 1, ...Typography.default('semiBold') },
     statusActionMeta: { color: theme.colors.textSecondary, fontSize: 12, ...Typography.default('semiBold') },
+    historyList: {
+        gap: 10,
+    },
     historyEvent: {
-        borderRadius: 0,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 10,
+    },
+    historyDot: {
+        width: 9,
+        height: 9,
+        borderRadius: 5,
+        marginTop: 12,
+    },
+    historyCard: {
+        flex: 1,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
+        backgroundColor: theme.colors.surface,
         paddingHorizontal: 12,
         paddingVertical: 10,
-        marginBottom: 8,
     },
     historyText: {
-        color: 'white',
-        fontSize: 12,
-        lineHeight: 17,
+        color: theme.colors.text,
+        fontSize: 13,
+        lineHeight: 18,
         ...Typography.default('semiBold'),
     },
     busyOverlay: {
