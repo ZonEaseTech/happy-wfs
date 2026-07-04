@@ -94,6 +94,11 @@ export async function getBug(credentials: AuthCredentials, bugId: string): Promi
     return bugFromResponse(await readJson(response));
 }
 
+export async function deleteBug(credentials: AuthCredentials, bugId: string): Promise<void> {
+    const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}`, { method: 'DELETE', headers: authHeaders(credentials) });
+    await readJson<{ ok: boolean }>(response);
+}
+
 export async function addBugComment(credentials: AuthCredentials, bugId: string, body: string): Promise<{ bug: BugReportDetail; commentId: string }> {
     const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}/comments`, { method: 'POST', headers: authHeaders(credentials), body: JSON.stringify({ body }) });
     return await readJson(response);

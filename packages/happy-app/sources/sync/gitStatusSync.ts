@@ -11,10 +11,11 @@ import { parseStatusSummary, getStatusCounts, isDirty } from './git-parsers/pars
 import { parseStatusSummaryV2, getStatusCountsV2, isDirtyV2, getCurrentBranchV2, getTrackingInfoV2 } from './git-parsers/parseStatusV2';
 import { parseNumStat, mergeDiffSummaries } from './git-parsers/parseDiff';
 import { projectManager, createProjectKey } from './projectManager';
-import { getWorkspaceRepos, WorkspaceRepo } from '@/utils/workspaceRepos';
+import { getDiscoveredWorkspaceRepos, getWorkspaceRepos, WorkspaceRepo } from '@/utils/workspaceRepos';
 import { shellEscape } from '@/utils/shellEscape';
 import { decideNotGitRefreshOutcome } from './gitStatusRefreshPolicy';
 import { selectPreferredGitStatusSession } from './gitStatusSessionSelection';
+import { findNearbyGitRepos } from './gitStatusFiles';
 
 export class GitStatusSync {
     // Map project keys to sync instances
@@ -455,6 +456,23 @@ export class GitStatusSync {
 
                 if (!result.success || result.exitCode !== 0) {
                     if (this.isNotGitRepositoryResult(result)) {
+                        const nearbyRepos = await findNearbyGitRepos(targetSessionId, metadata.path);
+                        const discoveredWorkspaceRepos = getDiscoveredWorkspaceRepos(nearbyRepos);
+                        if (discoveredWorkspaceRepos.length > 0) {
+                            const aggregated = await this.fetchMultiRepoGitStatus(targetSessionId, discoveredWorkspaceRepos);
+                            if (aggregated === 'retry') {
+                                this.scheduleRetry(projectKey);
+                                return;
+                            }
+                            storage.getState().applyGitStatus(targetSessionId, aggregated);
+                            this.markGitFetchSucceeded(projectKey);
+                            this.clearRetryState(projectKey);
+                            if (metadata.machineId) {
+                                const targetProjectKey = createProjectKey(metadata.machineId, metadata.path);
+                                projectManager.updateProjectGitStatus(targetProjectKey, aggregated);
+                            }
+                            return;
+                        }
                         this.handleNotGitRepository(projectKey, targetSessionId, metadata);
                         return;
                     }

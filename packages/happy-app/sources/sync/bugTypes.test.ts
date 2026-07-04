@@ -21,6 +21,7 @@ describe('bugTypes', () => {
     it('uses explicit return-to-pending wording for status history', () => {
         expect(formatBugStatusHistoryAction({ action: 'return_to_pending', fromStatus: 'verify', toStatus: 'pending' })).toBe('打回待处理：待验证 → 待处理');
         expect(formatBugStatusHistoryAction({ action: 'status_change', fromStatus: 'pending', toStatus: 'in_progress' })).toBe('状态变更：待处理 → 进行中');
+        expect(formatBugStatusHistoryAction({ action: 'deleted', fromStatus: 'pending', toStatus: 'pending' })).toBe('删除不显示：待处理 → 待处理');
     });
 
     it('builds a title from the first characters of the problem description', () => {

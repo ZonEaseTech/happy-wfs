@@ -13,6 +13,7 @@ const serviceMock = vi.hoisted(() => ({
     getBugShareConfig: vi.fn(),
     linkBugSession: vi.fn(),
     recordBugAttachment: vi.fn(),
+    softDeleteBugForOwner: vi.fn(),
 }));
 
 vi.mock('@/app/bugs/bugService', () => serviceMock);
@@ -65,5 +66,12 @@ describe('bugRoutes', () => {
         const res = await app.inject({ method: 'PATCH', url: '/v1/bugs/bug-1/status', payload: { status: 'pending', action: 'return_to_pending' } });
         expect(res.statusCode).toBe(200);
         expect(serviceMock.changeBugStatus).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' }, { status: 'pending', action: 'return_to_pending' });
+    });
+
+    it('DELETE /v1/bugs/:bugId soft-deletes the bug for the Happy owner', async () => {
+        serviceMock.softDeleteBugForOwner.mockResolvedValue(undefined);
+        const res = await app.inject({ method: 'DELETE', url: '/v1/bugs/bug-1' });
+        expect(res.statusCode).toBe(200);
+        expect(serviceMock.softDeleteBugForOwner).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' });
     });
 });

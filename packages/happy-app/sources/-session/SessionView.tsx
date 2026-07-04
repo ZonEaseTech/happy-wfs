@@ -28,7 +28,7 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
-import { addBugComment, changeBugStatus, getBug, uploadBugAttachment } from '@/sync/apiBugs';
+import { addBugComment, changeBugStatus, deleteBug, getBug, uploadBugAttachment } from '@/sync/apiBugs';
 import type { BugReportDetail, BugStatus } from '@/sync/bugTypes';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { getSessionShares } from '@/sync/apiSharing';
@@ -256,10 +256,14 @@ export const SessionView = React.memo((props: { id: string }) => {
                     onChangeStatus: async (current: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => (
                         await changeBugStatus(credentials, current.id, { status, action })
                     ),
+                    onDelete: async (current: BugReportDetail) => {
+                        await deleteBug(credentials, current.id);
+                    },
                 },
             });
         } catch (error) {
-            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+            const message = error instanceof Error ? error.message : String(error);
+            Modal.alert(t('common.error'), message.includes('Bug not found') ? t('bug.deletedOrHidden') : message);
         }
     }, [linkedHappyBug]);
 

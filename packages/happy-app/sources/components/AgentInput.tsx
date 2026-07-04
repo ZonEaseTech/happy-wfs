@@ -37,6 +37,7 @@ const webTooltip = (label: string): Record<string, string> => (
 import { ImagePreview, LocalImage } from '@/components/ImagePreview';
 import { FileAttachmentPreview } from '@/components/FileAttachmentPreview';
 import type { LocalFileAttachment } from '@/utils/fileAttachments';
+import { MAX_CHAT_IMAGES } from '@/utils/chatAttachmentLimits';
 import { Switch } from '@/components/Switch';
 import { Modal } from '@/modal';
 import {
@@ -1895,6 +1896,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 const newImages = props.images!.filter((_, i) => i !== index);
                                 props.onImagesChange!(newImages);
                             }}
+                            maxImages={MAX_CHAT_IMAGES}
                             disabled={props.isUploadingImages}
                         />
                     )}

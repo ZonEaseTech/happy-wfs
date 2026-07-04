@@ -5,7 +5,7 @@ export const BUG_IMAGE_LIMITS = {
 
 export type BugStatus = 'pending' | 'in_progress' | 'verify' | 'closed';
 export type BugVisibility = 'shared' | 'private';
-export type BugStatusHistoryAction = 'created' | 'status_change' | 'return_to_pending' | 'comment' | 'attachment' | 'start_session' | 'closed';
+export type BugStatusHistoryAction = 'created' | 'status_change' | 'return_to_pending' | 'comment' | 'attachment' | 'start_session' | 'closed' | 'deleted';
 
 export interface BugAttachment {
     id: string;
@@ -88,6 +88,9 @@ export function formatBugStatusHistoryAction(entry: Pick<BugStatusHistoryEntry, 
     }
     if (entry.action === 'closed') {
         return `关闭 Bug：${entry.fromStatus ? bugStatusLabel(entry.fromStatus) : '无状态'} → ${bugStatusLabel(entry.toStatus)}`;
+    }
+    if (entry.action === 'deleted') {
+        return `删除不显示：${entry.fromStatus ? bugStatusLabel(entry.fromStatus) : '无状态'} → ${bugStatusLabel(entry.toStatus)}`;
     }
     if (entry.fromStatus) {
         return `状态变更：${bugStatusLabel(entry.fromStatus)} → ${bugStatusLabel(entry.toStatus)}`;

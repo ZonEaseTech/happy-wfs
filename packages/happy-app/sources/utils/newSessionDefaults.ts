@@ -3,8 +3,22 @@ import type { ModelMode } from 'happy-wire';
 import { CODEX_COPY_SESSION_MODEL_MODE } from './copySessionDefaults';
 
 export type NewSessionAgentType = 'claude' | 'codex' | 'gemini';
+export type NewSessionProfileAgentCompatibility = Partial<Record<NewSessionAgentType, boolean>>;
+
+const NEW_SESSION_AGENT_TYPES = ['claude', 'codex', 'gemini'] as const;
 
 export const CLAUDE_NEW_SESSION_DEFAULT_MODEL = 'claude-opus-4-8[1m]' satisfies ModelMode;
+
+export function getInitialNewSessionAgentType(
+    selectedProfile: { compatibility?: NewSessionProfileAgentCompatibility } | null | undefined,
+    fallbackAgentType: NewSessionAgentType,
+): NewSessionAgentType {
+    const supportedAgents = NEW_SESSION_AGENT_TYPES.filter(agent => selectedProfile?.compatibility?.[agent] === true);
+    if (supportedAgents.length === 1) {
+        return supportedAgents[0];
+    }
+    return fallbackAgentType;
+}
 
 export function getInitialNewSessionModelMode(
     agentType: NewSessionAgentType,

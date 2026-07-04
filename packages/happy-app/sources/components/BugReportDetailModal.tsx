@@ -9,6 +9,9 @@ import { Modal } from '@/modal';
 import { ImagePreview, type LocalImage } from '@/components/ImagePreview';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { BUG_IMAGE_LIMITS, bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
+import { ActionMenuModal } from '@/components/ActionMenuModal';
+import type { ActionMenuItem } from '@/components/ActionMenu';
+import { handleImagePasteEvent } from '@/utils/imagePaste';
 
 const STATUS_OPTIONS: BugStatus[] = ['pending', 'in_progress', 'verify', 'closed'];
 
@@ -20,6 +23,7 @@ export function BugReportDetailModal({
     onUploadImages,
     onChangeStatus,
     onStartSession,
+    onDelete,
 }: {
     bug: BugReportDetail;
     onClose: () => void;
@@ -28,11 +32,13 @@ export function BugReportDetailModal({
     onUploadImages?: (bug: BugReportDetail, images: LocalImage[], commentId?: string) => Promise<BugReportDetail>;
     onChangeStatus?: (bug: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => Promise<BugReportDetail>;
     onStartSession?: (bug: BugReportDetail) => void;
+    onDelete?: (bug: BugReportDetail) => Promise<void>;
 }) {
     const styles = stylesheet;
     const [currentBug, setCurrentBug] = React.useState(bug);
     const [comment, setComment] = React.useState('');
     const [busy, setBusy] = React.useState(false);
+    const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
     const picker = useImagePicker({ maxImages: BUG_IMAGE_LIMITS.maxImages, maxSizeBytes: BUG_IMAGE_LIMITS.maxSizeBytes });
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -67,8 +73,32 @@ export function BugReportDetailModal({
         void run(() => onUploadImages(currentBug, picker.images));
     }, [currentBug, onUploadImages, picker.images, run]);
 
+    const handleDelete = React.useCallback(async () => {
+        if (!onDelete || busy) return;
+        const confirmed = await Modal.confirm(
+            t('bug.deleteHideConfirmTitle'),
+            t('bug.deleteHideConfirmMessage'),
+            {
+                cancelText: t('common.cancel'),
+                confirmText: t('bug.deleteHide'),
+                destructive: true,
+            },
+        );
+        if (!confirmed) return;
+        setBusy(true);
+        try {
+            await onDelete(currentBug);
+            onClose();
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        } finally {
+            setBusy(false);
+        }
+    }, [busy, currentBug, onClose, onDelete]);
+
     const handleStatus = React.useCallback((status: BugStatus, action?: 'return_to_pending') => {
         if (!onChangeStatus) return;
+        setStatusMenuVisible(false);
         void run(() => onChangeStatus(currentBug, status, action));
     }, [currentBug, onChangeStatus, run]);
 
@@ -76,11 +106,57 @@ export function BugReportDetailModal({
         const files = event.target.files;
         if (!files) return;
         Array.from(files).slice(0, BUG_IMAGE_LIMITS.maxImages).forEach(file => {
+            if (file.size > BUG_IMAGE_LIMITS.maxSizeBytes) {
+                Modal.alert(t('common.error'), t('bug.imageTooLarge'));
+                return;
+            }
             const url = URL.createObjectURL(file);
             void picker.addImageFromUri(url, file.type || 'image/jpeg');
         });
         event.target.value = '';
     }, [picker]);
+
+    const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
+        await handleImagePasteEvent(event, {
+            isScreenFocused: true,
+            canAddMore: picker.canAddMore,
+            supportsImages: true,
+            onImageFile: async (file, mimeType) => {
+                if (file.size > BUG_IMAGE_LIMITS.maxSizeBytes) {
+                    Modal.alert(t('common.error'), t('bug.imageTooLarge'));
+                    return;
+                }
+                const url = URL.createObjectURL(file);
+                await picker.addImageFromUri(url, mimeType);
+            },
+        });
+    }, [picker]);
+
+    React.useEffect(() => {
+        if (Platform.OS !== 'web') return;
+        const pasteListener = (event: Event) => { void handlePaste(event as ClipboardEvent); };
+        document.addEventListener('paste', pasteListener);
+        return () => document.removeEventListener('paste', pasteListener);
+    }, [handlePaste]);
+
+    const statusMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        const items: ActionMenuItem[] = [];
+        if (currentBug.status !== 'pending') {
+            items.push({
+                label: t('bug.returnToPending'),
+                onPress: () => handleStatus('pending', 'return_to_pending'),
+            });
+        }
+        for (const status of STATUS_OPTIONS) {
+            if (status === 'pending' && currentBug.status !== 'pending') continue;
+            items.push({
+                label: bugStatusLabel(status),
+                selected: currentBug.status === status,
+                onPress: () => handleStatus(status),
+            });
+        }
+        return items;
+    }, [currentBug.status, handleStatus]);
 
     return (
         <View style={styles.modal}>
@@ -133,32 +209,42 @@ export function BugReportDetailModal({
                 </View>
                 {Platform.OS === 'web' && <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />}
 
-                <Text style={styles.sectionTitle}>{t('bug.status')}</Text>
-                <View style={styles.statusRow}>
-                    {STATUS_OPTIONS.map(status => (
-                        <Pressable key={status} style={[styles.statusChip, currentBug.status === status && styles.statusChipActive]} onPress={() => handleStatus(status)}>
-                            <Text style={[styles.statusChipText, currentBug.status === status && styles.statusChipTextActive]}>{bugStatusLabel(status)}</Text>
-                        </Pressable>
-                    ))}
-                    {currentBug.status !== 'pending' && (
-                        <Pressable style={styles.statusChip} onPress={() => handleStatus('pending', 'return_to_pending')}>
-                            <Text style={styles.statusChipText}>{t('bug.returnToPending')}</Text>
-                        </Pressable>
-                    )}
-                </View>
-
                 <Text style={styles.sectionTitle}>{t('bug.statusHistory')}</Text>
                 {currentBug.statusHistory.map(entry => (
                     <Text key={entry.id} style={styles.history}>{entry.actorNickname ?? t('bug.system')} · {formatBugStatusHistoryAction(entry)}</Text>
                 ))}
             </ScrollView>
             <View style={styles.footer}>
+                <Pressable style={styles.footerAction} onPress={onClose}>
+                    <Text style={styles.footerActionText}>{t('bug.close')}</Text>
+                </Pressable>
+                {onDelete && (
+                    <>
+                        <View style={styles.footerActionSeparator} />
+                        <Pressable style={styles.footerAction} disabled={busy} onPress={() => { void handleDelete(); }}>
+                            <Text style={styles.footerDeleteText}>{t('bug.deleteHide')}</Text>
+                        </Pressable>
+                    </>
+                )}
+                <View style={styles.footerActionSeparator} />
+                <Pressable style={styles.footerAction} disabled={busy || !onChangeStatus} onPress={() => setStatusMenuVisible(true)}>
+                    <Text style={styles.footerActionText}>{busy ? t('bug.updatingStatus') : t('bug.changeStatus')}</Text>
+                </Pressable>
                 {onStartSession && (
-                    <Pressable style={styles.primaryButton} onPress={() => { onClose(); onStartSession(currentBug); }}>
-                        <Text style={styles.primaryButtonText}>{t('bug.startRepairSession')}</Text>
-                    </Pressable>
+                    <>
+                        <View style={styles.footerActionSeparator} />
+                        <Pressable style={styles.footerAction} onPress={() => { onClose(); onStartSession(currentBug); }}>
+                            <Text style={styles.footerActionText}>{t('bug.startRepairSession')}</Text>
+                        </Pressable>
+                    </>
                 )}
             </View>
+            <ActionMenuModal
+                visible={statusMenuVisible}
+                title={`${t('bug.changeStatus')}：${bugStatusLabel(currentBug.status)}`}
+                items={statusMenuItems}
+                onClose={() => setStatusMenuVisible(false)}
+            />
             {busy && <View style={styles.busy}><ActivityIndicator /></View>}
         </View>
     );
@@ -184,7 +270,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     secondaryButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceHigh },
     secondaryButtonText: { color: theme.colors.text, ...Typography.default('semiBold') },
     primaryButtonSmall: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.button.primary.background },
-    primaryButton: { flex: 1, alignItems: 'center', padding: 13, borderRadius: 14, backgroundColor: theme.colors.button.primary.background },
     primaryButtonText: { color: theme.colors.button.primary.tint, ...Typography.default('semiBold') },
     statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     statusChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.colors.surfaceHigh },
@@ -192,6 +277,10 @@ const stylesheet = StyleSheet.create((theme) => ({
     statusChipText: { color: theme.colors.text, ...Typography.default('semiBold') },
     statusChipTextActive: { color: theme.colors.button.primary.tint },
     history: { color: theme.colors.textSecondary, marginBottom: 6, ...Typography.default() },
-    footer: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.divider },
+    footer: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: theme.colors.divider, minHeight: 56 },
+    footerAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+    footerActionSeparator: { width: 1, backgroundColor: theme.colors.divider },
+    footerActionText: { fontSize: 16, color: theme.colors.button.primary.background, ...Typography.default('semiBold') },
+    footerDeleteText: { fontSize: 16, color: theme.colors.status.error, ...Typography.default('semiBold') },
     busy: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.45)' },
 }));

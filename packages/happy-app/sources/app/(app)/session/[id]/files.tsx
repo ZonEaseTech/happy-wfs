@@ -21,7 +21,7 @@ import { FileIcon } from '@/components/FileIcon';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { shellEscape } from '@/utils/shellEscape';
-import { getWorkspaceRepos } from '@/utils/workspaceRepos';
+import { getDiscoveredWorkspaceRepos, getWorkspaceRepos, type WorkspaceRepo } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
 import { useRightPanelHeaderSlot } from '@/components/RightPanel';
 
@@ -118,8 +118,15 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     const isOnline = session?.presence === "online";
     const commandCwd = session?.metadata?.path || '';
 
-    // Multi-repo workspace support
-    const workspaceRepos = getWorkspaceRepos(session?.metadata);
+    // Multi-repo workspace support. Metadata-provided repos win; when a
+    // plain workspace cwd is not a git repo we can still discover child repos
+    // and reuse the same selector/status flow without persisting metadata.
+    const metadataWorkspaceRepos = React.useMemo(
+        () => getWorkspaceRepos(session?.metadata),
+        [session?.metadata],
+    );
+    const [autoWorkspaceRepos, setAutoWorkspaceRepos] = React.useState<WorkspaceRepo[]>([]);
+    const workspaceRepos = metadataWorkspaceRepos.length > 0 ? metadataWorkspaceRepos : autoWorkspaceRepos;
     const [selectedRepoIndex, setSelectedRepoIndex] = React.useState(0);
     const selectedRepo = workspaceRepos[selectedRepoIndex];
 
@@ -161,6 +168,13 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
 
     // Track whether initial git status data has been fully loaded.
     const initialLoadDone = React.useRef(false);
+
+    React.useEffect(() => {
+        setSelectedRepoIndex(0);
+        setAutoWorkspaceRepos([]);
+        setNearbyRepos([]);
+        setAdHocRepoPath(null);
+    }, [sessionId, commandCwd]);
 
     // Load git status files
     const loadGitStatusFiles = React.useCallback(async (silent: boolean = false) => {
@@ -346,7 +360,7 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
         initialLoadDone.current = false;
         loadGitStatusFiles(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sessionId, selectedRepoIndex, adHocRepoPath]);
+    }, [sessionId, selectedRepoIndex, adHocRepoPath, effectiveRepoPath, commandCwd]);
 
     // When the active path turns out NOT to be a git repo:
     // - Standalone: redirect to the unified file browser (which lists everything + can create files)
@@ -357,19 +371,44 @@ export default function FilesScreen(props?: { sessionId?: string; embedded?: boo
     // entry nor an ad-hoc repo selected — falling back to the session's
     // metadata.path means "scan the dir Claude was started in".
     React.useEffect(() => {
-        if (isLoading || gitStatusFiles || !repoBaseCwd || adHocRepoPath) {
-            return;
-        }
-        if (!embedded) {
-            router.replace(`/session/${sessionId}/browser`);
+        if (
+            isLoading ||
+            gitStatusFiles ||
+            !repoBaseCwd ||
+            adHocRepoPath ||
+            metadataWorkspaceRepos.length > 0 ||
+            autoWorkspaceRepos.length > 0
+        ) {
             return;
         }
         let cancelled = false;
         findNearbyGitRepos(sessionId, repoBaseCwd).then((repos) => {
-            if (!cancelled) setNearbyRepos(repos);
+            if (cancelled) return;
+            const discoveredRepos = getDiscoveredWorkspaceRepos(repos);
+            if (discoveredRepos.length > 0) {
+                setNearbyRepos([]);
+                setAutoWorkspaceRepos(discoveredRepos);
+                setSelectedRepoIndex(0);
+                return;
+            }
+            if (!embedded) {
+                router.replace(`/session/${sessionId}/browser`);
+                return;
+            }
+            setNearbyRepos(repos);
         });
         return () => { cancelled = true; };
-    }, [sessionId, repoBaseCwd, isLoading, gitStatusFiles, adHocRepoPath, embedded, router]);
+    }, [
+        sessionId,
+        repoBaseCwd,
+        isLoading,
+        gitStatusFiles,
+        adHocRepoPath,
+        embedded,
+        router,
+        metadataWorkspaceRepos.length,
+        autoWorkspaceRepos.length,
+    ]);
 
     // Refresh silently when screen is focused (after returning from file view)
     useFocusEffect(

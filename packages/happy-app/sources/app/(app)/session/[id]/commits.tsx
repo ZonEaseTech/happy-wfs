@@ -8,7 +8,7 @@ import { Typography } from '@/constants/Typography';
 import { sessionBash } from '@/sync/ops';
 import { findNearbyGitRepos, type NearbyGitRepo } from '@/sync/gitStatusFiles';
 import { getSession } from '@/sync/storage';
-import { getWorkspaceRepos } from '@/utils/workspaceRepos';
+import { getDiscoveredWorkspaceRepos, getWorkspaceRepos, type WorkspaceRepo } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
@@ -73,8 +73,15 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
     const session = getSession(sessionId);
     const sessionPath = session?.metadata?.path || '';
 
-    // Multi-repo workspace support
-    const workspaceRepos = getWorkspaceRepos(session?.metadata);
+    // Multi-repo workspace support. If the session path is a plain workspace
+    // directory rather than a git repo, auto-discovered child repos are used as
+    // transient workspace repos so the existing tabs still appear.
+    const metadataWorkspaceRepos = React.useMemo(
+        () => getWorkspaceRepos(session?.metadata),
+        [session?.metadata],
+    );
+    const [autoWorkspaceRepos, setAutoWorkspaceRepos] = React.useState<WorkspaceRepo[]>([]);
+    const workspaceRepos = metadataWorkspaceRepos.length > 0 ? metadataWorkspaceRepos : autoWorkspaceRepos;
     const [selectedRepoIndex, setSelectedRepoIndex] = React.useState(0);
     const selectedRepo = workspaceRepos[selectedRepoIndex];
     const repoBaseCwd = selectedRepo?.path || sessionPath;
@@ -99,6 +106,13 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
 
     // Worktree branch→path mapping
     const [worktreeMap, setWorktreeMap] = React.useState<Record<string, string>>({});
+
+    React.useEffect(() => {
+        setSelectedRepoIndex(0);
+        setAutoWorkspaceRepos([]);
+        setNearbyRepos([]);
+        setAdHocRepoPath(null);
+    }, [sessionId, sessionPath]);
 
     // Load branches and worktree list on mount (re-runs when selected repo changes)
     React.useEffect(() => {
@@ -245,10 +259,23 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
                 if (!append) {
                     const isNotGitRepo = !!response.error && /not a git repository/i.test(response.error);
                     if (isNotGitRepo) {
+                        const repos = await findNearbyGitRepos(sessionId, activeCwd);
+                        const discoveredRepos = getDiscoveredWorkspaceRepos(repos);
+                        if (
+                            !adHocRepoPath &&
+                            metadataWorkspaceRepos.length === 0 &&
+                            autoWorkspaceRepos.length === 0 &&
+                            discoveredRepos.length > 0
+                        ) {
+                            setNearbyRepos([]);
+                            setAutoWorkspaceRepos(discoveredRepos);
+                            setSelectedRepoIndex(0);
+                            setHasMore(true);
+                            setError(null);
+                            return;
+                        }
+                        setNearbyRepos(repos);
                         setError(t('commits.notAGitRepo'));
-                        void findNearbyGitRepos(sessionId, activeCwd).then((repos) => {
-                            setNearbyRepos(repos);
-                        });
                     } else {
                         setError(response.error || t('commits.failedToLoad'));
                     }
@@ -262,7 +289,15 @@ export default function CommitsScreen(props?: { sessionId?: string; embedded?: b
             setIsLoading(false);
             setIsLoadingMore(false);
         }
-    }, [sessionId, activeCwd, fileFilter, selectedBranch]);
+    }, [
+        sessionId,
+        activeCwd,
+        fileFilter,
+        selectedBranch,
+        adHocRepoPath,
+        metadataWorkspaceRepos.length,
+        autoWorkspaceRepos.length,
+    ]);
 
     React.useEffect(() => {
         loadCommits(0, false);

@@ -47,7 +47,7 @@ import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
-import { getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } from '@/utils/newSessionDefaults';
+import { getInitialNewSessionAgentType, getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } from '@/utils/newSessionDefaults';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -398,14 +398,15 @@ function NewSessionWizard() {
 
     const [profileMenuVisible, setProfileMenuVisible] = React.useState(false);
     const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
-        // Check if agent type was provided in temp data
-        if (tempSessionData?.agentType) {
-            return tempSessionData.agentType;
-        }
-        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini') {
-            return lastUsedAgent;
-        }
-        return 'claude';
+        const fallbackAgent =
+            tempSessionData?.agentType
+            || (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini'
+                ? lastUsedAgent
+                : 'claude');
+        const selectedProfile = selectedProfileId
+            ? profileMap.get(selectedProfileId) || getBuiltInProfile(selectedProfileId)
+            : null;
+        return getInitialNewSessionAgentType(selectedProfile, fallbackAgent);
     });
     const lastUsedSessionMode = useSessionModeLastUsed(agentType);
     const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', ModelMode>>>({});
@@ -1155,28 +1156,18 @@ function NewSessionWizard() {
         if (profile) {
             // Auto-select agent based on profile's EXCLUSIVE compatibility
             // Only switch if profile supports exactly one CLI - scales automatically with new agents
-            const supportedCLIs = (Object.entries(profile.compatibility) as [string, boolean][])
-                .filter(([, supported]) => supported)
-                .map(([agent]) => agent);
-
-            if (supportedCLIs.length === 1) {
-                const requiredAgent = supportedCLIs[0] as 'claude' | 'codex' | 'gemini';
-                // Check if this agent is available
-                const isAvailable = cliAvailability[requiredAgent] !== false;
-
-                if (isAvailable) {
-                    setAgentType(requiredAgent);
-                }
-                // If the required CLI is unavailable, keep current agent (profile will show as unavailable)
+            const nextAgent = getInitialNewSessionAgentType(profile, agentType);
+            if (nextAgent !== agentType) {
+                setAgentType(nextAgent);
             }
-            // If supportedCLIs.length > 1, profile supports multiple CLIs - don't force agent switch
+            // If profile supports multiple CLIs, keep the current agent.
 
             // Set session type from profile's default
             if (profile.defaultSessionType) {
                 setSessionType(profile.defaultSessionType);
             }
         }
-    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini]);
+    }, [agentType, profileMap]);
 
     // Restore saved model mode when agent type changes
     React.useEffect(() => {

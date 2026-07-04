@@ -11,6 +11,7 @@ import {
     linkBugSession,
     listBugsForOwner,
     recordBugAttachment,
+    softDeleteBugForOwner,
 } from '@/app/bugs/bugService';
 
 const createBugBody = z.object({
@@ -88,6 +89,18 @@ export function bugRoutes(app: Fastify) {
         try {
             const bug = await getBugForOwner(request.userId, request.params.bugId);
             return reply.send({ bug });
+        } catch (error) {
+            return handleRouteError(reply, error);
+        }
+    });
+
+    app.delete('/v1/bugs/:bugId', {
+        preHandler: app.authenticate,
+        schema: { params: z.object({ bugId: z.string() }) },
+    }, async (request, reply) => {
+        try {
+            await softDeleteBugForOwner(request.userId, request.params.bugId, happyActor(request.userId));
+            return reply.send({ ok: true });
         } catch (error) {
             return handleRouteError(reply, error);
         }

@@ -21,9 +21,21 @@ vi.mock('./projectManager', () => ({
     createProjectKey: (machineId: string, path: string) => `${machineId}:${path}`,
 }));
 
-vi.mock('@/utils/workspaceRepos', () => ({
-    getWorkspaceRepos: () => [],
-}));
+vi.mock('@/utils/workspaceRepos', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/utils/workspaceRepos')>();
+    return {
+        ...actual,
+        getWorkspaceRepos: () => [],
+    };
+});
+
+vi.mock('./gitStatusFiles', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./gitStatusFiles')>();
+    return {
+        ...actual,
+        findNearbyGitRepos: vi.fn(),
+    };
+});
 
 vi.mock('./gitStatusRefreshPolicy', () => ({
     decideNotGitRefreshOutcome: () => ({ action: 'clear', nextConsecutiveNotGitDetections: 1 }),
@@ -37,6 +49,7 @@ vi.mock('./gitStatusSessionSelection', () => ({
 import { GitStatusSync } from './gitStatusSync';
 import { getSession, storage } from './storage';
 import { sessionBash } from './ops';
+import { findNearbyGitRepos } from './gitStatusFiles';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,6 +76,10 @@ function makeGitOutput() {
     const diff = '';
     const cachedDiff = '';
     return [revParse, status, diff, cachedDiff].join(DELIM);
+}
+
+function makeGitOutputFromSections(status: string, diff = '', cachedDiff = '') {
+    return ['true', status, diff, cachedDiff].join(DELIM);
 }
 
 function mockSessionFound(sessionId: string) {
@@ -178,6 +195,86 @@ describe('GitStatusSync', () => {
             expect(sessionBash).toHaveBeenCalledTimes(2); // not yet
             await vi.advanceTimersByTimeAsync(2_600);
             expect(sessionBash).toHaveBeenCalledTimes(3);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Auto-discovered child repositories
+    // -----------------------------------------------------------------------
+
+    describe('auto-discovered child repositories', () => {
+        it('aggregates child repo status when the session cwd is not a git repository', async () => {
+            const sid = 'session-1';
+            const workspacePath = '/workspace';
+            const session = makeSession(MACHINE, workspacePath);
+            const applyGitStatus = vi.fn();
+
+            vi.mocked(getSession).mockImplementation((id) => (id === sid ? session as any : null));
+            vi.mocked(storage.getState).mockReturnValue({
+                sessions: { [sid]: session },
+                sharedSessions: {},
+                applyGitStatus,
+            } as any);
+
+            vi.mocked(findNearbyGitRepos).mockResolvedValue([
+                { path: '/workspace/repo-a', name: 'repo-a' },
+                { path: '/workspace/repo-b', name: 'repo-b' },
+            ]);
+
+            vi.mocked(sessionBash)
+                .mockResolvedValueOnce({
+                    success: false,
+                    exitCode: 128,
+                    stdout: '',
+                    stderr: 'fatal: not a git repository (or any of the parent directories): .git',
+                })
+                .mockResolvedValueOnce({
+                    success: true,
+                    exitCode: 0,
+                    stdout: makeGitOutputFromSections(
+                        [
+                            '# branch.oid abc123',
+                            '# branch.head main',
+                            '1 .M N... 100644 100644 100644 abc123 abc123 src/a.ts',
+                            '? docs/new.md',
+                        ].join('\n'),
+                        '3\t1\tsrc/a.ts',
+                    ),
+                    stderr: '',
+                })
+                .mockResolvedValueOnce({
+                    success: true,
+                    exitCode: 0,
+                    stdout: makeGitOutputFromSections(
+                        [
+                            '# branch.oid def456',
+                            '# branch.head feature/b',
+                            '1 M. N... 100644 100644 100644 def456 def456 src/b.ts',
+                        ].join('\n'),
+                        '',
+                        '5\t2\tsrc/b.ts',
+                    ),
+                    stderr: '',
+                });
+
+            sync.invalidate(sid);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(findNearbyGitRepos).toHaveBeenCalledWith(sid, workspacePath);
+            expect(sessionBash).toHaveBeenCalledTimes(3);
+            expect(applyGitStatus).toHaveBeenCalledWith(sid, expect.objectContaining({
+                branch: 'main',
+                isDirty: true,
+                modifiedCount: 2,
+                untrackedCount: 1,
+                stagedCount: 1,
+                linesAdded: 8,
+                linesRemoved: 3,
+                unstagedLinesAdded: 3,
+                unstagedLinesRemoved: 1,
+                stagedLinesAdded: 5,
+                stagedLinesRemoved: 2,
+            }));
         });
     });
 

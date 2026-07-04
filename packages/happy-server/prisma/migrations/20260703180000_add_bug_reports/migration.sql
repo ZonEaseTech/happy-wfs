@@ -10,6 +10,7 @@ CREATE TABLE "BugReport" (
     "status" TEXT NOT NULL DEFAULT 'pending',
     "visibility" TEXT NOT NULL DEFAULT 'shared',
     "lastActivityAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "BugReport_pkey" PRIMARY KEY ("id")
@@ -70,6 +71,7 @@ CREATE TABLE "BugShareConfig" (
 CREATE UNIQUE INDEX "BugReport_displayNumber_key" ON "BugReport"("displayNumber");
 CREATE INDEX "BugReport_ownerId_status_lastActivityAt_idx" ON "BugReport"("ownerId", "status", "lastActivityAt" DESC);
 CREATE INDEX "BugReport_ownerId_lastActivityAt_idx" ON "BugReport"("ownerId", "lastActivityAt" DESC);
+CREATE INDEX "BugReport_ownerId_deletedAt_lastActivityAt_idx" ON "BugReport"("ownerId", "deletedAt", "lastActivityAt" DESC);
 CREATE INDEX "BugReport_sessionId_idx" ON "BugReport"("sessionId");
 CREATE INDEX "BugComment_bugId_createdAt_idx" ON "BugComment"("bugId", "createdAt");
 CREATE INDEX "BugAttachment_bugId_createdAt_idx" ON "BugAttachment"("bugId", "createdAt");

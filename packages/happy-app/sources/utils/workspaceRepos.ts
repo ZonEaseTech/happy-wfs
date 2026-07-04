@@ -54,6 +54,31 @@ export function getWorkspaceRepos(metadata: Metadata | null | undefined): Worksp
 }
 
 /**
+ * Convert git repositories discovered under a non-git workspace directory into
+ * transient workspace repo entries. These are not persisted to session
+ * metadata; they let status/files/commits reuse the existing multi-repo paths.
+ */
+export function getDiscoveredWorkspaceRepos(
+    repos: Array<{ path: string; name?: string }>,
+): WorkspaceRepo[] {
+    const seen = new Set<string>();
+    const result: WorkspaceRepo[] = [];
+
+    for (const repo of repos) {
+        if (!repo.path || seen.has(repo.path)) continue;
+        seen.add(repo.path);
+        result.push({
+            path: repo.path,
+            basePath: repo.path,
+            branchName: '',
+            displayName: repo.name || repo.path.split('/').pop() || repo.path,
+        });
+    }
+
+    return result;
+}
+
+/**
  * Check if a session is a multi-repo workspace (not legacy single-repo).
  */
 export function isMultiRepoWorkspace(metadata: Metadata | null | undefined): boolean {

@@ -74,7 +74,7 @@ function bugMatchesQuery(row: any, query: string): boolean {
 
 async function findBugRowForOwner(tx: Tx | typeof db, ownerId: string, bugId: string) {
     const row = await bugDb(tx).bugReport.findFirst({
-        where: { id: bugId, ownerId },
+        where: { id: bugId, ownerId, deletedAt: null },
         include: detailInclude,
     });
     if (!row) throw errorWithStatus(404, 'Bug not found');
@@ -85,6 +85,7 @@ export async function listBugsForOwner(ownerId: string, input: { status?: string
     const status = input.status ? BugStatusSchema.parse(input.status) : undefined;
     const where = {
         ownerId,
+        deletedAt: null,
         ...(status ? { status } : {}),
         ...(input.publicOnly ? { visibility: 'shared' } : {}),
     };
@@ -98,6 +99,7 @@ export async function listBugsForOwner(ownerId: string, input: { status?: string
         bugDb().bugReport.count({
             where: {
                 ownerId,
+                deletedAt: null,
                 status: 'pending',
                 ...(input.publicOnly ? { visibility: 'shared' } : {}),
             },
@@ -205,6 +207,30 @@ export async function changeBugStatus(ownerId: string, bugId: string, actor: Bug
         return await bugDb(tx).bugReport.findUnique({ where: { id: bugId }, include: detailInclude });
     });
     return presentBugDetail(row);
+}
+
+export async function softDeleteBugForOwner(ownerId: string, bugId: string, actor: BugActor) {
+    const nickname = actorNickname(actor);
+    const userId = actorUserId(actor);
+    await inTx(async (tx) => {
+        const bug = await findBugRowForOwner(tx, ownerId, bugId);
+        const now = new Date();
+        await bugDb(tx).bugReport.update({
+            where: { id: bugId },
+            data: { deletedAt: now, lastActivityAt: now },
+        });
+        await bugDb(tx).bugStatusHistory.create({
+            data: {
+                bugId,
+                actorUserId: userId,
+                actorNickname: nickname,
+                action: 'deleted',
+                fromStatus: bug.status,
+                toStatus: bug.status,
+                note: 'delete_hide',
+            },
+        });
+    });
 }
 
 export async function linkBugSession(ownerId: string, bugId: string, sessionId: string, actor: BugActor) {

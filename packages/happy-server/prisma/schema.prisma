@@ -379,6 +379,7 @@ model BugReport {
   status            String             @default("pending")
   visibility        String             @default("shared")
   lastActivityAt    DateTime           @default(now())
+  deletedAt         DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   comments          BugComment[]
@@ -387,6 +388,7 @@ model BugReport {
 
   @@index([ownerId, status, lastActivityAt(sort: Desc)])
   @@index([ownerId, lastActivityAt(sort: Desc)])
+  @@index([ownerId, deletedAt, lastActivityAt(sort: Desc)])
   @@index([sessionId])
 }
 

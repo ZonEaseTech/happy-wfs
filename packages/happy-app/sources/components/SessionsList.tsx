@@ -31,7 +31,7 @@ import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { useAuth } from '@/auth/AuthContext';
 import { listGitHubIssues, saveGitHubToken, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
-import { addBugComment, changeBugStatus, createBug, createOrRotateBugShareConfig, getBug, getBugShareConfig, listBugs, uploadBugAttachment } from '@/sync/apiBugs';
+import { addBugComment, changeBugStatus, createBug, createOrRotateBugShareConfig, deleteBug, getBug, getBugShareConfig, listBugs, uploadBugAttachment } from '@/sync/apiBugs';
 import { BUG_IMAGE_LIMITS, matchesBugSearch, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import type { LocalImage } from '@/components/ImagePreview';
 import { storeTempData } from '@/utils/tempDataStore';
@@ -1381,6 +1381,11 @@ export function SessionsList() {
         }
     }, [auth.credentials]);
 
+    const removePendingBug = React.useCallback((bugId: string) => {
+        setPendingBugs((current) => current.filter((item) => item.id !== bugId));
+        setPendingBugCount((current) => Math.max(0, current - (pendingBugs.find((item) => item.id === bugId && item.status === 'pending') ? 1 : 0)));
+    }, [pendingBugs]);
+
     const uploadBugImages = React.useCallback(async (bugId: string, images: LocalImage[], commentId?: string): Promise<BugReportDetail> => {
         if (!auth.credentials) throw new Error('Missing credentials');
         let updated: BugReportDetail | null = null;
@@ -1450,13 +1455,18 @@ export function SessionsList() {
                         updatePendingBug(updated);
                         return updated;
                     },
+                    onDelete: async (current: BugReportDetail) => {
+                        if (!auth.credentials) throw new Error('Missing credentials');
+                        await deleteBug(auth.credentials, current.id);
+                        removePendingBug(current.id);
+                    },
                     onStartSession: handleStartBug,
                 },
             });
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         }
-    }, [auth.credentials, handleStartBug, updatePendingBug, uploadBugImages]);
+    }, [auth.credentials, handleStartBug, removePendingBug, updatePendingBug, uploadBugImages]);
 
     const handleCreateBug = React.useCallback(() => {
         if (!auth.credentials) return;

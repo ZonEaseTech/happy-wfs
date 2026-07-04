@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLAUDE_NEW_SESSION_DEFAULT_MODEL, getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } from './newSessionDefaults';
+import { CLAUDE_NEW_SESSION_DEFAULT_MODEL, getInitialNewSessionAgentType, getInitialNewSessionModelMode, getInitialNewSessionPermissionMode } from './newSessionDefaults';
 import { CODEX_COPY_SESSION_MODEL_MODE } from './copySessionDefaults';
 
 describe('new session model defaults', () => {
@@ -33,5 +33,21 @@ describe('new session permission defaults', () => {
         expect(getInitialNewSessionPermissionMode('default')).toBe('yolo');
         expect(getInitialNewSessionPermissionMode('acceptEdits')).toBe('yolo');
         expect(getInitialNewSessionPermissionMode('read-only')).toBe('yolo');
+    });
+});
+
+describe('new session agent defaults', () => {
+    it('uses the selected top profile instead of temp agent data for the default agent', () => {
+        expect(getInitialNewSessionAgentType(
+            { compatibility: { claude: true, codex: false, gemini: false } },
+            'codex',
+        )).toBe('claude');
+    });
+
+    it('uses a Codex-only selected profile as the default agent', () => {
+        expect(getInitialNewSessionAgentType(
+            { compatibility: { claude: false, codex: true, gemini: false } },
+            'claude',
+        )).toBe('codex');
     });
 });
