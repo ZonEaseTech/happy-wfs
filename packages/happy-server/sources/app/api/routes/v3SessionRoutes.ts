@@ -27,13 +27,15 @@ const getMessagesQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
+const MAX_SEND_MESSAGES_PER_REQUEST = 1000;
+
 const sendMessagesBodySchema = z.object({
     messages: z.array(z.object({
         content: z.string(),
         localId: z.string().min(1),
         trackCliDelivery: z.boolean().optional().default(false),
         mentionTargetUserIds: z.array(z.string()).max(20).optional().default([]),
-    })).min(1).max(200),
+    })).min(1).max(MAX_SEND_MESSAGES_PER_REQUEST),
 });
 
 const sendMessageBodySchema = z.object({

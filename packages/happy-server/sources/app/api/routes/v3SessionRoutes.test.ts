@@ -858,6 +858,29 @@ describe("v3SessionRoutes", () => {
         expect(emitToSessionSubscribersMock).toHaveBeenCalledTimes(3);
     });
 
+    it("accepts reconnect outbox uploads larger than the CLI chunk size", async () => {
+        seedSession({ id: "session-1", accountId: "user-1", seq: 0 });
+
+        app = await createApp();
+        const response = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/messages",
+            headers: { "x-user-id": "user-1" },
+            payload: {
+                messages: Array.from({ length: 401 }, (_, index) => ({
+                    localId: `l${index}`,
+                    content: `enc-${index}`,
+                })),
+            },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        expect(body.messages).toHaveLength(401);
+        expect(body.messages[0].seq).toBe(1);
+        expect(body.messages[400].seq).toBe(401);
+    });
+
     it("deduplicates by localId and returns mixed existing/new messages sorted by seq", async () => {
         seedSession({ id: "session-1", accountId: "user-1", seq: 1 });
         seedMessage({ sessionId: "session-1", seq: 1, localId: "existing", content: { t: "encrypted", c: "old" } });
@@ -1111,7 +1134,7 @@ describe("v3SessionRoutes", () => {
             url: "/v3/sessions/session-1/messages",
             headers: { "x-user-id": "owner-user" },
             payload: {
-                messages: Array.from({ length: 201 }, (_, index) => ({
+                messages: Array.from({ length: 1001 }, (_, index) => ({
                     localId: `l-${index}`,
                     content: `enc-${index}`
                 }))
