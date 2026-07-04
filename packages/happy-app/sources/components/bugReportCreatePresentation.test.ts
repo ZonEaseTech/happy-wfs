@@ -3,6 +3,7 @@ import {
     getBugCreateImageCountLabel,
     getBugCreatePreviewTitle,
     getBugCreateRemainingImageSlots,
+    shouldShowBugCreateEmptyHint,
     isBugCreateSubmitEnabled,
 } from './bugReportCreatePresentation';
 
@@ -27,5 +28,12 @@ describe('bug report create presentation', () => {
         expect(isBugCreateSubmitEnabled('  ', false)).toBe(false);
         expect(isBugCreateSubmitEnabled('问题说明', true)).toBe(false);
         expect(isBugCreateSubmitEnabled('问题说明', false)).toBe(true);
+    });
+
+    it('shows the editor hint only when the whole note is empty', () => {
+        expect(shouldShowBugCreateEmptyHint('', 0)).toBe(true);
+        expect(shouldShowBugCreateEmptyHint('   ', 0)).toBe(true);
+        expect(shouldShowBugCreateEmptyHint('', 1)).toBe(false);
+        expect(shouldShowBugCreateEmptyHint('已有说明', 0)).toBe(false);
     });
 });

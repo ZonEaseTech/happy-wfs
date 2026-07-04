@@ -206,6 +206,7 @@ export default function PublicBugBoardPage() {
             onLogout={() => board.logout()}
         />
     );
+    const isDesktopEmpty = filteredBugs.length === 0;
 
     if (isWide) {
         return (
@@ -223,31 +224,42 @@ export default function PublicBugBoardPage() {
                             <Ionicons name="log-out-outline" size={20} color={theme.colors.text} />
                         </Pressable>
                     </View>
-                    <View style={styles.desktopColumns}>
-                        <ScrollView style={styles.leftPanel} contentContainerStyle={styles.leftPanelContent} refreshControl={<RefreshControl refreshing={board.loading} onRefresh={refreshBoard} tintColor={theme.colors.textSecondary} />}>
-                            {header}
-                            {filteredBugs.length === 0 ? (
+                    {isDesktopEmpty ? (
+                        <View style={styles.desktopEmptyShell}>
+                            <ScrollView
+                                style={styles.desktopEmptyPanel}
+                                contentContainerStyle={styles.desktopEmptyPanelContent}
+                                refreshControl={<RefreshControl refreshing={board.loading} onRefresh={refreshBoard} tintColor={theme.colors.textSecondary} />}
+                            >
+                                {header}
                                 <BugBoardEmpty query={query} loading={board.loading} />
-                            ) : filteredBugs.map((bug) => (
-                                <PublicBugListItem
-                                    key={bug.id}
-                                    bug={bug}
-                                    selected={bug.id === selectedBugId}
-                                    onPress={showBugDetail}
-                                />
-                            ))}
-                        </ScrollView>
-                        <View style={styles.detailPanel}>
-                            <PublicBugDetailPane
-                                bug={selectedBugDetail}
-                                loading={detailLoading}
-                                onBugUpdated={handleInlineBugUpdated}
-                                onAddComment={async (current, body, images) => board.addCommentWithImages(current.id, body, images)}
-                                onUploadImages={async (current, images, commentId) => board.uploadImages(current.id, images, commentId)}
-                                onChangeStatus={async (current, status, action) => board.changeStatus(current.id, status, action)}
-                            />
+                            </ScrollView>
                         </View>
-                    </View>
+                    ) : (
+                        <View style={styles.desktopColumns}>
+                            <ScrollView style={styles.leftPanel} contentContainerStyle={styles.leftPanelContent} refreshControl={<RefreshControl refreshing={board.loading} onRefresh={refreshBoard} tintColor={theme.colors.textSecondary} />}>
+                                {header}
+                                {filteredBugs.map((bug) => (
+                                    <PublicBugListItem
+                                        key={bug.id}
+                                        bug={bug}
+                                        selected={bug.id === selectedBugId}
+                                        onPress={showBugDetail}
+                                    />
+                                ))}
+                            </ScrollView>
+                            <View style={styles.detailPanel}>
+                                <PublicBugDetailPane
+                                    bug={selectedBugDetail}
+                                    loading={detailLoading}
+                                    onBugUpdated={handleInlineBugUpdated}
+                                    onAddComment={async (current, body, images) => board.addCommentWithImages(current.id, body, images)}
+                                    onUploadImages={async (current, images, commentId) => board.uploadImages(current.id, images, commentId)}
+                                    onChangeStatus={async (current, status, action) => board.changeStatus(current.id, status, action)}
+                                />
+                            </View>
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -617,7 +629,7 @@ function PublicBugDetailPane({
 const stylesheet = StyleSheet.create((theme) => ({
     screen: {
         flex: 1,
-        backgroundColor: theme.colors.groupped.background,
+        backgroundColor: '#F5F5F4',
         alignItems: 'center',
     },
     loginCard: {
@@ -626,7 +638,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         marginTop: 88,
         padding: 20,
         borderRadius: 24,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: '#FFFFFF',
         gap: 12,
     },
     desktopShell: {
@@ -649,13 +661,31 @@ const stylesheet = StyleSheet.create((theme) => ({
         gap: 16,
         minHeight: 0,
     },
+    desktopEmptyShell: {
+        flex: 1,
+        alignItems: 'center',
+        minHeight: 0,
+    },
+    desktopEmptyPanel: {
+        width: '100%',
+        maxWidth: 640,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 28,
+        borderWidth: 1,
+        borderColor: '#E6E2DC',
+    },
+    desktopEmptyPanelContent: {
+        paddingVertical: 16,
+        paddingBottom: 64,
+        minHeight: 620,
+    },
     leftPanel: {
         width: 440,
         flexShrink: 0,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: '#FFFFFF',
         borderRadius: 28,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
+        borderColor: '#E6E2DC',
     },
     leftPanelContent: {
         paddingVertical: 16,
@@ -663,10 +693,10 @@ const stylesheet = StyleSheet.create((theme) => ({
     detailPanel: {
         flex: 1,
         minWidth: 0,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: '#FFFFFF',
         borderRadius: 28,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
+        borderColor: '#E6E2DC',
         overflow: 'hidden',
     },
     listContent: {
@@ -722,11 +752,11 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     statCard: {
         flexGrow: 1,
-        flexBasis: 96,
+        flexBasis: 86,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
-        backgroundColor: theme.colors.surface,
+        borderColor: '#E9E4DD',
+        backgroundColor: '#FFFFFF',
         padding: 12,
     },
     statNumber: {
@@ -756,8 +786,8 @@ const stylesheet = StyleSheet.create((theme) => ({
         gap: 7,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
-        backgroundColor: theme.colors.surface,
+        borderColor: '#E8E3DC',
+        backgroundColor: '#FFFFFF',
         paddingHorizontal: 12,
         paddingVertical: 9,
     },
@@ -784,7 +814,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 14,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.surfaceHigh,
+        backgroundColor: '#F4F4F2',
     },
     searchInput: {
         flex: 1,
@@ -796,7 +826,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     filterNote: {
         color: '#8A5200',
         backgroundColor: '#FFF8DB',
-        borderColor: '#F3DF9A',
+        borderColor: '#F0DE9C',
         borderWidth: 1,
         borderRadius: 14,
         paddingHorizontal: 12,
@@ -824,24 +854,27 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: theme.colors.surface,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E8E3DC',
     },
     bugItem: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        backgroundColor: theme.colors.surface,
-        borderRadius: 18,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 22,
         paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingVertical: 16,
         marginHorizontal: 16,
         marginBottom: 10,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
+        borderColor: '#E9E4DD',
     },
     bugItemSelected: {
         borderWidth: 2,
-        borderColor: theme.colors.text,
+        borderColor: '#111111',
+        backgroundColor: '#FFFEFB',
     },
     bugIconCircle: {
         width: 40,
@@ -893,7 +926,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 30,
         paddingVertical: 26,
         borderBottomWidth: 1,
-        borderBottomColor: theme.colors.divider,
+        borderBottomColor: '#ECE7E0',
     },
     detailKicker: {
         color: theme.colors.textSecondary,
@@ -917,15 +950,15 @@ const stylesheet = StyleSheet.create((theme) => ({
         minWidth: 0,
     },
     detailMainContent: {
-        padding: 28,
+        padding: 30,
         paddingBottom: 48,
     },
     detailSide: {
-        width: 280,
+        width: 286,
         borderLeftWidth: 1,
-        borderLeftColor: theme.colors.divider,
+        borderLeftColor: '#ECE7E0',
         padding: 22,
-        backgroundColor: theme.colors.surfaceHigh,
+        backgroundColor: '#FAFAF9',
     },
     sectionTitle: {
         color: theme.colors.text,
@@ -937,12 +970,12 @@ const stylesheet = StyleSheet.create((theme) => ({
     descriptionBox: {
         color: theme.colors.text,
         lineHeight: 24,
-        backgroundColor: theme.colors.surfaceHigh,
+        backgroundColor: '#FBFBFA',
         borderWidth: 1,
-        borderColor: theme.colors.divider,
-        borderRadius: 20,
-        padding: 18,
-        marginBottom: 18,
+        borderColor: '#E8E4DE',
+        borderRadius: 22,
+        padding: 20,
+        marginBottom: 22,
         ...Typography.default(),
     },
     muted: {
@@ -953,12 +986,12 @@ const stylesheet = StyleSheet.create((theme) => ({
     attachmentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
     attachmentImage: { width: 118, height: 88, borderRadius: 12, backgroundColor: theme.colors.surfaceHigh },
     commentImage: { width: 74, height: 58, borderRadius: 9, backgroundColor: theme.colors.surfaceHigh, marginTop: 8 },
-    commentCard: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 16, padding: 14, marginBottom: 10 },
+    commentCard: { backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1, borderColor: '#EEE9E3', padding: 16, marginBottom: 10 },
     commentAuthor: { color: theme.colors.textSecondary, fontSize: 12, ...Typography.default('semiBold') },
     commentBody: { color: theme.colors.text, marginTop: 6, lineHeight: 20, ...Typography.default() },
-    commentInput: { minHeight: 76, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 14, padding: 12, color: theme.colors.text, backgroundColor: theme.colors.input.background, ...Typography.default() },
+    commentInput: { minHeight: 86, borderWidth: 1, borderColor: '#E3E0DA', borderRadius: 18, padding: 14, color: theme.colors.text, backgroundColor: '#FAFAF8', ...Typography.default() },
     inlineActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 18 },
-    secondaryButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceHigh },
+    secondaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 13, backgroundColor: '#F4F4F2' },
     secondaryButtonText: { color: theme.colors.text, ...Typography.default('semiBold') },
     smallPrimaryButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.button.primary.background },
     statusActionRow: {
@@ -968,13 +1001,15 @@ const stylesheet = StyleSheet.create((theme) => ({
         gap: 8,
         borderRadius: 15,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
+        borderColor: '#E4E2DE',
         paddingHorizontal: 12,
         marginBottom: 9,
+        backgroundColor: '#FFFFFF',
     },
     statusActionRowCurrent: {
         borderWidth: 2,
-        borderColor: theme.colors.text,
+        borderColor: '#111111',
+        backgroundColor: '#FFFEFB',
     },
     statusActionText: { color: theme.colors.text, flex: 1, ...Typography.default('semiBold') },
     statusActionMeta: { color: theme.colors.textSecondary, fontSize: 12, ...Typography.default('semiBold') },
@@ -990,16 +1025,16 @@ const stylesheet = StyleSheet.create((theme) => ({
         width: 9,
         height: 9,
         borderRadius: 5,
-        marginTop: 12,
+        marginTop: 13,
     },
     historyCard: {
         flex: 1,
-        borderRadius: 14,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
-        backgroundColor: theme.colors.surface,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        borderColor: '#E9E5DE',
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 13,
+        paddingVertical: 11,
     },
     historyText: {
         color: theme.colors.text,

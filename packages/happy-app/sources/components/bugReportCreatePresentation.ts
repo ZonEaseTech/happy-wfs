@@ -19,3 +19,7 @@ export function getBugCreateRemainingImageSlots(imageCount: number, maxImages: n
 export function isBugCreateSubmitEnabled(description: string, submitting: boolean): boolean {
     return description.trim().length > 0 && !submitting;
 }
+
+export function shouldShowBugCreateEmptyHint(description: string, imageCount: number): boolean {
+    return description.trim().length === 0 && imageCount <= 0;
+}

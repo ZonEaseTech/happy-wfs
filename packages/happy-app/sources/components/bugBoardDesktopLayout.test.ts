@@ -11,4 +11,24 @@ describe('bug board desktop layout', () => {
         expect(source).toContain('maxWidth: 1160');
         expect(source).toContain('gap: 16');
     });
+
+    it('uses a single centered panel instead of an empty detail pane when there are no bugs', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+
+        expect(source).toContain('const isDesktopEmpty = filteredBugs.length === 0');
+        expect(source).toContain('styles.desktopEmptyShell');
+        expect(source).toContain('styles.desktopEmptyPanel');
+    });
+
+    it('matches the V5 calm reading layout tokens', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+
+        expect(source).toContain("backgroundColor: '#F5F5F4'");
+        expect(source).toContain('borderRadius: 28');
+        expect(source).toContain('width: 286');
+        expect(source).toContain("backgroundColor: '#FBFBFA'");
+        expect(source).toContain('statusActionRowCurrent');
+        expect(source).toContain('historyCard');
+    });
+
 });

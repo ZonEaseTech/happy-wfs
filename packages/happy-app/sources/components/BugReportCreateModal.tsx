@@ -11,7 +11,7 @@ import type { LocalImage } from '@/components/ImagePreview';
 import { BUG_IMAGE_LIMITS, type BugReportDetail } from '@/sync/bugTypes';
 import { getBugRichPlainText, insertBugImageAtSelection, serializeBugRichContent, type BugEditorBlock } from '@/sync/bugRichContent';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
-import { getBugCreateRemainingImageSlots, isBugCreateSubmitEnabled } from './bugReportCreatePresentation';
+import { getBugCreateRemainingImageSlots, isBugCreateSubmitEnabled, shouldShowBugCreateEmptyHint } from './bugReportCreatePresentation';
 
 let bugEditorBlockId = 0;
 function createBlockId(prefix: string): string {
@@ -67,6 +67,7 @@ export function BugReportCreateModal({
     const plainText = getBugRichPlainText(blocks);
     const canSubmit = isBugCreateSubmitEnabled(plainText, submitting);
     const remainingImageSlots = getBugCreateRemainingImageSlots(imageCount, BUG_IMAGE_LIMITS.maxImages);
+    const showEmptyHint = shouldShowBugCreateEmptyHint(plainText, imageCount);
 
     const focusTextBlock = React.useCallback((id: string) => {
         activeTextBlockIdRef.current = id;
@@ -245,7 +246,12 @@ export function BugReportCreateModal({
                     <Text style={styles.imageCount}>{t('bug.imageCounter', { count: imageCount, max: BUG_IMAGE_LIMITS.maxImages })}</Text>
                 </View>
                 <ScrollView {...paperWebDropProps} style={styles.paper} contentContainerStyle={styles.paperContent} keyboardShouldPersistTaps="handled">
-                    {blocks.map((block, index) => {
+                    {showEmptyHint && (
+                        <Pressable style={styles.emptyEditorHint} onPress={() => focusTextBlock(firstTextBlockId.current)}>
+                            <Text style={styles.emptyEditorHintText}>{t('bug.noteStylePlaceholder')}</Text>
+                        </Pressable>
+                    )}
+                    {blocks.map((block) => {
                         if (block.type === 'image') {
                             return (
                                 <View key={block.id} style={styles.noteImageWrap}>
@@ -268,7 +274,7 @@ export function BugReportCreateModal({
                                     const selection = event.nativeEvent.selection;
                                     selectionRef.current[block.id] = { start: selection.start, end: selection.end };
                                 }}
-                                placeholder={index === 0 ? t('bug.noteStylePlaceholder') : t('bug.noteStyleContinuePlaceholder')}
+                                placeholder=""
                                 placeholderTextColor={styles.placeholder.color}
                                 multiline
                                 textAlignVertical="top"
@@ -301,9 +307,11 @@ export function BugReportCreateModal({
 
 const stylesheet = StyleSheet.create((theme) => ({
     modal: {
-        backgroundColor: theme.colors.surface,
+        backgroundColor: '#FDFBF7',
         borderRadius: 28,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E6E1D8',
     },
     modalCompact: {
         borderRadius: 22,
@@ -317,7 +325,8 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 32,
         paddingVertical: 24,
         borderBottomWidth: 1,
-        borderBottomColor: theme.colors.divider,
+        borderBottomColor: '#E8E1D4',
+        backgroundColor: '#F8F5EE',
     },
     headerText: {
         flex: 1,
@@ -363,6 +372,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 32,
         paddingTop: 24,
         paddingBottom: 16,
+        backgroundColor: '#FDFBF7',
     },
     fieldHeader: {
         flexDirection: 'row',
@@ -388,17 +398,27 @@ const stylesheet = StyleSheet.create((theme) => ({
         flex: 1,
         minHeight: 0,
         borderWidth: 1,
-        borderColor: theme.colors.divider,
+        borderColor: '#E6E1D8',
         borderRadius: 22,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: '#FFFEFB',
     },
     paperContent: {
         paddingHorizontal: 26,
         paddingVertical: 24,
-        gap: 12,
+        gap: 14,
+    },
+    emptyEditorHint: {
+        alignSelf: 'stretch',
+        paddingBottom: 4,
+    },
+    emptyEditorHintText: {
+        color: '#8A8173',
+        fontSize: 18,
+        lineHeight: 29,
+        ...Typography.default(),
     },
     noteTextInput: {
-        minHeight: 34,
+        minHeight: 32,
         color: theme.colors.text,
         fontSize: 18,
         lineHeight: 29,
@@ -412,12 +432,12 @@ const stylesheet = StyleSheet.create((theme) => ({
         position: 'relative',
         borderRadius: 16,
         overflow: 'hidden',
-        backgroundColor: theme.colors.surfaceHigh,
+        backgroundColor: '#F1ECE2',
     },
     noteImage: {
         width: '100%',
         height: 240,
-        backgroundColor: theme.colors.surfaceHigh,
+        backgroundColor: '#F1ECE2',
     },
     removeImageButton: {
         position: 'absolute',
@@ -439,8 +459,8 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 32,
         paddingVertical: 16,
         borderTopWidth: 1,
-        borderTopColor: theme.colors.divider,
-        backgroundColor: theme.colors.surface,
+        borderTopColor: '#E8E1D4',
+        backgroundColor: '#F8F5EE',
     },
     footerCompact: {
         alignItems: 'stretch',
@@ -460,8 +480,8 @@ const stylesheet = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: theme.colors.divider,
-        backgroundColor: theme.colors.surface,
+        borderColor: '#E6E1D8',
+        backgroundColor: '#FFFEFB',
     },
     imageButtonIcon: {
         color: theme.colors.text,
@@ -483,7 +503,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 15,
         paddingHorizontal: 22,
         paddingVertical: 14,
-        backgroundColor: theme.colors.surfaceHigh,
+        backgroundColor: '#EEE9DF',
     },
     cancelButtonText: {
         color: theme.colors.text,
