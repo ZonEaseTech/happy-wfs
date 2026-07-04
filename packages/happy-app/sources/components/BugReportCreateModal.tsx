@@ -246,12 +246,7 @@ export function BugReportCreateModal({
                     <Text style={styles.imageCount}>{t('bug.imageCounter', { count: imageCount, max: BUG_IMAGE_LIMITS.maxImages })}</Text>
                 </View>
                 <ScrollView {...paperWebDropProps} style={styles.paper} contentContainerStyle={styles.paperContent} keyboardShouldPersistTaps="handled">
-                    {showEmptyHint && (
-                        <Pressable style={styles.emptyEditorHint} onPress={() => focusTextBlock(firstTextBlockId.current)}>
-                            <Text style={styles.emptyEditorHintText}>{t('bug.noteStylePlaceholder')}</Text>
-                        </Pressable>
-                    )}
-                    {blocks.map((block) => {
+                    {blocks.map((block, index) => {
                         if (block.type === 'image') {
                             return (
                                 <View key={block.id} style={styles.noteImageWrap}>
@@ -266,7 +261,19 @@ export function BugReportCreateModal({
                             <TextInput
                                 key={block.id}
                                 ref={(node) => { textInputRefs.current[block.id] = node; }}
-                                style={styles.noteTextInput}
+                                style={[
+                                    styles.noteTextInput,
+                                    index === 0 && showEmptyHint && styles.emptyNoteTextInput,
+                                    Platform.OS === 'web' && {
+                                        outlineStyle: 'none',
+                                        outline: 'none',
+                                        outlineWidth: 0,
+                                        outlineColor: 'transparent',
+                                        boxShadow: 'none',
+                                        resize: 'none',
+                                        borderWidth: 0,
+                                    } as any,
+                                ]}
                                 value={block.text}
                                 onFocus={() => { activeTextBlockIdRef.current = block.id; }}
                                 onChangeText={(value) => updateTextBlock(block.id, value)}
@@ -274,7 +281,7 @@ export function BugReportCreateModal({
                                     const selection = event.nativeEvent.selection;
                                     selectionRef.current[block.id] = { start: selection.start, end: selection.end };
                                 }}
-                                placeholder=""
+                                placeholder={index === 0 && showEmptyHint ? t('bug.noteStylePlaceholder') : ''}
                                 placeholderTextColor={styles.placeholder.color}
                                 multiline
                                 textAlignVertical="top"
@@ -407,26 +414,21 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingVertical: 24,
         gap: 14,
     },
-    emptyEditorHint: {
-        alignSelf: 'stretch',
-        paddingBottom: 4,
-    },
-    emptyEditorHintText: {
-        color: '#8A8173',
-        fontSize: 18,
-        lineHeight: 29,
-        ...Typography.default(),
-    },
     noteTextInput: {
         minHeight: 32,
         color: theme.colors.text,
         fontSize: 18,
         lineHeight: 29,
         padding: 0,
+        borderWidth: 0,
+        backgroundColor: 'transparent',
         ...Typography.default(),
     },
+    emptyNoteTextInput: {
+        minHeight: 260,
+    },
     placeholder: {
-        color: theme.colors.textSecondary,
+        color: '#8A8173',
     },
     noteImageWrap: {
         position: 'relative',

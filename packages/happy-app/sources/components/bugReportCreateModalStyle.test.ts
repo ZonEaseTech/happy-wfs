@@ -11,6 +11,15 @@ describe('bug report create modal style', () => {
         expect(source).toContain("backgroundColor: '#FDFBF7'");
         expect(source).toContain("backgroundColor: '#FFFEFB'");
         expect(source).toContain("borderColor: '#E6E1D8'");
-        expect(source).toContain('emptyEditorHint');
+        expect(source).toContain('emptyNoteTextInput');
+    });
+
+    it('keeps the placeholder inside the note editor without a focused textarea frame', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+
+        expect(source).not.toContain('emptyEditorHint');
+        expect(source).toContain("placeholder={index === 0 && showEmptyHint ? t('bug.noteStylePlaceholder') : ''}");
+        expect(source).toContain("outlineStyle: 'none'");
+        expect(source).toContain("boxShadow: 'none'");
     });
 });
