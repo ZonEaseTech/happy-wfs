@@ -57,6 +57,7 @@ function isHumanOnlyMessageRecord(value: any): boolean {
 
 /** Tools whose tool_use.input should be trimmed and saved to diffStore */
 const INPUT_TRIMMABLE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
+const OUTBOX_FLUSH_BATCH_SIZE = 200;
 
 /**
  * ACP (Agent Communication Protocol) message data types.
@@ -740,22 +741,25 @@ export class ApiSessionClient extends EventEmitter {
         }
 
         const batch = this.pendingOutbox.slice();
-        await axios.post(
-            `${configuration.serverUrl}/v3/sessions/${encodeURIComponent(this.sessionId)}/messages`,
-            {
-                messages: batch
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`,
-                    'Content-Type': 'application/json',
+        for (let offset = 0; offset < batch.length; offset += OUTBOX_FLUSH_BATCH_SIZE) {
+            const chunk = batch.slice(offset, offset + OUTBOX_FLUSH_BATCH_SIZE);
+            await axios.post(
+                `${configuration.serverUrl}/v3/sessions/${encodeURIComponent(this.sessionId)}/messages`,
+                {
+                    messages: chunk
                 },
-                timeout: 60000
-            }
-        );
+                {
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: 60000
+                }
+            );
 
-        // Only clear after successful response
-        this.pendingOutbox.splice(0, batch.length);
+            // Only clear successfully delivered messages.
+            this.pendingOutbox.splice(0, chunk.length);
+        }
     }
 
     /**

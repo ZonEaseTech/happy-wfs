@@ -3,6 +3,7 @@ import { ApiSessionClient } from './apiSession';
 import * as trimToolUseResultModule from './trimToolUseResult';
 import * as toolOutputStoreModule from '../modules/common/toolOutputStore';
 import * as encryptionModule from './encryption';
+import axios from 'axios';
 
 // Use vi.hoisted to ensure mock function is available when vi.mock factory runs
 const { mockIo } = vi.hoisted(() => ({
@@ -174,6 +175,22 @@ describe('ApiSessionClient v3 outbox', () => {
 
         // Socket emit should NOT be called — messages now go through v3 HTTP outbox only
         expect(mockSocket.emit).not.toHaveBeenCalledWith('message', expect.anything());
+    });
+
+    it('flushes v3 outbox messages in chunks of at most 200', async () => {
+        const client = new ApiSessionClient('fake-token', mockSession) as any;
+        const postSpy = vi.spyOn(axios, 'post').mockResolvedValue({ data: {} });
+
+        client.pendingOutbox = Array.from({ length: 401 }, (_, index) => ({
+            content: `encrypted-${index}`,
+            localId: `local-${index}`,
+        }));
+
+        await client.flushOutbox();
+
+        expect(postSpy).toHaveBeenCalledTimes(3);
+        expect(postSpy.mock.calls.map(([, body]) => (body as any).messages.length)).toEqual([200, 200, 1]);
+        expect(client.pendingOutbox).toHaveLength(0);
     });
 
     it('should use snake_case tool_use_result payloads when trimming Claude tool results', () => {
