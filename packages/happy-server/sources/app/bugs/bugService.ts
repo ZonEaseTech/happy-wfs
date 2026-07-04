@@ -325,12 +325,13 @@ export async function createOrRotateBugShareConfig(ownerId: string, accessCode?:
         const existing = await bugDb(tx).bugShareConfig.findUnique({ where: { ownerId } });
         if (!existing) {
             return await bugDb(tx).bugShareConfig.create({
-                data: { ownerId, accessCodeHash: hash, enabled: true },
+                data: { ownerId, accessCode: nextAccessCode, accessCodeHash: hash, enabled: true },
             });
         }
         return await bugDb(tx).bugShareConfig.update({
             where: { ownerId },
             data: {
+                accessCode: nextAccessCode,
                 accessCodeHash: hash,
                 accessCodeVersion: { increment: 1 },
                 enabled: true,
@@ -343,7 +344,7 @@ export async function createOrRotateBugShareConfig(ownerId: string, accessCode?:
 export async function getBugShareConfig(ownerId: string) {
     return await bugDb().bugShareConfig.findUnique({
         where: { ownerId },
-        select: { id: true, ownerId: true, enabled: true, accessCodeVersion: true, createdAt: true, updatedAt: true },
+        select: { id: true, ownerId: true, enabled: true, accessCode: true, accessCodeVersion: true, createdAt: true, updatedAt: true },
     });
 }
 

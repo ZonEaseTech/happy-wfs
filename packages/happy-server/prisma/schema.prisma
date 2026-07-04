@@ -449,6 +449,7 @@ model BugShareConfig {
   id                String   @id @default(cuid())
   ownerId           String   @unique
   owner             Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  accessCode        String?
   accessCodeHash    Bytes    @unique
   accessCodeVersion Int      @default(1)
   enabled           Boolean  @default(true)

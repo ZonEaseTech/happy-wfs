@@ -1430,11 +1430,16 @@ export function SessionsList() {
     const handleOpenBugDetails = React.useCallback(async (bug: BugReportSummary | BugReportDetail) => {
         if (!auth.credentials) return;
         try {
-            const detail = 'comments' in bug ? bug : await getBug(auth.credentials, bug.id);
             Modal.show({
                 component: BugReportDetailModal,
                 props: {
-                    bug: detail,
+                    bug,
+                    loadBug: async (bugId: string) => {
+                        if (!auth.credentials) throw new Error('Missing credentials');
+                        const detail = await getBug(auth.credentials, bugId);
+                        updatePendingBug(detail);
+                        return detail;
+                    },
                     onBugUpdated: updatePendingBug,
                     onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[]) => {
                         if (!auth.credentials) throw new Error('Missing credentials');
@@ -1490,9 +1495,11 @@ export function SessionsList() {
     const handleConfigureBugShare = React.useCallback(async () => {
         if (!auth.credentials) return;
         let currentUrl = '/bug';
+        let currentAccessCode = '';
         try {
             const config = await getBugShareConfig(auth.credentials);
             currentUrl = config?.url || currentUrl;
+            currentAccessCode = config?.accessCode || '';
         } catch {
             // The modal can still create the first share config.
         }
@@ -1500,6 +1507,7 @@ export function SessionsList() {
             component: BugShareSettingsModal,
             props: {
                 currentUrl,
+                currentAccessCode,
                 onRotate: async (accessCode?: string) => {
                     if (!auth.credentials) throw new Error('Missing credentials');
                     return await createOrRotateBugShareConfig(auth.credentials, accessCode ? { accessCode } : undefined);

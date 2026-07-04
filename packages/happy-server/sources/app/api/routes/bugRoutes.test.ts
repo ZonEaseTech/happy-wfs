@@ -74,4 +74,24 @@ describe('bugRoutes', () => {
         expect(res.statusCode).toBe(200);
         expect(serviceMock.softDeleteBugForOwner).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' });
     });
+
+    it('GET /v1/bugs/share-config returns the current share password for owner copy-back', async () => {
+        serviceMock.getBugShareConfig.mockResolvedValue({
+            enabled: true,
+            accessCode: 'abc123',
+            accessCodeVersion: 2,
+            createdAt: new Date(1000),
+            updatedAt: new Date(2000),
+        });
+
+        const res = await app.inject({ method: 'GET', url: '/v1/bugs/share-config' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toMatchObject({
+            shareConfig: {
+                accessCode: 'abc123',
+                version: 2,
+            },
+        });
+    });
 });

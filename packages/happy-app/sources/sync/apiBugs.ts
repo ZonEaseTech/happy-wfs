@@ -113,9 +113,9 @@ export async function uploadBugAttachment(credentials: AuthCredentials, bugId: s
     return await uploadImage(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}/attachments`, image, { Authorization: `Bearer ${credentials.token}` }, commentId);
 }
 
-export async function getBugShareConfig(credentials: AuthCredentials): Promise<{ enabled: boolean; version: number; url: string; createdAt: number; updatedAt: number } | null> {
+export async function getBugShareConfig(credentials: AuthCredentials): Promise<{ enabled: boolean; accessCode: string; version: number; url: string; createdAt: number; updatedAt: number } | null> {
     const response = await fetch(`${getServerUrl()}/v1/bugs/share-config`, { method: 'GET', headers: authHeaders(credentials) });
-    const data = await readJson<{ shareConfig: { enabled: boolean; version: number; url: string; createdAt: number; updatedAt: number } | null }>(response);
+    const data = await readJson<{ shareConfig: { enabled: boolean; accessCode: string; version: number; url: string; createdAt: number; updatedAt: number } | null }>(response);
     return data.shareConfig;
 }
 

@@ -174,6 +174,7 @@ export function bugRoutes(app: Fastify) {
             return reply.send({
                 shareConfig: {
                     enabled: config.enabled,
+                    accessCode: config.accessCode ?? '',
                     version: config.accessCodeVersion,
                     url: buildBugUrl(request),
                     createdAt: config.createdAt.getTime(),

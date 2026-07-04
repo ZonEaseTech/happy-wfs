@@ -1,14 +1,15 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Platform } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native-unistyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { Modal } from '@/modal';
 import { ImagePreview, type LocalImage } from '@/components/ImagePreview';
 import { useImagePicker } from '@/hooks/useImagePicker';
-import { BUG_IMAGE_LIMITS, bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
+import { BUG_IMAGE_LIMITS, bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { BugRichContentView } from '@/components/BugRichContentView';
 import type { ActionMenuItem } from '@/components/ActionMenu';
@@ -16,8 +17,24 @@ import { handleImagePasteEvent } from '@/utils/imagePaste';
 
 const STATUS_OPTIONS: BugStatus[] = ['pending', 'in_progress', 'verify', 'closed'];
 
+function isBugReportDetail(bug: BugReportSummary | BugReportDetail): bug is BugReportDetail {
+    return 'comments' in bug;
+}
+
+function bugSummaryToDetail(bug: BugReportSummary | BugReportDetail): BugReportDetail {
+    if (isBugReportDetail(bug)) return bug;
+    return {
+        ...bug,
+        sessionId: null,
+        attachments: [],
+        comments: [],
+        statusHistory: [],
+    };
+}
+
 export function BugReportDetailModal({
     bug,
+    loadBug,
     onClose,
     onBugUpdated,
     onAddComment,
@@ -26,7 +43,8 @@ export function BugReportDetailModal({
     onStartSession,
     onDelete,
 }: {
-    bug: BugReportDetail;
+    bug: BugReportSummary | BugReportDetail;
+    loadBug?: (bugId: string) => Promise<BugReportDetail>;
     onClose: () => void;
     onBugUpdated?: (bug: BugReportDetail) => void;
     onAddComment?: (bug: BugReportDetail, body: string, images: LocalImage[]) => Promise<BugReportDetail>;
@@ -36,19 +54,63 @@ export function BugReportDetailModal({
     onDelete?: (bug: BugReportDetail) => Promise<void>;
 }) {
     const styles = stylesheet;
-    const [currentBug, setCurrentBug] = React.useState(bug);
+    const windowSize = useWindowDimensions();
+    const safeArea = useSafeAreaInsets();
+    const [currentBug, setCurrentBug] = React.useState<BugReportDetail>(() => bugSummaryToDetail(bug));
+    const [detailLoading, setDetailLoading] = React.useState(() => !isBugReportDetail(bug) && !!loadBug);
     const [comment, setComment] = React.useState('');
     const [busy, setBusy] = React.useState(false);
     const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
     const picker = useImagePicker({ maxImages: BUG_IMAGE_LIMITS.maxImages, maxSizeBytes: BUG_IMAGE_LIMITS.maxSizeBytes });
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    React.useEffect(() => setCurrentBug(bug), [bug]);
-
     const updateBug = React.useCallback((updated: BugReportDetail) => {
         setCurrentBug(updated);
         onBugUpdated?.(updated);
     }, [onBugUpdated]);
+
+    React.useEffect(() => {
+        setCurrentBug(bugSummaryToDetail(bug));
+        setDetailLoading(!isBugReportDetail(bug) && !!loadBug);
+    }, [bug, loadBug]);
+
+    React.useEffect(() => {
+        if (isBugReportDetail(bug) || !loadBug) return;
+        let cancelled = false;
+        setDetailLoading(true);
+        loadBug(bug.id).then((detail) => {
+            if (cancelled) return;
+            updateBug(detail);
+        }).catch((error) => {
+            if (!cancelled) Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }).finally(() => {
+            if (!cancelled) setDetailLoading(false);
+        });
+        return () => { cancelled = true; };
+    }, [bug, loadBug, updateBug]);
+
+    const detailModalLayout = React.useMemo(() => {
+        const compact = windowSize.width < 600;
+        const horizontalMargin = compact ? 12 : Math.max(24, windowSize.width * 0.02);
+        const verticalMargin = compact ? 10 : Math.max(24, windowSize.height * 0.04);
+        const width = compact
+            ? Math.max(280, windowSize.width - horizontalMargin * 2)
+            : Math.min(860, windowSize.width - horizontalMargin * 2);
+        const maxHeight = Math.max(
+            320,
+            windowSize.height - safeArea.top - safeArea.bottom - verticalMargin * 2,
+        );
+        return {
+            modal: {
+                width,
+                maxWidth: width,
+                maxHeight,
+            },
+            body: {
+                maxHeight: Math.max(180, maxHeight - (compact ? 188 : 172)),
+            },
+        };
+    }, [safeArea.bottom, safeArea.top, windowSize.height, windowSize.width]);
 
     const run = React.useCallback(async (fn: () => Promise<BugReportDetail>) => {
         setBusy(true);
@@ -160,7 +222,7 @@ export function BugReportDetailModal({
     }, [currentBug.status, handleStatus]);
 
     return (
-        <View style={styles.modal}>
+        <View style={[styles.modal, detailModalLayout.modal]}>
             <View style={styles.header}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.kicker}>{currentBug.displayId} · {bugStatusLabel(currentBug.status)}</Text>
@@ -168,9 +230,22 @@ export function BugReportDetailModal({
                 </View>
                 <Pressable onPress={onClose} hitSlop={10}><Ionicons name="close" size={22} color={styles.title.color} /></Pressable>
             </View>
-            <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-                <Text style={styles.sectionTitle}>{t('bug.description')}</Text>
-                <BugRichContentView description={currentBug.description} attachments={currentBug.attachments} />
+            <ScrollView style={[styles.body, detailModalLayout.body]} keyboardShouldPersistTaps="handled">
+                <View style={styles.fieldHeader}>
+                    <Text style={styles.sectionTitle}>{t('bug.description')}</Text>
+                    <Text style={styles.imageCount}>
+                        {t('bug.imageCounter', { count: currentBug.attachments.length, max: BUG_IMAGE_LIMITS.maxImages })}
+                    </Text>
+                </View>
+                {detailLoading && (
+                    <View style={styles.detailLoading}>
+                        <ActivityIndicator size="small" />
+                        <Text style={styles.loadingText}>{t('bug.loadingBugs')}</Text>
+                    </View>
+                )}
+                <View style={styles.notePaper}>
+                    <BugRichContentView description={currentBug.description} attachments={currentBug.attachments} noteStyle />
+                </View>
 
                 <Text style={styles.sectionTitle}>{t('bug.comment')}</Text>
                 {currentBug.comments.map(item => (
@@ -225,7 +300,7 @@ export function BugReportDetailModal({
                 {onStartSession && (
                     <>
                         <View style={styles.footerActionSeparator} />
-                        <Pressable style={styles.footerAction} onPress={() => { onClose(); onStartSession(currentBug); }}>
+                        <Pressable style={styles.footerAction} disabled={detailLoading} onPress={() => { onClose(); onStartSession(currentBug); }}>
                             <Text style={styles.footerActionText}>{t('bug.startRepairSession')}</Text>
                         </Pressable>
                     </>
@@ -243,12 +318,65 @@ export function BugReportDetailModal({
 }
 
 const stylesheet = StyleSheet.create((theme) => ({
-    modal: { width: Math.min(720, (typeof window !== 'undefined' ? window.innerWidth : 720) - 32), maxHeight: '90%', backgroundColor: theme.colors.surface, borderRadius: 20, overflow: 'hidden' },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.divider },
+    modal: {
+        backgroundColor: '#FDFBF7',
+        borderRadius: 18,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E6E1D8',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 18,
+        paddingTop: 16,
+        paddingBottom: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E8E1D4',
+        backgroundColor: '#F8F5EE',
+    },
     kicker: { color: theme.colors.textSecondary, fontSize: 13, ...Typography.default() },
-    title: { color: theme.colors.text, fontSize: 18, marginTop: 4, ...Typography.default('semiBold') },
-    body: { padding: 16, maxHeight: 620 },
+    title: { color: theme.colors.text, fontSize: 21, marginTop: 6, ...Typography.default('semiBold') },
+    body: {
+        paddingHorizontal: 18,
+        paddingVertical: 16,
+        backgroundColor: '#FDFBF7',
+    },
+    fieldHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 10,
+    },
     sectionTitle: { color: theme.colors.text, fontSize: 15, marginTop: 14, marginBottom: 8, ...Typography.default('semiBold') },
+    imageCount: {
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        ...Typography.default('semiBold'),
+    },
+    detailLoading: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 10,
+    },
+    loadingText: {
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        ...Typography.default(),
+    },
+    notePaper: {
+        minHeight: 220,
+        borderWidth: 1,
+        borderColor: '#E6E1D8',
+        borderRadius: 22,
+        backgroundColor: '#FFFEFB',
+        paddingHorizontal: 26,
+        paddingVertical: 24,
+        marginBottom: 18,
+    },
     description: { color: theme.colors.text, lineHeight: 22, ...Typography.default() },
     muted: { color: theme.colors.textSecondary, ...Typography.default() },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -269,7 +397,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     statusChipText: { color: theme.colors.text, ...Typography.default('semiBold') },
     statusChipTextActive: { color: theme.colors.button.primary.tint },
     history: { color: theme.colors.textSecondary, marginBottom: 6, ...Typography.default() },
-    footer: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: theme.colors.divider, minHeight: 56 },
+    footer: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#E8E1D4', minHeight: 56, backgroundColor: '#F8F5EE' },
     footerAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
     footerActionSeparator: { width: 1, backgroundColor: theme.colors.divider },
     footerActionText: { fontSize: 16, color: theme.colors.button.primary.background, ...Typography.default('semiBold') },

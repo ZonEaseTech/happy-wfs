@@ -11,11 +11,13 @@ export function BugRichContentView({
     attachments,
     emptyText = '-',
     compact = false,
+    noteStyle = false,
 }: {
     description: string;
     attachments: BugAttachment[];
     emptyText?: string;
     compact?: boolean;
+    noteStyle?: boolean;
 }) {
     const styles = stylesheet;
     const blocks = React.useMemo(() => parseBugRichContent(description, attachments), [attachments, description]);
@@ -25,16 +27,16 @@ export function BugRichContentView({
     }
 
     return (
-        <View style={[styles.container, compact && styles.containerCompact]}>
+        <View style={[styles.container, compact && styles.containerCompact, noteStyle && styles.containerNote]}>
             {blocks.map((block, index) => {
                 if (block.type === 'text') {
-                    return <Text key={`text-${index}`} style={[styles.textBlock, compact && styles.textBlockCompact]} selectable>{block.text}</Text>;
+                    return <Text key={`text-${index}`} style={[styles.textBlock, compact && styles.textBlockCompact, noteStyle && styles.textBlockNote]} selectable>{block.text}</Text>;
                 }
                 return (
                     <Image
                         key={`image-${block.attachment.id}-${index}`}
                         source={{ uri: block.attachment.url }}
-                        style={[styles.imageBlock, compact && styles.imageBlockCompact]}
+                        style={[styles.imageBlock, compact && styles.imageBlockCompact, noteStyle && styles.imageBlockNote]}
                         contentFit="cover"
                     />
                 );
@@ -50,6 +52,9 @@ const stylesheet = StyleSheet.create((theme) => ({
     containerCompact: {
         gap: 10,
     },
+    containerNote: {
+        gap: 14,
+    },
     textBlock: {
         color: theme.colors.text,
         fontSize: 16,
@@ -60,6 +65,10 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 14,
         lineHeight: 22,
     },
+    textBlockNote: {
+        fontSize: 18,
+        lineHeight: 29,
+    },
     imageBlock: {
         width: '100%',
         height: 240,
@@ -69,6 +78,11 @@ const stylesheet = StyleSheet.create((theme) => ({
     imageBlockCompact: {
         height: 170,
         borderRadius: 12,
+    },
+    imageBlockNote: {
+        height: 240,
+        borderRadius: 16,
+        backgroundColor: '#F1ECE2',
     },
     muted: {
         color: theme.colors.textSecondary,
