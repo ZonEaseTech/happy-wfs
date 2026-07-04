@@ -113,22 +113,24 @@ function createHappyBashRc(): string {
         'fi',
         '',
         '__happy_short_pwd() {',
-        '  local ws_root="${HAPPY_WORKSPACES_DIR:-$HOME/.happy/workspaces}"',
         '  local dir="$PWD"',
-        '  if [[ "$dir" == "$ws_root"/* ]]; then',
-        '    local rel="${dir#$ws_root/}"',
-        "    printf '%s' \"$rel\"",
+        '  if [[ "$dir" == "/" ]]; then',
+        "    printf '/'",
         '    return',
         '  fi',
-        '  if [[ "$dir" == "$HOME" ]]; then',
-        "    printf '~'",
+        '  dir="${dir%/}"',
+        '  local leaf="${dir##*/}"',
+        '  local parent="${dir%/*}"',
+        '  if [[ -z "$leaf" ]]; then',
+        "    printf '/'",
         '    return',
         '  fi',
-        '  if [[ "$dir" == "$HOME"/* ]]; then',
-        "    printf '~/%s' \"${dir#$HOME/}\"",
+        '  if [[ "$parent" == "$dir" || "$parent" == "/" || -z "$parent" ]]; then',
+        "    printf '%s' \"$leaf\"",
         '    return',
         '  fi',
-        "  printf '%s' \"$dir\"",
+        '  local parent_leaf="${parent##*/}"',
+        "  printf '%s/%s' \"$parent_leaf\" \"$leaf\"",
         '}',
         '',
         '__happy_prompt_command() {',
@@ -182,7 +184,6 @@ export function spawnShell(opts: SpawnShellOptions): SpawnShellResult {
     shellEnv.COLORTERM = 'truecolor';
     shellEnv.FORCE_COLOR = shellEnv.FORCE_COLOR || '1';
     shellEnv.CLICOLOR = shellEnv.CLICOLOR || '1';
-    shellEnv.HAPPY_WORKSPACES_DIR = shellEnv.HAPPY_WORKSPACES_DIR || `${shellEnv.HOME || ''}/.happy/workspaces`;
 
     const term = mod.spawn(shell, shellArgs, {
         name: 'xterm-256color',
