@@ -1028,11 +1028,16 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   leftPanel: {
     width: 520,
+    minWidth: 520,
+    maxWidth: 520,
+    flexBasis: 520,
+    flexGrow: 0,
     flexShrink: 0,
     backgroundColor: "#FFFFFF",
     borderRadius: 28,
     borderWidth: 1,
     borderColor: "#E6E2DC",
+    overflow: "hidden",
   },
   leftPanelContent: {
     paddingVertical: 16,

@@ -11,6 +11,10 @@ describe("bug board desktop layout", () => {
     expect(source).toContain("maxWidth: 1480");
     expect(source).toContain("gap: 28");
     expect(source).toContain("width: 520");
+    expect(source).toContain("minWidth: 520");
+    expect(source).toContain("maxWidth: 520");
+    expect(source).toContain("flexBasis: 520");
+    expect(source).toContain("flexGrow: 0");
   });
 
   it("prevents browser-level scrolling on the desktop board", () => {
