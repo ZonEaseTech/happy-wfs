@@ -459,7 +459,12 @@ function BugBoardHeader({
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
-      <View style={styles.filterWrap}>
+      <ScrollView
+        horizontal
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterWrap}
+        showsHorizontalScrollIndicator={false}
+      >
         {filters.map((item) => (
           <Pressable
             key={item}
@@ -485,7 +490,7 @@ function BugBoardHeader({
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       <View style={styles.searchBox}>
         <Ionicons
@@ -1092,9 +1097,12 @@ const stylesheet = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.input.background,
     ...Typography.default(),
   },
+  filterScroll: {
+    flexGrow: 0,
+  },
   filterWrap: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    flexGrow: 0,
     gap: 8,
     paddingRight: 2,
   },
