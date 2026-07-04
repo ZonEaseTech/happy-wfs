@@ -40,12 +40,12 @@ describe("bug board desktop layout", () => {
     );
   });
 
-  it("keeps filters in one horizontal row and removes the summary cards and filter note", () => {
+  it("wraps filter chips so every status remains visible in the fixed left rail", () => {
     const source = readFileSync(sourcePath, "utf8");
 
-    expect(source).toContain("<ScrollView");
-    expect(source).toContain("horizontal");
-    expect(source).toContain("styles.filterScroll");
+    expect(source).toContain("styles.filterWrap");
+    expect(source).toContain('flexWrap: "wrap"');
+    expect(source).not.toContain("styles.filterScroll");
     expect(source).toContain(
       '"all",\n    "open",\n    "pending",\n    "in_progress",\n    "verify",\n    "closed"',
     );
