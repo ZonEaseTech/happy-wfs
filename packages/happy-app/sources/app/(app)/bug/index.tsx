@@ -14,7 +14,7 @@ import { useImagePicker } from '@/hooks/useImagePicker';
 import { Modal } from '@/modal';
 import { BUG_IMAGE_LIMITS, bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import { t } from '@/text';
-import { filterBugShareBoardItems, getBugShareBoardCounts, type BugShareBoardFilter } from '../../bugShareBoardPresentation';
+import { filterBugShareBoardItems, getBugShareBoardCounts, type BugShareBoardFilter } from '@/utils/bugShareBoardPresentation';
 
 const STATUS_OPTIONS: BugStatus[] = ['pending', 'in_progress', 'verify', 'closed'];
 const STATUS_ACCENTS: Record<BugStatus, string> = {
