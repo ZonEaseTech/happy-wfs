@@ -355,6 +355,7 @@ export function BugReportDetailModal({
                             onChange={handleContentSnapshotChange}
                             onImageDoubleClick={openBugEditorImagePreview}
                             variant="detail"
+                            contentInset="none"
                         />
                     ) : (
                         <BugRichContentView description={currentBug.description} contentJson={currentBug.contentJson} attachments={currentBug.attachments} noteStyle onImagePress={openBugImagePreview} />
@@ -508,8 +509,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderColor: theme.colors.divider,
         borderRadius: 0,
         backgroundColor: theme.colors.surface,
-        paddingHorizontal: 18,
-        paddingVertical: 16,
         marginBottom: 18,
     },
     description: { color: theme.colors.text, lineHeight: 22, ...Typography.default() },

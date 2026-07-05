@@ -34,7 +34,8 @@ describe('bug report create modal style', () => {
         expect(webEditorSource).toContain('StarterKit');
         expect(webEditorSource).toContain('ImageExtension');
         expect(webEditorSource).toContain('Placeholder');
-        expect(webEditorSource).toContain('happy-bug-tiptap-editor detail');
+        expect(webEditorSource).toContain("'happy-bug-tiptap-editor'");
+        expect(webEditorSource).toContain("variant === 'detail' ? 'detail' : ''");
     });
 
     it('does not render a separate description label row above the editor', () => {

@@ -23,4 +23,5 @@ export type BugTiptapEditorProps = {
     attachmentImageUrls?: string[];
     onImageDoubleClick?: (src: string) => void;
     variant?: 'create' | 'detail';
+    contentInset?: 'padded' | 'none';
 };

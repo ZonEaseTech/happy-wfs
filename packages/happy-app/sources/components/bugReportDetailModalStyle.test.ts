@@ -8,6 +8,7 @@ const richContentWebPath = resolve(__dirname, './BugRichContentView.web.tsx');
 const sessionsListPath = resolve(__dirname, './SessionsList.tsx');
 const shareBoardPath = resolve(__dirname, '../app/(app)/bug/index.tsx');
 const previewModalPath = resolve(__dirname, './BugImagePreviewModal.tsx');
+const webEditorPath = resolve(__dirname, './BugTiptapEditor.web.tsx');
 
 describe('bug report detail modal style', () => {
     it('uses the same modal sizing rule as GitHub issue details', () => {
@@ -135,11 +136,15 @@ describe('bug report detail modal style', () => {
 
     it('removes inner padding from the detail modal description while keeping comment cards padded', () => {
         const source = readFileSync(sourcePath, 'utf8');
+        const webEditorSource = readFileSync(webEditorPath, 'utf8');
         const notePaperBlock = source.match(/notePaper: \{[\s\S]*?\n    \}/)?.[0] ?? '';
 
         expect(notePaperBlock).toContain('borderRadius: 0');
-        expect(notePaperBlock).toContain('paddingHorizontal: 18');
-        expect(notePaperBlock).toContain('paddingVertical: 16');
+        expect(notePaperBlock).not.toContain('paddingHorizontal');
+        expect(notePaperBlock).not.toContain('paddingVertical');
+        expect(source).toContain('contentInset="none"');
+        expect(webEditorSource).toContain('no-inset');
+        expect(webEditorSource).toContain('padding: 0');
         expect(source).toContain('comment: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 12, padding: 12');
     });
 

@@ -41,6 +41,9 @@ function injectTiptapStyles() {
     padding: 18px;
     box-sizing: border-box;
 }
+.happy-bug-tiptap-editor.detail.no-inset .tiptap {
+    padding: 0;
+}
 .happy-bug-tiptap-editor .tiptap p {
     margin: 0 0 16px;
 }
@@ -124,6 +127,7 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
     attachmentImageUrls = emptyAttachmentImageUrls,
     onImageDoubleClick,
     variant = 'create',
+    contentInset = 'padded',
 }, ref) => {
     const imagesBySrcRef = React.useRef(new Map<string, LocalImage>());
     const attachmentIndexBySrc = React.useMemo(
@@ -275,7 +279,11 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
     }), [attachmentIndexBySrc, insertImage]);
 
     return (
-        <div className={variant === 'detail' ? 'happy-bug-tiptap-editor detail' : 'happy-bug-tiptap-editor'}>
+        <div className={[
+            'happy-bug-tiptap-editor',
+            variant === 'detail' ? 'detail' : '',
+            variant === 'detail' && contentInset === 'none' ? 'no-inset' : '',
+        ].filter(Boolean).join(' ')}>
             <EditorContent editor={editor} />
         </div>
     );
