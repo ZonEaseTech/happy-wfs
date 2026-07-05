@@ -61,6 +61,16 @@ describe("bug board desktop layout", () => {
     expect(detailHeaderMatch).not.toContain("bug.createdByNickname");
   });
 
+  it("keeps selected bug item border from changing row size", () => {
+    const source = readFileSync(sourcePath, "utf8");
+    const bugItemBlock = source.match(/bugItem:\s*\{[\s\S]*?\n  \},/)?.[0];
+    const selectedBlock = source.match(/bugItemSelected:\s*\{[\s\S]*?\n  \},/)?.[0];
+
+    expect(bugItemBlock).toContain("borderWidth: 1");
+    expect(selectedBlock).toContain("borderWidth: 1");
+    expect(selectedBlock).not.toContain("borderWidth: 2");
+  });
+
   it("keeps bug-card status and counts on the right side instead of below the title", () => {
     const source = readFileSync(sourcePath, "utf8");
     const listItemMatch = source.match(

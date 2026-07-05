@@ -1417,7 +1417,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     borderColor: "#E9E4DD",
   },
   bugItemSelected: {
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: "#111111",
     backgroundColor: "#FFFEFB",
   },
