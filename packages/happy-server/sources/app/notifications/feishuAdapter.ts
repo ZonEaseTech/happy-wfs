@@ -173,6 +173,38 @@ export function buildInputNeededCard(meta: InputNeededMeta): FeishuMessagePayloa
     };
 }
 
+export interface MentionNotificationMeta {
+    actorName: string | null;
+    recipientUsernames: string[];
+    sessionTitle: string | null;
+    sessionUrl: string;
+    preview: string;
+}
+
+function truncateMentionPreview(preview: string): string {
+    const trimmed = preview.trim();
+    if (trimmed.length <= 500) return trimmed;
+    return `${trimmed.slice(0, 499)}…`;
+}
+
+export function buildMentionNotificationCard(meta: MentionNotificationMeta): FeishuMessagePayload {
+    const recipients = meta.recipientUsernames.length > 0
+        ? meta.recipientUsernames.map((name) => `@${name}`).join('、')
+        : '未指定';
+    const lines = [
+        '🔔 Happy 协作 @ 通知',
+        `发起人：${meta.actorName ?? 'Happy 用户'}`,
+        `被 @：${recipients}`,
+        `会话：${meta.sessionTitle ?? '未命名会话'}`,
+    ];
+    const preview = truncateMentionPreview(meta.preview);
+    if (preview) {
+        lines.push(`内容：${preview}`);
+    }
+    lines.push(`打开：${meta.sessionUrl}`);
+    return { msg_type: 'text', content: { text: lines.join('\n') } };
+}
+
 /**
  * Test-message payload used by the "Send test" button in the settings UI.
  */
@@ -180,6 +212,13 @@ export function buildTestCard(): FeishuMessagePayload {
     return {
         msg_type: 'text',
         content: { text: '✅ Happy 飞书通知已接通' },
+    };
+}
+
+export function buildMentionTestCard(): FeishuMessagePayload {
+    return {
+        msg_type: 'text',
+        content: { text: '✅ Happy 协作 @ 通知已接通' },
     };
 }
 

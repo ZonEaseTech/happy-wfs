@@ -8,6 +8,7 @@ Bug feedback is easier to review, edit, and validate from the shared board.
 - Bug editor: use a notes-style rich text editor for issue descriptions, support pasted screenshots inline, save only dirty edits, and open images from the editor preview.
 - Bug details: align the modal surface with GitHub issue details, keep comments padded while simplifying the description area, and preserve screenshot natural width with a max-width constraint.
 - Bug preview: render full-screen screenshot previews reliably on mobile web by using the browser image renderer with explicit viewport sizing.
+- Notifications: add a separate Feishu webhook for collaboration @ notes, sending mentioned Happy usernames with a short note preview.
 - Sharing: polish shared board settings and detail actions for status changes, comments, and repair sessions.
 
 ## Version 10 - 2026-07-03

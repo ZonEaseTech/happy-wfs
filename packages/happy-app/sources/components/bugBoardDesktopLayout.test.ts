@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sourcePath = resolve(__dirname, "../app/(app)/bug/index.tsx");
+const webEditorPath = resolve(__dirname, "./BugTiptapEditor.web.tsx");
 
 describe("bug board desktop layout", () => {
   it("uses the confirmed V9 desktop two-column sizing", () => {
@@ -174,18 +175,25 @@ describe("bug board desktop layout", () => {
     expect(source).not.toContain("styles.sectionHeaderRow");
   });
 
-  it("removes padding from the desktop bug description while keeping comment padding", () => {
+  it("keeps desktop bug description flush outside with square border and padded editor content", () => {
     const source = readFileSync(sourcePath, "utf8");
+    const webEditorSource = readFileSync(webEditorPath, "utf8");
     const detailMainContentBlock = source.match(/detailMainContent:\s*\{[\s\S]*?\n  \},/)?.[0];
     const descriptionBoxBlock = source.match(/descriptionBox:\s*\{[\s\S]*?\n  \},/)?.[0];
     const detailCommentContentBlock = source.match(/detailCommentContent:\s*\{[\s\S]*?\n  \},/)?.[0];
     const commentCardBlock = source.match(/commentCard:\s*\{[\s\S]*?\n  \},/)?.[0];
     const commentInputBlock = source.match(/commentInput:\s*\{[\s\S]*?\n  \},/)?.[0];
+    const detailEditorCssBlock = webEditorSource.match(
+      /\.happy-bug-tiptap-editor\.detail \.tiptap \{[\s\S]*?\}/,
+    )?.[0];
 
     expect(source).toContain("<View style={styles.detailCommentContent}>");
     expect(detailMainContentBlock).not.toContain("padding: 30");
     expect(descriptionBoxBlock).toContain("padding: 0");
     expect(descriptionBoxBlock).not.toContain("padding: 20");
+    expect(descriptionBoxBlock).not.toContain("borderRadius");
+    expect(detailEditorCssBlock).toContain("padding: 18px");
+    expect(detailEditorCssBlock).toContain("box-sizing: border-box");
     expect(detailCommentContentBlock).toContain("paddingHorizontal: 30");
     expect(detailCommentContentBlock).toContain("paddingBottom: 24");
     expect(commentCardBlock).toContain("padding: 16");

@@ -13,8 +13,11 @@ import { useAuth } from '@/auth/AuthContext';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import {
     getFeishuConfig,
+    getFeishuMentionConfig,
     putFeishuConfig,
+    putFeishuMentionConfig,
     testFeishu,
+    testFeishuMention,
     type FeishuConfigPublic,
 } from '@/sync/apiNotifications';
 import { t } from '@/text';
@@ -29,36 +32,67 @@ export default function NotificationsFeishuScreen() {
     const [secret, setSecret] = React.useState('');
     const [secretEdited, setSecretEdited] = React.useState(false);
     const [enabled, setEnabled] = React.useState(false);
+    const [mentionServerState, setMentionServerState] = React.useState<FeishuConfigPublic | null>(null);
+    const [mentionUrl, setMentionUrl] = React.useState('');
+    const [mentionSecret, setMentionSecret] = React.useState('');
+    const [mentionSecretEdited, setMentionSecretEdited] = React.useState(false);
+    const [mentionEnabled, setMentionEnabled] = React.useState(false);
 
     React.useEffect(() => {
         let mounted = true;
-        getFeishuConfig(auth.credentials!)
-            .then((cfg) => {
+        Promise.all([
+            getFeishuConfig(auth.credentials!),
+            getFeishuMentionConfig(auth.credentials!),
+        ])
+            .then(([cfg, mentionCfg]) => {
                 if (!mounted) return;
                 setServerState(cfg);
                 setUrl(cfg.url ?? '');
                 setEnabled(cfg.enabled);
+                setMentionServerState(mentionCfg);
+                setMentionUrl(mentionCfg.url ?? '');
+                setMentionEnabled(mentionCfg.enabled);
             })
             .catch(() => { /* leave defaults */ })
             .finally(() => mounted && setLoading(false));
         return () => { mounted = false; };
     }, [auth.credentials]);
 
-    const dirty =
+    const normalDirty =
         (url || '') !== (serverState?.url ?? '') ||
         enabled !== (serverState?.enabled ?? false) ||
         secretEdited;
+    const mentionDirty =
+        (mentionUrl || '') !== (mentionServerState?.url ?? '') ||
+        mentionEnabled !== (mentionServerState?.enabled ?? false) ||
+        mentionSecretEdited;
+    const dirty = normalDirty || mentionDirty;
 
     const [saving, save] = useHappyAction(async () => {
-        await putFeishuConfig(auth.credentials!, {
-            url: url.trim() ? url.trim() : null,
-            secret: secretEdited ? (secret.trim() ? secret.trim() : null) : undefined,
-            enabled,
-        });
-        const fresh = await getFeishuConfig(auth.credentials!);
+        if (normalDirty) {
+            await putFeishuConfig(auth.credentials!, {
+                url: url.trim() ? url.trim() : null,
+                secret: secretEdited ? (secret.trim() ? secret.trim() : null) : undefined,
+                enabled,
+            });
+        }
+        if (mentionDirty) {
+            await putFeishuMentionConfig(auth.credentials!, {
+                url: mentionUrl.trim() ? mentionUrl.trim() : null,
+                secret: mentionSecretEdited ? (mentionSecret.trim() ? mentionSecret.trim() : null) : undefined,
+                enabled: mentionEnabled,
+            });
+        }
+        const [fresh, freshMention] = await Promise.all([
+            getFeishuConfig(auth.credentials!),
+            getFeishuMentionConfig(auth.credentials!),
+        ]);
         setServerState(fresh);
+        setMentionServerState(freshMention);
         setSecretEdited(false);
         setSecret('');
+        setMentionSecretEdited(false);
+        setMentionSecret('');
     });
 
     const [testing, runTest] = useHappyAction(async () => {
@@ -67,6 +101,18 @@ export default function NotificationsFeishuScreen() {
             await Modal.alert(t('settingsFeishu.testSuccessTitle'), t('settingsFeishu.testSuccessMessage'));
             const fresh = await getFeishuConfig(auth.credentials!);
             setServerState(fresh);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            await Modal.alert(t('settingsFeishu.testFailedTitle'), msg);
+        }
+    });
+
+    const [testingMention, runMentionTest] = useHappyAction(async () => {
+        try {
+            await testFeishuMention(auth.credentials!);
+            await Modal.alert(t('settingsFeishu.testSuccessTitle'), t('settingsFeishu.mentionTestSuccessMessage'));
+            const fresh = await getFeishuMentionConfig(auth.credentials!);
+            setMentionServerState(fresh);
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             await Modal.alert(t('settingsFeishu.testFailedTitle'), msg);
@@ -136,6 +182,67 @@ export default function NotificationsFeishuScreen() {
                 />
             </ItemGroup>
 
+            <ItemGroup title={t('settingsFeishu.mentionWebhookSection')} footer={t('settingsFeishu.mentionFooter')}>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 4 }}>
+                    <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
+                        {t('settingsFeishu.urlLabel')}
+                    </Text>
+                    <TextInput
+                        value={mentionUrl}
+                        onChangeText={setMentionUrl}
+                        placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
+                        placeholderTextColor={theme.colors.textSecondary}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        editable={!loading && !saving}
+                        style={{
+                            fontSize: 15,
+                            color: theme.colors.text,
+                            paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+                        }}
+                    />
+                </View>
+
+                <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 4 }}>
+                    <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
+                        {t('settingsFeishu.secretLabel')}
+                    </Text>
+                    <TextInput
+                        value={mentionSecretEdited ? mentionSecret : (mentionServerState?.secret_set ? '••••••••' : '')}
+                        onChangeText={(v) => { setMentionSecret(v); setMentionSecretEdited(true); }}
+                        onFocus={() => { if (!mentionSecretEdited) { setMentionSecret(''); setMentionSecretEdited(true); } }}
+                        placeholder={t('settingsFeishu.secretPlaceholder')}
+                        placeholderTextColor={theme.colors.textSecondary}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        secureTextEntry
+                        editable={!loading && !saving}
+                        style={{
+                            fontSize: 15,
+                            color: theme.colors.text,
+                            paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+                        }}
+                    />
+                    <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
+                        {t('settingsFeishu.secretHint')}
+                    </Text>
+                </View>
+
+                <Item
+                    title={t('settingsFeishu.mentionEnableTitle')}
+                    subtitle={t('settingsFeishu.mentionEnableSubtitle')}
+                    icon={<Ionicons name="at-outline" size={29} color="#5856D6" />}
+                    rightElement={
+                        <Switch
+                            value={mentionEnabled}
+                            onValueChange={setMentionEnabled}
+                            disabled={loading || saving}
+                        />
+                    }
+                    showChevron={false}
+                />
+            </ItemGroup>
+
             <ItemGroup>
                 <Item
                     title={t('settingsFeishu.saveTitle')}
@@ -159,6 +266,21 @@ export default function NotificationsFeishuScreen() {
                     onPress={!testing && !loading ? runTest : undefined}
                     disabled={testing || loading || !serverState?.url}
                     loading={testing}
+                    showChevron={false}
+                />
+                <Item
+                    title={t('settingsFeishu.mentionTestTitle')}
+                    subtitle={
+                        mentionServerState?.lastTestedAt
+                            ? t('settingsFeishu.mentionTestSubtitleWithTime', {
+                                time: new Date(mentionServerState.lastTestedAt).toLocaleString(),
+                            })
+                            : t('settingsFeishu.mentionTestSubtitle')
+                    }
+                    icon={<Ionicons name="paper-plane-outline" size={29} color="#5856D6" />}
+                    onPress={!testingMention && !loading ? runMentionTest : undefined}
+                    disabled={testingMention || loading || !mentionServerState?.url}
+                    loading={testingMention}
                     showChevron={false}
                 />
             </ItemGroup>

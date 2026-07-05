@@ -38,6 +38,8 @@ function injectTiptapStyles() {
 }
 .happy-bug-tiptap-editor.detail .tiptap {
     min-height: 220px;
+    padding: 18px;
+    box-sizing: border-box;
 }
 .happy-bug-tiptap-editor .tiptap p {
     margin: 0 0 16px;

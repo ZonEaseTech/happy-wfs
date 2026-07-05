@@ -921,6 +921,8 @@ describe("v3SessionRoutes", () => {
                         localId: "mention-1",
                         content: "enc-content",
                         mentionTargetUserIds: ["shared-user", "stranger-user", "user-1", "shared-user"],
+                        mentionTargetUsernames: ["Shared User", "Stranger", "Owner", "Shared User Duplicate"],
+                        mentionPreview: "请 @shared-user 来确认这个问题",
                     }
                 ]
             }
@@ -930,9 +932,12 @@ describe("v3SessionRoutes", () => {
         expect(notifySessionMentionRecipientsMock).toHaveBeenCalledTimes(1);
         expect(notifySessionMentionRecipientsMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
             recipientUserIds: ["shared-user"],
+            recipientUsernames: ["Shared User"],
+            ownerId: "user-1",
             actorId: "user-1",
             sessionId: "session-1",
             sessionTitle: null,
+            preview: "请 @shared-user 来确认这个问题",
         }));
     });
 

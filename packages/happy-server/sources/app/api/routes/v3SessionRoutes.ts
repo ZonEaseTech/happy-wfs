@@ -35,6 +35,8 @@ const sendMessagesBodySchema = z.object({
         localId: z.string().min(1),
         trackCliDelivery: z.boolean().optional().default(false),
         mentionTargetUserIds: z.array(z.string()).max(20).optional().default([]),
+        mentionTargetUsernames: z.array(z.string().max(120)).max(20).optional().default([]),
+        mentionPreview: z.string().max(2000).optional(),
     })).min(1).max(MAX_SEND_MESSAGES_PER_REQUEST),
 });
 
@@ -336,7 +338,14 @@ export function v3SessionRoutes(app: Fastify) {
 
         const sentByName = await getSenderName(userId);
 
-        const firstMessageByLocalId = new Map<string, { localId: string; content: string; trackCliDelivery: boolean; mentionTargetUserIds: string[] }>();
+        const firstMessageByLocalId = new Map<string, {
+            localId: string;
+            content: string;
+            trackCliDelivery: boolean;
+            mentionTargetUserIds: string[];
+            mentionTargetUsernames: string[];
+            mentionPreview?: string;
+        }>();
         for (const message of messages) {
             if (!firstMessageByLocalId.has(message.localId)) {
                 firstMessageByLocalId.set(message.localId, message);
@@ -405,6 +414,13 @@ export function v3SessionRoutes(app: Fastify) {
                     userId,
                 );
                 if (recipientUserIds.length > 0) {
+                    const usernameByUserId = new Map<string, string>();
+                    message.mentionTargetUserIds.forEach((targetUserId, index) => {
+                        const username = message.mentionTargetUsernames[index]?.trim();
+                        if (targetUserId && username && !usernameByUserId.has(targetUserId)) {
+                            usernameByUserId.set(targetUserId, username);
+                        }
+                    });
                     const sessionForNotification = await db.session.findUnique({
                         where: { id: sessionId },
                         select: { tag: true },
@@ -412,12 +428,16 @@ export function v3SessionRoutes(app: Fastify) {
                     await inTx(async (tx) => {
                         await notifySessionMentionRecipients(tx, {
                             recipientUserIds,
+                            recipientUsernames: recipientUserIds.map((recipientUserId) => (
+                                usernameByUserId.get(recipientUserId) ?? recipientUserId
+                            )),
+                            ownerId,
                             actorId: userId,
                             actorName: sentByName,
                             sessionId,
                             messageLocalId: message.localId,
                             sessionTitle: sessionForNotification?.tag ?? null,
-                            preview: "Mentioned you in a session",
+                            preview: message.mentionPreview?.trim() || "Mentioned you in a session",
                         });
                     });
                 }

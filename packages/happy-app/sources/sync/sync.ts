@@ -836,6 +836,8 @@ class Sync {
                             localId,
                             trackCliDelivery: false,
                             mentionTargetUserIds: input.targetUserIds,
+                            mentionTargetUsernames: input.targetUsernames,
+                            mentionPreview: input.text.slice(0, 1000),
                         }]
                     })
                 }

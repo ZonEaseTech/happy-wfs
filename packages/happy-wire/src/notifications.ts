@@ -33,5 +33,8 @@ export const NotificationConfigSchema = z.object({
     feishu: FeishuWebhookConfigSchema.extend({
         lastTestedAt: z.number().optional(),
     }).optional(),
+    feishuMention: FeishuWebhookConfigSchema.extend({
+        lastTestedAt: z.number().optional(),
+    }).optional(),
 });
 export type NotificationConfig = z.infer<typeof NotificationConfigSchema>;

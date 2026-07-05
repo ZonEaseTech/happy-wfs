@@ -1564,7 +1564,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     backgroundColor: "#FBFBFA",
     borderWidth: 1,
     borderColor: "#E8E4DE",
-    borderRadius: 22,
     padding: 0,
     marginBottom: 0,
     ...Typography.default(),
