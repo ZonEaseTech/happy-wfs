@@ -1229,7 +1229,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     maxWidth: 1680,
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 36,
+    paddingTop: 18,
     paddingBottom: 28,
     ...Platform.select({
       web: {
