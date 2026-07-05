@@ -10,6 +10,7 @@ const {
     dbMock: {
         account: {
             findUnique: vi.fn(async () => ({ notificationConfig: null })),
+            findMany: vi.fn(async () => [] as { id: string; notificationConfig: unknown }[]),
         },
     },
     feedPostMock: vi.fn(async () => undefined),
@@ -52,6 +53,8 @@ describe("notifySessionMentionRecipients", () => {
     beforeEach(() => {
         dbMock.account.findUnique.mockReset();
         dbMock.account.findUnique.mockResolvedValue({ notificationConfig: null });
+        dbMock.account.findMany.mockReset();
+        dbMock.account.findMany.mockResolvedValue([]);
         feedPostMock.mockClear();
         sendExpoPushNotificationsMock.mockClear();
         sendFeishuMessageMock.mockClear();
@@ -181,5 +184,40 @@ describe("notifySessionMentionRecipients", () => {
         );
         const payload = (sendFeishuMessageMock.mock.calls[0] as any)[1];
         expect(payload.content.text).toContain("https://happy.zonease.org/session/session-1");
+    });
+
+    it("renders a real <at> ping when the recipient account has a Feishu user id configured", async () => {
+        dbMock.account.findUnique.mockResolvedValue({
+            notificationConfig: {
+                feishuMention: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/mention", enabled: true },
+            },
+        } as any);
+        dbMock.account.findMany.mockResolvedValue([
+            { id: "user-2", notificationConfig: { feishuUserId: "ou_abc123" } },
+            { id: "user-3", notificationConfig: null },
+        ] as any);
+
+        await notifySessionMentionRecipients({} as never, {
+            ownerId: "owner-1",
+            recipientUserIds: ["user-2", "user-3"],
+            recipientUsernames: ["youthqx", "bob"],
+            actorId: "owner-1",
+            actorName: "wfs",
+            sessionId: "session-1",
+            messageLocalId: "local-1",
+            sessionTitle: null,
+            preview: "请确认",
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(dbMock.account.findMany).toHaveBeenCalledWith({
+            where: { id: { in: ["user-2", "user-3"] } },
+            select: { id: true, notificationConfig: true },
+        });
+        expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
+        const payload = (sendFeishuMessageMock.mock.calls[0] as any)[1];
+        expect(payload.content.text).toContain('<at user_id="ou_abc123">youthqx</at>、@bob');
     });
 });

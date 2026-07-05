@@ -36,5 +36,12 @@ export const NotificationConfigSchema = z.object({
     feishuMention: FeishuWebhookConfigSchema.extend({
         lastTestedAt: z.number().optional(),
     }).optional(),
+    /**
+     * The account owner's own Feishu identity (open_id `ou_…` or tenant
+     * user_id). When set, collaboration @ notifications sent to any owner's
+     * mention webhook render this user as a real `<at>` ping instead of
+     * plain text. The ping only fires if the user is in the bot's group.
+     */
+    feishuUserId: z.string().optional(),
 });
 export type NotificationConfig = z.infer<typeof NotificationConfigSchema>;

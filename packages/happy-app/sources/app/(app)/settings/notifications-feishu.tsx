@@ -14,8 +14,10 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import {
     getFeishuConfig,
     getFeishuMentionConfig,
+    getFeishuUserId,
     putFeishuConfig,
     putFeishuMentionConfig,
+    putFeishuUserId,
     testFeishu,
     testFeishuMention,
     type FeishuConfigPublic,
@@ -37,14 +39,17 @@ export default function NotificationsFeishuScreen() {
     const [mentionSecret, setMentionSecret] = React.useState('');
     const [mentionSecretEdited, setMentionSecretEdited] = React.useState(false);
     const [mentionEnabled, setMentionEnabled] = React.useState(false);
+    const [serverFeishuUserId, setServerFeishuUserId] = React.useState<string | null>(null);
+    const [feishuUserId, setFeishuUserId] = React.useState('');
 
     React.useEffect(() => {
         let mounted = true;
         Promise.all([
             getFeishuConfig(auth.credentials!),
             getFeishuMentionConfig(auth.credentials!),
+            getFeishuUserId(auth.credentials!),
         ])
-            .then(([cfg, mentionCfg]) => {
+            .then(([cfg, mentionCfg, userId]) => {
                 if (!mounted) return;
                 setServerState(cfg);
                 setUrl(cfg.url ?? '');
@@ -52,6 +57,8 @@ export default function NotificationsFeishuScreen() {
                 setMentionServerState(mentionCfg);
                 setMentionUrl(mentionCfg.url ?? '');
                 setMentionEnabled(mentionCfg.enabled);
+                setServerFeishuUserId(userId);
+                setFeishuUserId(userId ?? '');
             })
             .catch(() => { /* leave defaults */ })
             .finally(() => mounted && setLoading(false));
@@ -66,7 +73,8 @@ export default function NotificationsFeishuScreen() {
         (mentionUrl || '') !== (mentionServerState?.url ?? '') ||
         mentionEnabled !== (mentionServerState?.enabled ?? false) ||
         mentionSecretEdited;
-    const dirty = normalDirty || mentionDirty;
+    const userIdDirty = feishuUserId.trim() !== (serverFeishuUserId ?? '');
+    const dirty = normalDirty || mentionDirty || userIdDirty;
 
     const [saving, save] = useHappyAction(async () => {
         if (normalDirty) {
@@ -83,12 +91,18 @@ export default function NotificationsFeishuScreen() {
                 enabled: mentionEnabled,
             });
         }
-        const [fresh, freshMention] = await Promise.all([
+        if (userIdDirty) {
+            await putFeishuUserId(auth.credentials!, feishuUserId.trim() ? feishuUserId.trim() : null);
+        }
+        const [fresh, freshMention, freshUserId] = await Promise.all([
             getFeishuConfig(auth.credentials!),
             getFeishuMentionConfig(auth.credentials!),
+            getFeishuUserId(auth.credentials!),
         ]);
         setServerState(fresh);
         setMentionServerState(freshMention);
+        setServerFeishuUserId(freshUserId);
+        setFeishuUserId(freshUserId ?? '');
         setSecretEdited(false);
         setSecret('');
         setMentionSecretEdited(false);
@@ -225,6 +239,29 @@ export default function NotificationsFeishuScreen() {
                     />
                     <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
                         {t('settingsFeishu.secretHint')}
+                    </Text>
+                </View>
+
+                <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 4 }}>
+                    <Text style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
+                        {t('settingsFeishu.userIdLabel')}
+                    </Text>
+                    <TextInput
+                        value={feishuUserId}
+                        onChangeText={setFeishuUserId}
+                        placeholder={t('settingsFeishu.userIdPlaceholder')}
+                        placeholderTextColor={theme.colors.textSecondary}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        editable={!loading && !saving}
+                        style={{
+                            fontSize: 15,
+                            color: theme.colors.text,
+                            paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+                        }}
+                    />
+                    <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
+                        {t('settingsFeishu.userIdHint')}
                     </Text>
                 </View>
 

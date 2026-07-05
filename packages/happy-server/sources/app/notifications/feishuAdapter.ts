@@ -173,9 +173,15 @@ export function buildInputNeededCard(meta: InputNeededMeta): FeishuMessagePayloa
     };
 }
 
+export interface MentionRecipient {
+    username: string;
+    /** Feishu open_id (`ou_…`) or tenant user_id; null → plain-text fallback */
+    feishuUserId: string | null;
+}
+
 export interface MentionNotificationMeta {
     actorName: string | null;
-    recipientUsernames: string[];
+    recipients: MentionRecipient[];
     sessionTitle: string | null;
     sessionUrl: string;
     preview: string;
@@ -187,9 +193,25 @@ function truncateMentionPreview(preview: string): string {
     return `${trimmed.slice(0, 499)}…`;
 }
 
+/**
+ * Feishu parses `<at user_id="…">` inside text payloads, so the id must never
+ * carry quotes/angle brackets from user input. "all" is rejected too — an
+ * account-level id must not be able to @everyone in the group.
+ */
+export function isValidFeishuUserId(id: string): boolean {
+    return /^[A-Za-z0-9_.@-]{1,64}$/.test(id) && id.toLowerCase() !== 'all';
+}
+
+function formatMentionRecipient(recipient: MentionRecipient): string {
+    if (recipient.feishuUserId && isValidFeishuUserId(recipient.feishuUserId)) {
+        return `<at user_id="${recipient.feishuUserId}">${recipient.username}</at>`;
+    }
+    return `@${recipient.username}`;
+}
+
 export function buildMentionNotificationCard(meta: MentionNotificationMeta): FeishuMessagePayload {
-    const recipients = meta.recipientUsernames.length > 0
-        ? meta.recipientUsernames.map((name) => `@${name}`).join('、')
+    const recipients = meta.recipients.length > 0
+        ? meta.recipients.map(formatMentionRecipient).join('、')
         : '未指定';
     const lines = [
         '🔔 Happy 协作 @ 通知',

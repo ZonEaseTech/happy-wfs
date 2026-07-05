@@ -6,12 +6,18 @@ import {
     NotificationConfigSchema,
     FeishuWebhookConfigPublicSchema,
 } from 'happy-wire';
-import { sendFeishuMessage, buildTestCard, buildMentionTestCard } from '@/app/notifications/feishuAdapter';
+import { sendFeishuMessage, buildTestCard, buildMentionTestCard, isValidFeishuUserId } from '@/app/notifications/feishuAdapter';
 
 const FeishuPutBody = z.object({
     url: z.string().url().nullable(),
     secret: z.string().nullable().optional(),
     enabled: z.boolean(),
+});
+
+const FeishuUserIdPutBody = z.object({
+    // open_id (ou_…) or tenant user_id; null clears. "all" and markup chars
+    // are rejected so the stored value can be embedded into <at> tags as-is.
+    feishuUserId: z.string().refine(isValidFeishuUserId, 'invalid feishu user id').nullable(),
 });
 
 type NotificationConfigKey = 'feishu' | 'feishuMention';
@@ -116,6 +122,36 @@ export function notificationRoutes(app: Fastify) {
         preHandler: app.authenticate,
     }, async (request) => {
         await saveFeishuConfig(request.userId, 'feishuMention', request.body);
+        return { success: true as const };
+    });
+
+    app.get('/v1/notifications/feishu/user-id', {
+        schema: {
+            response: {
+                200: z.object({ feishuUserId: z.string().nullable() }),
+            },
+        },
+        preHandler: app.authenticate,
+    }, async (request) => {
+        const config = await loadNotificationConfig(request.userId);
+        return { feishuUserId: config.feishuUserId ?? null };
+    });
+
+    app.put('/v1/notifications/feishu/user-id', {
+        schema: {
+            body: FeishuUserIdPutBody,
+            response: {
+                200: z.object({ success: z.literal(true) }),
+            },
+        },
+        preHandler: app.authenticate,
+    }, async (request) => {
+        const existing = await loadNotificationConfig(request.userId);
+        const next = { ...existing, feishuUserId: request.body.feishuUserId ?? undefined };
+        await db.account.update({
+            where: { id: request.userId },
+            data: { notificationConfig: next as object },
+        });
         return { success: true as const };
     });
 

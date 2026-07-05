@@ -1,6 +1,6 @@
 import { feedPost } from "@/app/feed/feedPost";
 import { sendExpoPushNotifications } from "@/app/notifications/expoPush";
-import { buildMentionNotificationCard, sendFeishuMessage } from "@/app/notifications/feishuAdapter";
+import { buildMentionNotificationCard, sendFeishuMessage, type MentionRecipient } from "@/app/notifications/feishuAdapter";
 import { Context } from "@/context";
 import { db } from "@/storage/db";
 import { afterTx, Tx } from "@/storage/inTx";
@@ -13,9 +13,37 @@ function getAppUrl(): string {
     return (process.env.APP_URL || DEFAULT_APP_URL).replace(/\/+$/, "");
 }
 
+/**
+ * Resolve each recipient's self-configured Feishu identity so the owner's
+ * mention webhook can render a real `<at>` ping. Missing/invalid configs
+ * degrade to null → plain-text fallback in the card.
+ */
+async function resolveMentionRecipients(
+    recipients: { userId: string; username: string }[],
+): Promise<MentionRecipient[]> {
+    if (recipients.length === 0) {
+        return [];
+    }
+    const accounts = await db.account.findMany({
+        where: { id: { in: recipients.map((r) => r.userId) } },
+        select: { id: true, notificationConfig: true },
+    });
+    const feishuUserIdByAccountId = new Map<string, string>();
+    for (const account of accounts) {
+        const parsed = NotificationConfigSchema.safeParse(account.notificationConfig);
+        if (parsed.success && parsed.data.feishuUserId) {
+            feishuUserIdByAccountId.set(account.id, parsed.data.feishuUserId);
+        }
+    }
+    return recipients.map((r) => ({
+        username: r.username,
+        feishuUserId: feishuUserIdByAccountId.get(r.userId) ?? null,
+    }));
+}
+
 async function sendOwnerFeishuMentionNotification(params: {
     ownerId: string;
-    recipientUsernames: string[];
+    recipients: { userId: string; username: string }[];
     actorName: string | null;
     sessionId: string;
     sessionTitle: string | null;
@@ -36,7 +64,7 @@ async function sendOwnerFeishuMentionNotification(params: {
 
     await sendFeishuMessage(feishuMention, buildMentionNotificationCard({
         actorName: params.actorName,
-        recipientUsernames: params.recipientUsernames,
+        recipients: await resolveMentionRecipients(params.recipients),
         sessionTitle: params.sessionTitle,
         sessionUrl: `${getAppUrl()}/session/${params.sessionId}`,
         preview: params.preview,
@@ -62,6 +90,17 @@ export async function notifySessionMentionRecipients(
     if (recipientUserIds.length === 0) {
         return;
     }
+    const usernameByUserId = new Map<string, string>();
+    params.recipientUserIds.forEach((userId, index) => {
+        const username = params.recipientUsernames[index];
+        if (userId && username && !usernameByUserId.has(userId)) {
+            usernameByUserId.set(userId, username);
+        }
+    });
+    const recipients = recipientUserIds.map((userId) => ({
+        userId,
+        username: usernameByUserId.get(userId) ?? userId,
+    }));
     const feedPreview = params.preview.slice(0, 240);
 
     for (const recipientUserId of recipientUserIds) {
@@ -96,7 +135,7 @@ export async function notifySessionMentionRecipients(
         }).catch((err) => warn({ err }, "failed to send session mention push notifications"));
         void sendOwnerFeishuMentionNotification({
             ownerId: params.ownerId,
-            recipientUsernames: params.recipientUsernames,
+            recipients,
             actorName: params.actorName,
             sessionId: params.sessionId,
             sessionTitle: params.sessionTitle,

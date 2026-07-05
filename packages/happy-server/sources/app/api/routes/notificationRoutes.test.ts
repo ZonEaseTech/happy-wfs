@@ -119,4 +119,54 @@ describe('notificationRoutes', () => {
         expect((state.updatedNotificationConfig as any).feishu.lastTestedAt).toBeUndefined();
         expect((state.updatedNotificationConfig as any).feishuMention.lastTestedAt).toEqual(expect.any(Number));
     });
+
+    it('GET /v1/notifications/feishu/user-id returns the stored id or null', async () => {
+        let res = await app.inject({ method: 'GET', url: '/v1/notifications/feishu/user-id' });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ feishuUserId: null });
+
+        state.notificationConfig = { feishuUserId: 'ou_abc123' };
+        res = await app.inject({ method: 'GET', url: '/v1/notifications/feishu/user-id' });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ feishuUserId: 'ou_abc123' });
+    });
+
+    it('PUT /v1/notifications/feishu/user-id stores the id without touching webhook configs', async () => {
+        state.notificationConfig = {
+            feishuMention: { url: 'https://open.feishu.cn/open-apis/bot/v2/hook/mention', enabled: true, secret: 'mention-secret' },
+        };
+
+        const res = await app.inject({
+            method: 'PUT',
+            url: '/v1/notifications/feishu/user-id',
+            payload: { feishuUserId: 'ou_abc123' },
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(state.updatedNotificationConfig).toEqual({
+            feishuMention: { url: 'https://open.feishu.cn/open-apis/bot/v2/hook/mention', enabled: true, secret: 'mention-secret' },
+            feishuUserId: 'ou_abc123',
+        });
+    });
+
+    it('PUT /v1/notifications/feishu/user-id clears with null and rejects unsafe ids', async () => {
+        state.notificationConfig = { feishuUserId: 'ou_abc123' };
+
+        let res = await app.inject({
+            method: 'PUT',
+            url: '/v1/notifications/feishu/user-id',
+            payload: { feishuUserId: null },
+        });
+        expect(res.statusCode).toBe(200);
+        expect((state.updatedNotificationConfig as any).feishuUserId).toBeUndefined();
+
+        for (const bad of ['all', 'a"b', '<at>', 'x'.repeat(65)]) {
+            res = await app.inject({
+                method: 'PUT',
+                url: '/v1/notifications/feishu/user-id',
+                payload: { feishuUserId: bad },
+            });
+            expect(res.statusCode).toBe(400);
+        }
+    });
 });

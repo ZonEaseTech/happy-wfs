@@ -74,6 +74,35 @@ export async function putFeishuMentionConfig(
     }
 }
 
+export async function getFeishuUserId(credentials: AuthCredentials): Promise<string | null> {
+    const API = getServerUrl();
+    return await backoff(async () => {
+        const res = await fetch(`${API}/v1/notifications/feishu/user-id`, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${credentials.token}` },
+        });
+        if (!res.ok) throw new Error(`getFeishuUserId: ${res.status}`);
+        const data = (await res.json()) as { feishuUserId: string | null };
+        return data.feishuUserId;
+    });
+}
+
+export async function putFeishuUserId(
+    credentials: AuthCredentials,
+    feishuUserId: string | null,
+): Promise<void> {
+    const API = getServerUrl();
+    const res = await fetch(`${API}/v1/notifications/feishu/user-id`, {
+        method: 'PUT',
+        headers: { ...json, Authorization: `Bearer ${credentials.token}` },
+        body: JSON.stringify({ feishuUserId }),
+    });
+    if (!res.ok) {
+        const err = await res.text().catch(() => '');
+        throw new HappyError(`putFeishuUserId failed: ${res.status} ${err}`, false);
+    }
+}
+
 export async function testFeishu(credentials: AuthCredentials): Promise<void> {
     const API = getServerUrl();
     const res = await fetch(`${API}/v1/notifications/feishu/test`, {
