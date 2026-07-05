@@ -459,7 +459,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 18,
         paddingTop: 16,
         paddingBottom: 14,
-        borderBottomWidth: 0,
+        borderBottomWidth: 1,
         borderBottomColor: theme.colors.divider,
         backgroundColor: theme.colors.surface,
     },

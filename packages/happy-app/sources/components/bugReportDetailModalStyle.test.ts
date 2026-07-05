@@ -143,13 +143,13 @@ describe('bug report detail modal style', () => {
         expect(source).toContain('disabled={!canSaveContent}');
     });
 
-    it('removes the visible editor frame and modal body scrollbar chrome', () => {
+    it('keeps the modal header separator while removing editor frame and body scrollbar chrome', () => {
         const source = readFileSync(sourcePath, 'utf8');
         const webEditorSource = readFileSync(webEditorPath, 'utf8');
         const headerBlock = source.match(/header: \{[\s\S]*?\n    \},/)?.[0] ?? '';
 
         expect(source).toContain('showsVerticalScrollIndicator={false}');
-        expect(headerBlock).toContain('borderBottomWidth: 0');
+        expect(headerBlock).toContain('borderBottomWidth: 1');
         expect(webEditorSource).toContain('.happy-bug-tiptap-editor .ProseMirror-focused');
         expect(webEditorSource).toContain('border: 0 !important;');
         expect(webEditorSource).toContain('box-shadow: none !important;');
