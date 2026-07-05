@@ -27,6 +27,7 @@ function injectTiptapStyles() {
 .happy-bug-tiptap-editor {
     min-height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    background: #FFFFFF;
 }
 .happy-bug-tiptap-editor .tiptap {
     min-height: 360px;
@@ -35,14 +36,21 @@ function injectTiptapStyles() {
     font-size: 18px;
     line-height: 29px;
     white-space: pre-wrap;
+    background: #FFFFFF;
 }
 .happy-bug-tiptap-editor.detail .tiptap {
     min-height: 220px;
-    padding: 18px;
+    padding: 30px;
     box-sizing: border-box;
 }
 .happy-bug-tiptap-editor.detail.no-inset .tiptap {
     padding: 0;
+}
+.happy-bug-tiptap-editor .ProseMirror,
+.happy-bug-tiptap-editor .ProseMirror-focused {
+    outline: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
 }
 .happy-bug-tiptap-editor .tiptap p {
     margin: 0 0 16px;
@@ -64,11 +72,13 @@ function injectTiptapStyles() {
     object-fit: contain;
     border-radius: 16px;
     margin: 12px 0 18px;
-    background: #F1ECE2;
+    background: #FFFFFF;
+    cursor: grab;
 }
 .happy-bug-tiptap-editor .tiptap .ProseMirror-selectednode {
     outline: 3px solid #111;
     outline-offset: 3px;
+    cursor: grabbing;
 }
 `;
     document.head.appendChild(style);
@@ -188,6 +198,7 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
             ImageExtension.configure({
                 allowBase64: true,
                 inline: false,
+                HTMLAttributes: { draggable: 'true' },
             }),
             Placeholder.configure({
                 placeholder: t('bug.noteStylePlaceholder'),

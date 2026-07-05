@@ -1039,123 +1039,131 @@ function PublicBugDetailPane({
       </View>
 
       <View style={styles.detailBody}>
-        <ScrollView
-          style={styles.detailMain}
-          contentContainerStyle={styles.detailMainContent}
-        >
-          {Platform.OS === "web" ? (
-            <View style={styles.descriptionBox}>
-              <BugTiptapEditor
-                ref={contentEditorRef}
-                initialDoc={contentInitialDoc}
-                initialContentKey={`${bug.id}:${bug.updatedAt}`}
-                attachmentImageUrls={contentAttachmentUrls}
-                onChange={handleContentSnapshotChange}
-                onImageDoubleClick={openBugEditorImagePreview}
-                variant="detail"
-              />
-            </View>
-          ) : (
-            <View style={styles.descriptionBox}>
-              <BugRichContentView
-                description={bug.description}
-                contentJson={bug.contentJson}
-                attachments={bug.attachments}
-                onImagePress={openBugImagePreview}
-              />
-            </View>
-          )}
-
-          <View style={styles.detailCommentContent}>
-            <Text style={styles.sectionTitle}>{t("bug.comment")}</Text>
-            {bug.comments.length === 0 && <Text style={styles.muted}>-</Text>}
-            {bug.comments.map((item) => (
-              <View key={item.id} style={styles.commentCard}>
-                <Text style={styles.commentAuthor}>
-                  {item.authorNickname ?? t("bug.anonymousUser")}
-                </Text>
-                <Text style={styles.commentBody}>{item.body}</Text>
-                {item.attachments.length > 0 && (
-                  <View style={styles.attachmentGrid}>
-                    {item.attachments.map((attachment) => (
-                      <Pressable
-                        key={attachment.id}
-                        onPress={() => handleCommentImagePress(attachment)}
-                      >
-                        <Image
-                          source={{ uri: attachment.url }}
-                          style={styles.commentImage}
-                          contentFit="cover"
-                        />
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
+        <View style={styles.detailContentColumns}>
+          <ScrollView
+            style={styles.detailMain}
+            contentContainerStyle={styles.detailMainContent}
+          >
+            {Platform.OS === "web" ? (
+              <View style={styles.descriptionBox}>
+                <BugTiptapEditor
+                  ref={contentEditorRef}
+                  initialDoc={contentInitialDoc}
+                  initialContentKey={`${bug.id}:${bug.updatedAt}`}
+                  attachmentImageUrls={contentAttachmentUrls}
+                  onChange={handleContentSnapshotChange}
+                  onImageDoubleClick={openBugEditorImagePreview}
+                  variant="detail"
+                />
               </View>
-            ))}
+            ) : (
+              <View style={styles.descriptionBox}>
+                <BugRichContentView
+                  description={bug.description}
+                  contentJson={bug.contentJson}
+                  attachments={bug.attachments}
+                  onImagePress={openBugImagePreview}
+                />
+              </View>
+            )}
+          </ScrollView>
 
-            <TextInput
-              ref={commentInputRef}
-              style={styles.commentInput}
-              value={comment}
-              onChangeText={setComment}
-              placeholder={t("bug.addComment")}
-              placeholderTextColor={theme.colors.textSecondary}
-              multiline
-            />
-            <ImagePreview
-              images={picker.images}
-              onRemove={picker.removeImage}
-              maxImages={BUG_IMAGE_LIMITS.maxImages}
-            />
-            <View style={styles.inlineActionRow}>
-              <Pressable
-                style={styles.secondaryButton}
-                onPress={() =>
-                  Platform.OS === "web"
-                    ? fileInputRef.current?.click()
-                    : picker.pickFromGallery()
-                }
-              >
-                <Text style={styles.secondaryButtonText}>
-                  {t("bug.uploadScreenshots")}
-                </Text>
-              </Pressable>
-              {picker.images.length > 0 && (
+          <View style={styles.detailCommentRail}>
+            <ScrollView
+              style={styles.detailCommentScroll}
+              contentContainerStyle={styles.detailCommentContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.sectionTitle}>{t("bug.comment")}</Text>
+              {bug.comments.length === 0 && <Text style={styles.muted}>-</Text>}
+              {bug.comments.map((item) => (
+                <View key={item.id} style={styles.commentCard}>
+                  <Text style={styles.commentAuthor}>
+                    {item.authorNickname ?? t("bug.anonymousUser")}
+                  </Text>
+                  <Text style={styles.commentBody}>{item.body}</Text>
+                  {item.attachments.length > 0 && (
+                    <View style={styles.attachmentGrid}>
+                      {item.attachments.map((attachment) => (
+                        <Pressable
+                          key={attachment.id}
+                          onPress={() => handleCommentImagePress(attachment)}
+                        >
+                          <Image
+                            source={{ uri: attachment.url }}
+                            style={styles.commentImage}
+                            contentFit="cover"
+                          />
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+
+              <TextInput
+                ref={commentInputRef}
+                style={styles.commentInput}
+                value={comment}
+                onChangeText={setComment}
+                placeholder={t("bug.addComment")}
+                placeholderTextColor={theme.colors.textSecondary}
+                multiline
+              />
+              <ImagePreview
+                images={picker.images}
+                onRemove={picker.removeImage}
+                maxImages={BUG_IMAGE_LIMITS.maxImages}
+              />
+              <View style={styles.inlineActionRow}>
                 <Pressable
                   style={styles.secondaryButton}
-                  onPress={handleUploadOnly}
+                  onPress={() =>
+                    Platform.OS === "web"
+                      ? fileInputRef.current?.click()
+                      : picker.pickFromGallery()
+                  }
                 >
                   <Text style={styles.secondaryButtonText}>
-                    {t("bug.uploadOnly")}
+                    {t("bug.uploadScreenshots")}
                   </Text>
                 </Pressable>
+                {picker.images.length > 0 && (
+                  <Pressable
+                    style={styles.secondaryButton}
+                    onPress={handleUploadOnly}
+                  >
+                    <Text style={styles.secondaryButtonText}>
+                      {t("bug.uploadOnly")}
+                    </Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  style={[
+                    styles.smallPrimaryButton,
+                    (!comment.trim() || busy) && { opacity: 0.55 },
+                  ]}
+                  disabled={!comment.trim() || busy}
+                  onPress={handleComment}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {t("bug.addComment")}
+                  </Text>
+                </Pressable>
+              </View>
+              {Platform.OS === "web" && (
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={handleFileChange}
+                />
               )}
-              <Pressable
-                style={[
-                  styles.smallPrimaryButton,
-                  (!comment.trim() || busy) && { opacity: 0.55 },
-                ]}
-                disabled={!comment.trim() || busy}
-                onPress={handleComment}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {t("bug.addComment")}
-                </Text>
-              </Pressable>
-            </View>
-            {Platform.OS === "web" && (
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: "none" }}
-                onChange={handleFileChange}
-              />
-            )}
+            </ScrollView>
           </View>
-        </ScrollView>
+        </View>
         <View style={styles.statusFooter}>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.statusFooterTitle}>
@@ -1218,7 +1226,7 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   desktopShell: {
     width: "100%",
-    maxWidth: 1480,
+    maxWidth: 1680,
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 36,
@@ -1539,15 +1547,36 @@ const stylesheet = StyleSheet.create((theme) => ({
     flex: 1,
     minHeight: 0,
   },
+  detailContentColumns: {
+    flex: 1,
+    minHeight: 0,
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+  },
   detailMain: {
     flex: 1,
     minWidth: 0,
+    backgroundColor: "#FFFFFF",
   },
   detailMainContent: {
     paddingBottom: 0,
+    backgroundColor: "#FFFFFF",
+  },
+  detailCommentRail: {
+    width: 360,
+    flexShrink: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: "#ECE7E0",
+    backgroundColor: "#FFFFFF",
+    minHeight: 0,
+  },
+  detailCommentScroll: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: "#FFFFFF",
   },
   detailCommentContent: {
-    paddingHorizontal: 30,
+    paddingHorizontal: 24,
     paddingTop: 22,
     paddingBottom: 24,
   },
@@ -1561,8 +1590,8 @@ const stylesheet = StyleSheet.create((theme) => ({
   descriptionBox: {
     color: theme.colors.text,
     lineHeight: 24,
-    backgroundColor: "#FBFBFA",
-    borderWidth: 1,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 0,
     borderColor: "#E8E4DE",
     padding: 0,
     marginBottom: 0,

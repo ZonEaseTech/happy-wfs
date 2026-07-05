@@ -338,7 +338,7 @@ export function BugReportDetailModal({
                 )}
                 <Pressable onPress={onClose} hitSlop={10}><Ionicons name="close" size={22} color={styles.title.color} /></Pressable>
             </View>
-            <ScrollView style={[styles.body, detailModalLayout.body]} keyboardShouldPersistTaps="handled">
+            <ScrollView style={[styles.body, detailModalLayout.body]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 {detailLoading && (
                     <View style={styles.detailLoading}>
                         <ActivityIndicator size="small" />
@@ -459,7 +459,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingHorizontal: 18,
         paddingTop: 16,
         paddingBottom: 14,
-        borderBottomWidth: 1,
+        borderBottomWidth: 0,
         borderBottomColor: theme.colors.divider,
         backgroundColor: theme.colors.surface,
     },
@@ -505,7 +505,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     notePaper: {
         minHeight: 220,
-        borderWidth: 1,
+        borderWidth: 0,
         borderColor: theme.colors.divider,
         borderRadius: 0,
         backgroundColor: theme.colors.surface,

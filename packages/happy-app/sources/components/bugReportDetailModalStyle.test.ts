@@ -90,6 +90,15 @@ describe('bug report detail modal style', () => {
         expect(imageStyleBlock).not.toMatch(/\n\s*width:\s*100%;/);
     });
 
+    it('makes bug editor images draggable with a white editor surface', () => {
+        const editorWebSource = readFileSync(webEditorPath, 'utf8');
+
+        expect(editorWebSource).toContain("HTMLAttributes: { draggable: 'true'");
+        expect(editorWebSource).toContain('background: #FFFFFF;');
+        expect(editorWebSource).toContain('cursor: grab;');
+        expect(editorWebSource).toContain('cursor: grabbing;');
+    });
+
     it('supports lightweight zoom controls in bug image preview', () => {
         const previewSource = readFileSync(previewModalPath, 'utf8');
 
@@ -134,17 +143,31 @@ describe('bug report detail modal style', () => {
         expect(source).toContain('disabled={!canSaveContent}');
     });
 
+    it('removes the visible editor frame and modal body scrollbar chrome', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+        const webEditorSource = readFileSync(webEditorPath, 'utf8');
+        const headerBlock = source.match(/header: \{[\s\S]*?\n    \},/)?.[0] ?? '';
+
+        expect(source).toContain('showsVerticalScrollIndicator={false}');
+        expect(headerBlock).toContain('borderBottomWidth: 0');
+        expect(webEditorSource).toContain('.happy-bug-tiptap-editor .ProseMirror-focused');
+        expect(webEditorSource).toContain('border: 0 !important;');
+        expect(webEditorSource).toContain('box-shadow: none !important;');
+    });
+
     it('removes inner padding from the detail modal description while keeping comment cards padded', () => {
         const source = readFileSync(sourcePath, 'utf8');
         const webEditorSource = readFileSync(webEditorPath, 'utf8');
         const notePaperBlock = source.match(/notePaper: \{[\s\S]*?\n    \}/)?.[0] ?? '';
 
+        expect(notePaperBlock).toContain('borderWidth: 0');
         expect(notePaperBlock).toContain('borderRadius: 0');
         expect(notePaperBlock).not.toContain('paddingHorizontal');
         expect(notePaperBlock).not.toContain('paddingVertical');
         expect(source).toContain('contentInset="none"');
         expect(webEditorSource).toContain('no-inset');
         expect(webEditorSource).toContain('padding: 0');
+        expect(webEditorSource).toContain('padding: 30px');
         expect(source).toContain('comment: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 12, padding: 12');
     });
 

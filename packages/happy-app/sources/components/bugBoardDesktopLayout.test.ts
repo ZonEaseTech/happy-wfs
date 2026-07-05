@@ -9,7 +9,7 @@ describe("bug board desktop layout", () => {
   it("uses the confirmed V9 desktop two-column sizing", () => {
     const source = readFileSync(sourcePath, "utf8");
 
-    expect(source).toContain("maxWidth: 1480");
+    expect(source).toContain("maxWidth: 1680");
     expect(source).toContain("gap: 28");
     expect(source).toContain("width: 520");
     expect(source).toContain("minWidth: 520");
@@ -139,6 +139,9 @@ describe("bug board desktop layout", () => {
     expect(source).toContain(
       "const latestStatusEntry = bug.statusHistory.at(-1)",
     );
+    expect(source).toContain("styles.detailContentColumns");
+    expect(source).toContain("styles.detailCommentRail");
+    expect(source).toContain("styles.detailCommentScroll");
     expect(source).toContain("styles.statusFooter");
     expect(source).toContain("styles.statusFooterCurrent");
     expect(source).toContain("formatBugStatusHistoryAction(latestStatusEntry)");
@@ -187,14 +190,19 @@ describe("bug board desktop layout", () => {
       /\.happy-bug-tiptap-editor\.detail \.tiptap \{[\s\S]*?\}/,
     )?.[0];
 
-    expect(source).toContain("<View style={styles.detailCommentContent}>");
+    expect(source).toContain("<View style={styles.detailContentColumns}>");
+    expect(source).toContain("<View style={styles.detailCommentRail}>");
+    expect(source).toContain("style={styles.detailCommentScroll}");
+    expect(source).toContain("contentContainerStyle={styles.detailCommentContent}");
     expect(detailMainContentBlock).not.toContain("padding: 30");
+    expect(descriptionBoxBlock).toContain('backgroundColor: "#FFFFFF"');
+    expect(descriptionBoxBlock).toContain("borderWidth: 0");
     expect(descriptionBoxBlock).toContain("padding: 0");
     expect(descriptionBoxBlock).not.toContain("padding: 20");
     expect(descriptionBoxBlock).not.toContain("borderRadius");
-    expect(detailEditorCssBlock).toContain("padding: 18px");
+    expect(detailEditorCssBlock).toContain("padding: 30px");
     expect(detailEditorCssBlock).toContain("box-sizing: border-box");
-    expect(detailCommentContentBlock).toContain("paddingHorizontal: 30");
+    expect(detailCommentContentBlock).toContain("paddingHorizontal: 24");
     expect(detailCommentContentBlock).toContain("paddingBottom: 24");
     expect(commentCardBlock).toContain("padding: 16");
     expect(commentInputBlock).toContain("padding: 14");
