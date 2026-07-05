@@ -27,8 +27,8 @@ describe('bug report detail modal style', () => {
 
         expect(source).toContain('styles.notePaper');
         expect(source).toContain('noteStyle');
-        expect(source).toContain("backgroundColor: '#FFFEFB'");
-        expect(source).toContain("borderColor: '#E6E1D8'");
+        expect(source).toContain('backgroundColor: theme.colors.surface');
+        expect(source).toContain('borderColor: theme.colors.divider');
         expect(richContentSource).toContain('textBlockNote');
         expect(richContentSource).toContain('fontSize: 18');
         expect(richContentSource).toContain('lineHeight: 29');
@@ -36,15 +36,17 @@ describe('bug report detail modal style', () => {
         expect(richContentWebSource).toContain('editable: false');
     });
 
-    it('uses explicit edit controls and a fixed edit action bar in the modal rich content editor', () => {
+    it('uses dirty-state save controls instead of an edit toggle in rich content editors', () => {
         const source = readFileSync(sourcePath, 'utf8');
         const shareBoardSource = readFileSync(shareBoardPath, 'utf8');
 
-        expect(source).toContain("t('bug.editContent')");
-        expect(source).toContain('styles.contentEditToolbar');
+        expect(source).toContain("t('common.save')");
         expect(source).toContain("t('bug.savingContent')");
         expect(source).toContain('variant="detail"');
-        expect(source).toContain('if (contentEditing) return');
+        expect(source).toContain('contentDirty && styles.headerSaveButtonActive');
+        expect(source).toContain('disabled={!canSaveContent}');
+        expect(source).not.toContain("t('bug.editContent')");
+        expect(source).not.toContain('styles.contentEditToolbar');
 
         expect(shareBoardSource).toContain("t(\"common.save\")");
         expect(shareBoardSource).toContain('contentDirty && styles.detailHeaderButtonPrimary');
@@ -104,6 +106,55 @@ describe('bug report detail modal style', () => {
         expect(previewSource).not.toContain("name=\"add\"");
         expect(previewSource).not.toContain("name=\"remove\"");
         expect(previewSource).not.toContain('zoomControls');
+    });
+
+    it('renders preview screenshots with an explicit browser image on web', () => {
+        const previewSource = readFileSync(previewModalPath, 'utf8');
+
+        expect(previewSource).toContain("Platform.OS === 'web'");
+        expect(previewSource).toContain('<img');
+        expect(previewSource).toContain('src={currentImage.uri}');
+        expect(previewSource).toContain('objectFit: \'contain\'');
+        expect(previewSource).toContain('width: stageWidth');
+        expect(previewSource).toContain('height: stageHeight');
+    });
+
+
+    it('removes the extra description header row and edit-toggle workflow from the detail modal', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+
+        expect(source).not.toContain('styles.fieldHeader');
+        expect(source).not.toContain('styles.fieldHeaderActions');
+        expect(source).not.toContain('styles.editTextButton');
+        expect(source).not.toContain("t('bug.description')");
+        expect(source).not.toContain("t('bug.editContent')");
+        expect(source).not.toContain('contentEditing');
+        expect(source).toContain('contentDirty && styles.headerSaveButtonActive');
+        expect(source).toContain('disabled={!canSaveContent}');
+    });
+
+    it('removes inner padding from the detail modal description while keeping comment cards padded', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+        const notePaperBlock = source.match(/notePaper: \{[\s\S]*?\n    \}/)?.[0] ?? '';
+
+        expect(notePaperBlock).toContain('borderRadius: 0');
+        expect(notePaperBlock).toContain('paddingHorizontal: 18');
+        expect(notePaperBlock).toContain('paddingVertical: 16');
+        expect(source).toContain('comment: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 12, padding: 12');
+    });
+
+    it('keeps the bug detail modal visual style aligned with GitHub issue details', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+
+        expect(source).toContain('backgroundColor: theme.colors.surface');
+        expect(source).toContain('borderBottomColor: theme.colors.divider');
+        expect(source).toContain('borderTopColor: theme.colors.divider');
+        expect(source).toContain('borderColor: theme.colors.divider');
+        expect(source).not.toContain("'#FDFBF7'");
+        expect(source).not.toContain("'#F8F5EE'");
+        expect(source).not.toContain("'#FFFEFB'");
+        expect(source).not.toContain("'#E8E1D4'");
+        expect(source).not.toContain("'#E6E1D8'");
     });
 
     it('opens bug details immediately from list summaries and loads full detail inside the modal', () => {

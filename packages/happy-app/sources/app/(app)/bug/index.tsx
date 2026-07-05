@@ -322,6 +322,7 @@ export default function PublicBugBoardPage() {
       query={query}
       loading={board.loading}
       error={board.error}
+      showActions={!isWide}
       onQueryChange={setQuery}
       onClearQuery={() => setQuery("")}
       onFilterChange={setFilter}
@@ -456,6 +457,7 @@ function BugBoardHeader({
   query,
   loading,
   error,
+  showActions,
   onQueryChange,
   onClearQuery,
   onFilterChange,
@@ -469,6 +471,7 @@ function BugBoardHeader({
   query: string;
   loading: boolean;
   error: string | null;
+  showActions: boolean;
   onQueryChange: (value: string) => void;
   onClearQuery: () => void;
   onFilterChange: (value: BugShareBoardFilter) => void;
@@ -501,24 +504,28 @@ function BugBoardHeader({
             {getFilterLabel(currentFilter)}
           </Text>
         </View>
-        <Pressable
-          style={styles.iconButton}
-          onPress={onRefresh}
-          disabled={loading}
-        >
-          <Ionicons
-            name="refresh-outline"
-            size={20}
-            color={theme.colors.text}
-          />
-        </Pressable>
-        <Pressable style={styles.iconButton} onPress={onLogout}>
-          <Ionicons
-            name="log-out-outline"
-            size={20}
-            color={theme.colors.text}
-          />
-        </Pressable>
+        {showActions && (
+          <>
+            <Pressable
+              style={styles.iconButton}
+              onPress={onRefresh}
+              disabled={loading}
+            >
+              <Ionicons
+                name="refresh-outline"
+                size={20}
+                color={theme.colors.text}
+              />
+            </Pressable>
+            <Pressable style={styles.iconButton} onPress={onLogout}>
+              <Ionicons
+                name="log-out-outline"
+                size={20}
+                color={theme.colors.text}
+              />
+            </Pressable>
+          </>
+        )}
       </View>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
@@ -624,9 +631,11 @@ function PublicBugListItem({
         <Text style={styles.bugItemTitle} numberOfLines={2}>
           {bug.title}
         </Text>
+      </View>
+      <View style={styles.bugItemRight}>
         <View style={styles.bugMetaRow}>
           <StatusPill status={bug.status} />
-          <Text style={styles.bugMetaText}>
+          <Text style={styles.bugMetaText} numberOfLines={1}>
             {bug.attachmentCount} {t("bug.screenshots")} · {bug.commentCount}{" "}
             {t("bug.comment")}
           </Text>
@@ -984,10 +993,6 @@ function PublicBugDetailPane({
           </Text>
           <Text style={styles.detailTitle} numberOfLines={2}>
             {bug.title}
-          </Text>
-          <Text style={styles.subtitle}>
-            {bug.createdByNickname ?? t("bug.anonymousUser")} ·{" "}
-            {t("bug.selectedInFilter")}
           </Text>
         </View>
         <View style={styles.detailHeaderActions}>
@@ -1418,6 +1423,12 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   bugIconText: { fontSize: 18 },
   bugItemContent: { flex: 1, minWidth: 0 },
+  bugItemRight: {
+    flexShrink: 0,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    maxWidth: 174,
+  },
   bugKicker: {
     fontSize: 13,
     color: theme.colors.textSecondary,
@@ -1431,10 +1442,8 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   bugMetaRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
-    marginTop: 7,
   },
   bugMetaText: {
     fontSize: 12,
@@ -1480,9 +1489,8 @@ const stylesheet = StyleSheet.create((theme) => ({
     minHeight: 0,
   },
   detailHeader: {
-    minHeight: 116,
     paddingHorizontal: 30,
-    paddingVertical: 18,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#ECE7E0",
     flexDirection: "row",

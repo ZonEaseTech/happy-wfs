@@ -129,6 +129,23 @@ export function BugImagePreviewModal({
     const canNavigate = images.length > 1;
     const scaleDisplay = `${Math.round(zoomState.scale * 100)}%`;
     const imagePanHandlers = zoomEnabled ? panResponder.panHandlers : {};
+    const imageTransform = zoomEnabled ? [
+        { translateX: zoomState.translateX },
+        { translateY: zoomState.translateY },
+        { scale: zoomState.scale },
+    ] : [];
+    const webImageStyle: React.CSSProperties = {
+        width: stageWidth,
+        height: stageHeight,
+        maxWidth: '100%',
+        maxHeight: '100%',
+        objectFit: 'contain',
+        transform: zoomEnabled
+            ? `translate(${zoomState.translateX}px, ${zoomState.translateY}px) scale(${zoomState.scale})`
+            : undefined,
+        userSelect: 'none',
+        pointerEvents: 'none',
+    };
 
     return (
         <NativeModal
@@ -156,22 +173,27 @@ export function BugImagePreviewModal({
                         onPress={handleImagePress}
                         {...imagePanHandlers}
                     >
-                        <Image
-                            source={{ uri: currentImage.uri }}
-                            style={[
-                                styles.image,
-                                {
-                                    maxWidth: windowSize.width,
-                                    maxHeight: windowSize.height - 88,
-                                    transform: zoomEnabled ? [
-                                        { translateX: zoomState.translateX },
-                                        { translateY: zoomState.translateY },
-                                        { scale: zoomState.scale },
-                                    ] : [],
-                                },
-                            ]}
-                            contentFit="contain"
-                        />
+                        {Platform.OS === 'web' ? (
+                            <img
+                                src={currentImage.uri}
+                                alt=""
+                                draggable={false}
+                                style={webImageStyle}
+                            />
+                        ) : (
+                            <Image
+                                source={{ uri: currentImage.uri }}
+                                style={[
+                                    styles.image,
+                                    {
+                                        width: stageWidth,
+                                        height: stageHeight,
+                                        transform: imageTransform,
+                                    },
+                                ]}
+                                contentFit="contain"
+                            />
+                        )}
                     </Pressable>
                     {canNavigate && (
                         <Pressable style={[styles.navButton, styles.navRight]} onPress={showNext} hitSlop={12}>
@@ -226,10 +248,7 @@ const stylesheet = StyleSheet.create(() => ({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    image: {
-        width: '100%',
-        height: '100%',
-    },
+    image: {},
     navButton: {
         position: 'absolute',
         zIndex: 2,

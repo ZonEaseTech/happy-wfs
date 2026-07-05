@@ -22,6 +22,19 @@ import { buildBugPreviewImages, findBugPreviewImageIndex } from './bugImagePrevi
 
 const STATUS_OPTIONS: BugStatus[] = ['pending', 'in_progress', 'verify', 'closed'];
 
+function getBugContentSnapshotSignature(snapshot: BugTiptapEditorSnapshot): string {
+    return JSON.stringify({
+        description: snapshot.description,
+        contentJson: snapshot.contentJson,
+        images: snapshot.images.map(image => ({
+            uri: image.uri,
+            width: image.width,
+            height: image.height,
+            mimeType: image.mimeType,
+        })),
+    });
+}
+
 function isBugReportDetail(bug: BugReportSummary | BugReportDetail): bug is BugReportDetail {
     return 'comments' in bug;
 }
@@ -66,7 +79,7 @@ export function BugReportDetailModal({
     const [currentBug, setCurrentBug] = React.useState<BugReportDetail>(() => bugSummaryToDetail(bug));
     const [detailLoading, setDetailLoading] = React.useState(() => !isBugReportDetail(bug) && !!loadBug);
     const [comment, setComment] = React.useState('');
-    const [contentEditing, setContentEditing] = React.useState(false);
+    const [contentDirty, setContentDirty] = React.useState(false);
     const [contentSnapshot, setContentSnapshot] = React.useState<BugTiptapEditorSnapshot | null>(null);
     const [busy, setBusy] = React.useState(false);
     const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
@@ -75,6 +88,7 @@ export function BugReportDetailModal({
     const picker = useImagePicker({ maxImages: BUG_IMAGE_LIMITS.maxImages, maxSizeBytes: BUG_IMAGE_LIMITS.maxSizeBytes });
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const contentEditorRef = React.useRef<BugTiptapEditorHandle>(null);
+    const contentBaselineRef = React.useRef<string | null>(null);
 
     const updateBug = React.useCallback((updated: BugReportDetail) => {
         setCurrentBug(updated);
@@ -84,7 +98,8 @@ export function BugReportDetailModal({
     React.useEffect(() => {
         setCurrentBug(bugSummaryToDetail(bug));
         setDetailLoading(!isBugReportDetail(bug) && !!loadBug);
-        setContentEditing(false);
+        contentBaselineRef.current = null;
+        setContentDirty(false);
         setContentSnapshot(null);
     }, [bug, loadBug]);
 
@@ -161,6 +176,16 @@ export function BugReportDetailModal({
         [currentBug.attachments],
     );
     const canEditContent = Platform.OS === 'web' && !!onUpdateContent && !detailLoading;
+    const handleContentSnapshotChange = React.useCallback((snapshot: BugTiptapEditorSnapshot) => {
+        setContentSnapshot(snapshot);
+        const signature = getBugContentSnapshotSignature(snapshot);
+        if (contentBaselineRef.current == null) {
+            contentBaselineRef.current = signature;
+            setContentDirty(false);
+            return;
+        }
+        setContentDirty(signature !== contentBaselineRef.current);
+    }, []);
 
     const handleSaveContent = React.useCallback(async () => {
         if (!onUpdateContent || busy) return;
@@ -171,10 +196,12 @@ export function BugReportDetailModal({
         }
         setBusy(true);
         try {
+            const signature = getBugContentSnapshotSignature(snapshot);
             const updated = await onUpdateContent(currentBug, snapshot.description, snapshot.contentJson, snapshot.images);
+            contentBaselineRef.current = signature;
+            setContentDirty(false);
+            setContentSnapshot(snapshot);
             updateBug(updated);
-            setContentEditing(false);
-            setContentSnapshot(null);
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         } finally {
@@ -226,7 +253,7 @@ export function BugReportDetailModal({
     }, [picker]);
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
-        if (contentEditing) return;
+        if (canEditContent) return;
         await handleImagePasteEvent(event, {
             isScreenFocused: true,
             canAddMore: picker.canAddMore,
@@ -240,7 +267,7 @@ export function BugReportDetailModal({
                 await picker.addImageFromUri(url, mimeType);
             },
         });
-    }, [contentEditing, picker]);
+    }, [canEditContent, picker]);
 
     React.useEffect(() => {
         if (Platform.OS !== 'web') return;
@@ -269,17 +296,27 @@ export function BugReportDetailModal({
     }, [currentBug.status, handleStatus]);
 
     const previewImages = React.useMemo(
-        () => buildBugPreviewImages(currentBug),
-        [currentBug],
+        () => [
+            ...buildBugPreviewImages(currentBug),
+            ...(contentSnapshot?.images.map((image, index) => ({
+                id: `draft-${index}-${image.uri}`,
+                uri: image.uri,
+            })) ?? []),
+        ],
+        [contentSnapshot, currentBug],
     );
-    const openBugImagePreview = React.useCallback((attachment: { url: string }) => {
-        setPreviewIndex(findBugPreviewImageIndex(previewImages, attachment.url));
+    const openBugEditorImagePreview = React.useCallback((src: string) => {
+        setPreviewIndex(findBugPreviewImageIndex(previewImages, src));
         setPreviewVisible(true);
     }, [previewImages]);
+    const openBugImagePreview = React.useCallback((attachment: { url: string }) => {
+        openBugEditorImagePreview(attachment.url);
+    }, [openBugEditorImagePreview]);
     const handleCommentImagePress = React.useCallback((attachment: { url: string }) => {
         openBugImagePreview(attachment);
     }, [openBugImagePreview]);
     const latestStatusEntry = currentBug.statusHistory.at(-1);
+    const canSaveContent = contentDirty && !!contentSnapshot?.plainText.trim() && !busy;
 
     return (
         <View style={[styles.modal, detailModalLayout.modal]}>
@@ -288,66 +325,41 @@ export function BugReportDetailModal({
                     <Text style={styles.kicker}>{currentBug.displayId} · {bugStatusLabel(currentBug.status)}</Text>
                     <Text style={styles.title} numberOfLines={2}>{currentBug.title}</Text>
                 </View>
+                {canEditContent && (
+                    <Pressable
+                        style={[styles.headerSaveButton, contentDirty && styles.headerSaveButtonActive]}
+                        disabled={!canSaveContent}
+                        onPress={() => { void handleSaveContent(); }}
+                    >
+                        <Text style={[styles.headerSaveButtonText, contentDirty && styles.headerSaveButtonTextActive]}>
+                            {busy && contentDirty ? t('bug.savingContent') : t('common.save')}
+                        </Text>
+                    </Pressable>
+                )}
                 <Pressable onPress={onClose} hitSlop={10}><Ionicons name="close" size={22} color={styles.title.color} /></Pressable>
             </View>
             <ScrollView style={[styles.body, detailModalLayout.body]} keyboardShouldPersistTaps="handled">
-                <View style={styles.fieldHeader}>
-                    <Text style={styles.sectionTitle}>{t('bug.description')}</Text>
-                    <View style={styles.fieldHeaderActions}>
-                        <Text style={styles.imageCount}>
-                            {t('bug.imageCounter', { count: contentEditing ? (contentSnapshot?.imageCount ?? currentBug.attachments.length) : currentBug.attachments.length, max: BUG_IMAGE_LIMITS.maxImages })}
-                        </Text>
-                        {canEditContent && (
-                            <Pressable
-                                style={styles.editTextButton}
-                                disabled={busy}
-                                onPress={() => {
-                                    setContentSnapshot(null);
-                                    setContentEditing(value => !value);
-                                }}
-                                hitSlop={8}
-                            >
-                                <Ionicons name={contentEditing ? 'close-outline' : 'create-outline'} size={16} color={styles.editTextButtonText.color} />
-                                <Text style={styles.editTextButtonText}>{contentEditing ? t('common.cancel') : t('bug.editContent')}</Text>
-                            </Pressable>
-                        )}
-                    </View>
-                </View>
                 {detailLoading && (
                     <View style={styles.detailLoading}>
                         <ActivityIndicator size="small" />
                         <Text style={styles.loadingText}>{t('bug.loadingBugs')}</Text>
                     </View>
                 )}
-                {contentEditing && canEditContent ? (
-                    <View style={[styles.notePaper, styles.notePaperEditing]}>
-                        <View style={styles.contentEditToolbar}>
-                            <Text style={styles.contentEditTitle}>{t('bug.editingContent')}</Text>
-                            <View style={styles.contentEditToolbarActions}>
-                                <Pressable style={styles.secondaryButton} disabled={busy} onPress={() => setContentEditing(false)}>
-                                    <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
-                                </Pressable>
-                                <Pressable style={styles.primaryButtonSmall} disabled={busy || !(contentSnapshot?.plainText.trim())} onPress={() => { void handleSaveContent(); }}>
-                                    {busy
-                                        ? <Text style={styles.primaryButtonText}>{t('bug.savingContent')}</Text>
-                                        : <Text style={styles.primaryButtonText}>{t('common.save')}</Text>}
-                                </Pressable>
-                            </View>
-                        </View>
+                <View style={styles.notePaper}>
+                    {canEditContent ? (
                         <BugTiptapEditor
                             ref={contentEditorRef}
                             initialDoc={contentInitialDoc}
                             initialContentKey={`${currentBug.id}:${currentBug.updatedAt}`}
                             attachmentImageUrls={contentAttachmentUrls}
-                            onChange={setContentSnapshot}
+                            onChange={handleContentSnapshotChange}
+                            onImageDoubleClick={openBugEditorImagePreview}
                             variant="detail"
                         />
-                    </View>
-                ) : (
-                    <View style={styles.notePaper}>
+                    ) : (
                         <BugRichContentView description={currentBug.description} contentJson={currentBug.contentJson} attachments={currentBug.attachments} noteStyle onImagePress={openBugImagePreview} />
-                    </View>
-                )}
+                    )}
+                </View>
 
                 <Text style={styles.sectionTitle}>{t('bug.comment')}</Text>
                 {currentBug.comments.map(item => (
@@ -433,11 +445,11 @@ export function BugReportDetailModal({
 
 const stylesheet = StyleSheet.create((theme) => ({
     modal: {
-        backgroundColor: '#FDFBF7',
+        backgroundColor: theme.colors.surface,
         borderRadius: 18,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: '#E6E1D8',
+        borderColor: theme.colors.divider,
     },
     header: {
         flexDirection: 'row',
@@ -447,49 +459,38 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingTop: 16,
         paddingBottom: 14,
         borderBottomWidth: 1,
-        borderBottomColor: '#E8E1D4',
-        backgroundColor: '#F8F5EE',
+        borderBottomColor: theme.colors.divider,
+        backgroundColor: theme.colors.surface,
     },
     kicker: { color: theme.colors.textSecondary, fontSize: 13, ...Typography.default() },
     title: { color: theme.colors.text, fontSize: 21, marginTop: 6, ...Typography.default('semiBold') },
+    headerSaveButton: {
+        minHeight: 34,
+        borderRadius: 17,
+        paddingHorizontal: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.surfaceHigh,
+        opacity: 0.55,
+    },
+    headerSaveButtonActive: {
+        backgroundColor: theme.colors.button.primary.background,
+        opacity: 1,
+    },
+    headerSaveButtonText: {
+        color: theme.colors.textSecondary,
+        fontSize: 14,
+        ...Typography.default('semiBold'),
+    },
+    headerSaveButtonTextActive: {
+        color: theme.colors.button.primary.tint,
+    },
     body: {
         paddingHorizontal: 18,
         paddingVertical: 16,
-        backgroundColor: '#FDFBF7',
-    },
-    fieldHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        marginBottom: 10,
-    },
-    fieldHeaderActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    editTextButton: {
-        minHeight: 32,
-        borderRadius: 16,
-        paddingHorizontal: 11,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        justifyContent: 'center',
-        backgroundColor: '#F3EFE7',
-    },
-    editTextButtonText: {
-        color: theme.colors.text,
-        fontSize: 13,
-        ...Typography.default('semiBold'),
+        backgroundColor: theme.colors.surface,
     },
     sectionTitle: { color: theme.colors.text, fontSize: 15, marginTop: 14, marginBottom: 8, ...Typography.default('semiBold') },
-    imageCount: {
-        color: theme.colors.textSecondary,
-        fontSize: 13,
-        ...Typography.default('semiBold'),
-    },
     detailLoading: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -504,36 +505,12 @@ const stylesheet = StyleSheet.create((theme) => ({
     notePaper: {
         minHeight: 220,
         borderWidth: 1,
-        borderColor: '#E6E1D8',
-        borderRadius: 22,
-        backgroundColor: '#FFFEFB',
-        paddingHorizontal: 26,
-        paddingVertical: 24,
-        marginBottom: 18,
-    },
-    notePaperEditing: {
+        borderColor: theme.colors.divider,
+        borderRadius: 0,
+        backgroundColor: theme.colors.surface,
         paddingHorizontal: 18,
-        paddingVertical: 18,
-    },
-    contentEditToolbar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        marginBottom: 14,
-        paddingBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#EFE8DC',
-    },
-    contentEditTitle: {
-        color: theme.colors.textSecondary,
-        fontSize: 13,
-        ...Typography.default('semiBold'),
-    },
-    contentEditToolbarActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
+        paddingVertical: 16,
+        marginBottom: 18,
     },
     description: { color: theme.colors.text, lineHeight: 22, ...Typography.default() },
     muted: { color: theme.colors.textSecondary, ...Typography.default() },
@@ -555,7 +532,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     statusChipText: { color: theme.colors.text, ...Typography.default('semiBold') },
     statusChipTextActive: { color: theme.colors.button.primary.tint },
     history: { color: theme.colors.textSecondary, marginBottom: 6, ...Typography.default() },
-    footer: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#E8E1D4', minHeight: 56, backgroundColor: '#F8F5EE' },
+    footer: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: theme.colors.divider, minHeight: 56, backgroundColor: theme.colors.surface },
     footerAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
     footerActionSeparator: { width: 1, backgroundColor: theme.colors.divider },
     footerActionText: { fontSize: 16, color: theme.colors.button.primary.background, ...Typography.default('semiBold') },

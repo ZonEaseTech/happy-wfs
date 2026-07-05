@@ -5,12 +5,13 @@
       "date": "2026-07-05",
       "summary": "Bug feedback is easier to review, edit, and validate from the shared board.",
       "changes": [
-        "Bug feedback: improve the shared desktop board with balanced two-column layout, compact details, horizontal status filters, and cleaner status history.",
+        "Bug feedback: improve the shared desktop board with balanced two-column layout, compact detail headers and bug cards, no duplicate left-card actions, horizontal status filters, and cleaner status history.",
         "Bug editor: use a notes-style rich text editor for issue descriptions, support pasted screenshots inline, save only dirty edits, and open images from the editor preview.",
-        "Bug details: keep comments padded while removing extra spacing around the description content, and preserve screenshot natural width with a max-width constraint.",
+        "Bug details: align the modal surface with GitHub issue details, keep comments padded while simplifying the description area, and preserve screenshot natural width with a max-width constraint.",
+        "Bug preview: render full-screen screenshot previews reliably on mobile web by using the browser image renderer with explicit viewport sizing.",
         "Sharing: polish shared board settings and detail actions for status changes, comments, and repair sessions."
       ],
-      "rawMarkdown": "## Version 11 - 2026-07-05\n\n\nBug feedback is easier to review, edit, and validate from the shared board.\n\n- Bug feedback: improve the shared desktop board with balanced two-column layout, compact details, horizontal status filters, and cleaner status history.\n- Bug editor: use a notes-style rich text editor for issue descriptions, support pasted screenshots inline, save only dirty edits, and open images from the editor preview.\n- Bug details: keep comments padded while removing extra spacing around the description content, and preserve screenshot natural width with a max-width constraint.\n- Sharing: polish shared board settings and detail actions for status changes, comments, and repair sessions."
+      "rawMarkdown": "## Version 11 - 2026-07-05\n\n\nBug feedback is easier to review, edit, and validate from the shared board.\n\n- Bug feedback: improve the shared desktop board with balanced two-column layout, compact detail headers and bug cards, no duplicate left-card actions, horizontal status filters, and cleaner status history.\n- Bug editor: use a notes-style rich text editor for issue descriptions, support pasted screenshots inline, save only dirty edits, and open images from the editor preview.\n- Bug details: align the modal surface with GitHub issue details, keep comments padded while simplifying the description area, and preserve screenshot natural width with a max-width constraint.\n- Bug preview: render full-screen screenshot previews reliably on mobile web by using the browser image renderer with explicit viewport sizing.\n- Sharing: polish shared board settings and detail actions for status changes, comments, and repair sessions."
     },
     {
       "version": 10,

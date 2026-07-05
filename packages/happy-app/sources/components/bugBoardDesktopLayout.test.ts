@@ -38,10 +38,47 @@ describe("bug board desktop layout", () => {
   it("uses a compact desktop detail title area", () => {
     const source = readFileSync(sourcePath, "utf8");
 
-    expect(source).toContain("minHeight: 116");
-    expect(source).toContain("paddingVertical: 18");
+    const detailHeaderBlock = source.match(/detailHeader:\s*\{[\s\S]*?\n  \},/)?.[0];
+
+    expect(detailHeaderBlock).not.toContain("minHeight");
+    expect(detailHeaderBlock).toContain("paddingVertical: 14");
     expect(source).not.toContain("minHeight: 150");
     expect(source).not.toContain("paddingVertical: 26");
+  });
+
+  it("removes duplicate board-card actions and detail filter subtitle on desktop", () => {
+    const source = readFileSync(sourcePath, "utf8");
+
+    expect(source).toContain("showActions={!isWide}");
+    expect(source).toContain("{showActions && (");
+
+    const detailHeaderMatch = source.match(
+      /<View style=\{styles\.detailHeader\}>[\s\S]*?<View style=\{styles\.detailHeaderActions\}>/,
+    )?.[0];
+
+    expect(detailHeaderMatch).not.toContain('t("bug.selectedInFilter")');
+    expect(detailHeaderMatch).not.toContain("bug.createdByNickname");
+  });
+
+  it("keeps bug-card status and counts on the right side instead of below the title", () => {
+    const source = readFileSync(sourcePath, "utf8");
+    const listItemMatch = source.match(
+      /function PublicBugListItem[\s\S]*?<\/Pressable>\n\s*\);/,
+    )?.[0];
+
+    expect(listItemMatch).toContain("styles.bugItemRight");
+    expect(listItemMatch!.indexOf("styles.bugItemContent")).toBeLessThan(
+      listItemMatch!.indexOf("styles.bugItemRight"),
+    );
+    expect(listItemMatch!.indexOf("styles.bugItemRight")).toBeLessThan(
+      listItemMatch!.indexOf('name="chevron-forward"'),
+    );
+
+    const contentBlock = listItemMatch?.match(
+      /<View style=\{styles\.bugItemContent\}>[\s\S]*?<\/View>\n\s*<View style=\{styles\.bugItemRight\}>/,
+    )?.[0];
+
+    expect(contentBlock).not.toContain("styles.bugMetaRow");
   });
 
   it("prevents browser-level scrolling on the desktop board", () => {
