@@ -36,7 +36,7 @@ describe('bug report detail modal style', () => {
         expect(richContentWebSource).toContain('editable: false');
     });
 
-    it('uses explicit edit controls and a fixed edit action bar for rich content editing', () => {
+    it('uses explicit edit controls and a fixed edit action bar in the modal rich content editor', () => {
         const source = readFileSync(sourcePath, 'utf8');
         const shareBoardSource = readFileSync(shareBoardPath, 'utf8');
 
@@ -46,10 +46,11 @@ describe('bug report detail modal style', () => {
         expect(source).toContain('variant="detail"');
         expect(source).toContain('if (contentEditing) return');
 
-        expect(shareBoardSource).toContain("t(\"bug.editContent\")");
-        expect(shareBoardSource).toContain('styles.contentEditToolbar');
-        expect(shareBoardSource).toContain("t(\"bug.savingContent\")");
+        expect(shareBoardSource).toContain("t(\"common.save\")");
+        expect(shareBoardSource).toContain('contentDirty && styles.detailHeaderButtonPrimary');
+        expect(shareBoardSource).toContain('disabled={!canSaveContent}');
         expect(shareBoardSource).toContain('variant=\"detail\"');
+        expect(shareBoardSource).not.toContain("t(\"bug.editContent\")");
     });
 
 
@@ -58,6 +59,8 @@ describe('bug report detail modal style', () => {
         const richContentSource = readFileSync(richContentPath, 'utf8');
         const richContentWebSource = readFileSync(richContentWebPath, 'utf8');
         const shareBoardSource = readFileSync(shareBoardPath, 'utf8');
+        const editorWebSource = readFileSync(resolve(__dirname, './BugTiptapEditor.web.tsx'), 'utf8');
+        const editorTypesSource = readFileSync(resolve(__dirname, './BugTiptapEditor.types.ts'), 'utf8');
 
         expect(source).toContain('BugImagePreviewModal');
         expect(source).toContain('buildBugPreviewImages(currentBug)');
@@ -67,6 +70,21 @@ describe('bug report detail modal style', () => {
         expect(richContentWebSource).toContain('onClick={handleImageClick}');
         expect(shareBoardSource).toContain('BugImagePreviewModal');
         expect(shareBoardSource).toContain('buildBugPreviewImages(bug)');
+        expect(shareBoardSource).toContain('onImageDoubleClick={openBugEditorImagePreview}');
+        expect(shareBoardSource).toContain('contentSnapshot?.images.map');
+        expect(editorTypesSource).toContain('onImageDoubleClick?: (src: string) => void');
+        expect(editorWebSource).toContain('handleDOMEvents');
+        expect(editorWebSource).toContain('dblclick: (_view, event)');
+        expect(editorWebSource).toContain('onImageDoubleClickRef.current?.(image.src)');
+    });
+
+    it('keeps editor images at natural width while constraining them to the content width', () => {
+        const editorWebSource = readFileSync(resolve(__dirname, './BugTiptapEditor.web.tsx'), 'utf8');
+        const imageStyleBlock = editorWebSource.match(/\.happy-bug-tiptap-editor \.tiptap img \{[\s\S]*?\n\}/)?.[0];
+
+        expect(imageStyleBlock).toContain('max-width: 100%;');
+        expect(imageStyleBlock).toContain('width: auto;');
+        expect(imageStyleBlock).not.toMatch(/\n\s*width:\s*100%;/);
     });
 
     it('supports lightweight zoom controls in bug image preview', () => {
@@ -105,5 +123,13 @@ describe('bug report detail modal style', () => {
         expect(shareBoardSource).toContain('bug,');
         expect(shareBoardSource).toContain('loadBug: async (bugId: string) => await board.getBug(bugId)');
         expect(shareBoardSource).not.toContain("const detail = 'comments' in bug ? bug : await board.getBug(bug.id)");
+    });
+
+    it('shows only the latest status history entry in the detail modal', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+
+        expect(source).toContain('const latestStatusEntry = currentBug.statusHistory.at(-1)');
+        expect(source).toContain('latestStatusEntry ?');
+        expect(source).not.toContain('currentBug.statusHistory.map(entry =>');
     });
 });

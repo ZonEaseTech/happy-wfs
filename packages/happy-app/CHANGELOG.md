@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 11 - 2026-07-05
+
+Bug feedback is easier to review, edit, and validate from the shared board.
+
+- Bug feedback: improve the shared desktop board with balanced two-column layout, compact details, horizontal status filters, and cleaner status history.
+- Bug editor: use a notes-style rich text editor for issue descriptions, support pasted screenshots inline, save only dirty edits, and open images from the editor preview.
+- Bug details: keep comments padded while removing extra spacing around the description content, and preserve screenshot natural width with a max-width constraint.
+- Sharing: polish shared board settings and detail actions for status changes, comments, and repair sessions.
+
 ## Version 10 - 2026-07-03
 
 Team sharing, company management, and repository-aware history browsing make collaboration smoother.

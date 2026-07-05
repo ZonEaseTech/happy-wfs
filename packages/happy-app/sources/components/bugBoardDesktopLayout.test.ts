@@ -17,6 +17,33 @@ describe("bug board desktop layout", () => {
     expect(source).toContain("flexGrow: 0");
   });
 
+  it("keeps the desktop left rail as a fixed flex item instead of a growing ScrollView", () => {
+    const source = readFileSync(sourcePath, "utf8");
+
+    expect(source).toContain("<View style={styles.leftPanel}>");
+    expect(source).toContain("style={styles.leftPanelScroll}");
+    expect(source).not.toContain("style={styles.leftPanel}\n              contentContainerStyle={styles.leftPanelContent}");
+    expect(source).toContain("leftPanelScroll");
+  });
+
+  it("keeps the desktop columns visually balanced and removes duplicated title counts", () => {
+    const source = readFileSync(sourcePath, "utf8");
+
+    expect(source).toContain('alignItems: "stretch"');
+    expect(source).toContain('alignSelf: "stretch"');
+    expect(source).not.toContain("{filteredBugs.length}{\" \"}");
+    expect(source).not.toContain("{counts[currentFilter]}");
+  });
+
+  it("uses a compact desktop detail title area", () => {
+    const source = readFileSync(sourcePath, "utf8");
+
+    expect(source).toContain("minHeight: 116");
+    expect(source).toContain("paddingVertical: 18");
+    expect(source).not.toContain("minHeight: 150");
+    expect(source).not.toContain("paddingVertical: 26");
+  });
+
   it("prevents browser-level scrolling on the desktop board", () => {
     const source = readFileSync(sourcePath, "utf8");
 
@@ -43,6 +70,9 @@ describe("bug board desktop layout", () => {
   it("keeps filters horizontal while disabling RN Web content flex grow", () => {
     const source = readFileSync(sourcePath, "utf8");
 
+    expect(source).toContain('useWebHorizontalScroll({ wheelBehavior: "always" })');
+    expect(source).toContain("<View {...filterWheelProps}>");
+    expect(source).toContain("{...filterScrollViewProps}");
     expect(source).toContain("<ScrollView");
     expect(source).toContain("horizontal");
     expect(source).toContain("styles.filterScroll");
@@ -75,5 +105,53 @@ describe("bug board desktop layout", () => {
     expect(source).toContain("styles.statusFooterCurrent");
     expect(source).toContain("formatBugStatusHistoryAction(latestStatusEntry)");
     expect(source).toContain("<ActionMenuModal");
+  });
+
+  it("keeps desktop bug content directly editable with a dirty-state save action", () => {
+    const source = readFileSync(sourcePath, "utf8");
+    const headerActions = source.match(
+      /<View style=\{styles\.detailHeaderActions\}>[\s\S]*?<\/View>\n\s*<\/View>\n\n\s*<View style=\{styles\.detailBody\}>/,
+    )?.[0];
+
+    expect(headerActions).toContain('t("bug.changeStatus")');
+    expect(headerActions).toContain('t("common.save")');
+    expect(headerActions).toContain('t("bug.addComment")');
+    expect(headerActions!.indexOf('t("bug.changeStatus")')).toBeLessThan(
+      headerActions!.indexOf('t("common.save")'),
+    );
+    expect(headerActions!.indexOf('t("common.save")')).toBeLessThan(
+      headerActions!.indexOf('t("bug.addComment")'),
+    );
+    expect(source).toContain("const [contentDirty, setContentDirty]");
+    expect(source).toContain("const contentBaselineRef = React.useRef<string | null>(null)");
+    expect(source).toContain("const handleContentSnapshotChange = React.useCallback");
+    expect(source).toContain("disabled={!canSaveContent}");
+    expect(source).toContain("contentDirty && styles.detailHeaderButtonPrimary");
+    expect(source).toContain("<BugTiptapEditor");
+    expect(source).not.toContain("contentEditing");
+    expect(source).not.toContain('t("bug.editContent")');
+    expect(source).not.toContain("styles.contentEditToolbar");
+    expect(source).not.toContain(
+      '<Text style={styles.sectionTitle}>{t("bug.description")}</Text>',
+    );
+    expect(source).not.toContain("styles.sectionHeaderRow");
+  });
+
+  it("removes padding from the desktop bug description while keeping comment padding", () => {
+    const source = readFileSync(sourcePath, "utf8");
+    const detailMainContentBlock = source.match(/detailMainContent:\s*\{[\s\S]*?\n  \},/)?.[0];
+    const descriptionBoxBlock = source.match(/descriptionBox:\s*\{[\s\S]*?\n  \},/)?.[0];
+    const detailCommentContentBlock = source.match(/detailCommentContent:\s*\{[\s\S]*?\n  \},/)?.[0];
+    const commentCardBlock = source.match(/commentCard:\s*\{[\s\S]*?\n  \},/)?.[0];
+    const commentInputBlock = source.match(/commentInput:\s*\{[\s\S]*?\n  \},/)?.[0];
+
+    expect(source).toContain("<View style={styles.detailCommentContent}>");
+    expect(detailMainContentBlock).not.toContain("padding: 30");
+    expect(descriptionBoxBlock).toContain("padding: 0");
+    expect(descriptionBoxBlock).not.toContain("padding: 20");
+    expect(detailCommentContentBlock).toContain("paddingHorizontal: 30");
+    expect(detailCommentContentBlock).toContain("paddingBottom: 24");
+    expect(commentCardBlock).toContain("padding: 16");
+    expect(commentInputBlock).toContain("padding: 14");
   });
 });

@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": 11,
+      "date": "2026-07-05",
+      "summary": "Bug feedback is easier to review, edit, and validate from the shared board.",
+      "changes": [
+        "Bug feedback: improve the shared desktop board with balanced two-column layout, compact details, horizontal status filters, and cleaner status history.",
+        "Bug editor: use a notes-style rich text editor for issue descriptions, support pasted screenshots inline, save only dirty edits, and open images from the editor preview.",
+        "Bug details: keep comments padded while removing extra spacing around the description content, and preserve screenshot natural width with a max-width constraint.",
+        "Sharing: polish shared board settings and detail actions for status changes, comments, and repair sessions."
+      ],
+      "rawMarkdown": "## Version 11 - 2026-07-05\n\n\nBug feedback is easier to review, edit, and validate from the shared board.\n\n- Bug feedback: improve the shared desktop board with balanced two-column layout, compact details, horizontal status filters, and cleaner status history.\n- Bug editor: use a notes-style rich text editor for issue descriptions, support pasted screenshots inline, save only dirty edits, and open images from the editor preview.\n- Bug details: keep comments padded while removing extra spacing around the description content, and preserve screenshot natural width with a max-width constraint.\n- Sharing: polish shared board settings and detail actions for status changes, comments, and repair sessions."
+    },
+    {
       "version": 10,
       "date": "2026-07-03",
       "summary": "Team sharing, company management, and repository-aware history browsing make collaboration smoother.",
@@ -145,5 +157,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 10
+  "latestVersion": 11
 }

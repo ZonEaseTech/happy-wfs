@@ -35,6 +35,7 @@ import { ImagePreview } from "@/components/ImagePreview";
 import { Typography } from "@/constants/Typography";
 import { useBugShareBoard } from "@/hooks/useBugShareBoard";
 import { useImagePicker } from "@/hooks/useImagePicker";
+import { useWebHorizontalScroll } from "@/hooks/useWebHorizontalScroll";
 import { Modal } from "@/modal";
 import {
   BUG_IMAGE_LIMITS,
@@ -64,6 +65,19 @@ const STATUS_ACCENTS: Record<BugStatus, string> = {
   verify: "#9333EA",
   closed: "#16A34A",
 };
+
+function getContentSnapshotSignature(snapshot: BugTiptapEditorSnapshot): string {
+  return JSON.stringify({
+    description: snapshot.description,
+    contentJson: snapshot.contentJson,
+    images: snapshot.images.map((image) => ({
+      uri: image.uri,
+      width: image.width,
+      height: image.height,
+      mimeType: image.mimeType,
+    })),
+  });
+}
 
 function getFilterLabel(filter: BugShareBoardFilter): string {
   switch (filter) {
@@ -325,8 +339,7 @@ export default function PublicBugBoardPage() {
               <Text style={styles.title}>{t("bug.boardTitle")}</Text>
               <Text style={styles.subtitle}>
                 {board.nickname} · {t("bug.currentFilter")}:{" "}
-                {getFilterLabel(filter)} · {filteredBugs.length}{" "}
-                {t("bug.items")}
+                {getFilterLabel(filter)}
               </Text>
             </View>
             <Pressable style={styles.iconButton} onPress={refreshBoard}>
@@ -345,31 +358,33 @@ export default function PublicBugBoardPage() {
             </Pressable>
           </View>
           <View style={styles.desktopColumns}>
-            <ScrollView
-              style={styles.leftPanel}
-              contentContainerStyle={styles.leftPanelContent}
-              refreshControl={
-                <RefreshControl
-                  refreshing={board.loading}
-                  onRefresh={refreshBoard}
-                  tintColor={theme.colors.textSecondary}
-                />
-              }
-            >
-              {header}
-              {filteredBugs.length === 0 ? (
-                <BugBoardEmpty query={query} loading={board.loading} />
-              ) : (
-                filteredBugs.map((bug) => (
-                  <PublicBugListItem
-                    key={bug.id}
-                    bug={bug}
-                    selected={bug.id === selectedBugId}
-                    onPress={showBugDetail}
+            <View style={styles.leftPanel}>
+              <ScrollView
+                style={styles.leftPanelScroll}
+                contentContainerStyle={styles.leftPanelContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={board.loading}
+                    onRefresh={refreshBoard}
+                    tintColor={theme.colors.textSecondary}
                   />
-                ))
-              )}
-            </ScrollView>
+                }
+              >
+                {header}
+                {filteredBugs.length === 0 ? (
+                  <BugBoardEmpty query={query} loading={board.loading} />
+                ) : (
+                  filteredBugs.map((bug) => (
+                    <PublicBugListItem
+                      key={bug.id}
+                      bug={bug}
+                      selected={bug.id === selectedBugId}
+                      onPress={showBugDetail}
+                    />
+                  ))
+                )}
+              </ScrollView>
+            </View>
             <View style={styles.detailPanel}>
               <PublicBugDetailPane
                 bug={selectedBugDetail}
@@ -463,6 +478,10 @@ function BugBoardHeader({
 }) {
   const styles = stylesheet;
   const { theme } = useUnistyles();
+  const {
+    scrollViewProps: filterScrollViewProps,
+    wheelProps: filterWheelProps,
+  } = useWebHorizontalScroll({ wheelBehavior: "always" });
   const filters: BugShareBoardFilter[] = [
     "all",
     "open",
@@ -479,7 +498,7 @@ function BugBoardHeader({
           <Text style={styles.headerMobileTitle}>{t("bug.boardTitle")}</Text>
           <Text style={styles.subtitle}>
             {nickname} · {t("bug.currentFilter")}:{" "}
-            {getFilterLabel(currentFilter)} · {counts[currentFilter]}
+            {getFilterLabel(currentFilter)}
           </Text>
         </View>
         <Pressable
@@ -504,38 +523,41 @@ function BugBoardHeader({
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
-      <ScrollView
-        horizontal
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterWrap}
-        showsHorizontalScrollIndicator={false}
-      >
-        {filters.map((item) => (
-          <Pressable
-            key={item}
-            style={[
-              styles.filterChip,
-              currentFilter === item && styles.filterChipActive,
-            ]}
-            onPress={() => onFilterChange(item)}
-          >
-            <View
+      <View {...filterWheelProps}>
+        <ScrollView
+          {...filterScrollViewProps}
+          horizontal
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterWrap}
+          showsHorizontalScrollIndicator={false}
+        >
+          {filters.map((item) => (
+            <Pressable
+              key={item}
               style={[
-                styles.filterDot,
-                { backgroundColor: getFilterAccent(item) },
+                styles.filterChip,
+                currentFilter === item && styles.filterChipActive,
               ]}
-            />
-            <Text
-              style={[
-                styles.filterChipText,
-                currentFilter === item && styles.filterChipTextActive,
-              ]}
+              onPress={() => onFilterChange(item)}
             >
-              {getFilterLabel(item)} {counts[item]}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+              <View
+                style={[
+                  styles.filterDot,
+                  { backgroundColor: getFilterAccent(item) },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.filterChipText,
+                  currentFilter === item && styles.filterChipTextActive,
+                ]}
+              >
+                {getFilterLabel(item)} {counts[item]}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
 
       <View style={styles.searchBox}>
         <Ionicons
@@ -739,8 +761,9 @@ function PublicBugDetailPane({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const commentInputRef = React.useRef<TextInput>(null);
   const contentEditorRef = React.useRef<BugTiptapEditorHandle>(null);
+  const contentBaselineRef = React.useRef<string | null>(null);
   const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
-  const [contentEditing, setContentEditing] = React.useState(false);
+  const [contentDirty, setContentDirty] = React.useState(false);
   const [contentSnapshot, setContentSnapshot] =
     React.useState<BugTiptapEditorSnapshot | null>(null);
   const [previewVisible, setPreviewVisible] = React.useState(false);
@@ -748,10 +771,14 @@ function PublicBugDetailPane({
 
   React.useEffect(() => {
     setComment("");
-    setContentEditing(false);
-    setContentSnapshot(null);
     picker.clearImages();
   }, [bug?.id]);
+
+  React.useEffect(() => {
+    contentBaselineRef.current = null;
+    setContentDirty(false);
+    setContentSnapshot(null);
+  }, [bug?.id, bug?.updatedAt]);
 
   const run = React.useCallback(
     async (fn: () => Promise<BugReportDetail>) => {
@@ -795,6 +822,19 @@ function PublicBugDetailPane({
     () => bug?.attachments.map((attachment) => attachment.url) ?? [],
     [bug?.attachments],
   );
+  const handleContentSnapshotChange = React.useCallback(
+    (snapshot: BugTiptapEditorSnapshot) => {
+      setContentSnapshot(snapshot);
+      const signature = getContentSnapshotSignature(snapshot);
+      if (contentBaselineRef.current == null) {
+        contentBaselineRef.current = signature;
+        setContentDirty(false);
+        return;
+      }
+      setContentDirty(signature !== contentBaselineRef.current);
+    },
+    [],
+  );
 
   const handleSaveContent = React.useCallback(async () => {
     if (!bug) return;
@@ -803,6 +843,7 @@ function PublicBugDetailPane({
       Modal.alert(t("common.error"), t("bug.contentRequiredHint"));
       return;
     }
+    const signature = getContentSnapshotSignature(snapshot);
     setBusy(true);
     try {
       const updated = await onUpdateContent(
@@ -811,9 +852,10 @@ function PublicBugDetailPane({
         snapshot.contentJson,
         snapshot.images,
       );
+      contentBaselineRef.current = signature;
+      setContentDirty(false);
+      setContentSnapshot(snapshot);
       onBugUpdated(updated);
-      setContentEditing(false);
-      setContentSnapshot(null);
     } catch (error) {
       Modal.alert(
         t("common.error"),
@@ -854,13 +896,24 @@ function PublicBugDetailPane({
   }, [bug, handleStatus]);
 
   const previewImages = React.useMemo(
-    () => bug ? buildBugPreviewImages(bug) : [],
-    [bug],
+    () => bug
+      ? [
+        ...buildBugPreviewImages(bug),
+        ...(contentSnapshot?.images.map((image, index) => ({
+          id: `draft-${index}-${image.uri}`,
+          uri: image.uri,
+        })) ?? []),
+      ]
+      : [],
+    [bug, contentSnapshot],
   );
-  const openBugImagePreview = React.useCallback((attachment: { url: string }) => {
-    setPreviewIndex(findBugPreviewImageIndex(previewImages, attachment.url));
+  const openBugEditorImagePreview = React.useCallback((src: string) => {
+    setPreviewIndex(findBugPreviewImageIndex(previewImages, src));
     setPreviewVisible(true);
   }, [previewImages]);
+  const openBugImagePreview = React.useCallback((attachment: { url: string }) => {
+    openBugEditorImagePreview(attachment.url);
+  }, [openBugEditorImagePreview]);
   const handleCommentImagePress = React.useCallback((attachment: { url: string }) => {
     openBugImagePreview(attachment);
   }, [openBugImagePreview]);
@@ -917,6 +970,7 @@ function PublicBugDetailPane({
   }
 
   const latestStatusEntry = bug.statusHistory.at(-1);
+  const canSaveContent = contentDirty && !!contentSnapshot?.plainText.trim() && !busy;
 
   return (
     <View style={styles.detailContent}>
@@ -946,6 +1000,25 @@ function PublicBugDetailPane({
               {t("bug.changeStatus")}
             </Text>
           </Pressable>
+          {Platform.OS === "web" && (
+            <Pressable
+              style={[
+                styles.detailHeaderButton,
+                contentDirty && styles.detailHeaderButtonPrimary,
+              ]}
+              disabled={!canSaveContent}
+              onPress={handleSaveContent}
+            >
+              <Text
+                style={[
+                  styles.detailHeaderButtonText,
+                  contentDirty && styles.detailHeaderButtonPrimaryText,
+                ]}
+              >
+                {busy && contentDirty ? t("bug.savingContent") : t("common.save")}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             style={[
               styles.detailHeaderButton,
@@ -965,75 +1038,18 @@ function PublicBugDetailPane({
           style={styles.detailMain}
           contentContainerStyle={styles.detailMainContent}
         >
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>{t("bug.description")}</Text>
-            {Platform.OS === "web" && (
-              <Pressable
-                style={styles.editTextButton}
-                disabled={busy}
-                onPress={() => {
-                  setContentSnapshot(null);
-                  setContentEditing((value) => !value);
-                }}
-              >
-                <Ionicons
-                  name={contentEditing ? "close-outline" : "create-outline"}
-                  size={16}
-                  color={theme.colors.text}
-                />
-                <Text style={styles.editTextButtonText}>
-                  {contentEditing ? t("common.cancel") : t("bug.editContent")}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-          {contentEditing && Platform.OS === "web" ? (
-              <View style={[styles.descriptionBox, styles.descriptionBoxEditing]}>
-                <View style={styles.contentEditToolbar}>
-                  <Text style={styles.contentEditTitle}>
-                    {t("bug.editingContent")}
-                  </Text>
-                  <View style={styles.contentEditToolbarActions}>
-                    <Pressable
-                      style={styles.secondaryButton}
-                      disabled={busy}
-                      onPress={() => setContentEditing(false)}
-                    >
-                      <Text style={styles.secondaryButtonText}>
-                        {t("common.cancel")}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[
-                        styles.smallPrimaryButton,
-                        (!(contentSnapshot?.plainText.trim()) || busy) && {
-                          opacity: 0.55,
-                        },
-                      ]}
-                      disabled={!(contentSnapshot?.plainText.trim()) || busy}
-                      onPress={handleSaveContent}
-                    >
-                      {busy ? (
-                        <Text style={styles.primaryButtonText}>
-                          {t("bug.savingContent")}
-                        </Text>
-                      ) : (
-                        <Text style={styles.primaryButtonText}>
-                          {t("common.save")}
-                        </Text>
-                      )}
-                    </Pressable>
-                  </View>
-                </View>
-                <BugTiptapEditor
-                  ref={contentEditorRef}
-                  initialDoc={contentInitialDoc}
-                  initialContentKey={`${bug.id}:${bug.updatedAt}`}
-                  attachmentImageUrls={contentAttachmentUrls}
-                  onChange={setContentSnapshot}
-                  variant="detail"
-                />
-              </View>
+          {Platform.OS === "web" ? (
+            <View style={styles.descriptionBox}>
+              <BugTiptapEditor
+                ref={contentEditorRef}
+                initialDoc={contentInitialDoc}
+                initialContentKey={`${bug.id}:${bug.updatedAt}`}
+                attachmentImageUrls={contentAttachmentUrls}
+                onChange={handleContentSnapshotChange}
+                onImageDoubleClick={openBugEditorImagePreview}
+                variant="detail"
+              />
+            </View>
           ) : (
             <View style={styles.descriptionBox}>
               <BugRichContentView
@@ -1045,93 +1061,95 @@ function PublicBugDetailPane({
             </View>
           )}
 
-          <Text style={styles.sectionTitle}>{t("bug.comment")}</Text>
-          {bug.comments.length === 0 && <Text style={styles.muted}>-</Text>}
-          {bug.comments.map((item) => (
-            <View key={item.id} style={styles.commentCard}>
-              <Text style={styles.commentAuthor}>
-                {item.authorNickname ?? t("bug.anonymousUser")}
-              </Text>
-              <Text style={styles.commentBody}>{item.body}</Text>
-              {item.attachments.length > 0 && (
-                <View style={styles.attachmentGrid}>
-                  {item.attachments.map((attachment) => (
-                    <Pressable
-                      key={attachment.id}
-                      onPress={() => handleCommentImagePress(attachment)}
-                    >
-                      <Image
-                        source={{ uri: attachment.url }}
-                        style={styles.commentImage}
-                        contentFit="cover"
-                      />
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-            </View>
-          ))}
+          <View style={styles.detailCommentContent}>
+            <Text style={styles.sectionTitle}>{t("bug.comment")}</Text>
+            {bug.comments.length === 0 && <Text style={styles.muted}>-</Text>}
+            {bug.comments.map((item) => (
+              <View key={item.id} style={styles.commentCard}>
+                <Text style={styles.commentAuthor}>
+                  {item.authorNickname ?? t("bug.anonymousUser")}
+                </Text>
+                <Text style={styles.commentBody}>{item.body}</Text>
+                {item.attachments.length > 0 && (
+                  <View style={styles.attachmentGrid}>
+                    {item.attachments.map((attachment) => (
+                      <Pressable
+                        key={attachment.id}
+                        onPress={() => handleCommentImagePress(attachment)}
+                      >
+                        <Image
+                          source={{ uri: attachment.url }}
+                          style={styles.commentImage}
+                          contentFit="cover"
+                        />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
 
-          <TextInput
-            ref={commentInputRef}
-            style={styles.commentInput}
-            value={comment}
-            onChangeText={setComment}
-            placeholder={t("bug.addComment")}
-            placeholderTextColor={theme.colors.textSecondary}
-            multiline
-          />
-          <ImagePreview
-            images={picker.images}
-            onRemove={picker.removeImage}
-            maxImages={BUG_IMAGE_LIMITS.maxImages}
-          />
-          <View style={styles.inlineActionRow}>
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={() =>
-                Platform.OS === "web"
-                  ? fileInputRef.current?.click()
-                  : picker.pickFromGallery()
-              }
-            >
-              <Text style={styles.secondaryButtonText}>
-                {t("bug.uploadScreenshots")}
-              </Text>
-            </Pressable>
-            {picker.images.length > 0 && (
+            <TextInput
+              ref={commentInputRef}
+              style={styles.commentInput}
+              value={comment}
+              onChangeText={setComment}
+              placeholder={t("bug.addComment")}
+              placeholderTextColor={theme.colors.textSecondary}
+              multiline
+            />
+            <ImagePreview
+              images={picker.images}
+              onRemove={picker.removeImage}
+              maxImages={BUG_IMAGE_LIMITS.maxImages}
+            />
+            <View style={styles.inlineActionRow}>
               <Pressable
                 style={styles.secondaryButton}
-                onPress={handleUploadOnly}
+                onPress={() =>
+                  Platform.OS === "web"
+                    ? fileInputRef.current?.click()
+                    : picker.pickFromGallery()
+                }
               >
                 <Text style={styles.secondaryButtonText}>
-                  {t("bug.uploadOnly")}
+                  {t("bug.uploadScreenshots")}
                 </Text>
               </Pressable>
+              {picker.images.length > 0 && (
+                <Pressable
+                  style={styles.secondaryButton}
+                  onPress={handleUploadOnly}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {t("bug.uploadOnly")}
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={[
+                  styles.smallPrimaryButton,
+                  (!comment.trim() || busy) && { opacity: 0.55 },
+                ]}
+                disabled={!comment.trim() || busy}
+                onPress={handleComment}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {t("bug.addComment")}
+                </Text>
+              </Pressable>
+            </View>
+            {Platform.OS === "web" && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: "none" }}
+                onChange={handleFileChange}
+              />
             )}
-            <Pressable
-              style={[
-                styles.smallPrimaryButton,
-                (!comment.trim() || busy) && { opacity: 0.55 },
-              ]}
-              disabled={!comment.trim() || busy}
-              onPress={handleComment}
-            >
-              <Text style={styles.primaryButtonText}>
-                {t("bug.addComment")}
-              </Text>
-            </Pressable>
           </View>
-          {Platform.OS === "web" && (
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: "none" }}
-              onChange={handleFileChange}
-            />
-          )}
         </ScrollView>
         <View style={styles.statusFooter}>
           <View style={{ flex: 1, minWidth: 0 }}>
@@ -1216,6 +1234,7 @@ const stylesheet = StyleSheet.create((theme) => ({
   desktopColumns: {
     flex: 1,
     flexDirection: "row",
+    alignItems: "stretch",
     gap: 28,
     minHeight: 0,
   },
@@ -1226,6 +1245,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     flexBasis: 520,
     flexGrow: 0,
     flexShrink: 0,
+    alignSelf: "stretch",
     backgroundColor: "#FFFFFF",
     borderRadius: 28,
     borderWidth: 1,
@@ -1234,6 +1254,10 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   leftPanelContent: {
     paddingVertical: 16,
+  },
+  leftPanelScroll: {
+    flex: 1,
+    minHeight: 0,
   },
   detailPanel: {
     flex: 1,
@@ -1366,23 +1390,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: "#E8E3DC",
   },
-  editTextButton: {
-    minHeight: 34,
-    borderRadius: 17,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#F5F3F0",
-    borderWidth: 1,
-    borderColor: "#E8E3DC",
-  },
-  editTextButtonText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    ...Typography.default("semiBold"),
-  },
   bugItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1473,9 +1480,9 @@ const stylesheet = StyleSheet.create((theme) => ({
     minHeight: 0,
   },
   detailHeader: {
-    minHeight: 150,
+    minHeight: 116,
     paddingHorizontal: 30,
-    paddingVertical: 26,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     borderBottomColor: "#ECE7E0",
     flexDirection: "row",
@@ -1488,9 +1495,9 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   detailTitle: {
     color: theme.colors.text,
-    fontSize: 31,
-    lineHeight: 38,
-    marginTop: 12,
+    fontSize: 29,
+    lineHeight: 35,
+    marginTop: 8,
     ...Typography.default("semiBold"),
   },
   detailHeaderActions: {
@@ -1529,7 +1536,11 @@ const stylesheet = StyleSheet.create((theme) => ({
     minWidth: 0,
   },
   detailMainContent: {
-    padding: 30,
+    paddingBottom: 0,
+  },
+  detailCommentContent: {
+    paddingHorizontal: 30,
+    paddingTop: 22,
     paddingBottom: 24,
   },
   sectionTitle: {
@@ -1539,12 +1550,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     marginTop: 8,
     ...Typography.default("semiBold"),
   },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
   descriptionBox: {
     color: theme.colors.text,
     lineHeight: 24,
@@ -1552,32 +1557,9 @@ const stylesheet = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: "#E8E4DE",
     borderRadius: 22,
-    padding: 20,
-    marginBottom: 22,
+    padding: 0,
+    marginBottom: 0,
     ...Typography.default(),
-  },
-  descriptionBoxEditing: {
-    padding: 16,
-  },
-  contentEditToolbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 14,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EFE8DC",
-  },
-  contentEditTitle: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    ...Typography.default("semiBold"),
-  },
-  contentEditToolbarActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
   },
   muted: {
     color: theme.colors.textSecondary,

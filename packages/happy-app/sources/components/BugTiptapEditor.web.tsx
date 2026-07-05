@@ -52,7 +52,9 @@ function injectTiptapStyles() {
 }
 .happy-bug-tiptap-editor .tiptap img {
     display: block;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
+    height: auto;
     max-height: 360px;
     object-fit: contain;
     border-radius: 16px;
@@ -118,6 +120,7 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
     initialDoc,
     initialContentKey,
     attachmentImageUrls = emptyAttachmentImageUrls,
+    onImageDoubleClick,
     variant = 'create',
 }, ref) => {
     const imagesBySrcRef = React.useRef(new Map<string, LocalImage>());
@@ -128,6 +131,7 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
     const createdObjectUrlsRef = React.useRef<string[]>([]);
     const editorRef = React.useRef<Editor | null>(null);
     const appliedInitialContentKeyRef = React.useRef<string | undefined>(undefined);
+    const onImageDoubleClickRef = React.useRef(onImageDoubleClick);
 
     const emitSnapshot = React.useCallback((editor: Editor | null) => {
         onChange(snapshotFromEditor(editor, imagesBySrcRef.current, attachmentIndexBySrc));
@@ -202,6 +206,20 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
                 if (handled) event.preventDefault();
                 return handled;
             },
+            handleDOMEvents: {
+                dblclick: (_view, event) => {
+                    const target = event.target;
+                    const image = target instanceof HTMLImageElement
+                        ? target
+                        : target instanceof HTMLElement
+                            ? target.closest('img')
+                            : null;
+                    if (!image) return false;
+                    event.preventDefault();
+                    onImageDoubleClickRef.current?.(image.src);
+                    return true;
+                },
+            },
         },
         onCreate: ({ editor: created }) => {
             editorRef.current = created;
@@ -215,6 +233,10 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
     React.useEffect(() => {
         injectTiptapStyles();
     }, []);
+
+    React.useEffect(() => {
+        onImageDoubleClickRef.current = onImageDoubleClick;
+    }, [onImageDoubleClick]);
 
     React.useEffect(() => {
         editorRef.current = editor;

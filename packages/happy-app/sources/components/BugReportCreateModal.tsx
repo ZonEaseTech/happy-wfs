@@ -286,10 +286,6 @@ export function BugReportCreateModal({
             </View>
 
             <View style={styles.body}>
-                <View style={styles.fieldHeader}>
-                    <Text style={styles.label}>{t('bug.description')} <Text style={styles.requiredMark}>*</Text></Text>
-                    <Text style={styles.imageCount}>{t('bug.imageCounter', { count: imageCount, max: BUG_IMAGE_LIMITS.maxImages })}</Text>
-                </View>
                 {useTiptapEditor ? (
                     <View style={[styles.paper, { overflowY: 'auto' } as any]}>
                         <View style={styles.paperContent}>
@@ -433,26 +429,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingTop: 24,
         paddingBottom: 16,
         backgroundColor: '#FDFBF7',
-    },
-    fieldHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        marginBottom: 12,
-    },
-    label: {
-        color: theme.colors.text,
-        fontSize: 15,
-        ...Typography.default('semiBold'),
-    },
-    requiredMark: {
-        color: theme.colors.deleteAction,
-    },
-    imageCount: {
-        color: theme.colors.textSecondary,
-        fontSize: 13,
-        ...Typography.default('semiBold'),
     },
     paper: {
         flex: 1,

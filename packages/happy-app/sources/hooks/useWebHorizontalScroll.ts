@@ -1,18 +1,23 @@
 import * as React from 'react';
 import { Platform, ScrollView } from 'react-native';
 
+type WebHorizontalScrollOptions = {
+    wheelBehavior?: 'horizontal-intent' | 'always';
+};
+
 /** Web mouse wheel → horizontal scroll for ScrollView */
-export function useWebHorizontalScroll() {
+export function useWebHorizontalScroll(options: WebHorizontalScrollOptions = {}) {
     const scrollRef = React.useRef<ScrollView>(null);
     const scrollOffsetRef = React.useRef(0);
     const contentWidthRef = React.useRef(0);
     const containerWidthRef = React.useRef(0);
+    const wheelBehavior = options.wheelBehavior ?? 'horizontal-intent';
     const handleWheel = React.useCallback((e: any) => {
         if (Platform.OS !== 'web' || !scrollRef.current) return;
         const deltaX = Number(e.deltaX || 0);
         const deltaY = Number(e.deltaY || 0);
         const hasHorizontalIntent = Math.abs(deltaX) > Math.abs(deltaY) || !!e.shiftKey;
-        if (!hasHorizontalIntent) return;
+        if (wheelBehavior !== 'always' && !hasHorizontalIntent) return;
 
         const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
         if (delta === 0) return;
@@ -23,7 +28,7 @@ export function useWebHorizontalScroll() {
         e.preventDefault();
         scrollOffsetRef.current = next;
         (scrollRef.current as any).scrollTo({ x: next, animated: false });
-    }, []);
+    }, [wheelBehavior]);
     const scrollViewProps = {
         ref: scrollRef,
         onScroll: (e: any) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.x; },

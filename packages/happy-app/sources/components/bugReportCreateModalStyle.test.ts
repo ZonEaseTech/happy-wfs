@@ -36,4 +36,13 @@ describe('bug report create modal style', () => {
         expect(webEditorSource).toContain('Placeholder');
         expect(webEditorSource).toContain('happy-bug-tiptap-editor detail');
     });
+
+    it('does not render a separate description label row above the editor', () => {
+        const source = readFileSync(sourcePath, 'utf8');
+
+        expect(source).not.toContain('<View style={styles.fieldHeader}>');
+        expect(source).not.toContain("t('bug.description')");
+        expect(source).not.toContain("t('bug.imageCounter'");
+        expect(source).not.toContain('requiredMark');
+    });
 });

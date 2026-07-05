@@ -21,5 +21,6 @@ export type BugTiptapEditorProps = {
     initialDoc?: BugTiptapDoc;
     initialContentKey?: string;
     attachmentImageUrls?: string[];
+    onImageDoubleClick?: (src: string) => void;
     variant?: 'create' | 'detail';
 };

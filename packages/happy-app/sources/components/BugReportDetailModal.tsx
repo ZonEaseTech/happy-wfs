@@ -279,6 +279,7 @@ export function BugReportDetailModal({
     const handleCommentImagePress = React.useCallback((attachment: { url: string }) => {
         openBugImagePreview(attachment);
     }, [openBugImagePreview]);
+    const latestStatusEntry = currentBug.statusHistory.at(-1);
 
     return (
         <View style={[styles.modal, detailModalLayout.modal]}>
@@ -382,9 +383,11 @@ export function BugReportDetailModal({
                 {Platform.OS === 'web' && <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />}
 
                 <Text style={styles.sectionTitle}>{t('bug.statusHistory')}</Text>
-                {currentBug.statusHistory.map(entry => (
-                    <Text key={entry.id} style={styles.history}>{entry.actorNickname ?? t('bug.system')} · {formatBugStatusHistoryAction(entry)}</Text>
-                ))}
+                {latestStatusEntry ? (
+                    <Text style={styles.history}>{latestStatusEntry.actorNickname ?? t('bug.system')} · {formatBugStatusHistoryAction(latestStatusEntry)}</Text>
+                ) : (
+                    <Text style={styles.history}>-</Text>
+                )}
             </ScrollView>
             <View style={styles.footer}>
                 <Pressable style={styles.footerAction} onPress={onClose}>
