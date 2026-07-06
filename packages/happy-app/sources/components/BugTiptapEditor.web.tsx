@@ -53,7 +53,7 @@ function injectTiptapStyles() {
     box-shadow: none !important;
 }
 .happy-bug-tiptap-editor .tiptap p {
-    margin: 0 0 8px;
+    margin: 0;
 }
 .happy-bug-tiptap-editor .tiptap p.is-editor-empty:first-child::before {
     color: #8A8173;
