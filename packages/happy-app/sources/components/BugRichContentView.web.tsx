@@ -33,12 +33,14 @@ function injectReadonlyStyles() {
 }
 .happy-bug-tiptap-readonly .tiptap img {
     display: block;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
+    height: auto;
     max-height: 360px;
     object-fit: contain;
-    border-radius: 16px;
-    margin: 12px 0 18px;
-    background: #F1ECE2;
+    border-radius: 12px;
+    margin: 8px 0 12px;
+    background: transparent;
 }
 .happy-bug-tiptap-readonly.clickable .tiptap img {
     cursor: zoom-in;

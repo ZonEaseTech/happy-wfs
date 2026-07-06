@@ -70,9 +70,9 @@ function injectTiptapStyles() {
     height: auto;
     max-height: 360px;
     object-fit: contain;
-    border-radius: 16px;
-    margin: 12px 0 18px;
-    background: #FFFFFF;
+    border-radius: 12px;
+    margin: 8px 0 12px;
+    background: transparent;
     cursor: grab;
 }
 .happy-bug-tiptap-editor .tiptap .ProseMirror-selectednode {
