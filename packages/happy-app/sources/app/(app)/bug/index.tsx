@@ -322,7 +322,7 @@ export default function PublicBugBoardPage() {
       query={query}
       loading={board.loading}
       error={board.error}
-      showActions={!isWide}
+      showActions
       onQueryChange={setQuery}
       onClearQuery={() => setQuery("")}
       onFilterChange={setFilter}
@@ -335,29 +335,6 @@ export default function PublicBugBoardPage() {
     return (
       <View style={styles.screen}>
         <View style={styles.desktopShell}>
-          <View style={styles.desktopTopBar}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.title}>{t("bug.boardTitle")}</Text>
-              <Text style={styles.subtitle}>
-                {board.nickname} · {t("bug.currentFilter")}:{" "}
-                {getFilterLabel(filter)}
-              </Text>
-            </View>
-            <Pressable style={styles.iconButton} onPress={refreshBoard}>
-              <Ionicons
-                name="refresh-outline"
-                size={20}
-                color={theme.colors.text}
-              />
-            </Pressable>
-            <Pressable style={styles.iconButton} onPress={() => board.logout()}>
-              <Ionicons
-                name="log-out-outline"
-                size={20}
-                color={theme.colors.text}
-              />
-            </Pressable>
-          </View>
           <View style={styles.desktopColumns}>
             <View style={styles.leftPanel}>
               <ScrollView
@@ -1237,12 +1214,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         overflow: "hidden",
       },
     }),
-  },
-  desktopTopBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 18,
   },
   desktopColumns: {
     flex: 1,

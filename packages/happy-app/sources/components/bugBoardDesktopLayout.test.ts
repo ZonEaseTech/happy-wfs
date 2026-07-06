@@ -47,10 +47,11 @@ describe("bug board desktop layout", () => {
     expect(source).not.toContain("paddingVertical: 26");
   });
 
-  it("removes duplicate board-card actions and detail filter subtitle on desktop", () => {
+  it("drops the desktop top bar and keeps refresh/logout inside the board card", () => {
     const source = readFileSync(sourcePath, "utf8");
 
-    expect(source).toContain("showActions={!isWide}");
+    expect(source).not.toContain("desktopTopBar");
+    expect(source).toContain("showActions\n");
     expect(source).toContain("{showActions && (");
 
     const detailHeaderMatch = source.match(
