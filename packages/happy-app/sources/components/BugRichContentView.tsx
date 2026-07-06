@@ -60,13 +60,13 @@ export function BugRichContentView({
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
-        gap: 14,
+        gap: 8,
     },
     containerCompact: {
-        gap: 10,
+        gap: 6,
     },
     containerNote: {
-        gap: 14,
+        gap: 8,
     },
     textBlock: {
         color: theme.colors.text,

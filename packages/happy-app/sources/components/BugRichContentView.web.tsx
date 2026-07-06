@@ -28,7 +28,7 @@ function injectReadonlyStyles() {
     line-height: 22px;
 }
 .happy-bug-tiptap-readonly .tiptap p {
-    margin: 0 0 14px;
+    margin: 0 0 8px;
     white-space: pre-wrap;
 }
 .happy-bug-tiptap-readonly .tiptap img {
