@@ -2,10 +2,12 @@ import { useAuth } from '@/auth/AuthContext';
 import * as React from 'react';
 import { View } from 'react-native';
 import { Drawer } from 'expo-router/drawer';
+import { usePathname } from 'expo-router';
 import { useIsTablet } from '@/utils/responsive';
 import { SidebarView } from './SidebarView';
 import { ResizableHandle } from './ResizableHandle';
 import { useResizableColumn } from '@/utils/useResizableColumn';
+import { isSidebarHiddenPath } from './sidebarVisibility';
 
 const MIN_SIDEBAR_WIDTH = 250;
 const MAX_SIDEBAR_WIDTH = 500;
@@ -14,7 +16,8 @@ const DEFAULT_SIDEBAR_WIDTH = 300;
 export const SidebarNavigator = React.memo(() => {
     const auth = useAuth();
     const isTablet = useIsTablet();
-    const showPermanentDrawer = auth.isAuthenticated && isTablet;
+    const pathname = usePathname();
+    const showPermanentDrawer = auth.isAuthenticated && isTablet && !isSidebarHiddenPath(pathname);
 
     // Persisted width (web/desktop only); native falls back to default.
     const { width: sidebarWidth, setWidth, commit } = useResizableColumn({
