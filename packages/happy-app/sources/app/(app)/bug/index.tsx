@@ -1077,7 +1077,9 @@ function PublicBugDetailPane({
                   )}
                 </View>
               ))}
+            </ScrollView>
 
+            <View style={styles.detailCommentComposer}>
               <TextInput
                 ref={commentInputRef}
                 style={styles.commentInput}
@@ -1138,7 +1140,7 @@ function PublicBugDetailPane({
                   onChange={handleFileChange}
                 />
               )}
-            </ScrollView>
+            </View>
           </View>
         </View>
         <View style={styles.statusFooter}>
@@ -1550,6 +1552,14 @@ const stylesheet = StyleSheet.create((theme) => ({
     paddingHorizontal: 24,
     paddingTop: 22,
     paddingBottom: 24,
+  },
+  detailCommentComposer: {
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 18,
+    borderTopWidth: 1,
+    borderTopColor: "#ECE7E0",
+    backgroundColor: "#FFFFFF",
   },
   sectionTitle: {
     color: theme.colors.text,
