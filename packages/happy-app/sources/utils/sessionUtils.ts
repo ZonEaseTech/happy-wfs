@@ -275,7 +275,9 @@ export function formatLastSeen(activeAt: number, isActive: boolean = false): str
 
 /**
  * Copy externalContext and sessionIcon from an original session to a newly forked/duplicated session.
- * Tries storage first (caller may have already refreshed), then retries with refreshSessions.
+ * Tries an immediate write, then keeps retrying in the background — the copy
+ * spawns a cold CLI boot on the remote machine, so the new session's record,
+ * metadata, and encryption keys can lag by several seconds.
  */
 export async function copySessionMetadata(
     originalSession: Session,
@@ -290,24 +292,39 @@ export async function copySessionMetadata(
         ...(sessionIcon ? { sessionIcon } : {}),
     };
 
-    // Try storage first (caller likely already called refreshSessions), then retry with refresh
-    for (let attempt = 0; attempt < 3; attempt++) {
-        if (attempt > 0) {
-            await sync.refreshSessions();
-        }
+    // The write can fail transiently while the new session is still
+    // registering: record missing, metadata null, or encryption keys not
+    // loaded yet (sessionUpdateMetadataFields throws in that case).
+    const tryCopyOnce = async (): Promise<boolean> => {
         const freshSession = storage.getState().sessions[newSessionId];
-        if (freshSession?.metadata) {
+        if (!freshSession?.metadata) return false;
+        try {
             await sessionUpdateMetadataFields(
                 newSessionId,
                 freshSession.metadata,
                 updates,
                 freshSession.metadataVersion
             );
-            return;
+            return true;
+        } catch (e) {
+            console.warn('copySessionMetadata: write attempt failed, will retry:', e);
+            return false;
         }
-        await new Promise(r => setTimeout(r, 500));
-    }
-    console.warn('copySessionMetadata: new session not found after retries, sessionId:', newSessionId);
+    };
+
+    // Fast path: caller usually just called refreshSessions, so the new
+    // session is often already in storage.
+    if (await tryCopyOnce()) return;
+
+    // Slow path: retry in the background so callers can navigate immediately.
+    void (async () => {
+        for (let attempt = 0; attempt < 8; attempt++) {
+            await new Promise(r => setTimeout(r, 1500));
+            await sync.refreshSessions().catch(() => { /* transient — retry below */ });
+            if (await tryCopyOnce()) return;
+        }
+        console.warn('copySessionMetadata: giving up after retries, sessionId:', newSessionId);
+    })();
 }
 
 /**
