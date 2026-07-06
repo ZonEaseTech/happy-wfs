@@ -43,12 +43,17 @@ export function chatRoutes(app: Fastify) {
             return reply.status(400).send({ error: "sessionId is required" });
         }
 
-        // Verify session belongs to user
+        // Verify the user owns the session or has it shared with them —
+        // collaboration mentions let shared users attach images too.
         const session = await db.session.findFirst({
             where: {
                 id: sessionId,
-                accountId: userId,
+                OR: [
+                    { accountId: userId },
+                    { shares: { some: { sharedWithUserId: userId } } },
+                ],
             },
+            select: { id: true },
         });
 
         if (!session) {
