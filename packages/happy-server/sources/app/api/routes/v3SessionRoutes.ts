@@ -37,6 +37,9 @@ const sendMessagesBodySchema = z.object({
         mentionTargetUserIds: z.array(z.string()).max(20).optional().default([]),
         mentionTargetUsernames: z.array(z.string().max(120)).max(20).optional().default([]),
         mentionPreview: z.string().max(2000).optional(),
+        // Client-decrypted session title for notification display only; the
+        // server cannot derive it (session metadata is E2E encrypted).
+        mentionSessionTitle: z.string().max(200).optional(),
     })).min(1).max(MAX_SEND_MESSAGES_PER_REQUEST),
 });
 
@@ -345,6 +348,7 @@ export function v3SessionRoutes(app: Fastify) {
             mentionTargetUserIds: string[];
             mentionTargetUsernames: string[];
             mentionPreview?: string;
+            mentionSessionTitle?: string;
         }>();
         for (const message of messages) {
             if (!firstMessageByLocalId.has(message.localId)) {
@@ -436,7 +440,7 @@ export function v3SessionRoutes(app: Fastify) {
                             actorName: sentByName,
                             sessionId,
                             messageLocalId: message.localId,
-                            sessionTitle: sessionForNotification?.tag ?? null,
+                            sessionTitle: message.mentionSessionTitle?.trim() || (sessionForNotification?.tag ?? null),
                             preview: message.mentionPreview?.trim() || "Mentioned you in a session",
                         });
                     });

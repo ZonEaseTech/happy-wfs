@@ -820,6 +820,17 @@ class Sync {
             this.pendingSendCallbacks.set(localId, input.onBeforeApply);
         }
 
+        // Session metadata is E2E encrypted, so the display title must be
+        // decrypted client-side and shipped alongside the (already plaintext)
+        // mention preview for notification rendering.
+        const mentionSession = storage.getState().sessions[input.sessionId];
+        let mentionSessionTitle: string | null = null;
+        if (mentionSession?.metadata?.summary?.text) {
+            mentionSessionTitle = mentionSession.metadata.summary.text;
+        } else if (mentionSession?.metadata?.path) {
+            mentionSessionTitle = mentionSession.metadata.path.split('/').filter(Boolean).pop() ?? null;
+        }
+
         try {
             const API_ENDPOINT = getServerUrl();
             const response = await fetch(
@@ -838,6 +849,7 @@ class Sync {
                             mentionTargetUserIds: input.targetUserIds,
                             mentionTargetUsernames: input.targetUsernames,
                             mentionPreview: input.text.slice(0, 1000),
+                            mentionSessionTitle: mentionSessionTitle ? mentionSessionTitle.slice(0, 200) : undefined,
                         }]
                     })
                 }

@@ -941,6 +941,36 @@ describe("v3SessionRoutes", () => {
         }));
     });
 
+    it("prefers the client-provided mention session title over the session tag", async () => {
+        seedSession({ id: "session-1", accountId: "user-1", seq: 0 });
+        seedShare({ sessionId: "session-1", sharedWithUserId: "shared-user" });
+
+        app = await createApp();
+        const response = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/messages",
+            headers: { "x-user-id": "user-1" },
+            payload: {
+                messages: [
+                    {
+                        localId: "mention-1",
+                        content: "enc-content",
+                        mentionTargetUserIds: ["shared-user"],
+                        mentionTargetUsernames: ["Shared User"],
+                        mentionPreview: "请确认",
+                        mentionSessionTitle: "支付问题排查",
+                    }
+                ]
+            }
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(notifySessionMentionRecipientsMock).toHaveBeenCalledTimes(1);
+        expect(notifySessionMentionRecipientsMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+            sessionTitle: "支付问题排查",
+        }));
+    });
+
     it("does not notify mention targets when localId is a duplicate", async () => {
         seedSession({ id: "session-1", accountId: "user-1", seq: 1 });
         seedShare({ sessionId: "session-1", sharedWithUserId: "shared-user" });
