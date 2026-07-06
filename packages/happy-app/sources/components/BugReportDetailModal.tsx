@@ -339,12 +339,12 @@ export function BugReportDetailModal({
                 <Pressable onPress={onClose} hitSlop={10}><Ionicons name="close" size={22} color={styles.title.color} /></Pressable>
             </View>
             <ScrollView style={[styles.body, detailModalLayout.body]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                {detailLoading && (
+                {detailLoading ? (
                     <View style={styles.detailLoading}>
                         <ActivityIndicator size="small" />
                         <Text style={styles.loadingText}>{t('bug.loadingBugs')}</Text>
                     </View>
-                )}
+                ) : (<>
                 <View style={styles.notePaper}>
                     {canEditContent ? (
                         <BugTiptapEditor
@@ -401,6 +401,7 @@ export function BugReportDetailModal({
                 ) : (
                     <Text style={styles.history}>-</Text>
                 )}
+                </>)}
             </ScrollView>
             <View style={styles.footer}>
                 <Pressable style={styles.footerAction} onPress={onClose}>
@@ -495,7 +496,9 @@ const stylesheet = StyleSheet.create((theme) => ({
     detailLoading: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 8,
+        paddingVertical: 48,
         marginBottom: 10,
     },
     loadingText: {
