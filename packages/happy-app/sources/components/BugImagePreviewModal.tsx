@@ -92,6 +92,51 @@ export function BugImagePreviewModal({
         lastPressAtRef.current = now;
     };
 
+    // Web drag-to-pan uses DOM pointer events directly — PanResponder spread
+    // onto a Pressable never receives mouse drags on react-native-web.
+    const webDragRef = React.useRef<{ pointerId: number; startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
+    const webJustDraggedRef = React.useRef(false);
+
+    const handleWebPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (zoomStateRef.current.scale <= BUG_PREVIEW_MIN_ZOOM) return;
+        webDragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            baseX: zoomStateRef.current.translateX,
+            baseY: zoomStateRef.current.translateY,
+            moved: false,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+    };
+    const handleWebPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = webDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const scale = zoomStateRef.current.scale;
+        if (scale <= BUG_PREVIEW_MIN_ZOOM) return;
+        const dx = event.clientX - drag.startX;
+        const dy = event.clientY - drag.startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.moved = true;
+        setZoomState({
+            scale,
+            translateX: clampBugPreviewPan(drag.baseX + dx, scale, stageWidth),
+            translateY: clampBugPreviewPan(drag.baseY + dy, scale, stageHeight),
+        });
+    };
+    const handleWebPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = webDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        webDragRef.current = null;
+        if (drag.moved) webJustDraggedRef.current = true;
+    };
+    const handleWebClick = () => {
+        if (webJustDraggedRef.current) {
+            webJustDraggedRef.current = false;
+            return;
+        }
+        handleImagePress();
+    };
+
     const panResponder = React.useMemo(
         () => PanResponder.create({
             onMoveShouldSetPanResponder: (_event, gestureState) => zoomEnabled
@@ -168,19 +213,38 @@ export function BugImagePreviewModal({
                             <Ionicons name="chevron-back" size={34} color="#FFFFFF" />
                         </Pressable>
                     )}
-                    <Pressable
-                        style={styles.imageGestureLayer}
-                        onPress={handleImagePress}
-                        {...imagePanHandlers}
-                    >
-                        {Platform.OS === 'web' ? (
+                    {Platform.OS === 'web' ? (
+                        <div
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                                touchAction: 'none',
+                                userSelect: 'none',
+                                cursor: zoomState.scale > BUG_PREVIEW_MIN_ZOOM ? 'grab' : 'zoom-in',
+                            }}
+                            onClick={handleWebClick}
+                            onPointerDown={handleWebPointerDown}
+                            onPointerMove={handleWebPointerMove}
+                            onPointerUp={handleWebPointerEnd}
+                            onPointerCancel={handleWebPointerEnd}
+                        >
                             <img
                                 src={currentImage.uri}
                                 alt=""
                                 draggable={false}
                                 style={webImageStyle}
                             />
-                        ) : (
+                        </div>
+                    ) : (
+                        <Pressable
+                            style={styles.imageGestureLayer}
+                            onPress={handleImagePress}
+                            {...imagePanHandlers}
+                        >
                             <Image
                                 source={{ uri: currentImage.uri }}
                                 style={[
@@ -193,8 +257,8 @@ export function BugImagePreviewModal({
                                 ]}
                                 contentFit="contain"
                             />
-                        )}
-                    </Pressable>
+                        </Pressable>
+                    )}
                     {canNavigate && (
                         <Pressable style={[styles.navButton, styles.navRight]} onPress={showNext} hitSlop={12}>
                             <Ionicons name="chevron-forward" size={34} color="#FFFFFF" />
