@@ -1,5 +1,5 @@
-const DEFAULT_APP_ORIGIN = 'https://app.happy.weifashi.cn';
-const PUBLIC_FILE_SHARE_HOST = 's3.happy.weifashi.cn';
+const DEFAULT_APP_ORIGIN = 'https://happy.zonease.org';
+const PUBLIC_FILE_SHARE_HOST = 'files-happy.zonease.org';
 const PUBLIC_FILE_SHARE_PATH_PREFIX = '/public/file-shares/';
 
 export function getPublicHtmlPreviewAppOrigin(): string {
