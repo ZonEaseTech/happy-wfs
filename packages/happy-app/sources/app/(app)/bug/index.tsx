@@ -1563,7 +1563,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     backgroundColor: "#FFFFFF",
   },
   detailCommentRail: {
-    width: 360,
+    width: 300,
     flexShrink: 0,
     borderLeftWidth: 1,
     borderLeftColor: "#ECE7E0",
