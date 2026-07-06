@@ -76,8 +76,8 @@ function injectTiptapStyles() {
     cursor: grab;
 }
 .happy-bug-tiptap-editor .tiptap .ProseMirror-selectednode {
-    outline: 3px solid #111;
-    outline-offset: 3px;
+    outline: 2px solid #C9C0B2;
+    outline-offset: 2px;
     cursor: grabbing;
 }
 `;
