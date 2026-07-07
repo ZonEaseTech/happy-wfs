@@ -34,7 +34,8 @@ interface DirEntry {
  * BottomSheet-based directory browser for picking folders on a remote machine.
  *
  * Behaviour:
- *  - Lists only directories (hidden files excluded).
+ *  - Directory mode lists only directories (hidden excluded); file mode also
+ *    lists files including dotfiles (.env/.mcp.json are the main use case).
  *  - Detects git repos up to 2 levels deep and shows a badge.
  *  - Search field filters entries by name; typing an absolute or ~/… path
  *    and pressing Enter navigates to that path.
@@ -84,7 +85,10 @@ export const FolderPickerSheet = React.memo(React.forwardRef<BottomSheetModal, F
                     setEntries([]);
                     return;
                 }
-                const lines = lsResult.stdout.split('\n').map(s => s.trim()).filter(s => s.length > 0 && !s.startsWith('.'));
+                // Keep dotfiles: file mode exists mainly to pick .env/.mcp.json
+                // style files. Only drop ls artifacts (./ ../) and .git/.
+                const lines = lsResult.stdout.split('\n').map(s => s.trim())
+                    .filter(s => s.length > 0 && s !== './' && s !== '../' && s !== '.git/');
                 const dirs: DirEntry[] = [];
                 const files: DirEntry[] = [];
                 for (const line of lines) {
