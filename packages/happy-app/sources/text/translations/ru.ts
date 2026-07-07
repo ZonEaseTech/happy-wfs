@@ -1788,7 +1788,7 @@ export const ru: TranslationStructure = {
         files: 'Файлы',
         copyFiles: 'Копировать файлы',
         copyFilesCount: ({ count }: { count: number }) => `${count} файлов`,
-        copyFilesFooter: 'Файлы через запятую для копирования в worktree (например, .env,.env.local)',
+        copyFilesFooter: 'Файлы через запятую, копируемые в worktree (например, .env,.env.local). Абсолютные пути копируются в корень workspace (например, /workspace/.mcp.json).',
         clearCopyFiles: 'Удалить все выбранные файлы',
         clearCopyFilesConfirm: 'Удалить все выбранные файлы из списка копирования?',
         removeRepo: 'Удалить репозиторий',

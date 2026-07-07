@@ -1800,7 +1800,7 @@ export const pl: TranslationStructure = {
         files: 'Pliki',
         copyFiles: 'Kopiuj pliki',
         copyFilesCount: ({ count }: { count: number }) => `${count} plików`,
-        copyFilesFooter: 'Pliki oddzielone przecinkami do skopiowania do worktree (np. .env,.env.local)',
+        copyFilesFooter: 'Pliki oddzielone przecinkami kopiowane do worktree (np. .env,.env.local). Ścieżki bezwzględne są kopiowane do katalogu głównego workspace (np. /workspace/.mcp.json).',
         clearCopyFiles: 'Usuń wszystkie wybrane pliki',
         clearCopyFilesConfirm: 'Usunąć wszystkie wybrane pliki z listy kopiowania?',
         removeRepo: 'Usuń repozytorium',

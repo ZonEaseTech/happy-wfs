@@ -1789,7 +1789,7 @@ export const ca: TranslationStructure = {
         files: 'Fitxers',
         copyFiles: 'Copiar fitxers',
         copyFilesCount: ({ count }: { count: number }) => `${count} fitxers`,
-        copyFilesFooter: 'Fitxers separats per comes per copiar al worktree (ex. .env,.env.local)',
+        copyFilesFooter: 'Fitxers separats per comes copiats al worktree (ex. .env,.env.local). Les rutes absolutes es copien a l\'arrel del workspace (ex. /workspace/.mcp.json).',
         clearCopyFiles: 'Eliminar tots els fitxers seleccionats',
         clearCopyFilesConfirm: 'Eliminar tots els fitxers seleccionats de la llista de còpia?',
         removeRepo: 'Eliminar repositori',

@@ -1809,7 +1809,7 @@ export const en = {
         files: 'Files',
         copyFiles: 'Copy Files',
         copyFilesCount: ({ count }: { count: number }) => `${count} files`,
-        copyFilesFooter: 'Comma-separated files to copy to worktree (e.g. .env,.env.local)',
+        copyFilesFooter: 'Comma-separated files copied into each worktree (e.g. .env,.env.local). Absolute paths are copied to the workspace root (e.g. /workspace/.mcp.json).',
         clearCopyFiles: 'Remove All Selected Files',
         clearCopyFilesConfirm: 'Remove all selected files from the copy list?',
         removeRepo: 'Remove Repository',

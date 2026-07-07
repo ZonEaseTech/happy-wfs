@@ -1,5 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { buildWorktreeAddCommand, normalizeExistingWorktreeBranch } from './createWorkspaceBranches';
+import { buildCopyFileCommand, buildWorktreeAddCommand, normalizeExistingWorktreeBranch } from './createWorkspaceBranches';
+
+describe('buildCopyFileCommand', () => {
+    const params = {
+        repoPath: '/workspace/ttpos-server-go',
+        worktreePath: '/home/u/.happy/workspaces/ws1/ttpos-server-go',
+        workspacePath: '/home/u/.happy/workspaces/ws1',
+    };
+
+    it('copies relative entries from the repo root into the worktree', () => {
+        expect(buildCopyFileCommand({ ...params, file: '.env' })).toBe(
+            "mkdir -p \"$(dirname '/home/u/.happy/workspaces/ws1/ttpos-server-go/.env')\" && cp '/workspace/ttpos-server-go/.env' '/home/u/.happy/workspaces/ws1/ttpos-server-go/.env' 2>/dev/null",
+        );
+    });
+
+    it('copies absolute entries to the workspace root by basename', () => {
+        expect(buildCopyFileCommand({ ...params, file: '/workspace/.mcp.json' })).toBe(
+            "cp '/workspace/.mcp.json' '/home/u/.happy/workspaces/ws1/.mcp.json' 2>/dev/null",
+        );
+    });
+
+    it('skips path traversal and empty entries', () => {
+        expect(buildCopyFileCommand({ ...params, file: '../secrets' })).toBeNull();
+        expect(buildCopyFileCommand({ ...params, file: '/etc/../secrets' })).toBeNull();
+        expect(buildCopyFileCommand({ ...params, file: '  ' })).toBeNull();
+        expect(buildCopyFileCommand({ ...params, file: '/' })).toBeNull();
+    });
+});
 
 describe('normalizeExistingWorktreeBranch', () => {
     it('keeps local branch names including slashes', () => {

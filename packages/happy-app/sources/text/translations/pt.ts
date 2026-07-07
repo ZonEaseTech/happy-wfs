@@ -1789,7 +1789,7 @@ export const pt: TranslationStructure = {
         files: 'Arquivos',
         copyFiles: 'Copiar arquivos',
         copyFilesCount: ({ count }: { count: number }) => `${count} arquivos`,
-        copyFilesFooter: 'Arquivos separados por vírgula para copiar ao worktree (ex. .env,.env.local)',
+        copyFilesFooter: 'Arquivos separados por vírgula copiados ao worktree (ex. .env,.env.local). Caminhos absolutos são copiados para a raiz do workspace (ex. /workspace/.mcp.json).',
         clearCopyFiles: 'Remover todos os arquivos selecionados',
         clearCopyFilesConfirm: 'Remover todos os arquivos selecionados da lista de cópia?',
         removeRepo: 'Remover repositório',

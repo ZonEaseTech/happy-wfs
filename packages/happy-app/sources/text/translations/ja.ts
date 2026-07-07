@@ -1821,7 +1821,7 @@ export const ja: TranslationStructure = {
         files: 'ファイル',
         copyFiles: 'ファイルをコピー',
         copyFilesCount: ({ count }: { count: number }) => `${count} ファイル`,
-        copyFilesFooter: 'worktreeにコピーするファイル（カンマ区切り、例: .env,.env.local）',
+        copyFilesFooter: 'worktreeにコピーするファイル（カンマ区切り、例: .env,.env.local）。絶対パスはワークスペースのルートにコピーされます（例: /workspace/.mcp.json）。',
         clearCopyFiles: '選択したファイルをすべて削除',
         clearCopyFilesConfirm: '選択したすべてのコピーファイルを削除しますか？',
         removeRepo: 'リポジトリを削除',

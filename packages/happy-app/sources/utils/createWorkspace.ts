@@ -5,7 +5,7 @@
 import { machineBash } from '@/sync/ops';
 import { generateWorktreeName } from '@/utils/generateWorktreeName';
 import { shellEscape } from '@/utils/shellEscape';
-import { buildWorktreeAddCommand, normalizeExistingWorktreeBranch, type WorktreeBranchMode } from '@/utils/createWorkspaceBranches';
+import { buildCopyFileCommand, buildWorktreeAddCommand, normalizeExistingWorktreeBranch, type WorktreeBranchMode } from '@/utils/createWorkspaceBranches';
 import type { RegisteredRepo, WorkspaceRepo } from '@/utils/workspaceRepos';
 import { storage } from '@/sync/storage';
 
@@ -127,12 +127,14 @@ export async function createWorkspace(
         if (isRegisteredRepo(repo) && repo.copyFiles) {
             const files = repo.copyFiles.split(',').map(f => f.trim()).filter(Boolean);
             for (const file of files) {
-                // Skip files with path traversal
-                if (file.includes('..')) continue;
-                await machineBash(machineId, {
-                    command: `mkdir -p "$(dirname ${shellEscape(worktreePath + '/' + file)})" && cp ${shellEscape(repo.path + '/' + file)} ${shellEscape(worktreePath + '/' + file)} 2>/dev/null`,
-                    cwd: repo.path,
+                const command = buildCopyFileCommand({
+                    file,
+                    repoPath: repo.path,
+                    worktreePath,
+                    workspacePath: absoluteWorkspacePath,
                 });
+                if (!command) continue;
+                await machineBash(machineId, { command, cwd: repo.path });
             }
         }
 

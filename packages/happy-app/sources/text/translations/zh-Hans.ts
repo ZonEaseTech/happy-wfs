@@ -1791,7 +1791,7 @@ export const zhHans: TranslationStructure = {
         files: '文件',
         copyFiles: '复制文件',
         copyFilesCount: ({ count }: { count: number }) => `${count} 个文件`,
-        copyFilesFooter: '逗号分隔的文件列表，复制到 worktree（例如 .env,.env.local）',
+        copyFilesFooter: '逗号分隔的文件列表，复制到 worktree（例如 .env,.env.local）；绝对路径会复制到工作区根目录（例如 /workspace/.mcp.json）。',
         clearCopyFiles: '移除所有已选文件',
         clearCopyFilesConfirm: '确定移除所有已选的复制文件？',
         removeRepo: '移除仓库',

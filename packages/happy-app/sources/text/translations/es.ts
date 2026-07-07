@@ -1789,7 +1789,7 @@ export const es: TranslationStructure = {
         files: 'Archivos',
         copyFiles: 'Copiar archivos',
         copyFilesCount: ({ count }: { count: number }) => `${count} archivos`,
-        copyFilesFooter: 'Archivos separados por comas para copiar al worktree (ej. .env,.env.local)',
+        copyFilesFooter: 'Archivos separados por comas copiados al worktree (ej. .env,.env.local). Las rutas absolutas se copian a la raíz del workspace (ej. /workspace/.mcp.json).',
         clearCopyFiles: 'Eliminar todos los archivos seleccionados',
         clearCopyFilesConfirm: '¿Eliminar todos los archivos seleccionados de la lista de copia?',
         removeRepo: 'Eliminar repositorio',
