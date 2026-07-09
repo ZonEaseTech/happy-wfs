@@ -72,6 +72,51 @@ export function shareRoutes(app: Fastify) {
     });
 
     /**
+     * List mentionable participants (owner + shared users) of a session.
+     * Unlike the shares list this is open to every participant — shared
+     * collaborators need it to @ each other — and it exposes only public
+     * profile fields, no access levels.
+     */
+    app.get('/v1/sessions/:sessionId/participants', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                sessionId: z.string()
+            })
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { sessionId } = request.params;
+
+        const session = await db.session.findFirst({
+            where: {
+                id: sessionId,
+                OR: [
+                    { accountId: userId },
+                    { shares: { some: { sharedWithUserId: userId } } },
+                ],
+            },
+            select: {
+                account: { select: PROFILE_SELECT },
+                shares: {
+                    select: { sharedWithUser: { select: PROFILE_SELECT } },
+                    orderBy: { createdAt: 'asc' }
+                },
+            },
+        });
+        if (!session) {
+            return reply.code(404).send({ error: 'Session not found' });
+        }
+
+        return reply.send({
+            participants: [
+                toShareUserProfile(session.account),
+                ...session.shares.map(share => toShareUserProfile(share.sharedWithUser)),
+            ]
+        });
+    });
+
+    /**
      * Share session with a user
      */
     app.post('/v1/sessions/:sessionId/shares', {

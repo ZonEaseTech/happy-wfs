@@ -32,7 +32,7 @@ import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, up
 import type { BugReportDetail, BugStatus } from '@/sync/bugTypes';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
-import { getSessionShares } from '@/sync/apiSharing';
+import { getSessionParticipants, getSessionShares } from '@/sync/apiSharing';
 import { listCompanyMembers } from '@/sync/apiCompany';
 import { getUserProfiles } from '@/sync/apiFriends';
 import { useSession } from '@/sync/storage';
@@ -644,7 +644,28 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     React.useEffect(() => {
         let cancelled = false;
         if (!canManageSharing) {
-            setCompanyMentionMembers([]);
+            // Shared collaborators can @ people already in the session
+            // (owner + other shared users). The company directory stays
+            // owner/admin-only because mentioning from it grants access.
+            getSessionParticipants(sync.getCredentials(), sessionId)
+                .then((participants) => {
+                    if (cancelled) return;
+                    const currentUserId = sync.serverID;
+                    setCompanyMentionMembers(participants
+                        .filter((p): p is typeof p & { username: string } => !!p.username?.trim() && p.id !== currentUserId)
+                        .map((p) => ({
+                            id: p.id,
+                            username: p.username,
+                            firstName: p.firstName,
+                            lastName: p.lastName,
+                        })));
+                })
+                .catch((error) => {
+                    console.warn('Failed to load session participants', error);
+                    if (!cancelled) {
+                        setCompanyMentionMembers([]);
+                    }
+                });
             return () => {
                 cancelled = true;
             };
@@ -680,7 +701,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         return () => {
             cancelled = true;
         };
-    }, [canManageSharing]);
+    }, [canManageSharing, sessionId]);
 
     const acceptedFriendsById = React.useMemo(() => new Map(acceptedFriends.map(friend => [friend.id, friend])), [acceptedFriends]);
     const mentionCandidates = React.useMemo(() => {
@@ -1556,22 +1577,23 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
 
                     const mentionedPeople = resolveMentionedFriends(messageToSend, mentionCandidates);
                     if (mentionedPeople.length > 0) {
-                        if (!canManageSharing) {
-                            Modal.alert(t('common.error'), t('session.sharing.mentionShareFailed'));
-                            return;
-                        }
-
                         const mentionedNames = mentionedPeople.map(person => getMentionableDisplayName(person)).join(', ');
-                        const confirmed = await Modal.confirm(
-                            t('session.sharing.mentionShareConfirmTitle'),
-                            t('session.sharing.mentionShareConfirmMessage', { names: mentionedNames }),
-                            {
-                                cancelText: t('common.cancel'),
-                                confirmText: t('session.sharing.mentionShareConfirmAction'),
-                            },
-                        );
-                        if (!confirmed) {
-                            return;
+                        // Owners/admins implicitly share the session with the
+                        // people they mention, so they confirm first. Shared
+                        // collaborators only mention existing participants —
+                        // nothing is shared, nothing to confirm.
+                        if (canManageSharing) {
+                            const confirmed = await Modal.confirm(
+                                t('session.sharing.mentionShareConfirmTitle'),
+                                t('session.sharing.mentionShareConfirmMessage', { names: mentionedNames }),
+                                {
+                                    cancelText: t('common.cancel'),
+                                    confirmText: t('session.sharing.mentionShareConfirmAction'),
+                                },
+                            );
+                            if (!confirmed) {
+                                return;
+                            }
                         }
 
                         setIsSending(true);
@@ -1592,24 +1614,34 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                                 return;
                             }
 
-                            const shares = await getSessionShares(sync.getCredentials(), sessionId);
-                            const targetsToShare = getMentionShareTargets(mentionedFriends, shares);
-                            const existingShareUserIds = new Set(shares.map(share => share.sharedWithUser.id));
-                            const alreadyReachableTargets = mentionedFriends.filter(friend => existingShareUserIds.has(friend.id));
-                            const shareResult = await shareSessionWithMentionedFriends(sessionId, targetsToShare);
-                            const reachableById = new Map<string, typeof mentionedFriends[number]>();
-                            for (const friend of alreadyReachableTargets) {
-                                reachableById.set(friend.id, friend);
-                            }
-                            for (const friend of shareResult.succeeded) {
-                                reachableById.set(friend.id, friend);
+                            let shareFailedTargets: Awaited<ReturnType<typeof shareSessionWithMentionedFriends>>['failed'] = [];
+                            let reachableTargets: typeof mentionedFriends;
+                            if (canManageSharing) {
+                                const shares = await getSessionShares(sync.getCredentials(), sessionId);
+                                const targetsToShare = getMentionShareTargets(mentionedFriends, shares);
+                                const existingShareUserIds = new Set(shares.map(share => share.sharedWithUser.id));
+                                const alreadyReachableTargets = mentionedFriends.filter(friend => existingShareUserIds.has(friend.id));
+                                const shareResult = await shareSessionWithMentionedFriends(sessionId, targetsToShare);
+                                const reachableById = new Map<string, typeof mentionedFriends[number]>();
+                                for (const friend of alreadyReachableTargets) {
+                                    reachableById.set(friend.id, friend);
+                                }
+                                for (const friend of shareResult.succeeded) {
+                                    reachableById.set(friend.id, friend);
+                                }
+                                shareFailedTargets = shareResult.failed;
+                                reachableTargets = Array.from(reachableById.values());
+                            } else {
+                                // Candidates already come from session
+                                // participants; the server re-checks access
+                                // on send, so no share step is needed.
+                                reachableTargets = mentionedFriends;
                             }
 
-                            const reachableTargets = Array.from(reachableById.values());
                             if (reachableTargets.length === 0) {
                                 const failedNames = [
                                     ...unresolvedPeople.map(person => getMentionableDisplayName(person)),
-                                    ...shareResult.failed.map(item => getDisplayName(item.target)),
+                                    ...shareFailedTargets.map(item => getDisplayName(item.target)),
                                 ].join(', ') || mentionedNames;
                                 Modal.alert(
                                     t('sessionInfo.mentions.partialFailureTitle'),
@@ -1641,10 +1673,10 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                             if (result.success) {
                                 failedMessageRef.current = null;
                                 trackMessageSent();
-                                if (shareResult.failed.length > 0 || unresolvedPeople.length > 0) {
+                                if (shareFailedTargets.length > 0 || unresolvedPeople.length > 0) {
                                     const failedNames = [
                                         ...unresolvedPeople.map(person => getMentionableDisplayName(person)),
-                                        ...shareResult.failed.map(item => getDisplayName(item.target)),
+                                        ...shareFailedTargets.map(item => getDisplayName(item.target)),
                                     ].join(', ');
                                     Modal.alert(
                                         t('sessionInfo.mentions.partialFailureTitle'),

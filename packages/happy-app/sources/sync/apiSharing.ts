@@ -142,6 +142,39 @@ export async function getSessionShares(
     return data.shares;
 }
 
+export interface SessionParticipantProfile {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
+    avatar: string | null;
+}
+
+/**
+ * List mentionable participants (owner + shared users) of a session.
+ * Open to every participant, unlike getSessionShares (owner/admin only).
+ */
+export async function getSessionParticipants(
+    credentials: AuthCredentials,
+    sessionId: string
+): Promise<SessionParticipantProfile[]> {
+    const API_ENDPOINT = getServerUrl();
+
+    const response = await fetch(`${API_ENDPOINT}/v1/sessions/${sessionId}/participants`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to get session participants: ${response.status}`);
+    }
+
+    const data = (await response.json()) as { participants: SessionParticipantProfile[] };
+    return data.participants;
+}
+
 /**
  * Share a session with a specific user
  */
