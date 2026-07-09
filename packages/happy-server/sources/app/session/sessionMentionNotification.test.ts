@@ -146,13 +146,17 @@ describe("notifySessionMentionRecipients", () => {
         expect(sendExpoPushNotificationsMock).toHaveBeenCalledTimes(1);
     });
 
-    it("posts one Feishu mention notification to the session owner webhook after the transaction", async () => {
-        dbMock.account.findUnique.mockResolvedValue({
-            notificationConfig: {
-                feishu: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/normal", enabled: true },
-                feishuMention: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/mention", enabled: true, secret: "mention-secret" },
+    it("posts one Feishu mention notification through the owner webhook after the transaction", async () => {
+        dbMock.account.findMany.mockResolvedValue([
+            {
+                id: "owner-1",
+                notificationConfig: {
+                    feishu: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/normal", enabled: true },
+                    feishuMention: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/mention", enabled: true, secret: "mention-secret" },
+                },
             },
-        } as any);
+            { id: "user-2", notificationConfig: null },
+        ] as any);
 
         await notifySessionMentionRecipients({} as never, {
             ownerId: "owner-1",
@@ -168,9 +172,9 @@ describe("notifySessionMentionRecipients", () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(dbMock.account.findUnique).toHaveBeenCalledWith({
-            where: { id: "owner-1" },
-            select: { notificationConfig: true },
+        expect(dbMock.account.findMany).toHaveBeenCalledWith({
+            where: { id: { in: ["owner-1", "user-2"] } },
+            select: { id: true, notificationConfig: true },
         });
         expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
         expect(sendFeishuMessageMock).toHaveBeenCalledWith(
@@ -187,12 +191,13 @@ describe("notifySessionMentionRecipients", () => {
     });
 
     it("renders a real <at> ping when the recipient account has a Feishu user id configured", async () => {
-        dbMock.account.findUnique.mockResolvedValue({
-            notificationConfig: {
-                feishuMention: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/mention", enabled: true },
-            },
-        } as any);
         dbMock.account.findMany.mockResolvedValue([
+            {
+                id: "owner-1",
+                notificationConfig: {
+                    feishuMention: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/mention", enabled: true },
+                },
+            },
             { id: "user-2", notificationConfig: { feishuUserId: "ou_abc123" } },
             { id: "user-3", notificationConfig: null },
         ] as any);
@@ -212,12 +217,66 @@ describe("notifySessionMentionRecipients", () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(dbMock.account.findMany).toHaveBeenCalledWith({
-            where: { id: { in: ["user-2", "user-3"] } },
-            select: { id: true, notificationConfig: true },
-        });
         expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
         const payload = (sendFeishuMessageMock.mock.calls[0] as any)[1];
         expect(payload.content.text).toContain('<at user_id="ou_abc123">youthqx</at>、@bob');
+    });
+
+    it("falls back to the actor webhook when a shared-session owner has no config", async () => {
+        dbMock.account.findMany.mockResolvedValue([
+            { id: "owner-9", notificationConfig: null },
+            {
+                id: "actor-1",
+                notificationConfig: {
+                    feishuMention: { url: "https://open.feishu.cn/open-apis/bot/v2/hook/team", enabled: true },
+                },
+            },
+            { id: "user-2", notificationConfig: null },
+        ] as any);
+
+        await notifySessionMentionRecipients({} as never, {
+            ownerId: "owner-9",
+            recipientUserIds: ["user-2"],
+            recipientUsernames: ["youthqx"],
+            actorId: "actor-1",
+            actorName: "wfs",
+            sessionId: "session-1",
+            messageLocalId: "local-1",
+            sessionTitle: null,
+            preview: "请确认",
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
+        expect((sendFeishuMessageMock.mock.calls[0] as any)[0].url).toBe("https://open.feishu.cn/open-apis/bot/v2/hook/team");
+    });
+
+    it("dedupes webhooks by URL so a shared team bot receives one message", async () => {
+        const teamHook = { url: "https://open.feishu.cn/open-apis/bot/v2/hook/team", enabled: true };
+        dbMock.account.findMany.mockResolvedValue([
+            { id: "owner-1", notificationConfig: { feishuMention: teamHook } },
+            { id: "actor-1", notificationConfig: { feishuMention: teamHook } },
+            { id: "user-2", notificationConfig: { feishuMention: teamHook, feishuUserId: "ou_abc" } },
+        ] as any);
+
+        await notifySessionMentionRecipients({} as never, {
+            ownerId: "owner-1",
+            recipientUserIds: ["user-2"],
+            recipientUsernames: ["youthqx"],
+            actorId: "actor-1",
+            actorName: "wfs",
+            sessionId: "session-1",
+            messageLocalId: "local-1",
+            sessionTitle: null,
+            preview: "请确认",
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
+        expect((sendFeishuMessageMock.mock.calls[0] as any)[1].content.text).toContain('<at user_id="ou_abc">youthqx</at>');
     });
 });
