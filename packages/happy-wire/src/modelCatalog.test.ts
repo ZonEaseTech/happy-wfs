@@ -133,7 +133,8 @@ describe('modelCatalog', () => {
 
     it('hides older Codex families from the picker while preserving mode compatibility', () => {
         const values = CODEX_MODEL_FAMILY_OPTIONS.map(option => option.value);
-        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4']);
+        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5']);
+        expect(isModelModeForAgent('codex', 'gpt-5.4-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.3-codex-xhigh')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.2-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.1-codex-mini-high')).toBe(true);

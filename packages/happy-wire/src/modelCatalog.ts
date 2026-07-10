@@ -352,7 +352,6 @@ export const CODEX_MODEL_FAMILY_OPTIONS = [
     { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', shortLabel: 'Terra', description: 'Balanced quality and cost' },
     { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', shortLabel: 'Luna', description: 'Fast and cost-efficient' },
     { value: 'gpt-5.5', label: 'GPT-5.5', shortLabel: '5.5', description: 'Previous flagship' },
-    { value: 'gpt-5.4', label: 'GPT-5.4', shortLabel: '5.4', description: 'General-purpose model' },
 ] as const satisfies readonly { value: CodexModelFamily; label: string; shortLabel: string; description: string }[];
 
 export const CODEX_MODEL_OPTIONS = [
@@ -374,10 +373,6 @@ export const CODEX_MODEL_OPTIONS = [
     { value: 'gpt-5.5-medium', label: 'GPT-5.5 (Medium)', description: 'Balanced responses' },
     { value: 'gpt-5.5-high', label: 'GPT-5.5 (High)', description: 'Strong quality' },
     { value: 'gpt-5.5-xhigh', label: 'GPT-5.5 (XHigh)', description: 'Best quality' },
-    { value: 'gpt-5.4-low', label: 'GPT-5.4 (Low)', description: 'Fast responses' },
-    { value: 'gpt-5.4-medium', label: 'GPT-5.4 (Medium)', description: 'Balanced responses' },
-    { value: 'gpt-5.4-high', label: 'GPT-5.4 (High)', description: 'Strong quality' },
-    { value: 'gpt-5.4-xhigh', label: 'GPT-5.4 (XHigh)', description: 'Best quality' },
     { value: 'gpt-5.3-codex-low', label: 'GPT-5.3-Codex (Low)', description: 'Fastest coding responses' },
     { value: 'gpt-5.3-codex-medium', label: 'GPT-5.3-Codex (Medium)', description: 'Balanced coding quality' },
     { value: 'gpt-5.3-codex-high', label: 'GPT-5.3-Codex (High)', description: 'Strong coding quality' },
