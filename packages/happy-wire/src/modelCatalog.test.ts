@@ -133,21 +133,30 @@ describe('modelCatalog', () => {
 
     it('hides older Codex families from the picker while preserving mode compatibility', () => {
         const values = CODEX_MODEL_FAMILY_OPTIONS.map(option => option.value);
-        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-5.6', 'gpt-5.5', 'gpt-5.4']);
+        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4']);
         expect(isModelModeForAgent('codex', 'gpt-5.3-codex-xhigh')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.2-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.1-codex-mini-high')).toBe(true);
     });
 
-    it('supports the gpt-5.6 family end to end', () => {
-        expect(isModelModeForAgent('codex', 'gpt-5.6-xhigh')).toBe(true);
-        expect(parseCodexModelMode('gpt-5.6-high')).toEqual({ family: 'gpt-5.6', effort: 'high' });
-        expect(buildCodexModelMode('gpt-5.6', 'xhigh')).toBe('gpt-5.6-xhigh');
-        expect(getCodexReasoningOptions('gpt-5.6')).toEqual(['xhigh', 'high', 'medium', 'low']);
-        expect(resolveModelSelectionForFlavor('codex', 'gpt-5.6-high')).toEqual({
-            model: 'gpt-5.6',
-            reasoningEffort: 'high',
+    it('supports the gpt-5.6 sol/terra/luna families end to end', () => {
+        expect(isModelModeForAgent('codex', 'gpt-5.6-sol-max')).toBe(true);
+        expect(isModelModeForAgent('codex', 'gpt-5.6-terra-high')).toBe(true);
+        expect(isModelModeForAgent('codex', 'gpt-5.6-luna-medium')).toBe(true);
+        expect(parseCodexModelMode('gpt-5.6-sol-max')).toEqual({ family: 'gpt-5.6-sol', effort: 'max' });
+        expect(parseCodexModelMode('gpt-5.6-terra-high')).toEqual({ family: 'gpt-5.6-terra', effort: 'high' });
+        expect(buildCodexModelMode('gpt-5.6-sol', 'max')).toBe('gpt-5.6-sol-max');
+        expect(resolveModelSelectionForFlavor('codex', 'gpt-5.6-luna-medium')).toEqual({
+            model: 'gpt-5.6-luna',
+            reasoningEffort: 'medium',
         });
+    });
+
+    it('restricts the max reasoning effort to Sol', () => {
+        expect(getCodexReasoningOptions('gpt-5.6-sol')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+        expect(getCodexReasoningOptions('gpt-5.6-terra')).toEqual(['xhigh', 'high', 'medium', 'low']);
+        expect(getCodexReasoningOptions('gpt-5.6-luna')).toEqual(['xhigh', 'high', 'medium', 'low']);
+        expect(buildCodexModelMode('gpt-5.6-terra', 'max')).toBe('gpt-5.6-terra-xhigh');
     });
 
     it('keeps codex model list in catalog shape', () => {
