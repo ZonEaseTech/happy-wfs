@@ -70,15 +70,6 @@ function createTool(config: {
   };
 }
 
-const ORCHESTRATOR_TOOLS = [
-  'orchestrator_get_context',
-  'orchestrator_submit',
-  'orchestrator_pend',
-  'orchestrator_list',
-  'orchestrator_cancel',
-  'orchestrator_send_message',
-];
-
 const GEMINI_TOOL_PATTERNS: ExtendedToolPattern[] = [
   // Happy MCP
   createTool({
@@ -89,27 +80,6 @@ const GEMINI_TOOL_PATTERNS: ExtendedToolPattern[] = [
   createTool({
     name: 'preview_html',
     inputFields: ['html'],
-  }),
-
-  // Happy Orchestrator MCP
-  ...ORCHESTRATOR_TOOLS.map(name => createTool({ name })),
-
-  // Covered with parameters (only override necessary fields)
-  createTool({
-    name: 'orchestrator_submit',
-    inputFields: ['result'],
-  }),
-  createTool({
-    name: 'orchestrator_pend',
-    inputFields: ['reason'],
-  }),
-  createTool({
-    name: 'orchestrator_cancel',
-    inputFields: ['taskId'],
-  }),
-  createTool({
-    name: 'orchestrator_send_message',
-    inputFields: ['message'],
   }),
 
   // Gemini built-in

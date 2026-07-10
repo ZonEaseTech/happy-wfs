@@ -59,20 +59,9 @@ export class CodexTransport implements TransportHandler {
   }
 
   getToolPatterns(): ToolPattern[] {
-    const orchestratorTools = [
-    'orchestrator_get_context',
-    'orchestrator_submit',
-    'orchestrator_pend',
-    'orchestrator_list',
-    'orchestrator_cancel',
-    'orchestrator_send_message',
-  ];
-
   return [
     this.createTool('change_title'),
     this.createTool('preview_html'),
-
-    ...orchestratorTools.map(name => this.createTool(name)),
 
     this.createTool('bash', ['bash', 'shell', 'terminal', 'exec']),
     this.createTool('edit', ['edit', 'write', 'patch', 'apply_patch']),
