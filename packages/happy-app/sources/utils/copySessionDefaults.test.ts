@@ -5,9 +5,9 @@ import { getCopyToAgentModelMode, getCopiedSessionModelMode } from './copySessio
 describe('copySessionDefaults', () => {
     it('uses GPT-5.5 high when copying a session into Codex', () => {
         const mode = getCopyToAgentModelMode('codex');
-        expect(mode).toBe('gpt-5.6-sol-high');
+        expect(mode).toBe('gpt-5.6-terra-high');
         expect(resolveModelSelectionForFlavor('codex', mode)).toEqual({
-            model: 'gpt-5.6-sol',
+            model: 'gpt-5.6-terra',
             reasoningEffort: 'high',
         });
     });
@@ -18,8 +18,8 @@ describe('copySessionDefaults', () => {
     });
 
     it('normalizes copied Codex session default to GPT-5.5 high', () => {
-        expect(getCopiedSessionModelMode('codex', undefined)).toBe('gpt-5.6-sol-high');
-        expect(getCopiedSessionModelMode('codex', 'default')).toBe('gpt-5.6-sol-high');
+        expect(getCopiedSessionModelMode('codex', undefined)).toBe('gpt-5.6-terra-high');
+        expect(getCopiedSessionModelMode('codex', 'default')).toBe('gpt-5.6-terra-high');
         expect(getCopiedSessionModelMode('codex', 'gpt-5.4-high')).toBe('gpt-5.4-high');
     });
 
