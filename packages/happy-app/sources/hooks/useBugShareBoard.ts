@@ -12,7 +12,7 @@ import {
     updatePublicBugContent,
     uploadPublicBugAttachment,
 } from '@/sync/apiBugs';
-import type { BugReportDetail, BugReportSummary, BugStatus } from '@/sync/bugTypes';
+import { compareBugSummaries, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { t } from '@/text';
 
@@ -97,7 +97,7 @@ export function useBugShareBoard() {
         const summary = 'comments' in bug ? toSummary(bug) : bug;
         setBugs((current) => {
             const without = current.filter((item) => item.id !== summary.id);
-            const next = [summary, ...without].sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+            const next = [summary, ...without].sort(compareBugSummaries);
             setPendingCount(next.filter((item) => item.status === 'pending').length);
             return next;
         });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bugMatchesQuery, buildBugTitle, normalizeBugStatusChange } from './bugService';
+import { bugMatchesQuery, buildBugTitle, compareBugRowsForList, normalizeBugStatusChange } from './bugService';
 
 describe('bugService pure helpers', () => {
     it('generates compact titles from descriptions', () => {
@@ -47,5 +47,20 @@ describe('bugMatchesQuery', () => {
         expect(bugMatchesQuery(row, 'pending')).toBe(true);
         expect(bugMatchesQuery(row, 'BUG-21')).toBe(true);
         expect(bugMatchesQuery(row, 'youthqx')).toBe(true);
+    });
+});
+
+describe('compareBugRowsForList', () => {
+    it('floats pending above other statuses regardless of recency', () => {
+        const rows = [
+            { status: 'closed', lastActivityAt: new Date('2026-07-14') },
+            { status: 'pending', lastActivityAt: new Date('2026-07-01') },
+            { status: 'verify', lastActivityAt: new Date('2026-07-13') },
+            { status: 'pending', lastActivityAt: new Date('2026-07-10') },
+            { status: 'in_progress', lastActivityAt: new Date('2026-07-12') },
+        ];
+        const sorted = [...rows].sort(compareBugRowsForList);
+        expect(sorted.map((row) => row.status)).toEqual(['pending', 'pending', 'in_progress', 'verify', 'closed']);
+        expect(sorted[0].lastActivityAt.toISOString().slice(0, 10)).toBe('2026-07-10');
     });
 });

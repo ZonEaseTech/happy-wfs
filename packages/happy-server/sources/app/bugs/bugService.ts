@@ -116,6 +116,25 @@ const BUG_STATUS_SEARCH_LABELS: Record<string, string> = {
     closed: '已关闭',
 };
 
+/**
+ * List ordering: actionable statuses first (pending → in_progress → verify →
+ * closed), most recent activity first within each group.
+ */
+const BUG_STATUS_SORT_RANK: Record<string, number> = {
+    pending: 0,
+    in_progress: 1,
+    verify: 2,
+    closed: 3,
+};
+
+export function compareBugRowsForList(
+    a: { status: string; lastActivityAt: Date },
+    b: { status: string; lastActivityAt: Date },
+): number {
+    return (BUG_STATUS_SORT_RANK[a.status] ?? 99) - (BUG_STATUS_SORT_RANK[b.status] ?? 99)
+        || b.lastActivityAt.getTime() - a.lastActivityAt.getTime();
+}
+
 export function bugMatchesQuery(row: any, query: string): boolean {
     const normalized = query.trim().replace(/^#/, '').toLowerCase();
     if (!normalized) return true;
@@ -167,6 +186,7 @@ export async function listBugsForOwner(owner: BugOwnerScope, input: { status?: s
     ]);
     const bugs = rows
         .filter((row: any) => !input.query || bugMatchesQuery(row, input.query))
+        .sort(compareBugRowsForList)
         .map(presentBugSummary);
     return { bugs, pendingCount };
 }

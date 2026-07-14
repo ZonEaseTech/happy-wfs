@@ -32,7 +32,7 @@ import { sync } from '@/sync/sync';
 import { useAuth } from '@/auth/AuthContext';
 import { listGitHubIssues, saveGitHubToken, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
 import { addBugComment, changeBugStatus, createBug, createOrRotateBugShareConfig, deleteBug, getBug, getBugShareConfig, listBugs, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
-import { BUG_IMAGE_LIMITS, matchesBugSearch, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
+import { BUG_IMAGE_LIMITS, bugStatusSortRank, matchesBugSearch, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import type { LocalImage } from '@/components/ImagePreview';
 import { storeTempData } from '@/utils/tempDataStore';
@@ -1198,7 +1198,10 @@ export function SessionsList() {
                 items.push({ type: 'bug', bug, sortTime: bug.lastActivityAt });
             }
         }
-        return items.sort((a, b) => b.sortTime - a.sortTime);
+        // Actionable bug statuses float above closed ones; GitHub issues sort
+        // alongside pending bugs by time.
+        const itemRank = (item: PendingListItem) => item.type === 'bug' ? bugStatusSortRank(item.bug.status) : 0;
+        return items.sort((a, b) => itemRank(a) - itemRank(b) || b.sortTime - a.sortTime);
     }, [filteredPendingBugs, filteredPendingIssues, pendingItemType]);
     // Reset to 'active' tab if current tab's data becomes empty.
     // Closure tab is exempt — it's an affordance (the user needs to see

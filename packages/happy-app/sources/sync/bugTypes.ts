@@ -75,6 +75,29 @@ export function bugStatusLabel(status: BugStatus): string {
     }
 }
 
+/**
+ * List ordering: actionable statuses first (pending → in_progress → verify →
+ * closed), most recent activity first within each group.
+ */
+const BUG_STATUS_SORT_RANK: Record<BugStatus, number> = {
+    pending: 0,
+    in_progress: 1,
+    verify: 2,
+    closed: 3,
+};
+
+export function bugStatusSortRank(status: BugStatus): number {
+    return BUG_STATUS_SORT_RANK[status] ?? 99;
+}
+
+export function compareBugSummaries(
+    a: Pick<BugReportSummary, 'status' | 'lastActivityAt'>,
+    b: Pick<BugReportSummary, 'status' | 'lastActivityAt'>,
+): number {
+    return bugStatusSortRank(a.status) - bugStatusSortRank(b.status)
+        || b.lastActivityAt - a.lastActivityAt;
+}
+
 export function buildBugTitle(description: string): string {
     const normalized = stripBugImageMarkers(description).replace(/\s+/g, ' ');
     if (normalized.length <= 36) return normalized;
