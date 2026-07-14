@@ -28,7 +28,10 @@ export function presentBugSummary(row: any) {
         contentJson: row.contentJson ?? null,
         status: row.status as BugStatus,
         visibility: row.visibility as BugVisibility,
-        createdByNickname: row.createdByNickname ?? null,
+        // Account identity beats the free-text nickname: authenticated
+        // creators show their username, share-code creators keep the
+        // nickname they typed at login.
+        createdByNickname: row.createdByUser?.username ?? row.createdByNickname ?? null,
         attachmentCount: row._count?.attachments ?? row.attachments?.length ?? 0,
         commentCount: row._count?.comments ?? row.comments?.length ?? 0,
         lastActivityAt: row.lastActivityAt.getTime(),

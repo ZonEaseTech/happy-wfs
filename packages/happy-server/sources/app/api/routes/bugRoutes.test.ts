@@ -15,6 +15,8 @@ const serviceMock = vi.hoisted(() => ({
     linkBugSession: vi.fn(),
     recordBugAttachment: vi.fn(),
     softDeleteBugForOwner: vi.fn(),
+    getAccessibleBugOwnerIds: vi.fn(async () => ['user-1', 'user-2']),
+    getBugActorForUser: vi.fn(async () => ({ userId: 'user-1', nickname: 'wfs' })),
 }));
 
 vi.mock('@/app/bugs/bugService', () => serviceMock);
@@ -53,7 +55,7 @@ describe('bugRoutes', () => {
         serviceMock.listBugsForOwner.mockResolvedValue({ bugs: [], pendingCount: 0 });
         const res = await app.inject({ method: 'GET', url: '/v1/bugs?query=BUG-1&limit=10' });
         expect(res.statusCode).toBe(200);
-        expect(serviceMock.listBugsForOwner).toHaveBeenCalledWith('user-1', { query: 'BUG-1', limit: 10, status: undefined });
+        expect(serviceMock.listBugsForOwner).toHaveBeenCalledWith(['user-1', 'user-2'], { query: 'BUG-1', limit: 10, status: undefined });
     });
 
     it('POST /v1/bugs rejects blank descriptions', async () => {
@@ -73,14 +75,14 @@ describe('bugRoutes', () => {
         });
 
         expect(res.statusCode).toBe(201);
-        expect(serviceMock.createBugForOwner).toHaveBeenCalledWith('user-1', { userId: 'user-1', nickname: 'Happy 用户' }, { description: '页面空白', visibility: 'shared', contentJson });
+        expect(serviceMock.createBugForOwner).toHaveBeenCalledWith('user-1', { userId: 'user-1', nickname: 'wfs' }, { description: '页面空白', visibility: 'shared', contentJson });
     });
 
     it('PATCH /v1/bugs/:bugId/status forwards return-to-pending action', async () => {
         serviceMock.changeBugStatus.mockResolvedValue({ id: 'bug-1' });
         const res = await app.inject({ method: 'PATCH', url: '/v1/bugs/bug-1/status', payload: { status: 'pending', action: 'return_to_pending' } });
         expect(res.statusCode).toBe(200);
-        expect(serviceMock.changeBugStatus).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' }, { status: 'pending', action: 'return_to_pending' });
+        expect(serviceMock.changeBugStatus).toHaveBeenCalledWith(['user-1', 'user-2'], 'bug-1', { userId: 'user-1', nickname: 'wfs' }, { status: 'pending', action: 'return_to_pending' });
     });
 
     it('PATCH /v1/bugs/:bugId/content forwards edited description and contentJson', async () => {
@@ -94,14 +96,14 @@ describe('bugRoutes', () => {
         });
 
         expect(res.statusCode).toBe(200);
-        expect(serviceMock.updateBugContent).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' }, { description: '更新后的说明', contentJson });
+        expect(serviceMock.updateBugContent).toHaveBeenCalledWith(['user-1', 'user-2'], 'bug-1', { userId: 'user-1', nickname: 'wfs' }, { description: '更新后的说明', contentJson });
     });
 
     it('DELETE /v1/bugs/:bugId soft-deletes the bug for the Happy owner', async () => {
         serviceMock.softDeleteBugForOwner.mockResolvedValue(undefined);
         const res = await app.inject({ method: 'DELETE', url: '/v1/bugs/bug-1' });
         expect(res.statusCode).toBe(200);
-        expect(serviceMock.softDeleteBugForOwner).toHaveBeenCalledWith('user-1', 'bug-1', { userId: 'user-1', nickname: 'Happy 用户' });
+        expect(serviceMock.softDeleteBugForOwner).toHaveBeenCalledWith(['user-1', 'user-2'], 'bug-1', { userId: 'user-1', nickname: 'wfs' });
     });
 
     it('GET /v1/bugs/share-config returns the current share password for owner copy-back', async () => {

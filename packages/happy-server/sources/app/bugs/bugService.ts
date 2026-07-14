@@ -9,12 +9,54 @@ const detailInclude = {
     attachments: { orderBy: { createdAt: 'asc' } },
     comments: { orderBy: { createdAt: 'asc' }, include: { attachments: { orderBy: { createdAt: 'asc' } } } },
     statusHistory: { orderBy: { createdAt: 'asc' } },
+    createdByUser: { select: { username: true } },
     _count: { select: { attachments: true, comments: true } },
 };
 
 const summaryInclude = {
+    createdByUser: { select: { username: true } },
     _count: { select: { attachments: true, comments: true } },
 };
+
+/**
+ * Owner scope for bug lookups. Authenticated routes pass the list of company
+ * board owners the user may access; the public share-code flow keeps passing
+ * the single owner id its access code belongs to.
+ */
+export type BugOwnerScope = string | string[];
+
+function ownerFilter(owner: BugOwnerScope) {
+    return Array.isArray(owner) ? { in: owner } : owner;
+}
+
+/**
+ * Bug boards are company-visible: a user can access their own board plus
+ * every board owned by members of companies they belong to.
+ */
+export async function getAccessibleBugOwnerIds(userId: string): Promise<string[]> {
+    const memberships = await bugDb().companyMembership.findMany({
+        where: { accountId: userId },
+        select: { companyId: true },
+    });
+    if (memberships.length === 0) return [userId];
+    const members = await bugDb().companyMembership.findMany({
+        where: { companyId: { in: memberships.map((m: any) => m.companyId) } },
+        select: { accountId: true },
+    });
+    return Array.from(new Set<string>([userId, ...members.map((m: any) => m.accountId)]));
+}
+
+/**
+ * Actor for authenticated bug actions: attribution uses the account username
+ * so boards shared across a company show who did what.
+ */
+export async function getBugActorForUser(userId: string): Promise<BugActor> {
+    const account = await bugDb().account.findUnique({
+        where: { id: userId },
+        select: { username: true },
+    });
+    return { userId, nickname: account?.username?.trim() || 'Happy 用户' };
+}
 
 function bugDb(tx: Tx | typeof db = db): any {
     return tx as any;
@@ -79,19 +121,19 @@ function bugMatchesQuery(row: any, query: string): boolean {
     return haystack.includes(normalized);
 }
 
-async function findBugRowForOwner(tx: Tx | typeof db, ownerId: string, bugId: string) {
+async function findBugRowForOwner(tx: Tx | typeof db, owner: BugOwnerScope, bugId: string) {
     const row = await bugDb(tx).bugReport.findFirst({
-        where: { id: bugId, ownerId, deletedAt: null },
+        where: { id: bugId, ownerId: ownerFilter(owner), deletedAt: null },
         include: detailInclude,
     });
     if (!row) throw errorWithStatus(404, 'Bug not found');
     return row;
 }
 
-export async function listBugsForOwner(ownerId: string, input: { status?: string; query?: string; limit?: number; publicOnly?: boolean }) {
+export async function listBugsForOwner(owner: BugOwnerScope, input: { status?: string; query?: string; limit?: number; publicOnly?: boolean }) {
     const status = input.status ? BugStatusSchema.parse(input.status) : undefined;
     const where = {
-        ownerId,
+        ownerId: ownerFilter(owner),
         deletedAt: null,
         ...(status ? { status } : {}),
         ...(input.publicOnly ? { visibility: 'shared' } : {}),
@@ -105,7 +147,7 @@ export async function listBugsForOwner(ownerId: string, input: { status?: string
         }),
         bugDb().bugReport.count({
             where: {
-                ownerId,
+                ownerId: ownerFilter(owner),
                 deletedAt: null,
                 status: 'pending',
                 ...(input.publicOnly ? { visibility: 'shared' } : {}),
@@ -118,8 +160,8 @@ export async function listBugsForOwner(ownerId: string, input: { status?: string
     return { bugs, pendingCount };
 }
 
-export async function getBugForOwner(ownerId: string, bugId: string, input: { publicOnly?: boolean } = {}) {
-    const row = await findBugRowForOwner(db, ownerId, bugId);
+export async function getBugForOwner(owner: BugOwnerScope, bugId: string, input: { publicOnly?: boolean } = {}) {
+    const row = await findBugRowForOwner(db, owner, bugId);
     if (input.publicOnly && row.visibility !== 'shared') throw errorWithStatus(404, 'Bug not found');
     return presentBugDetail(row);
 }
@@ -158,11 +200,11 @@ export async function createBugForOwner(ownerId: string, actor: BugActor, input:
     return presentBugDetail(row);
 }
 
-export async function updateBugContent(ownerId: string, bugId: string, actor: BugActor, input: { description: string; contentJson?: unknown | null; publicOnly?: boolean }) {
+export async function updateBugContent(owner: BugOwnerScope, bugId: string, actor: BugActor, input: { description: string; contentJson?: unknown | null; publicOnly?: boolean }) {
     const description = input.description.trim();
     if (!description) throw errorWithStatus(400, 'description is required');
     const row = await inTx(async (tx) => {
-        const bug = await findBugRowForOwner(tx, ownerId, bugId);
+        const bug = await findBugRowForOwner(tx, owner, bugId);
         if (input.publicOnly && bug.visibility !== 'shared') throw errorWithStatus(404, 'Bug not found');
         await bugDb(tx).bugReport.update({
             where: { id: bugId },
@@ -178,13 +220,13 @@ export async function updateBugContent(ownerId: string, bugId: string, actor: Bu
     return presentBugDetail(row);
 }
 
-export async function addBugComment(ownerId: string, bugId: string, actor: BugActor, body: string, input: { publicOnly?: boolean } = {}) {
+export async function addBugComment(owner: BugOwnerScope, bugId: string, actor: BugActor, body: string, input: { publicOnly?: boolean } = {}) {
     const trimmed = body.trim();
     if (!trimmed) throw errorWithStatus(400, 'body is required');
     const nickname = actorNickname(actor);
     const userId = actorUserId(actor);
     const result = await inTx(async (tx) => {
-        const bug = await findBugRowForOwner(tx, ownerId, bugId);
+        const bug = await findBugRowForOwner(tx, owner, bugId);
         if (input.publicOnly && bug.visibility !== 'shared') throw errorWithStatus(404, 'Bug not found');
         const comment = await bugDb(tx).bugComment.create({
             data: {
@@ -211,11 +253,11 @@ export async function addBugComment(ownerId: string, bugId: string, actor: BugAc
     return { bug: presentBugDetail(result.bug), commentId: result.commentId };
 }
 
-export async function changeBugStatus(ownerId: string, bugId: string, actor: BugActor, input: { status: string; action?: string; publicOnly?: boolean }) {
+export async function changeBugStatus(owner: BugOwnerScope, bugId: string, actor: BugActor, input: { status: string; action?: string; publicOnly?: boolean }) {
     const nickname = actorNickname(actor);
     const userId = actorUserId(actor);
     const row = await inTx(async (tx) => {
-        const bug = await findBugRowForOwner(tx, ownerId, bugId);
+        const bug = await findBugRowForOwner(tx, owner, bugId);
         if (input.publicOnly && bug.visibility !== 'shared') throw errorWithStatus(404, 'Bug not found');
         const change = normalizeBugStatusChange(bug.status, input);
         await bugDb(tx).bugReport.update({
@@ -237,11 +279,11 @@ export async function changeBugStatus(ownerId: string, bugId: string, actor: Bug
     return presentBugDetail(row);
 }
 
-export async function softDeleteBugForOwner(ownerId: string, bugId: string, actor: BugActor) {
+export async function softDeleteBugForOwner(owner: BugOwnerScope, bugId: string, actor: BugActor) {
     const nickname = actorNickname(actor);
     const userId = actorUserId(actor);
     await inTx(async (tx) => {
-        const bug = await findBugRowForOwner(tx, ownerId, bugId);
+        const bug = await findBugRowForOwner(tx, owner, bugId);
         const now = new Date();
         await bugDb(tx).bugReport.update({
             where: { id: bugId },
@@ -261,13 +303,13 @@ export async function softDeleteBugForOwner(ownerId: string, bugId: string, acto
     });
 }
 
-export async function linkBugSession(ownerId: string, bugId: string, sessionId: string, actor: BugActor) {
+export async function linkBugSession(owner: BugOwnerScope, bugId: string, sessionId: string, actor: BugActor) {
     const nickname = actorNickname(actor);
     const userId = actorUserId(actor);
     const row = await inTx(async (tx) => {
         const [bug, session] = await Promise.all([
-            findBugRowForOwner(tx, ownerId, bugId),
-            bugDb(tx).session.findFirst({ where: { id: sessionId, accountId: ownerId } }),
+            findBugRowForOwner(tx, owner, bugId),
+            bugDb(tx).session.findFirst({ where: { id: sessionId, accountId: actorUserId(actor) ?? undefined } }),
         ]);
         if (!session) throw errorWithStatus(404, 'Session not found');
         await bugDb(tx).bugReport.update({
@@ -289,7 +331,7 @@ export async function linkBugSession(ownerId: string, bugId: string, sessionId: 
     return presentBugDetail(row);
 }
 
-export async function recordBugAttachment(ownerId: string, bugId: string, actor: BugActor, attachment: {
+export async function recordBugAttachment(owner: BugOwnerScope, bugId: string, actor: BugActor, attachment: {
     commentId?: string;
     path: string;
     url: string;
@@ -302,7 +344,7 @@ export async function recordBugAttachment(ownerId: string, bugId: string, actor:
     const nickname = actorNickname(actor);
     const userId = actorUserId(actor);
     const row = await inTx(async (tx) => {
-        const bug = await findBugRowForOwner(tx, ownerId, bugId);
+        const bug = await findBugRowForOwner(tx, owner, bugId);
         if (input.publicOnly && bug.visibility !== 'shared') throw errorWithStatus(404, 'Bug not found');
         if (attachment.commentId) {
             const comment = await bugDb(tx).bugComment.findFirst({ where: { id: attachment.commentId, bugId } });

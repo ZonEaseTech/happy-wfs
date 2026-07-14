@@ -3,6 +3,8 @@ import { type Fastify } from '../types';
 import { uploadBugImage } from '@/app/bugs/bugImageUpload';
 import {
     addBugComment,
+    getAccessibleBugOwnerIds,
+    getBugActorForUser,
     changeBugStatus,
     createBugForOwner,
     createOrRotateBugShareConfig,
@@ -39,10 +41,6 @@ const shareBody = z.object({
     accessCode: z.string().trim().min(1).optional(),
 }).optional();
 
-function happyActor(userId: string) {
-    return { userId, nickname: 'Happy 用户' };
-}
-
 function handleRouteError(reply: any, error: unknown) {
     const statusCode = typeof (error as any)?.statusCode === 'number' ? (error as any).statusCode : 500;
     const message = error instanceof Error ? error.message : String(error);
@@ -66,7 +64,8 @@ export function bugRoutes(app: Fastify) {
         },
     }, async (request, reply) => {
         try {
-            const result = await listBugsForOwner(request.userId, {
+            const owners = await getAccessibleBugOwnerIds(request.userId);
+            const result = await listBugsForOwner(owners, {
                 status: request.query?.status,
                 query: request.query?.query,
                 limit: request.query?.limit,
@@ -82,7 +81,7 @@ export function bugRoutes(app: Fastify) {
         schema: { body: createBugBody },
     }, async (request, reply) => {
         try {
-            const bug = await createBugForOwner(request.userId, happyActor(request.userId), request.body);
+            const bug = await createBugForOwner(request.userId, await getBugActorForUser(request.userId), request.body);
             return reply.code(201).send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -94,7 +93,7 @@ export function bugRoutes(app: Fastify) {
         schema: { params: z.object({ bugId: z.string() }) },
     }, async (request, reply) => {
         try {
-            const bug = await getBugForOwner(request.userId, request.params.bugId);
+            const bug = await getBugForOwner(await getAccessibleBugOwnerIds(request.userId), request.params.bugId);
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -106,7 +105,7 @@ export function bugRoutes(app: Fastify) {
         schema: { params: z.object({ bugId: z.string() }) },
     }, async (request, reply) => {
         try {
-            await softDeleteBugForOwner(request.userId, request.params.bugId, happyActor(request.userId));
+            await softDeleteBugForOwner(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId));
             return reply.send({ ok: true });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -118,7 +117,7 @@ export function bugRoutes(app: Fastify) {
         schema: { params: z.object({ bugId: z.string() }), body: commentBody },
     }, async (request, reply) => {
         try {
-            const result = await addBugComment(request.userId, request.params.bugId, happyActor(request.userId), request.body.body);
+            const result = await addBugComment(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), request.body.body);
             return reply.code(201).send(result);
         } catch (error) {
             return handleRouteError(reply, error);
@@ -130,7 +129,7 @@ export function bugRoutes(app: Fastify) {
         schema: { params: z.object({ bugId: z.string() }), body: statusBody },
     }, async (request, reply) => {
         try {
-            const bug = await changeBugStatus(request.userId, request.params.bugId, happyActor(request.userId), request.body);
+            const bug = await changeBugStatus(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), request.body);
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -142,7 +141,7 @@ export function bugRoutes(app: Fastify) {
         schema: { params: z.object({ bugId: z.string() }), body: contentBody },
     }, async (request, reply) => {
         try {
-            const bug = await updateBugContent(request.userId, request.params.bugId, happyActor(request.userId), request.body);
+            const bug = await updateBugContent(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), request.body);
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -154,7 +153,7 @@ export function bugRoutes(app: Fastify) {
         schema: { params: z.object({ bugId: z.string() }), body: z.object({ sessionId: z.string().min(1) }) },
     }, async (request, reply) => {
         try {
-            const bug = await linkBugSession(request.userId, request.params.bugId, request.body.sessionId, happyActor(request.userId));
+            const bug = await linkBugSession(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, request.body.sessionId, await getBugActorForUser(request.userId));
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -179,7 +178,7 @@ export function bugRoutes(app: Fastify) {
             }
             if (!fileBuffer) return reply.code(400).send({ error: 'No file uploaded' });
             const upload = await uploadBugImage({ ownerId: request.userId, bugId: request.params.bugId, imageBuffer: fileBuffer, mimeType: fileMimeType || 'image/jpeg', sizeBytes: fileBuffer.length });
-            const bug = await recordBugAttachment(request.userId, request.params.bugId, happyActor(request.userId), { ...upload, commentId });
+            const bug = await recordBugAttachment(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), { ...upload, commentId });
             return reply.code(201).send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
