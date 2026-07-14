@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBugTitle, normalizeBugStatusChange } from './bugService';
+import { bugMatchesQuery, buildBugTitle, normalizeBugStatusChange } from './bugService';
 
 describe('bugService pure helpers', () => {
     it('generates compact titles from descriptions', () => {
@@ -25,5 +25,27 @@ describe('bugService pure helpers', () => {
             toStatus: 'closed',
             action: 'closed',
         });
+    });
+});
+
+describe('bugMatchesQuery', () => {
+    const row = {
+        displayNumber: 21,
+        title: '批量没有区分本店自建',
+        description: '子店不可修改时批量操作异常',
+        createdByNickname: null,
+        createdByUser: { username: 'youthqx' },
+        status: 'pending',
+    };
+
+    it('matches the Chinese status label shown in the UI', () => {
+        expect(bugMatchesQuery(row, '待处理')).toBe(true);
+        expect(bugMatchesQuery(row, '已关闭')).toBe(false);
+    });
+
+    it('still matches raw status, display id, and creator username', () => {
+        expect(bugMatchesQuery(row, 'pending')).toBe(true);
+        expect(bugMatchesQuery(row, 'BUG-21')).toBe(true);
+        expect(bugMatchesQuery(row, 'youthqx')).toBe(true);
     });
 });

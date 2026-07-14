@@ -107,7 +107,16 @@ export function generateBugShareAccessCode(): string {
     return randomKeyNaked(10);
 }
 
-function bugMatchesQuery(row: any, query: string): boolean {
+// Search must match the Chinese status labels users see, not just the raw
+// English status values stored in the database.
+const BUG_STATUS_SEARCH_LABELS: Record<string, string> = {
+    pending: '待处理',
+    in_progress: '进行中',
+    verify: '待验证',
+    closed: '已关闭',
+};
+
+export function bugMatchesQuery(row: any, query: string): boolean {
     const normalized = query.trim().replace(/^#/, '').toLowerCase();
     if (!normalized) return true;
     const haystack = [
@@ -116,7 +125,9 @@ function bugMatchesQuery(row: any, query: string): boolean {
         row.title,
         row.description,
         row.createdByNickname ?? '',
+        row.createdByUser?.username ?? '',
         row.status,
+        BUG_STATUS_SEARCH_LABELS[row.status] ?? '',
     ].join('\n').toLowerCase();
     return haystack.includes(normalized);
 }
