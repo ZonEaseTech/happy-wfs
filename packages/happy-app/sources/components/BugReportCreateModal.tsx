@@ -13,6 +13,7 @@ import { getBugRichPlainText, insertBugImageAtSelection, serializeBugRichContent
 import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { getBugCreateRemainingImageSlots, isBugCreateSubmitEnabled, shouldShowBugCreateEmptyHint } from './bugReportCreatePresentation';
 import { BugTiptapEditor } from './BugTiptapEditor';
+import { buildBugCreateDraftDoc, readBugCreateDraft, writeBugCreateDraft } from './bugCreateDraft';
 import type { BugTiptapEditorHandle, BugTiptapEditorSnapshot } from './BugTiptapEditor.types';
 
 let bugEditorBlockId = 0;
@@ -67,6 +68,8 @@ export function BugReportCreateModal({
     const firstTextBlockId = React.useRef(createBlockId('text'));
     const [blocks, setBlocks] = React.useState<BugEditorBlock<LocalImage>[]>(() => [{ id: firstTextBlockId.current, type: 'text', text: '' }]);
     const [tiptapSnapshot, setTiptapSnapshot] = React.useState<BugTiptapEditorSnapshot>(emptyTiptapSnapshot);
+    // Restore the unsaved draft from the last time the modal was dismissed.
+    const draftInitialDoc = React.useRef(readBugCreateDraft()).current;
     const [submitting, setSubmitting] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const tiptapEditorRef = React.useRef<BugTiptapEditorHandle>(null);
@@ -175,6 +178,15 @@ export function BugReportCreateModal({
         });
     }, [tiptapSnapshot.imageCount]);
 
+    // Persist the draft while typing so closing the modal mid-way keeps it.
+    React.useEffect(() => {
+        if (!useTiptapEditor) return;
+        const timer = setTimeout(() => {
+            writeBugCreateDraft(buildBugCreateDraftDoc(tiptapSnapshot.contentJson, tiptapSnapshot.plainText));
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [tiptapSnapshot, useTiptapEditor]);
+
     const handleSubmit = React.useCallback(async () => {
         const tiptapCurrentSnapshot = useTiptapEditor ? (tiptapEditorRef.current?.getSnapshot() ?? tiptapSnapshot) : null;
         const serialized = tiptapCurrentSnapshot ?? serializeBugRichContent(blocks);
@@ -186,6 +198,7 @@ export function BugReportCreateModal({
         setSubmitting(true);
         try {
             await onCreate(serialized.description, serialized.images, tiptapCurrentSnapshot?.contentJson);
+            writeBugCreateDraft(null);
             onClose();
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
@@ -289,7 +302,7 @@ export function BugReportCreateModal({
                 {useTiptapEditor ? (
                     <View style={[styles.paper, { overflowY: 'auto' } as any]}>
                         <View style={styles.paperContent}>
-                            <BugTiptapEditor ref={tiptapEditorRef} onChange={setTiptapSnapshot} />
+                            <BugTiptapEditor ref={tiptapEditorRef} initialDoc={draftInitialDoc ?? undefined} onChange={setTiptapSnapshot} />
                         </View>
                     </View>
                 ) : (
