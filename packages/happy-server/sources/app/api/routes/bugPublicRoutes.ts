@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { type Fastify } from '../types';
 import { uploadBugImage } from '@/app/bugs/bugImageUpload';
+import { notifyBugCommentToFeishu } from '@/app/bugs/bugCommentNotification';
 import { createBugShareToken, verifyBugShareToken, type BugShareTokenPayload } from '@/app/bugs/bugShareToken';
 import {
     addBugComment,
@@ -140,6 +141,7 @@ export function bugPublicRoutes(app: Fastify) {
         if (!context) return;
         try {
             const result = await addBugComment(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, request.body.body, { publicOnly: true });
+            void notifyBugCommentToFeishu(request.params.bugId, { nickname: context.nickname }, request.body.body);
             return reply.code(201).send(result);
         } catch (error) {
             return handleRouteError(reply, error);

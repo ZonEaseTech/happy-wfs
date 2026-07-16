@@ -227,6 +227,32 @@ export function buildMentionNotificationCard(meta: MentionNotificationMeta): Fei
     return { msg_type: 'text', content: { text: lines.join('\n') } };
 }
 
+export interface BugCommentNotificationMeta {
+    bugDisplayId: string;
+    bugTitle: string;
+    actorName: string;
+    recipients: MentionRecipient[];
+    preview: string;
+    bugUrl: string;
+}
+
+export function buildBugCommentNotificationCard(meta: BugCommentNotificationMeta): FeishuMessagePayload {
+    const lines = [
+        '💬 Happy Bug 评论',
+        `${meta.bugDisplayId} · ${meta.bugTitle}`,
+        `评论人：${meta.actorName}`,
+    ];
+    if (meta.recipients.length > 0) {
+        lines.push(`提醒：${meta.recipients.map(formatMentionRecipient).join('、')}`);
+    }
+    const preview = truncateMentionPreview(meta.preview);
+    if (preview) {
+        lines.push(`内容：${preview}`);
+    }
+    lines.push(`打开：${meta.bugUrl}`);
+    return { msg_type: 'text', content: { text: lines.join('\n') } };
+}
+
 /**
  * Test-message payload used by the "Send test" button in the settings UI.
  */

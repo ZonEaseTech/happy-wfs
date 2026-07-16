@@ -20,6 +20,7 @@ const serviceMock = vi.hoisted(() => ({
 }));
 
 vi.mock('@/app/bugs/bugService', () => serviceMock);
+vi.mock('@/app/bugs/bugCommentNotification', () => ({ notifyBugCommentToFeishu: vi.fn(async () => undefined) }));
 vi.mock('@/app/bugs/bugImageUpload', () => ({
     uploadBugImage: vi.fn(async () => ({ path: 'p', url: 'https://files/p', mimeType: 'image/png', sizeBytes: 10, width: 1, height: 1, thumbhash: null })),
 }));

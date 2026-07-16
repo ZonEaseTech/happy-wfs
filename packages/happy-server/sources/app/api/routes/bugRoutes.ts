@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { type Fastify } from '../types';
 import { uploadBugImage } from '@/app/bugs/bugImageUpload';
+import { notifyBugCommentToFeishu } from '@/app/bugs/bugCommentNotification';
 import {
     addBugComment,
     getAccessibleBugOwnerIds,
@@ -117,7 +118,9 @@ export function bugRoutes(app: Fastify) {
         schema: { params: z.object({ bugId: z.string() }), body: commentBody },
     }, async (request, reply) => {
         try {
-            const result = await addBugComment(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), request.body.body);
+            const actor = await getBugActorForUser(request.userId);
+            const result = await addBugComment(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, actor, request.body.body);
+            void notifyBugCommentToFeishu(request.params.bugId, actor, request.body.body);
             return reply.code(201).send(result);
         } catch (error) {
             return handleRouteError(reply, error);
