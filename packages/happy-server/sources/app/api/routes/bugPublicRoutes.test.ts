@@ -5,6 +5,7 @@ import type { Fastify } from '../types';
 import { createBugShareToken } from '@/app/bugs/bugShareToken';
 
 const serviceMock = vi.hoisted(() => ({
+    getAccessibleBugOwnerIds: vi.fn(async () => ['owner-1', 'member-2']),
     findBugShareConfigByAccessCode: vi.fn(),
     getValidBugShareConfig: vi.fn(),
     listBugsForOwner: vi.fn(),
@@ -100,6 +101,6 @@ describe('bugPublicRoutes', () => {
         });
 
         expect(res.statusCode).toBe(200);
-        expect(serviceMock.updateBugContent).toHaveBeenCalledWith('owner-1', 'bug-1', { nickname: '测试李' }, { description: '更新后的说明', contentJson, publicOnly: true });
+        expect(serviceMock.updateBugContent).toHaveBeenCalledWith(['owner-1', 'member-2'], 'bug-1', { nickname: '测试李' }, { description: '更新后的说明', contentJson, publicOnly: true });
     });
 });

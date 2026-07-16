@@ -4,6 +4,7 @@ import { uploadBugImage } from '@/app/bugs/bugImageUpload';
 import { createBugShareToken, verifyBugShareToken, type BugShareTokenPayload } from '@/app/bugs/bugShareToken';
 import {
     addBugComment,
+    getAccessibleBugOwnerIds,
     changeBugStatus,
     createBugForOwner,
     findBugShareConfigByAccessCode,
@@ -90,7 +91,7 @@ export function bugPublicRoutes(app: Fastify) {
         const context = await getPublicContext(request, reply);
         if (!context) return;
         try {
-            const result = await listBugsForOwner(context.ownerId, {
+            const result = await listBugsForOwner(await getAccessibleBugOwnerIds(context.ownerId), {
                 status: request.query?.status,
                 query: request.query?.query,
                 limit: request.query?.limit,
@@ -125,7 +126,7 @@ export function bugPublicRoutes(app: Fastify) {
         const context = await getPublicContext(request, reply);
         if (!context) return;
         try {
-            const bug = await getBugForOwner(context.ownerId, request.params.bugId, { publicOnly: true });
+            const bug = await getBugForOwner(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { publicOnly: true });
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -138,7 +139,7 @@ export function bugPublicRoutes(app: Fastify) {
         const context = await getPublicContext(request, reply);
         if (!context) return;
         try {
-            const result = await addBugComment(context.ownerId, request.params.bugId, { nickname: context.nickname }, request.body.body, { publicOnly: true });
+            const result = await addBugComment(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, request.body.body, { publicOnly: true });
             return reply.code(201).send(result);
         } catch (error) {
             return handleRouteError(reply, error);
@@ -151,7 +152,7 @@ export function bugPublicRoutes(app: Fastify) {
         const context = await getPublicContext(request, reply);
         if (!context) return;
         try {
-            const bug = await changeBugStatus(context.ownerId, request.params.bugId, { nickname: context.nickname }, { ...request.body, publicOnly: true });
+            const bug = await changeBugStatus(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, { ...request.body, publicOnly: true });
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
@@ -164,7 +165,7 @@ export function bugPublicRoutes(app: Fastify) {
         const context = await getPublicContext(request, reply);
         if (!context) return;
         try {
-            const bug = await updateBugContent(context.ownerId, request.params.bugId, { nickname: context.nickname }, {
+            const bug = await updateBugContent(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, {
                 description: request.body.description,
                 ...(request.body.contentJson === undefined ? {} : { contentJson: request.body.contentJson }),
                 publicOnly: true,
@@ -194,7 +195,7 @@ export function bugPublicRoutes(app: Fastify) {
             }
             if (!fileBuffer) return reply.code(400).send({ error: 'No file uploaded' });
             const upload = await uploadBugImage({ ownerId: context.ownerId, bugId: request.params.bugId, imageBuffer: fileBuffer, mimeType: fileMimeType || 'image/jpeg', sizeBytes: fileBuffer.length });
-            const bug = await recordBugAttachment(context.ownerId, request.params.bugId, { nickname: context.nickname }, { ...upload, commentId }, { publicOnly: true });
+            const bug = await recordBugAttachment(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, { ...upload, commentId }, { publicOnly: true });
             return reply.code(201).send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);
