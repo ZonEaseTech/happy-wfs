@@ -1,6 +1,6 @@
 import { feedPost } from "@/app/feed/feedPost";
 import { sendExpoPushNotifications } from "@/app/notifications/expoPush";
-import { buildMentionNotificationCard, sendFeishuMessage, type MentionRecipient } from "@/app/notifications/feishuAdapter";
+import { buildMentionNotificationCard, getGlobalFeishuMentionWebhook, sendFeishuMessage, type MentionRecipient } from "@/app/notifications/feishuAdapter";
 import { Context } from "@/context";
 import { db } from "@/storage/db";
 import { afterTx, Tx } from "@/storage/inTx";
@@ -44,15 +44,19 @@ async function sendFeishuMentionNotifications(params: {
         return [account.id, parsed.success ? parsed.data : null] as const;
     }));
 
-    const webhooks: NonNullable<ReturnType<typeof NotificationConfigSchema.parse>['feishuMention']>[] = [];
-    const seenUrls = new Set<string>();
-    for (const accountId of accountIds) {
-        const feishuMention = configByAccountId.get(accountId)?.feishuMention;
-        if (!feishuMention?.enabled || !feishuMention.url || seenUrls.has(feishuMention.url)) {
-            continue;
+    // A server-wide webhook overrides the per-account candidates entirely.
+    const globalWebhook = getGlobalFeishuMentionWebhook();
+    const webhooks: NonNullable<ReturnType<typeof NotificationConfigSchema.parse>['feishuMention']>[] = globalWebhook ? [globalWebhook] : [];
+    if (!globalWebhook) {
+        const seenUrls = new Set<string>();
+        for (const accountId of accountIds) {
+            const feishuMention = configByAccountId.get(accountId)?.feishuMention;
+            if (!feishuMention?.enabled || !feishuMention.url || seenUrls.has(feishuMention.url)) {
+                continue;
+            }
+            seenUrls.add(feishuMention.url);
+            webhooks.push(feishuMention);
         }
-        seenUrls.add(feishuMention.url);
-        webhooks.push(feishuMention);
     }
     if (webhooks.length === 0) {
         return;

@@ -60,6 +60,8 @@ describe("notifySessionMentionRecipients", () => {
         sendFeishuMessageMock.mockClear();
         afterTxMock.mockClear();
         process.env.APP_URL = "https://happy.zonease.org";
+        delete process.env.FEISHU_MENTION_WEBHOOK_URL;
+        delete process.env.FEISHU_MENTION_WEBHOOK_SECRET;
     });
 
     it("creates one session_mention feed item per deduped target with badge", async () => {
@@ -251,6 +253,33 @@ describe("notifySessionMentionRecipients", () => {
 
         expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
         expect((sendFeishuMessageMock.mock.calls[0] as any)[0].url).toBe("https://open.feishu.cn/open-apis/bot/v2/hook/team");
+    });
+
+    it("routes through the server-wide webhook when configured", async () => {
+        process.env.FEISHU_MENTION_WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/global";
+        dbMock.account.findMany.mockResolvedValue([
+            { id: "owner-1", notificationConfig: null },
+            { id: "user-2", notificationConfig: { feishuUserId: "ou_abc" } },
+        ] as any);
+
+        await notifySessionMentionRecipients({} as never, {
+            ownerId: "owner-1",
+            recipientUserIds: ["user-2"],
+            recipientUsernames: ["youthqx"],
+            actorId: "owner-1",
+            actorName: "wfs",
+            sessionId: "session-1",
+            messageLocalId: "local-1",
+            sessionTitle: null,
+            preview: "走全局",
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
+        expect((sendFeishuMessageMock.mock.calls[0] as any)[0].url).toBe("https://open.feishu.cn/open-apis/bot/v2/hook/global");
+        expect((sendFeishuMessageMock.mock.calls[0] as any)[1].content.text).toContain('<at user_id="ou_abc">youthqx</at>');
     });
 
     it("dedupes webhooks by URL so a shared team bot receives one message", async () => {

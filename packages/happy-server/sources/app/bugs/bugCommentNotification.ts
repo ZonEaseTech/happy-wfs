@@ -3,6 +3,7 @@ import { warn } from '@/utils/log';
 import { NotificationConfigSchema } from 'happy-wire';
 import {
     buildBugCommentNotificationCard,
+    getGlobalFeishuMentionWebhook,
     sendFeishuMessage,
     type MentionRecipient,
 } from '@/app/notifications/feishuAdapter';
@@ -51,15 +52,19 @@ export async function notifyBugCommentToFeishu(bugId: string, actor: BugActor, c
         }),
     );
 
-    const webhooks: NonNullable<ReturnType<typeof NotificationConfigSchema.parse>['feishuMention']>[] = [];
-    const seenUrls = new Set<string>();
-    for (const accountId of accountIds) {
-        const feishuMention = configByAccountId.get(accountId)?.feishuMention;
-        if (!feishuMention?.enabled || !feishuMention.url || seenUrls.has(feishuMention.url)) {
-            continue;
+    // A server-wide webhook overrides the per-account candidates entirely.
+    const globalWebhook = getGlobalFeishuMentionWebhook();
+    const webhooks: NonNullable<ReturnType<typeof NotificationConfigSchema.parse>['feishuMention']>[] = globalWebhook ? [globalWebhook] : [];
+    if (!globalWebhook) {
+        const seenUrls = new Set<string>();
+        for (const accountId of accountIds) {
+            const feishuMention = configByAccountId.get(accountId)?.feishuMention;
+            if (!feishuMention?.enabled || !feishuMention.url || seenUrls.has(feishuMention.url)) {
+                continue;
+            }
+            seenUrls.add(feishuMention.url);
+            webhooks.push(feishuMention);
         }
-        seenUrls.add(feishuMention.url);
-        webhooks.push(feishuMention);
     }
     if (webhooks.length === 0) return;
 

@@ -27,6 +27,8 @@ describe('notifyBugCommentToFeishu', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         process.env.APP_URL = 'https://happy.zonease.org';
+        delete process.env.FEISHU_MENTION_WEBHOOK_URL;
+        delete process.env.FEISHU_MENTION_WEBHOOK_SECRET;
         dbMock.bugReport.findUnique.mockResolvedValue({
             displayNumber: 21,
             title: '批量没有区分本店自建',
@@ -68,6 +70,21 @@ describe('notifyBugCommentToFeishu', () => {
         const payload = (sendFeishuMessageMock.mock.calls[0] as any[])[1];
         expect(payload.content.text).not.toContain('<at');
         expect(payload.content.text).not.toContain('提醒：');
+    });
+
+    it('uses the server-wide webhook when configured, ignoring account configs', async () => {
+        process.env.FEISHU_MENTION_WEBHOOK_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/global';
+        dbMock.account.findMany.mockResolvedValue([
+            { id: 'owner-1', notificationConfig: { feishuMention: teamHook } },
+            { id: 'creator-1', notificationConfig: { feishuUserId: 'ou_abc' } },
+        ]);
+
+        await notifyBugCommentToFeishu('bug-1', { userId: 'actor-1', nickname: 'wfs' }, '全局通道');
+
+        expect(sendFeishuMessageMock).toHaveBeenCalledTimes(1);
+        const [webhook, payload] = sendFeishuMessageMock.mock.calls[0] as any[];
+        expect(webhook.url).toBe('https://open.feishu.cn/open-apis/bot/v2/hook/global');
+        expect(payload.content.text).toContain('<at user_id="ou_abc">youthqx</at>');
     });
 
     it('stays silent when nobody configured a mention webhook', async () => {

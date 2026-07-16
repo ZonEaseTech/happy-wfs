@@ -24,6 +24,22 @@ export type FeishuMessagePayload =
 const FEISHU_REQUEST_TIMEOUT_MS = 5000;
 
 /**
+ * Server-wide mention webhook. When configured, collaboration @ and bug
+ * comment notifications go through this single webhook instead of the
+ * per-account candidate configs (per-account feishuUserId is still used
+ * for real <at> pings).
+ */
+export function getGlobalFeishuMentionWebhook(): FeishuWebhookConfig | null {
+    const url = process.env.FEISHU_MENTION_WEBHOOK_URL?.trim();
+    if (!url) return null;
+    return {
+        url,
+        secret: process.env.FEISHU_MENTION_WEBHOOK_SECRET?.trim() || undefined,
+        enabled: true,
+    };
+}
+
+/**
  * Compute the signature for a Feishu signed-bot webhook.
  * Algorithm (per Feishu docs):
  *   stringToSign = `${timestamp}\n${secret}`
