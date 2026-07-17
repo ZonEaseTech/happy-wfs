@@ -183,6 +183,7 @@ export const SessionView = React.memo((props: { id: string }) => {
     const deviceType = useDeviceType();
     const headerHeight = useHeaderHeight();
     const realtimeStatus = useRealtimeStatus();
+    const [goalPinHeight, setGoalPinHeight] = React.useState(0);
     const isTablet = useIsTablet();
     const { width: windowWidth } = useWindowDimensions();
     // Desktop web: open files/info as a right-side panel instead of pushing routes.
@@ -551,12 +552,12 @@ export const SessionView = React.memo((props: { id: string }) => {
                     {!isTablet && realtimeStatus !== 'disconnected' && (
                         <VoiceAssistantStatusBar variant="full" />
                     )}
-                    <SessionGoalPinBanner sessionId={sessionId} />
+                    <SessionGoalPinBanner sessionId={sessionId} onHeightChange={setGoalPinHeight} />
                 </View>
             )}
 
             {/* Content based on state */}
-            <View style={{ flex: 1, paddingTop: !(isLandscape && deviceType === 'phone' && Platform.OS !== 'web') ? safeArea.top + headerHeight + (!isTablet && realtimeStatus !== 'disconnected' ? 48 : 0) : 0 }}>
+            <View style={{ flex: 1, paddingTop: !(isLandscape && deviceType === 'phone' && Platform.OS !== 'web') ? safeArea.top + headerHeight + (!isTablet && realtimeStatus !== 'disconnected' ? 48 : 0) + goalPinHeight : 0 }}>
                 {!isDataReady ? (
                     // Loading state - initial data not ready
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
