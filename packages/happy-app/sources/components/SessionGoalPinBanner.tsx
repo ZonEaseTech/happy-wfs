@@ -10,7 +10,8 @@ import { unpinSessionGoal, useSessionGoalPin } from '@/sync/sessionGoalPin';
  * Card under the chat header showing the message the user pinned as this
  * session's goal. Not floating: the parent shifts chat content down by the
  * height reported through onHeightChange, so nothing is covered. Collapsed
- * to two lines; tap toggles full text.
+ * to two lines; the label row toggles full text so the body text itself
+ * stays free for text selection / copy.
  */
 export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
     sessionId: string;
@@ -30,7 +31,7 @@ export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
 
     if (!pin) return null;
 
-    const accent = theme.colors.button.primary.background;
+    const accent = theme.colors.textLink;
     return (
         <View
             onLayout={handleLayout}
@@ -75,22 +76,31 @@ export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
                 >
                     <Ionicons name="pin" size={14} color={accent} />
                 </View>
-                <Pressable
-                    style={{ flex: 1, minWidth: 0 }}
-                    onPress={() => setExpanded((v) => !v)}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('sessionGoalPin.pinAction')}
-                >
-                    <Text style={{ color: accent, fontSize: 11, fontWeight: '600', letterSpacing: 0.4, marginBottom: 2 }}>
-                        {t('sessionGoalPin.goalLabel')}
-                    </Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                    <Pressable
+                        onPress={() => setExpanded((v) => !v)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('sessionGoalPin.pinAction')}
+                        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2, alignSelf: 'flex-start' }}
+                    >
+                        <Text style={{ color: accent, fontSize: 11, fontWeight: '600', letterSpacing: 0.4 }}>
+                            {t('sessionGoalPin.goalLabel')}
+                        </Text>
+                        <Ionicons
+                            name={expanded ? 'chevron-up' : 'chevron-down'}
+                            size={11}
+                            color={accent}
+                            style={{ marginLeft: 3 }}
+                        />
+                    </Pressable>
                     <Text
+                        selectable
                         style={{ color: theme.colors.text, fontSize: 13, lineHeight: 19 }}
                         numberOfLines={expanded ? undefined : 2}
                     >
                         {pin.text}
                     </Text>
-                </Pressable>
+                </View>
                 <Pressable
                     onPress={() => unpinSessionGoal(sessionId)}
                     hitSlop={10}
