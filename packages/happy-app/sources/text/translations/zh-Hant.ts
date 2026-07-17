@@ -589,6 +589,12 @@ export const zhHant: TranslationStructure = {
         hideSessionSubtitle: '僅隱藏與目前工作階段匹配的通知',
     },
 
+    sessionGoalPin: {
+        unpinAction: '取消置頂',
+        pinAction: '置頂到頂部',
+        pinned: '已置頂到本會話頂部',
+    },
+
     settingsFeishu: {
         title: '飛書通知',
         webhookSection: 'Webhook',

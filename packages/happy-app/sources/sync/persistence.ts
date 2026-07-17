@@ -223,6 +223,23 @@ export function saveSessionLastViewedAt(map: Map<string, number>) {
     mmkv.set(SESSION_LAST_VIEWED_KEY, JSON.stringify(Object.fromEntries(map)));
 }
 
+const SESSION_GOAL_PINS_KEY = 'session-goal-pins.v1';
+
+export function loadSessionGoalPins(): Record<string, { text: string; messageId: string; pinnedAt: number }> {
+    const raw = mmkv.getString(SESSION_GOAL_PINS_KEY);
+    if (!raw) return {};
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+export function saveSessionGoalPins(pins: Record<string, { text: string; messageId: string; pinnedAt: number }>) {
+    mmkv.set(SESSION_GOAL_PINS_KEY, JSON.stringify(pins));
+}
+
 export function loadBrowserLastPaths(): Record<string, string> {
     const raw = mmkv.getString(BROWSER_LAST_PATHS_KEY);
     if (!raw) return {};

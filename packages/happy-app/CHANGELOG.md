@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 12 - 2026-07-17
+
+Pin a message so the session goal stays visible after long conversations.
+
+- Chat: pin any message to the top of the session from its context menu; the pinned goal floats under the header, expands on tap, and can be removed with one tap.
+
 ## Version 11 - 2026-07-05
 
 Bug feedback is easier to review, edit, and validate from the shared board.

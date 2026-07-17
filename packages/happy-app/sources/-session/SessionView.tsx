@@ -13,6 +13,7 @@ import { EmptyMessages } from '@/components/EmptyMessages';
 import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { buildPendingQueueBatchPrompt, extractPendingUploadedImages } from '@/components/pendingQueueBatchPrompt';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
+import { SessionGoalPinBanner } from '@/components/SessionGoalPinBanner';
 import { GitHubIssueDetailModal } from '@/components/GitHubIssueDetailModal';
 import { BugReportDetailModal } from '@/components/BugReportDetailModal';
 import type { LocalImage } from '@/components/ImagePreview';
@@ -550,6 +551,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                     {!isTablet && realtimeStatus !== 'disconnected' && (
                         <VoiceAssistantStatusBar variant="full" />
                     )}
+                    <SessionGoalPinBanner sessionId={sessionId} />
                 </View>
             )}
 

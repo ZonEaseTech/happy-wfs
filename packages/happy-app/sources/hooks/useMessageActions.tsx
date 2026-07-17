@@ -11,6 +11,7 @@ import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast, showToast } from '@/components/Toast';
 import { getCurrentAuth } from '@/auth/AuthContext';
 import { createMemory } from '@/sync/apiMemory';
+import { pinSessionGoal } from '@/sync/sessionGoalPin';
 import { t } from '@/text';
 
 interface UseMessageActionsResult {
@@ -100,10 +101,17 @@ export function useMessageActions(rawText: string, sessionId: string, messageId:
         setVisible(false);
         setPos(null);
     }, []);
+    const handlePinToTop = React.useCallback(() => {
+        pinSessionGoal(sessionId, rawText, messageId);
+        hapticsLight();
+        showToast(t('sessionGoalPin.pinned'));
+    }, [rawText, sessionId, messageId]);
+
     const items = React.useMemo<ActionMenuItem[]>(() => [
         { label: t('common.copy'), onPress: () => { closeBoth(); void handleCopy(); } },
+        { label: t('sessionGoalPin.pinAction'), onPress: () => { closeBoth(); handlePinToTop(); } },
         { label: t('memory.pinAction'), onPress: () => { closeBoth(); void handleSaveToMemory(); } },
-    ], [closeBoth, handleCopy, handleSaveToMemory]);
+    ], [closeBoth, handleCopy, handlePinToTop, handleSaveToMemory]);
 
     const popover = pos && Platform.OS === 'web' ? (
         <RNModal transparent visible animationType="none" onRequestClose={closeBoth}>

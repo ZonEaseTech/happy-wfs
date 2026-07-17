@@ -587,6 +587,12 @@ export const pt: TranslationStructure = {
         hideSessionSubtitle: 'Only hides notifications that match the current session',
     },
 
+    sessionGoalPin: {
+        unpinAction: 'Unpin',
+        pinAction: 'Pin to top',
+        pinned: 'Pinned to top of this chat',
+    },
+
     settingsFeishu: {
         title: 'Feishu Notifications',
         webhookSection: 'Webhook',
