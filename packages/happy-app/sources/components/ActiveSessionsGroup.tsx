@@ -251,16 +251,22 @@ export function ActiveSessionsGroup({ sessions, selectedSessionId }: ActiveSessi
                 machine?.metadata?.host ||
                 (machineId !== 'unknown' ? machineId : '<unknown>');
 
-            // Get or create project group
-            let projectGroup = groups.get(projectPath);
+            // Get or create project group — keyed by machine + path so the
+            // same path on different machines renders as separate groups
+            // (e.g. "wfs/workspace" vs "admin-jbcnet/workspace").
+            const groupKey = `${machineId} ${projectPath}`;
+            let projectGroup = groups.get(groupKey);
             if (!projectGroup) {
-                const displayPath = formatPathRelativeToHome(projectPath, session.metadata?.homeDir);
+                const pathDisplay = formatPathRelativeToHome(projectPath, session.metadata?.homeDir);
+                const displayPath = machineId !== 'unknown'
+                    ? `${machineName}${pathDisplay.startsWith('/') ? '' : ' · '}${pathDisplay}`
+                    : pathDisplay;
                 projectGroup = {
                     path: projectPath,
                     displayPath,
                     machines: new Map()
                 };
-                groups.set(projectPath, projectGroup);
+                groups.set(groupKey, projectGroup);
             }
 
             // Get or create machine group within project
