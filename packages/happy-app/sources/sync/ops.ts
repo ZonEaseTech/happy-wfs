@@ -995,6 +995,11 @@ export async function sessionUpdateSummary(
         const decryptedMetadata = await sessionEncryption.decryptRaw(serverSnapshot.metadata) as Metadata | null;
         if (decryptedMetadata) {
             safeCurrentMetadata = decryptedMetadata;
+        } else if (serverSnapshot.metadataVersion > 0) {
+            // The server holds metadata we cannot read. Writing on top of the
+            // caller's (possibly stale or empty) copy would clobber the real
+            // metadata — sessions then show up as "未知" in the list.
+            throw new Error(`Refusing to update session ${sessionId} summary: server metadata could not be decrypted`);
         }
     }
 
@@ -1063,6 +1068,11 @@ export async function sessionUpdateMetadataFields(
         const decryptedMetadata = await sessionEncryption.decryptRaw(serverSnapshot.metadata) as Metadata | null;
         if (decryptedMetadata) {
             safeCurrentMetadata = decryptedMetadata;
+        } else if (serverSnapshot.metadataVersion > 0) {
+            // The server holds metadata we cannot read. Merging updates into
+            // the caller's (possibly stale or empty) copy would clobber the
+            // real metadata — sessions then show up as "未知" in the list.
+            throw new Error(`Refusing to update session ${sessionId} metadata: server copy could not be decrypted`);
         }
     }
 

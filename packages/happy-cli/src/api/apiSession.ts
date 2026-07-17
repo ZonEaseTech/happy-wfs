@@ -22,6 +22,25 @@ import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
 
 
+/**
+ * Adopt server-side session metadata without letting a sparse copy erase the
+ * identity fields this CLI owns. A stale or broken client can win a version
+ * race with a near-empty metadata document; blindly adopting it would drop
+ * path/host/machineId permanently and the session shows up as "unknown" in
+ * the app. Missing identity fields are backfilled from the current copy.
+ */
+export function adoptServerSessionMetadata(current: Metadata | null, incoming: Metadata | null): Metadata | null {
+    if (!incoming) return current;
+    if (!current) return incoming;
+    return {
+        ...incoming,
+        path: incoming.path ?? current.path,
+        host: incoming.host ?? current.host,
+        machineId: incoming.machineId ?? current.machineId,
+        summary: incoming.summary ?? current.summary,
+    };
+}
+
 function extractPlainTextForAutoReview(value: unknown): string {
     const parts: string[] = [];
     const visit = (item: unknown) => {
@@ -1210,13 +1229,13 @@ export class ApiSessionClient extends EventEmitter {
                 let updated = handler(this.metadata!); // Weird state if metadata is null - should never happen but here we are
                 const answer = await this.socket.emitWithAck('update-metadata', { sid: this.sessionId, expectedVersion: this.metadataVersion, metadata: encodeBase64(encrypt(this.encryptionKey, this.encryptionVariant, updated)) });
                 if (answer.result === 'success') {
-                    this.metadata = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata));
+                    this.metadata = adoptServerSessionMetadata(this.metadata, decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata)));
                     this.metadataVersion = answer.version;
                     this.syncedModel = this.metadata?.model?.trim() || null;
                 } else if (answer.result === 'version-mismatch') {
                     if (answer.version > this.metadataVersion) {
                         this.metadataVersion = answer.version;
-                        this.metadata = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata));
+                        this.metadata = adoptServerSessionMetadata(this.metadata, decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata)));
                         this.syncedModel = this.metadata?.model?.trim() || null;
                     }
                     throw new Error('Metadata version mismatch');

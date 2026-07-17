@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ApiSessionClient } from './apiSession';
+import { ApiSessionClient, adoptServerSessionMetadata } from './apiSession';
 import * as trimToolUseResultModule from './trimToolUseResult';
 import * as toolOutputStoreModule from '../modules/common/toolOutputStore';
 import * as encryptionModule from './encryption';
@@ -503,5 +503,30 @@ describe('ApiSessionClient human-only collaboration guard', () => {
             content: { type: 'text', text: 'normal message' },
         }));
         expect(client.pendingMessages).toEqual([]);
+    });
+});
+
+describe('adoptServerSessionMetadata', () => {
+    const current = { path: '/workspace/repo', host: 'wfs', machineId: 'm-1', summary: { text: '任务标题', updatedAt: 1 } } as any;
+
+    it('backfills identity fields when the incoming copy is sparse', () => {
+        const incoming = { permissionMode: 'yolo' } as any;
+        expect(adoptServerSessionMetadata(current, incoming)).toEqual({
+            permissionMode: 'yolo',
+            path: '/workspace/repo',
+            host: 'wfs',
+            machineId: 'm-1',
+            summary: { text: '任务标题', updatedAt: 1 },
+        });
+    });
+
+    it('prefers incoming values when present', () => {
+        const incoming = { path: '/other', host: 'h2', machineId: 'm-2', summary: { text: '新标题', updatedAt: 2 } } as any;
+        expect(adoptServerSessionMetadata(current, incoming)).toEqual(incoming);
+    });
+
+    it('keeps the current copy when decryption produced null', () => {
+        expect(adoptServerSessionMetadata(current, null)).toBe(current);
+        expect(adoptServerSessionMetadata(null, current)).toBe(current);
     });
 });
