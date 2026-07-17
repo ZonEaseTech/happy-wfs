@@ -588,7 +588,7 @@ export const ca: TranslationStructure = {
     },
 
     sessionGoalPin: {
-        goalLabel: 'Goal',
+        goalLabel: 'Session goal',
         unpinAction: 'Unpin',
         pinAction: 'Pin to top',
         pinned: 'Pinned to top of this chat',

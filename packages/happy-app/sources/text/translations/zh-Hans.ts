@@ -590,7 +590,7 @@ export const zhHans: TranslationStructure = {
     },
 
     sessionGoalPin: {
-        goalLabel: '目标',
+        goalLabel: '会话目标',
         unpinAction: '取消置顶',
         pinAction: '置顶到顶部',
         pinned: '已置顶到本会话顶部',
