@@ -3,6 +3,7 @@ import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
+import { layout } from '@/components/layout';
 import { unpinSessionGoal, useSessionGoalPin } from '@/sync/sessionGoalPin';
 
 /**
@@ -34,15 +35,25 @@ export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
         <View
             onLayout={handleLayout}
             style={{
-                flexDirection: 'row',
-                alignItems: expanded ? 'flex-start' : 'center',
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                backgroundColor: theme.colors.surfaceHigh,
-                borderBottomWidth: 1,
-                borderBottomColor: theme.colors.divider,
+                alignItems: 'center',
+                paddingHorizontal: 12,
+                paddingTop: 6,
             }}
         >
+            <View
+                style={{
+                    flexDirection: 'row',
+                    alignItems: expanded ? 'flex-start' : 'center',
+                    width: '100%',
+                    maxWidth: layout.maxWidth,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    backgroundColor: theme.colors.surfaceHigh,
+                    borderWidth: 1,
+                    borderColor: theme.colors.divider,
+                    borderRadius: 10,
+                }}
+            >
             <Ionicons
                 name="pin"
                 size={13}
@@ -72,6 +83,7 @@ export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
             >
                 <Ionicons name="close" size={15} color={theme.colors.textSecondary} />
             </Pressable>
+            </View>
         </View>
     );
 });
