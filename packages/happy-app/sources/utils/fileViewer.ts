@@ -41,6 +41,11 @@ export function isPreviewableHtml(path: string): boolean {
     return ext === 'html' || ext === 'htm';
 }
 
+export function isPreviewableMarkdown(path: string): boolean {
+    const ext = getFileExtension(path);
+    return ext === 'md' || ext === 'markdown';
+}
+
 export function isPreviewableVideo(path: string): boolean {
     const ext = getFileExtension(path);
     return !!ext && ext in PREVIEW_VIDEO_MIME_BY_EXT;
