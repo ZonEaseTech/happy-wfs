@@ -4,32 +4,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { layout } from '@/components/layout';
-import { unpinSessionGoal, useSessionGoalPin } from '@/sync/sessionGoalPin';
+import { unpinSessionGoal, useSessionGoalPins } from '@/sync/sessionGoalPin';
 
 /**
- * Card under the chat header showing the message the user pinned as this
- * session's goal. Not floating: the parent shifts chat content down by the
+ * Card under the chat header listing the messages the user pinned as this
+ * session's goals. Not floating: the parent shifts chat content down by the
  * height reported through onHeightChange, so nothing is covered. Collapsed
- * to two lines; the label row toggles full text so the body text itself
- * stays free for text selection / copy.
+ * to two lines per pin; the label row toggles full text so the body text
+ * itself stays free for text selection / copy.
  */
 export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
     sessionId: string;
     onHeightChange?: (height: number) => void;
 }) => {
     const { theme } = useUnistyles();
-    const pin = useSessionGoalPin(sessionId);
+    const pins = useSessionGoalPins(sessionId);
     const [expanded, setExpanded] = React.useState(false);
 
-    const hasPin = !!pin;
+    const hasPins = pins.length > 0;
     React.useEffect(() => {
-        if (!hasPin) onHeightChange?.(0);
-    }, [hasPin, onHeightChange]);
+        if (!hasPins) onHeightChange?.(0);
+    }, [hasPins, onHeightChange]);
     const handleLayout = React.useCallback((e: LayoutChangeEvent) => {
         onHeightChange?.(e.nativeEvent.layout.height);
     }, [onHeightChange]);
 
-    if (!pin) return null;
+    if (!hasPins) return null;
 
     const accent = theme.colors.textLink;
     return (
@@ -84,7 +84,7 @@ export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
                         style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2, alignSelf: 'flex-start' }}
                     >
                         <Text style={{ color: accent, fontSize: 11, fontWeight: '600', letterSpacing: 0.4 }}>
-                            {t('sessionGoalPin.goalLabel')}
+                            {t('sessionGoalPin.goalLabel')}{pins.length > 1 ? ` · ${pins.length}` : ''}
                         </Text>
                         <Ionicons
                             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -93,23 +93,39 @@ export const SessionGoalPinBanner = React.memo(({ sessionId, onHeightChange }: {
                             style={{ marginLeft: 3 }}
                         />
                     </Pressable>
-                    <Text
-                        selectable
-                        style={{ color: theme.colors.text, fontSize: 13, lineHeight: 19 }}
-                        numberOfLines={expanded ? undefined : 2}
-                    >
-                        {pin.text}
-                    </Text>
+                    {pins.map((pin, index) => (
+                        <View
+                            key={pin.messageId}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'flex-start',
+                                ...(index > 0 ? {
+                                    marginTop: 6,
+                                    paddingTop: 6,
+                                    borderTopWidth: 1,
+                                    borderTopColor: theme.colors.divider,
+                                } : null),
+                            }}
+                        >
+                            <Text
+                                selectable
+                                style={{ flex: 1, color: theme.colors.text, fontSize: 13, lineHeight: 19 }}
+                                numberOfLines={expanded ? undefined : 2}
+                            >
+                                {pin.text}
+                            </Text>
+                            <Pressable
+                                onPress={() => unpinSessionGoal(sessionId, pin.messageId)}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('sessionGoalPin.unpinAction')}
+                                style={{ padding: 2, marginLeft: 8 }}
+                            >
+                                <Ionicons name="close" size={15} color={theme.colors.textSecondary} />
+                            </Pressable>
+                        </View>
+                    ))}
                 </View>
-                <Pressable
-                    onPress={() => unpinSessionGoal(sessionId)}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('sessionGoalPin.unpinAction')}
-                    style={{ padding: 4, marginLeft: 4 }}
-                >
-                    <Ionicons name="close" size={16} color={theme.colors.textSecondary} />
-                </Pressable>
             </View>
         </View>
     );

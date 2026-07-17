@@ -223,20 +223,35 @@ export function saveSessionLastViewedAt(map: Map<string, number>) {
     mmkv.set(SESSION_LAST_VIEWED_KEY, JSON.stringify(Object.fromEntries(map)));
 }
 
-const SESSION_GOAL_PINS_KEY = 'session-goal-pins.v1';
+const SESSION_GOAL_PINS_KEY = 'session-goal-pins.v2';
+const SESSION_GOAL_PINS_LEGACY_KEY = 'session-goal-pins.v1';
 
-export function loadSessionGoalPins(): Record<string, { text: string; messageId: string; pinnedAt: number }> {
+type SessionGoalPinRecord = { text: string; messageId: string; pinnedAt: number };
+
+export function loadSessionGoalPins(): Record<string, SessionGoalPinRecord[]> {
     const raw = mmkv.getString(SESSION_GOAL_PINS_KEY);
-    if (!raw) return {};
+    if (raw) {
+        try {
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+    // Migrate v1 (one pin per session) to v2 (list per session)
+    const legacy = mmkv.getString(SESSION_GOAL_PINS_LEGACY_KEY);
+    if (!legacy) return {};
     try {
-        const parsed = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? parsed : {};
+        const parsed = JSON.parse(legacy) as Record<string, SessionGoalPinRecord>;
+        const migrated = Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, [v]]));
+        saveSessionGoalPins(migrated);
+        return migrated;
     } catch {
         return {};
     }
 }
 
-export function saveSessionGoalPins(pins: Record<string, { text: string; messageId: string; pinnedAt: number }>) {
+export function saveSessionGoalPins(pins: Record<string, SessionGoalPinRecord[]>) {
     mmkv.set(SESSION_GOAL_PINS_KEY, JSON.stringify(pins));
 }
 
