@@ -203,6 +203,7 @@ interface StorageState {
     applyFeedItems: (items: FeedItem[]) => void;
     replaceFeedItems: (items: FeedItem[]) => void;
     removeFeedItem: (itemId: string) => void;
+    removeReadFeedItems: () => void;
     markFeedItemRead: (itemId: string) => void;
     clearFeed: () => void;
     // Registered repos methods
@@ -1781,6 +1782,10 @@ export const storage = create<StorageState>()((set, get) => {
         removeFeedItem: (itemId: string) => set((state) => ({
             ...state,
             feedItems: state.feedItems.filter(item => item.id !== itemId)
+        })),
+        removeReadFeedItems: () => set((state) => ({
+            ...state,
+            feedItems: state.feedItems.filter(item => item.badge)
         })),
         markFeedItemRead: (itemId: string) => set((state) => ({
             ...state,

@@ -26,6 +26,7 @@ export const it: TranslationStructure = {
     },
 
     inbox: {
+        clearRead: 'Clear read',
         // Inbox screen
         emptyTitle: 'Posta vuota',
         emptyDescription: 'Connettiti con amici per iniziare a condividere sessioni',

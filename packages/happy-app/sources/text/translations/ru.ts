@@ -37,6 +37,7 @@ export const ru: TranslationStructure = {
     },
 
     inbox: {
+        clearRead: 'Clear read',
         // Inbox screen
         emptyTitle: 'Входящие пусты',
         emptyDescription: 'Подключитесь к друзьям, чтобы начать делиться сессиями',

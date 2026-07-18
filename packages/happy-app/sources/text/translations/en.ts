@@ -41,6 +41,7 @@ export const en: TranslationStructure = {
     },
 
     inbox: {
+        clearRead: 'Clear read',
         // Inbox screen
         emptyTitle: 'Empty Inbox',
         emptyDescription: 'Connect with friends to start sharing sessions',

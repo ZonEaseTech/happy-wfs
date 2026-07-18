@@ -89,3 +89,17 @@ export async function deleteFeedItem(
         throw new Error(`Failed to delete feed item: ${response.status}`);
     }
 }
+export async function clearReadFeedItems(
+    credentials: AuthCredentials
+): Promise<void> {
+    const API_ENDPOINT = getServerUrl();
+    const response = await fetch(`${API_ENDPOINT}/v1/feed/read`, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`
+        }
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to clear read feed items: ${response.status}`);
+    }
+}

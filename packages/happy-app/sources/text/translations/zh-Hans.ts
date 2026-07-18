@@ -28,6 +28,7 @@ export const zhHans: TranslationStructure = {
     },
 
     inbox: {
+        clearRead: '清空已读',
         // Inbox screen
         emptyTitle: '收件箱为空',
         emptyDescription: '与好友建立连接，开始共享会话',

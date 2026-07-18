@@ -37,6 +37,7 @@ export const pl: TranslationStructure = {
     },
 
     inbox: {
+        clearRead: 'Clear read',
         // Inbox screen
         emptyTitle: 'Pusta skrzynka',
         emptyDescription: 'Połącz się z przyjaciółmi, aby zacząć udostępniać sesje',

@@ -13,6 +13,7 @@ import { initGithub } from "./modules/github";
 import { loadFiles } from "./storage/files";
 import { startMessageDeliveryTimeoutWorker } from "./app/messageDelivery/timeout";
 import { startOrchestratorScheduler } from "./app/orchestrator/scheduler";
+import { startFeedCleanup } from "./app/feed/feedCleanup";
 
 async function main() {
 
@@ -42,6 +43,7 @@ async function main() {
     startTimeout();
     startMessageDeliveryTimeoutWorker();
     startOrchestratorScheduler();
+    startFeedCleanup();
 
     //
     // Ready

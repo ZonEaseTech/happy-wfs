@@ -17,6 +17,10 @@ import { Image } from 'expo-image';
 import { FeedItemCard } from './FeedItemCard';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 import { sync } from '@/sync/sync';
+import { storage } from '@/sync/storage';
+import { useAuth } from '@/auth/AuthContext';
+import { clearReadFeedItems } from '@/sync/apiFeed';
+import { Platform } from 'react-native';
 
 const styles = StyleSheet.create((theme) => ({
     container: {
@@ -45,6 +49,21 @@ const styles = StyleSheet.create((theme) => ({
         color: theme.colors.textSecondary,
         textAlign: 'center',
         lineHeight: 22,
+    },
+    sectionTitleText: {
+        ...Typography.default('regular'),
+        color: theme.colors.groupped.sectionTitle,
+        fontSize: Platform.select({ ios: 13, default: 14 }),
+        lineHeight: Platform.select({ ios: 18, default: 20 }),
+        letterSpacing: Platform.select({ ios: -0.08, default: 0.1 }),
+        textTransform: 'uppercase',
+        fontWeight: Platform.select({ ios: 'normal', default: '500' }),
+    },
+    clearReadText: {
+        ...Typography.default('regular'),
+        color: theme.colors.textLink,
+        fontSize: Platform.select({ ios: 13, default: 14 }),
+        lineHeight: Platform.select({ ios: 18, default: 20 }),
     },
     sectionHeader: {
         fontSize: 14,
@@ -99,6 +118,7 @@ function HeaderRightTablet() {
 
 export const InboxView = React.memo(({}: InboxViewProps) => {
     const router = useRouter();
+    const { credentials } = useAuth();
     const friends = useAcceptedFriends();
     const friendRequests = useFriendRequests();
     const requestedFriends = useRequestedFriends();
@@ -202,7 +222,24 @@ export const InboxView = React.memo(({}: InboxViewProps) => {
 
                 {feedItems.length > 0 && (
                     <>
-                        <ItemGroup title={t('inbox.updates')}>
+                        <ItemGroup title={
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={styles.sectionTitleText}>{t('inbox.updates')}</Text>
+                                {feedItems.some((item) => !item.badge) && (
+                                    <Pressable
+                                        onPress={() => {
+                                            storage.getState().removeReadFeedItems();
+                                            if (credentials) {
+                                                clearReadFeedItems(credentials).catch(console.error);
+                                            }
+                                        }}
+                                        hitSlop={10}
+                                    >
+                                        <Text style={styles.clearReadText}>{t('inbox.clearRead')}</Text>
+                                    </Pressable>
+                                )}
+                            </View>
+                        }>
                             {feedItems.map((item) => (
                                 <FeedItemCard
                                     key={item.id}

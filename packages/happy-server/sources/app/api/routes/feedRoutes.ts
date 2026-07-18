@@ -61,6 +61,23 @@ export function feedRoutes(app: Fastify) {
         return reply.send({ ok: true });
     });
 
+    app.delete('/v1/feed/read', {
+        preHandler: app.authenticate,
+        schema: {
+            response: {
+                200: z.object({ ok: z.boolean(), deleted: z.number() })
+            }
+        }
+    }, async (request, reply) => {
+        const result = await db.userFeedItem.deleteMany({
+            where: {
+                userId: request.userId,
+                badge: false
+            }
+        });
+        return reply.send({ ok: true, deleted: result.count });
+    });
+
     app.delete('/v1/feed/:id', {
         preHandler: app.authenticate,
         schema: {
