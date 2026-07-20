@@ -14,6 +14,7 @@ import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { useInboxHasContent } from '@/hooks/useInboxHasContent';
+import { requestWebNotificationPermission } from '@/sync/webNotifications';
 
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
@@ -120,12 +121,14 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
     indicatorDot: {
         position: 'absolute',
-        top: 0,
-        right: -2,
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: theme.colors.text,
+        top: -3,
+        right: -5,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: theme.colors.warningCritical,
+        borderWidth: 2,
+        borderColor: theme.colors.header.background,
     },
 }));
 
@@ -139,6 +142,9 @@ export const SidebarView = React.memo(() => {
     const realtimeStatus = useRealtimeStatus();
     const friendRequests = useFriendRequests();
     const inboxHasContent = useInboxHasContent();
+    React.useEffect(() => {
+        requestWebNotificationPermission();
+    }, []);
     // Compute connection status once per render (theme-reactive, no stale memoization)
     const connectionStatus = (() => {
         const { status } = socketStatus;

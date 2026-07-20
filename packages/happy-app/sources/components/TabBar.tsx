@@ -72,12 +72,14 @@ const styles = StyleSheet.create((theme) => ({
     },
     indicatorDot: {
         position: 'absolute',
-        top: 0,
-        right: -2,
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: theme.colors.text,
+        top: -3,
+        right: -5,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: theme.colors.warningCritical,
+        borderWidth: 2,
+        borderColor: theme.colors.header.background,
     },
 }));
 

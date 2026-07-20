@@ -48,6 +48,8 @@ import { ArtifactEncryption } from './encryption/artifactEncryption';
 import { getFriendsList, getUserProfile } from './apiFriends';
 import { fetchFeed } from './apiFeed';
 import { FeedItem } from './feedTypes';
+import { showWebMentionNotification } from './webNotifications';
+import { t } from '@/text';
 import { UserProfile } from './friendTypes';
 import {
     createOpenClawMachine,
@@ -2063,6 +2065,27 @@ class Sync {
                 return true;
             });
             
+            // Browser notifications for freshly arrived mentions (web only,
+            // incremental fetches only - initial load would spam history)
+            if (head) {
+                const newMentions = compatibleItems.filter(item =>
+                    item.body.kind === 'session_mention'
+                    && item.badge
+                    && !existingItems.some(existing => existing.id === item.id)
+                );
+                for (const item of newMentions.slice(0, 3)) {
+                    const body = item.body as Extract<FeedItem['body'], { kind: 'session_mention' }>;
+                    showWebMentionNotification({
+                        title: body.actorName
+                            ? t('feed.sessionMentionTitle', { name: body.actorName })
+                            : t('feed.sessionMentionFallback'),
+                        body: body.sessionTitle ?? body.preview ?? undefined,
+                        sessionId: body.sessionId,
+                        tag: `session-mention-${item.id}`,
+                    });
+                }
+            }
+
             // Full refresh replaces all items; incremental merges new ones
             if (isFullRefresh) {
                 storage.getState().replaceFeedItems(compatibleItems);
