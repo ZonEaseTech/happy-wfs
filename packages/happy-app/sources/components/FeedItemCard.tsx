@@ -11,7 +11,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { Avatar } from './Avatar';
 import { Item } from './Item';
 import { Text } from './StyledText';
-import { deleteFeedItem } from '@/sync/apiFeed';
+import { deleteFeedItem, markFeedItemRead } from '@/sync/apiFeed';
 import { Typography } from '@/constants/Typography';
 
 const SWIPE_ACTION_WIDTH = 80;
@@ -147,9 +147,22 @@ export const FeedItemCard = React.memo(({ item, showDivider }: FeedItemCardProps
                             ? t('feed.sessionMentionTitle', { name: body.actorName })
                             : t('feed.sessionMentionFallback')}
                         subtitle={body.sessionTitle ?? getTimeAgo(item.createdAt)}
-                        icon={<Ionicons name="at" size={20} color={theme.colors.textLink} />}
+                        icon={
+                            <View>
+                                <Ionicons name="at" size={20} color={theme.colors.textLink} />
+                                {item.badge && <View style={styles.badgeDot} />}
+                            </View>
+                        }
                         iconContainerStyle={{ marginRight: 20 }}
-                        onPress={() => router.push(`/session/${body.sessionId}` as any)}
+                        onPress={() => {
+                            if (item.badge) {
+                                storage.getState().markFeedItemRead(item.id);
+                                if (credentials) {
+                                    markFeedItemRead(credentials, item.id).catch(console.error);
+                                }
+                            }
+                            router.push(`/session/${body.sessionId}` as any);
+                        }}
                         showChevron={true}
                         showDivider={showDivider}
                     />
