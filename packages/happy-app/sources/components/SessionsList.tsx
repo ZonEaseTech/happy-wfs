@@ -834,10 +834,13 @@ function buildGitHubExactIssueQuery(repository: string, issueNumber: number): st
 }
 
 function buildGitHubIssueSearchQuery(searchText: string): string {
-    const clauses = ['is:issue', 'is:open', 'assignee:@me', 'archived:false'];
     const search = searchText.trim();
-    if (!search) return clauses.join(' ');
+    // Browsing (no search text) shows the personal open-issue inbox; an
+    // explicit search widens to every issue, including closed and
+    // unassigned ones, so version sweeps like "V2.27" list everything.
+    if (!search) return ['is:issue', 'is:open', 'assignee:@me', 'archived:false'].join(' ');
 
+    const clauses = ['is:issue', 'archived:false'];
     const issueNumber = search.match(/^#\s*(\d+)$/)?.[1] ?? search.match(/^(\d+)$/)?.[1];
     clauses.push(issueNumber ?? search);
     return clauses.join(' ');

@@ -807,7 +807,10 @@ async function fetchGitHubProjectIssues(args: {
             for (const item of items?.nodes ?? []) {
                 if (!item) continue;
                 const issue = item?.content;
-                if (!issue?.databaseId || issue.state !== 'OPEN') continue;
+                if (!issue?.databaseId) continue;
+                // Browsing shows only open issues; explicit search terms
+                // widen to closed ones so full-version sweeps stay complete.
+                if (issue.state !== 'OPEN' && args.searchTerms.length === 0) continue;
                 const values = item.fieldValues?.nodes?.filter((value): value is NonNullable<typeof value> => !!value) ?? [];
                 const projectStatuses = uniqueStrings(values
                     .filter((value) => value.field?.name?.toLowerCase() === 'status')
