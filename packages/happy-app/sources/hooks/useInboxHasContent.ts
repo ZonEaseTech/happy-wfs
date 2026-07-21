@@ -1,23 +1,12 @@
-import { useUpdates } from './useUpdates';
-import { useFriendRequests, useRequestedFriends, useFeedHasBadge } from '@/sync/storage';
-import { useChangelog } from './useChangelog';
-import { useNativeUpdate } from './useNativeUpdate';
+import { useFriendRequests, useFeedHasBadge } from '@/sync/storage';
 
-// Hook to check if inbox has content to show
+// Hook to check if inbox has unread content worth an indicator dot.
+// Deliberately narrow: only unread feed items (e.g. mentions, notices)
+// and incoming friend requests count. App updates, outgoing requests
+// and changelog entries live in the inbox but should not light the dot.
 export function useInboxHasContent(): boolean {
-    const { updateAvailable } = useUpdates();
-    const nativeUpdateUrl = useNativeUpdate();
     const friendRequests = useFriendRequests();
-    const requestedFriends = useRequestedFriends();
-    const changelog = useChangelog();
     const feedHasBadge = useFeedHasBadge();
 
-    // Show dot if there's any actionable content:
-    // - Native app update available (App Store / Play Store)
-    // - OTA update available
-    // - Incoming friend requests (also shown as badge number)
-    // - Outgoing friend requests pending
-    // - Unread changelog entries
-    // - Feed items with badge (e.g. unread notices)
-    return !!nativeUpdateUrl || updateAvailable || friendRequests.length > 0 || requestedFriends.length > 0 || (changelog.hasUnread === true) || feedHasBadge;
+    return friendRequests.length > 0 || feedHasBadge;
 }
