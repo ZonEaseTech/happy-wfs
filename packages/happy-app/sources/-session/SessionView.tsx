@@ -1773,9 +1773,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             // Autocomplete configuration
             autocompletePrefixes={['@', '/', '$']}
             autocompleteSuggestions={(query) => getSuggestions(sessionId, query, {
-                friends: acceptedFriends,
+                // Collaborators must still see session participants (loaded
+                // into companyMentionMembers) so they can @ the owner; only
+                // the personal friend list stays owner/admin-scoped.
+                friends: canManageSharing ? acceptedFriends : [],
                 companyMembers: companyMentionMembers,
-                includeFriends: canManageSharing,
             })}
             usageData={sessionUsage ? {
                 inputTokens: sessionUsage.inputTokens,
