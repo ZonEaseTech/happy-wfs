@@ -4,6 +4,11 @@ services:
     ports:
       - "3030:80"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     environment:
       - EXPO_PUBLIC_HAPPY_SERVER_URL=${EXPO_PUBLIC_HAPPY_SERVER_URL}
       - EXPO_PUBLIC_ELEVENLABS_AGENT_ID=${ELEVENLABS_AGENT_ID}
@@ -17,6 +22,11 @@ services:
     ports:
       - "3031:3031"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     environment:
       - NODE_ENV=production
       - PORT=3031
@@ -59,6 +69,11 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   postgres:
     image: postgres:15
@@ -69,12 +84,22 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
 
 volumes:
   postgres_data:
