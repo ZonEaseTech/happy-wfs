@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 13 - 2026-07-25
+
+Claude Opus 5 is available and is the new default for Claude sessions.
+
+- Models: add Claude Opus 5 and Claude Opus 5 (1M) with all reasoning effort levels and fast mode; new Claude sessions default to Opus 5 (1M).
+
 ## Version 12 - 2026-07-17
 
 Pin a message so the session goal stays visible after long conversations.

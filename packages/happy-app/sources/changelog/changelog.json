@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 13,
+      "date": "2026-07-25",
+      "summary": "Claude Opus 5 is available and is the new default for Claude sessions.",
+      "changes": [
+        "Models: add Claude Opus 5 and Claude Opus 5 (1M) with all reasoning effort levels and fast mode; new Claude sessions default to Opus 5 (1M)."
+      ],
+      "rawMarkdown": "## Version 13 - 2026-07-25\n\n\nClaude Opus 5 is available and is the new default for Claude sessions.\n\n- Models: add Claude Opus 5 and Claude Opus 5 (1M) with all reasoning effort levels and fast mode; new Claude sessions default to Opus 5 (1M)."
+    },
+    {
       "version": 12,
       "date": "2026-07-17",
       "summary": "Pin a message so the session goal stays visible after long conversations.",
@@ -168,5 +177,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 12
+  "latestVersion": 13
 }
