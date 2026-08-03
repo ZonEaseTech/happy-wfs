@@ -12,7 +12,8 @@ import { setPreviewHtml } from '../previewHtmlStore';
 import { useAuth } from '@/auth/AuthContext';
 import { getServerUrl } from '@/sync/serverConfig';
 import { uploadPublicFileShare } from '@/sync/uploadFileShare';
-import { buildPublicHtmlPreviewUrl } from '@/utils/publicHtmlPreviewShare';
+import { buildPublicHtmlPreviewUrl, buildPublicShareShortUrl } from '@/utils/publicHtmlPreviewShare';
+import { createShareLink } from '@/sync/apiShareLinks';
 import { encodeBase64 } from '@/encryption/base64';
 import { encodeUTF8 } from '@/encryption/text';
 import { hapticsLight } from '@/components/haptics';
@@ -173,7 +174,14 @@ export const PreviewHtmlViewFull = React.memo<PreviewHtmlViewFullProps>(({ tool 
                 token: credentials.token,
                 apiUrl: getServerUrl(),
             });
-            const shareUrl = buildPublicHtmlPreviewUrl(uploaded.url, title || uploaded.fileName);
+            let shareUrl: string;
+            try {
+                const code = await createShareLink(credentials, uploaded.url, title || uploaded.fileName);
+                shareUrl = buildPublicShareShortUrl(code);
+            } catch {
+                // Short-link service unavailable — fall back to the long URL.
+                shareUrl = buildPublicHtmlPreviewUrl(uploaded.url, title || uploaded.fileName);
+            }
             const copied = await copyTextToClipboardVerified(shareUrl);
             hapticsLight();
             if (copied) {

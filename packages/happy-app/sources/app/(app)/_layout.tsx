@@ -376,6 +376,12 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="share/s/[code]"
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
                 name="company/join/[token]"
                 options={{
                     headerTitle: t('company.joinCompany'),

@@ -33,6 +33,7 @@ import { notificationRoutes } from "./routes/notificationRoutes";
 import { memoryRoutes } from "./routes/memoryRoutes";
 import { githubRoutes } from "./routes/githubRoutes";
 import { fileShareRoutes } from "./routes/fileShareRoutes";
+import { shareLinkRoutes } from "./routes/shareLinkRoutes";
 import { bugRoutes } from "./routes/bugRoutes";
 import { bugPublicRoutes } from "./routes/bugPublicRoutes";
 import { ensureDefaultCompanyMemberships } from "@/app/company/companyBootstrap";
@@ -99,6 +100,7 @@ export async function startApi() {
     memoryRoutes(typed);
     githubRoutes(typed);
     fileShareRoutes(typed);
+    shareLinkRoutes(typed);
     bugRoutes(typed);
     bugPublicRoutes(typed);
 

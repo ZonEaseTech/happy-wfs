@@ -638,6 +638,17 @@ model UserRelationship {
 // Feed
 //
 
+model PublicShareLink {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  accountId String
+  url       String
+  title     String?
+  createdAt DateTime @default(now())
+
+  @@index([accountId, url])
+}
+
 model UserFeedItem {
   id        String   @id @default(cuid())
   userId    String

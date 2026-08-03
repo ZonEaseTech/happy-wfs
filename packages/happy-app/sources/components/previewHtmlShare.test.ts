@@ -20,6 +20,9 @@ describe('Preview Html sharing', () => {
         expect(source).toContain("Ionicons name=\"share-outline\"");
         expect(source).toContain("accessibilityLabel={t('files.share')}");
         expect(source).toContain('copyTextToClipboardVerified');
-        expect(source).toContain('const shareUrl = buildPublicHtmlPreviewUrl');
+        // Short link is preferred; the long preview URL remains the fallback.
+        expect(source).toContain('createShareLink');
+        expect(source).toContain('buildPublicShareShortUrl');
+        expect(source).toContain('shareUrl = buildPublicHtmlPreviewUrl');
     });
 });

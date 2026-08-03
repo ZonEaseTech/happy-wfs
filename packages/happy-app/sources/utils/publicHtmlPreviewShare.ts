@@ -29,3 +29,7 @@ export function isAllowedPublicHtmlPreviewSourceUrl(fileUrl: string): boolean {
         return false;
     }
 }
+
+export function buildPublicShareShortUrl(code: string, appOrigin = getPublicHtmlPreviewAppOrigin()): string {
+    return `${appOrigin.replace(/\/+$/, '')}/share/s/${encodeURIComponent(code)}`;
+}

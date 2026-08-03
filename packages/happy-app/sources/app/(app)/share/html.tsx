@@ -30,11 +30,8 @@ function PublicHtmlWebView({ html, title }: { html: string; title: string }) {
     );
 }
 
-export default function PublicHtmlPreviewScreen() {
-    const params = useLocalSearchParams<{ url?: string; title?: string }>();
+export function PublicHtmlPreviewView({ url, title }: { url: string; title: string }) {
     const { theme } = useUnistyles();
-    const url = typeof params.url === 'string' ? params.url : '';
-    const title = (typeof params.title === 'string' && params.title.trim()) ? params.title.trim() : 'Preview Html';
     const [html, setHtml] = React.useState<string | null>(null);
     const [error, setError] = React.useState<string | null>(null);
 
@@ -98,6 +95,13 @@ export default function PublicHtmlPreviewScreen() {
             )}
         </View>
     );
+}
+
+export default function PublicHtmlPreviewScreen() {
+    const params = useLocalSearchParams<{ url?: string; title?: string }>();
+    const url = typeof params.url === 'string' ? params.url : '';
+    const title = (typeof params.title === 'string' && params.title.trim()) ? params.title.trim() : 'Preview Html';
+    return <PublicHtmlPreviewView url={url} title={title} />;
 }
 
 const styles = StyleSheet.create(() => ({
