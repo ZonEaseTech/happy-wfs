@@ -79,6 +79,7 @@ export function BugReportDetailModal({
     const [currentBug, setCurrentBug] = React.useState<BugReportDetail>(() => bugSummaryToDetail(bug));
     const [detailLoading, setDetailLoading] = React.useState(() => !isBugReportDetail(bug) && !!loadBug);
     const [comment, setComment] = React.useState('');
+    const [commentFocused, setCommentFocused] = React.useState(false);
     const [contentDirty, setContentDirty] = React.useState(false);
     const [contentSnapshot, setContentSnapshot] = React.useState<BugTiptapEditorSnapshot | null>(null);
     const [busy, setBusy] = React.useState(false);
@@ -156,7 +157,7 @@ export function BugReportDetailModal({
 
     const handleComment = React.useCallback(() => {
         const body = comment.trim();
-        if (!body || !onAddComment) return;
+        if ((!body && picker.images.length === 0) || !onAddComment) return;
         void run(() => onAddComment(currentBug, body, picker.images));
     }, [comment, currentBug, onAddComment, picker.images, run]);
 
@@ -253,7 +254,10 @@ export function BugReportDetailModal({
     }, [picker]);
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
-        if (canEditContent) return;
+        // With the rich description editor active, pasting belongs to it —
+        // unless the comment box is focused, where screenshots go with the
+        // comment being written.
+        if (canEditContent && !commentFocused) return;
         await handleImagePasteEvent(event, {
             isScreenFocused: true,
             canAddMore: picker.canAddMore,
@@ -267,7 +271,7 @@ export function BugReportDetailModal({
                 await picker.addImageFromUri(url, mimeType);
             },
         });
-    }, [canEditContent, picker]);
+    }, [canEditContent, commentFocused, picker]);
 
     React.useEffect(() => {
         if (Platform.OS !== 'web') return;
@@ -366,7 +370,7 @@ export function BugReportDetailModal({
                 {currentBug.comments.map(item => (
                     <View key={item.id} style={styles.comment}>
                         <Text style={styles.commentAuthor}>{item.authorNickname ?? t('bug.anonymousUser')}</Text>
-                        <Text style={styles.commentBody}>{item.body}</Text>
+                        {item.body ? <Text style={styles.commentBody}>{item.body}</Text> : null}
                         {item.attachments.length > 0 && (
                             <View style={styles.grid}>{item.attachments.map(attachment => (
                                 <Pressable key={attachment.id} onPress={() => handleCommentImagePress(attachment)}>
@@ -381,6 +385,8 @@ export function BugReportDetailModal({
                     style={styles.commentInput}
                     value={comment}
                     onChangeText={setComment}
+                    onFocus={() => setCommentFocused(true)}
+                    onBlur={() => setCommentFocused(false)}
                     placeholder={t('bug.addComment')}
                     placeholderTextColor={styles.muted.color}
                     multiline

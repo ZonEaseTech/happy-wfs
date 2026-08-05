@@ -25,6 +25,8 @@ function getAppUrl(): string {
  * the comment itself has already been persisted.
  */
 export async function notifyBugCommentToFeishu(bugId: string, actor: BugActor, commentBody: string): Promise<void> {
+    // Image-only comments have no text; keep the notification readable.
+    const previewBody = commentBody.trim() || '[图片]';
     const bug = await (db as any).bugReport.findUnique({
         where: { id: bugId },
         select: {
@@ -81,7 +83,7 @@ export async function notifyBugCommentToFeishu(bugId: string, actor: BugActor, c
         bugTitle: bug.title,
         actorName: actor.nickname,
         recipients,
-        preview: commentBody,
+        preview: previewBody,
         bugUrl: `${getAppUrl()}/bug`,
     });
     for (const webhook of webhooks) {

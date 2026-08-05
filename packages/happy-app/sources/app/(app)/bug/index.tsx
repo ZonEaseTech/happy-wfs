@@ -36,6 +36,7 @@ import { Typography } from "@/constants/Typography";
 import { useBugShareBoard } from "@/hooks/useBugShareBoard";
 import { useImagePicker } from "@/hooks/useImagePicker";
 import { useWebHorizontalScroll } from "@/hooks/useWebHorizontalScroll";
+import { handleImagePasteEvent } from "@/utils/imagePaste";
 import { Modal } from "@/modal";
 import {
   BUG_IMAGE_LIMITS,
@@ -746,6 +747,7 @@ function PublicBugDetailPane({
   });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const commentInputRef = React.useRef<TextInput>(null);
+  const [commentFocused, setCommentFocused] = React.useState(false);
   const contentEditorRef = React.useRef<BugTiptapEditorHandle>(null);
   const contentBaselineRef = React.useRef<string | null>(null);
   const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
@@ -754,6 +756,30 @@ function PublicBugDetailPane({
     React.useState<BugTiptapEditorSnapshot | null>(null);
   const [previewVisible, setPreviewVisible] = React.useState(false);
   const [previewIndex, setPreviewIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (Platform.OS !== "web") return;
+    // Screenshots pasted while the comment box is focused attach to the
+    // comment; otherwise the rich description editor owns the paste.
+    const pasteListener = (event: Event) => {
+      if (!commentFocused) return;
+      void handleImagePasteEvent(event as ClipboardEvent, {
+        isScreenFocused: true,
+        canAddMore: picker.canAddMore,
+        supportsImages: true,
+        onImageFile: async (file, mimeType) => {
+          if (file.size > BUG_IMAGE_LIMITS.maxSizeBytes) {
+            Modal.alert(t("common.error"), t("bug.imageTooLarge"));
+            return;
+          }
+          const url = URL.createObjectURL(file);
+          await picker.addImageFromUri(url, mimeType);
+        },
+      });
+    };
+    document.addEventListener("paste", pasteListener);
+    return () => document.removeEventListener("paste", pasteListener);
+  }, [commentFocused, picker]);
 
   React.useEffect(() => {
     setComment("");
@@ -789,7 +815,7 @@ function PublicBugDetailPane({
   const handleComment = React.useCallback(() => {
     if (!bug) return;
     const body = comment.trim();
-    if (!body) return;
+    if (!body && picker.images.length === 0) return;
     void run(() => onAddComment(bug, body, picker.images));
   }, [bug, comment, onAddComment, picker.images, run]);
 
@@ -1058,7 +1084,9 @@ function PublicBugDetailPane({
                   <Text style={styles.commentAuthor}>
                     {item.authorNickname ?? t("bug.anonymousUser")}
                   </Text>
-                  <Text style={styles.commentBody}>{item.body}</Text>
+                  {item.body ? (
+                    <Text style={styles.commentBody}>{item.body}</Text>
+                  ) : null}
                   {item.attachments.length > 0 && (
                     <View style={styles.attachmentGrid}>
                       {item.attachments.map((attachment) => (
@@ -1082,6 +1110,8 @@ function PublicBugDetailPane({
             <View style={styles.detailCommentComposer}>
               <TextInput
                 ref={commentInputRef}
+                onFocus={() => setCommentFocused(true)}
+                onBlur={() => setCommentFocused(false)}
                 style={styles.commentInput}
                 value={comment}
                 onChangeText={setComment}

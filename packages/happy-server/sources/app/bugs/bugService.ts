@@ -251,9 +251,10 @@ export async function updateBugContent(owner: BugOwnerScope, bugId: string, acto
     return presentBugDetail(row);
 }
 
+// Body may be empty: image-only comments carry their content as attachments
+// uploaded right after creation with this comment's id.
 export async function addBugComment(owner: BugOwnerScope, bugId: string, actor: BugActor, body: string, input: { publicOnly?: boolean } = {}) {
     const trimmed = body.trim();
-    if (!trimmed) throw errorWithStatus(400, 'body is required');
     const nickname = actorNickname(actor);
     const userId = actorUserId(actor);
     const result = await inTx(async (tx) => {
