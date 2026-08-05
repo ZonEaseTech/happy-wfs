@@ -233,17 +233,21 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Bug status tints the header icon; prefetched here and kept in sync by
     // the detail modal's onBugUpdated while it is open.
     const [linkedBugStatus, setLinkedBugStatus] = React.useState<BugStatus | null>(null);
+    // Keyed on the bug id, not the linkedHappyBug object: session sync churns
+    // the object identity constantly and resetting per render made the icon
+    // color flicker between tint and status color.
+    const linkedBugId = linkedHappyBug?.id ?? null;
     React.useEffect(() => {
         let cancelled = false;
         setLinkedBugStatus(null);
-        if (!linkedHappyBug) return;
+        if (!linkedBugId) return;
         const credentials = sync.getCredentials();
         if (!credentials) return;
-        getBug(credentials, linkedHappyBug.id)
+        getBug(credentials, linkedBugId)
             .then((bug) => { if (!cancelled) setLinkedBugStatus(bug.status); })
             .catch(() => { });
         return () => { cancelled = true; };
-    }, [linkedHappyBug]);
+    }, [linkedBugId]);
     const [bugStatusMenuVisible, setBugStatusMenuVisible] = React.useState(false);
     const handleLinkedBugStatusChange = React.useCallback((status: BugStatus, action?: 'return_to_pending') => {
         if (!linkedHappyBug) return;
