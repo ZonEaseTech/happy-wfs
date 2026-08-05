@@ -1,7 +1,7 @@
 import { Fastify } from "../types";
 import { db } from "@/storage/db";
 import { z } from "zod";
-import { canManageSharing, canDirectShareWithUser } from "@/app/share/accessControl";
+import { canManageSharing, canSendMessages, canDirectShareWithUser } from "@/app/share/accessControl";
 import { PROFILE_SELECT, toShareUserProfile } from "@/app/share/types";
 import { eventRouter, buildSessionSharedUpdate, buildSessionShareUpdatedUpdate, buildSessionShareRevokedUpdate } from "@/app/events/eventRouter";
 import { allocateUserSeq } from "@/storage/seq";
@@ -150,9 +150,17 @@ export function shareRoutes(app: Fastify) {
             return reply.code(404).send({ error: 'Session not found' });
         }
 
-        // Only owner or admin can create shares
-        if (!await canManageSharing(ownerId, sessionId)) {
-            return reply.code(403).send({ error: 'Forbidden' });
+        // Owners/admins can grant any level. Edit-level collaborators may
+        // bring their own friends in (mention-to-share), capped below admin
+        // and never touching existing shares.
+        const isManager = await canManageSharing(ownerId, sessionId);
+        if (!isManager) {
+            if (!await canSendMessages(ownerId, sessionId)) {
+                return reply.code(403).send({ error: 'Forbidden' });
+            }
+            if (accessLevel === 'admin') {
+                return reply.code(403).send({ error: 'Collaborators cannot grant admin access' });
+            }
         }
 
         // Cannot share with yourself
@@ -180,6 +188,35 @@ export function shareRoutes(app: Fastify) {
             encryptedDataKeyBytes = parseEncryptedDataKeyV0(encryptedDataKey);
         } catch (error) {
             return reply.code(400).send({ error: 'Invalid encryptedDataKey' });
+        }
+
+        // Collaborators must not overwrite an existing share (downgrade or
+        // key replacement); return it unchanged for idempotent retries.
+        if (!isManager) {
+            const existingShare = await db.sessionShare.findUnique({
+                where: {
+                    sessionId_sharedWithUserId: {
+                        sessionId,
+                        sharedWithUserId: userId
+                    }
+                },
+                include: {
+                    sharedWithUser: {
+                        select: PROFILE_SELECT
+                    }
+                }
+            });
+            if (existingShare) {
+                return reply.send({
+                    share: {
+                        id: existingShare.id,
+                        sharedWithUser: toShareUserProfile(existingShare.sharedWithUser),
+                        accessLevel: existingShare.accessLevel,
+                        createdAt: existingShare.createdAt.getTime(),
+                        updatedAt: existingShare.updatedAt.getTime()
+                    }
+                });
+            }
         }
 
         await db.$transaction(async (tx) => {

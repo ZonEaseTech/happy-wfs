@@ -1587,11 +1587,14 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                     const mentionedPeople = resolveMentionedFriends(messageToSend, mentionCandidates);
                     if (mentionedPeople.length > 0) {
                         const mentionedNames = mentionedPeople.map(person => getMentionableDisplayName(person)).join(', ');
-                        // Owners/admins implicitly share the session with the
-                        // people they mention, so they confirm first. Shared
-                        // collaborators only mention existing participants —
-                        // nothing is shared, nothing to confirm.
-                        if (canManageSharing) {
+                        // Mentioning implicitly shares the session with the
+                        // mentioned people, so anyone about to grant access
+                        // confirms first. Collaborators mentioning existing
+                        // participants share nothing and skip the confirm.
+                        const participantMentionIds = new Set(companyMentionMembers.map((member) => member.id));
+                        const grantsAccess = canManageSharing
+                            || mentionedPeople.some((person) => !participantMentionIds.has(person.id));
+                        if (grantsAccess) {
                             const confirmed = await Modal.confirm(
                                 t('session.sharing.mentionShareConfirmTitle'),
                                 t('session.sharing.mentionShareConfirmMessage', { names: mentionedNames }),
@@ -1641,10 +1644,15 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                                 shareFailedTargets = shareResult.failed;
                                 reachableTargets = Array.from(reachableById.values());
                             } else {
-                                // Candidates already come from session
-                                // participants; the server re-checks access
-                                // on send, so no share step is needed.
-                                reachableTargets = mentionedFriends;
+                                // Collaborators share with their own friends
+                                // who are not yet participants; the server
+                                // caps the granted level at edit and leaves
+                                // existing shares untouched.
+                                const targetsToShare = mentionedFriends.filter((friend) => !participantMentionIds.has(friend.id));
+                                const shareResult = await shareSessionWithMentionedFriends(sessionId, targetsToShare);
+                                shareFailedTargets = shareResult.failed;
+                                const failedIds = new Set(shareResult.failed.map((failure) => failure.target.id));
+                                reachableTargets = mentionedFriends.filter((friend) => !failedIds.has(friend.id));
                             }
 
                             if (reachableTargets.length === 0) {
@@ -1779,10 +1787,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             // Autocomplete configuration
             autocompletePrefixes={['@', '/', '$']}
             autocompleteSuggestions={(query) => getSuggestions(sessionId, query, {
-                // Collaborators must still see session participants (loaded
-                // into companyMentionMembers) so they can @ the owner; only
-                // the personal friend list stays owner/admin-scoped.
-                friends: canManageSharing ? acceptedFriends : [],
+                // Everyone can @ their own friends (mentioning shares the
+                // session with them, capped at edit for collaborators);
+                // collaborators additionally see session participants loaded
+                // into companyMentionMembers so they can @ the owner.
+                friends: acceptedFriends,
                 companyMembers: companyMentionMembers,
             })}
             usageData={sessionUsage ? {
