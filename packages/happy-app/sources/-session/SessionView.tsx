@@ -31,7 +31,7 @@ import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSe
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
 import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
-import { BUG_STATUS_ACCENTS, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
+import { BUG_STATUS_ACCENTS, bugStatusLabel, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { getSessionParticipants, getSessionShares } from '@/sync/apiSharing';
@@ -244,6 +244,35 @@ export const SessionView = React.memo((props: { id: string }) => {
             .catch(() => { });
         return () => { cancelled = true; };
     }, [linkedHappyBug]);
+    const [bugStatusMenuVisible, setBugStatusMenuVisible] = React.useState(false);
+    const handleLinkedBugStatusChange = React.useCallback((status: BugStatus, action?: 'return_to_pending') => {
+        if (!linkedHappyBug) return;
+        const credentials = sync.getCredentials();
+        if (!credentials) return;
+        changeBugStatus(credentials, linkedHappyBug.id, { status, action })
+            .then((updated) => setLinkedBugStatus(updated.status))
+            .catch((error) => {
+                Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+            });
+    }, [linkedHappyBug]);
+    const bugStatusMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        const items: ActionMenuItem[] = [];
+        if (linkedBugStatus && linkedBugStatus !== 'pending') {
+            items.push({
+                label: t('bug.returnToPending'),
+                onPress: () => { setBugStatusMenuVisible(false); handleLinkedBugStatusChange('pending', 'return_to_pending'); },
+            });
+        }
+        for (const status of ['pending', 'in_progress', 'verify', 'closed'] as BugStatus[]) {
+            if (status === 'pending' && linkedBugStatus !== 'pending') continue;
+            items.push({
+                label: bugStatusLabel(status),
+                selected: linkedBugStatus === status,
+                onPress: () => { setBugStatusMenuVisible(false); handleLinkedBugStatusChange(status); },
+            });
+        }
+        return items;
+    }, [handleLinkedBugStatusChange, linkedBugStatus]);
     const handleOpenLinkedHappyBug = React.useCallback(async () => {
         if (!linkedHappyBug) return;
         const credentials = sync.getCredentials();
@@ -440,6 +469,9 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     <Pressable
                                         {...webTooltip(t('bug.openBugDetail'))}
                                         onPress={() => { void handleOpenLinkedHappyBug(); }}
+                                        onLongPress={() => setBugStatusMenuVisible(true)}
+                                        // @ts-expect-error web-only DOM prop forwarded by RN-web
+                                        onContextMenu={(e: any) => { e?.preventDefault?.(); setBugStatusMenuVisible(true); }}
                                         hitSlop={15}
                                         accessibilityRole="button"
                                         accessibilityLabel={t('bug.openBugDetail')}
@@ -571,6 +603,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                     <SessionGoalPinBanner sessionId={sessionId} onHeightChange={setGoalPinHeight} />
                 </View>
             )}
+
+            {/* Linked bug quick status menu (right-click / long-press on the bug icon) */}
+            <ActionMenuModal
+                visible={bugStatusMenuVisible}
+                items={bugStatusMenuItems}
+                onClose={() => setBugStatusMenuVisible(false)}
+            />
 
             {/* Content based on state */}
             <View style={{ flex: 1, paddingTop: !(isLandscape && deviceType === 'phone' && Platform.OS !== 'web') ? safeArea.top + headerHeight + (!isTablet && realtimeStatus !== 'disconnected' ? 48 : 0) + goalPinHeight : 0 }}>
