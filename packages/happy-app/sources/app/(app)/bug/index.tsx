@@ -39,6 +39,7 @@ import { useWebHorizontalScroll } from "@/hooks/useWebHorizontalScroll";
 import { handleImagePasteEvent } from "@/utils/imagePaste";
 import { Modal } from "@/modal";
 import {
+  BUG_STATUS_ACCENTS,
   BUG_IMAGE_LIMITS,
   bugStatusLabel,
   formatBugStatusHistoryAction,
@@ -60,12 +61,7 @@ const STATUS_OPTIONS: BugStatus[] = [
   "verify",
   "closed",
 ];
-const STATUS_ACCENTS: Record<BugStatus, string> = {
-  pending: "#F59E0B",
-  in_progress: "#2563EB",
-  verify: "#9333EA",
-  closed: "#16A34A",
-};
+const STATUS_ACCENTS = BUG_STATUS_ACCENTS;
 
 function getContentSnapshotSignature(snapshot: BugTiptapEditorSnapshot): string {
   return JSON.stringify({

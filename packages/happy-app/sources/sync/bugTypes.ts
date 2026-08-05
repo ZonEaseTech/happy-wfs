@@ -79,6 +79,13 @@ export function bugStatusLabel(status: BugStatus): string {
  * List ordering: actionable statuses first (pending → in_progress → verify →
  * closed), most recent activity first within each group.
  */
+export const BUG_STATUS_ACCENTS: Record<BugStatus, string> = {
+    pending: '#F59E0B',
+    in_progress: '#2563EB',
+    verify: '#9333EA',
+    closed: '#16A34A',
+};
+
 const BUG_STATUS_SORT_RANK: Record<BugStatus, number> = {
     pending: 0,
     in_progress: 1,

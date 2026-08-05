@@ -31,7 +31,7 @@ import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSe
 import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
 import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
-import type { BugReportDetail, BugStatus } from '@/sync/bugTypes';
+import { BUG_STATUS_ACCENTS, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { getSessionParticipants, getSessionShares } from '@/sync/apiSharing';
@@ -230,6 +230,20 @@ export const SessionView = React.memo((props: { id: string }) => {
         });
     }, [linkedGitHubIssue]);
     const linkedHappyBug = React.useMemo(() => buildLinkedHappyBug(session), [session]);
+    // Bug status tints the header icon; prefetched here and kept in sync by
+    // the detail modal's onBugUpdated while it is open.
+    const [linkedBugStatus, setLinkedBugStatus] = React.useState<BugStatus | null>(null);
+    React.useEffect(() => {
+        let cancelled = false;
+        setLinkedBugStatus(null);
+        if (!linkedHappyBug) return;
+        const credentials = sync.getCredentials();
+        if (!credentials) return;
+        getBug(credentials, linkedHappyBug.id)
+            .then((bug) => { if (!cancelled) setLinkedBugStatus(bug.status); })
+            .catch(() => { });
+        return () => { cancelled = true; };
+    }, [linkedHappyBug]);
     const handleOpenLinkedHappyBug = React.useCallback(async () => {
         if (!linkedHappyBug) return;
         const credentials = sync.getCredentials();
@@ -247,6 +261,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                 component: BugReportDetailModal,
                 props: {
                     bug,
+                    onBugUpdated: (updated: BugReportDetail) => setLinkedBugStatus(updated.status),
                     onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[]) => {
                         const result = await addBugComment(credentials, current.id, body);
                         if (images.length > 0) {
@@ -436,7 +451,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                             marginRight: 2,
                                         }}
                                     >
-                                        <Ionicons name="bug-outline" size={21} color={theme.colors.header.tint} />
+                                        <Ionicons name="bug-outline" size={21} color={linkedBugStatus ? BUG_STATUS_ACCENTS[linkedBugStatus] : theme.colors.header.tint} />
                                     </Pressable>
                                 )}
                                 <Pressable
