@@ -1143,6 +1143,24 @@ export function SessionsList() {
             .then((result) => setPendingBugCount(result.pendingCount))
             .catch(() => undefined);
     }, [auth.credentials]);
+    // Bugs come from teammates, not this client, so poll: refresh the badge
+    // count everywhere and the visible list while the pending tab is open.
+    // Skipped while the browser tab is hidden to avoid useless traffic.
+    React.useEffect(() => {
+        if (!auth.credentials) return;
+        const credentials = auth.credentials;
+        const interval = setInterval(() => {
+            if (Platform.OS === 'web' && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            if (activeTab === 'pending' && pendingItemType !== 'github') {
+                void loadPendingBugs(false);
+            } else {
+                void listBugs(credentials, { status: 'pending', limit: 1 })
+                    .then((result) => setPendingBugCount(result.pendingCount))
+                    .catch(() => undefined);
+            }
+        }, 60_000);
+        return () => clearInterval(interval);
+    }, [activeTab, auth.credentials, loadPendingBugs, pendingItemType]);
     React.useEffect(() => {
         if (activeTab !== 'pending') return;
         if (pendingItemType === 'github') return;
