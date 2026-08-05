@@ -758,7 +758,12 @@ function PublicBugDetailPane({
     // Screenshots pasted while the comment box is focused attach to the
     // comment; otherwise the rich description editor owns the paste.
     const pasteListener = (event: Event) => {
-      if (!commentFocused) return;
+      const target = (event as ClipboardEvent).target as HTMLElement | null;
+      if (target?.closest?.(".ProseMirror")) return;
+      const isCommentTarget =
+        !!target &&
+        target === (commentInputRef.current as unknown as HTMLElement | null);
+      if (!isCommentTarget && !commentFocused) return;
       void handleImagePasteEvent(event as ClipboardEvent, {
         isScreenFocused: true,
         canAddMore: picker.canAddMore,

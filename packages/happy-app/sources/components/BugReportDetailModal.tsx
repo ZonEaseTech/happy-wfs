@@ -80,6 +80,7 @@ export function BugReportDetailModal({
     const [detailLoading, setDetailLoading] = React.useState(() => !isBugReportDetail(bug) && !!loadBug);
     const [comment, setComment] = React.useState('');
     const [commentFocused, setCommentFocused] = React.useState(false);
+    const commentInputRef = React.useRef<TextInput>(null);
     const [contentDirty, setContentDirty] = React.useState(false);
     const [contentSnapshot, setContentSnapshot] = React.useState<BugTiptapEditorSnapshot | null>(null);
     const [busy, setBusy] = React.useState(false);
@@ -255,9 +256,12 @@ export function BugReportDetailModal({
 
     const handlePaste = React.useCallback(async (event: ClipboardEvent) => {
         // With the rich description editor active, pasting belongs to it —
-        // unless the comment box is focused, where screenshots go with the
-        // comment being written.
-        if (canEditContent && !commentFocused) return;
+        // unless the paste targets the comment box (the paste event always
+        // fires on the focused element, so this beats React focus state).
+        const target = event.target as HTMLElement | null;
+        if (target?.closest?.('.ProseMirror')) return;
+        const isCommentTarget = !!target && target === (commentInputRef.current as unknown as HTMLElement | null);
+        if (canEditContent && !isCommentTarget && !commentFocused) return;
         await handleImagePasteEvent(event, {
             isScreenFocused: true,
             canAddMore: picker.canAddMore,
@@ -382,6 +386,7 @@ export function BugReportDetailModal({
                 ))}
 
                 <TextInput
+                    ref={commentInputRef}
                     style={styles.commentInput}
                     value={comment}
                     onChangeText={setComment}
