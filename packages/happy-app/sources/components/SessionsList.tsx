@@ -548,6 +548,7 @@ const SessionsListHeader = React.memo(({
     onPendingItemTypeChange,
     onCreateBug,
     onConfigureBugShare,
+    onRefreshPending,
 }: {
     activeTab: SidebarTab;
     visibleTabs: SidebarTabItem[];
@@ -563,6 +564,7 @@ const SessionsListHeader = React.memo(({
     onPendingItemTypeChange: (value: PendingItemType) => void;
     onCreateBug: () => void;
     onConfigureBugShare: () => void;
+    onRefreshPending: () => void;
 }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
@@ -663,6 +665,15 @@ const SessionsListHeader = React.memo(({
                                 <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
                             </Pressable>
                         )}
+                        <Pressable
+                            onPress={onRefreshPending}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('common.retry')}
+                            style={({ pressed }) => ({ marginLeft: 8, opacity: pressed ? 0.5 : 1 })}
+                        >
+                            <Ionicons name="refresh-outline" size={18} color={theme.colors.textSecondary} />
+                        </Pressable>
                     </View>
                     <View style={styles.pendingActionRow}>
                         {pendingItemType !== 'bug' && (
@@ -1617,6 +1628,7 @@ export function SessionsList() {
             onPendingItemTypeChange={setPendingItemType}
             onCreateBug={handleCreateBug}
             onConfigureBugShare={handleConfigureBugShare}
+            onRefreshPending={handleRefresh}
         />
     ), [
         activeTab,
@@ -1625,6 +1637,7 @@ export function SessionsList() {
         handleConfigurePending,
         handleCreateBug,
         handlePendingIssueSearchChange,
+        handleRefresh,
         pendingBugCount,
         pendingBugsLoading,
         pendingIssuesLoading,
