@@ -212,3 +212,10 @@ export async function searchFiles(
 ): Promise<FileItem[]> {
     return fileSearchCache.search(sessionId, query, options);
 }
+/**
+ * Fire-and-forget warm-up of a session's file cache so the first "@" query
+ * doesn't block on the ripgrep round-trip to the machine.
+ */
+export function prefetchSessionFiles(sessionId: string): void {
+    void fileSearchCache.search(sessionId, '', { limit: 1 }).catch(() => { });
+}

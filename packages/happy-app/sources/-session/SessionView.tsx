@@ -3,6 +3,7 @@ import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
 import { getSuggestions } from '@/components/autocomplete/suggestions';
+import { prefetchSessionFiles } from '@/sync/suggestionFile';
 import { ChatHeaderView } from '@/components/ChatHeaderView';
 import { ChatList } from '@/components/ChatList';
 import { Deferred } from '@/components/Deferred';
@@ -643,6 +644,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const canManageSharing = !session.accessLevel || session.accessLevel === 'admin';
     const [companyMentionMembers, setCompanyMentionMembers] = React.useState<MentionableUser[]>([]);
     const acknowledgedCliVersions = useLocalSetting('acknowledgedCliVersions');
+
+    // Warm the file cache early so the first "@" query answers from memory.
+    React.useEffect(() => {
+        prefetchSessionFiles(sessionId);
+    }, [sessionId]);
 
     React.useEffect(() => {
         let cancelled = false;

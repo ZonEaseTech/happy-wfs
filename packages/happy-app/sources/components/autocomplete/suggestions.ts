@@ -144,7 +144,13 @@ export async function getSuggestions(sessionId: string, query: string, options: 
         const coworkerSuggestions = options.includeFriends === false
             ? []
             : getCoworkerMentionSuggestions(query, options.companyMembers ?? [], friendIds);
-        const fileSuggestions = await getFileMentionSuggestions(sessionId, query);
+        // People suggestions are computed locally and must not wait on the
+        // machine round-trip for files: give the file search a short budget,
+        // and let a late result fill the warm cache for the next keystroke.
+        const fileSuggestions = await Promise.race([
+            getFileMentionSuggestions(sessionId, query),
+            new Promise<AgentInputSuggestion[]>((resolve) => setTimeout(() => resolve([]), 150)),
+        ]);
         const result = [...friendSuggestions, ...coworkerSuggestions, ...fileSuggestions];
         console.log('💡 getSuggestions: Mention suggestions:', JSON.stringify(result.map(r => ({
             key: r.key,
