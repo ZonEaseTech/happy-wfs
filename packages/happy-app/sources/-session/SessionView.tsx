@@ -30,7 +30,7 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
-import { sessionAbort, sessionDelete, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
+import { sessionAbort, sessionDelete, machineBash, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
 import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
 import { BUG_STATUS_ACCENTS, bugStatusLabel, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
@@ -69,8 +69,6 @@ import { buildCopyToAgentBriefPrompt } from './sessionCopyPrompt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
-import { useAutoReviewGuard } from '@/sync/autoReviewGuard';
-import { AutoReviewGuardSettingsModal } from '@/components/AutoReviewGuardSettingsModal';
 import { getDisplayName } from '@/sync/friendTypes';
 import { getMentionableDisplayName, resolveMentionedFriends, type MentionableUser } from '@/utils/chatFriendMentions';
 
@@ -202,6 +200,36 @@ export const SessionView = React.memo((props: { id: string }) => {
     const [showTerminal, setShowTerminal] = React.useState(false);
     const [terminalOpenRequestKey, setTerminalOpenRequestKey] = React.useState(0);
     const showTerminalButton = Platform.OS === 'web' && isTablet;
+    // Phones have no xterm surface; the terminal icon opens the synced quick
+    // commands instead, executed on the session's machine via machineBash.
+    const terminalQuickCommands = useSetting('terminalQuickCommands');
+    const showQuickCommandsButton = !showTerminalButton && terminalQuickCommands.length > 0;
+    const [quickCommandsMenuVisible, setQuickCommandsMenuVisible] = React.useState(false);
+    const runQuickCommand = React.useCallback(async (title: string, command: string) => {
+        const machineId = session?.metadata?.machineId;
+        if (!machineId) {
+            Modal.alert(t('common.error'), t('openclaw.machineNotFound'));
+            return;
+        }
+        try {
+            const result = await machineBash(machineId, { command, cwd: session?.metadata?.path ?? undefined, timeout: 60000 });
+            const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim();
+            Modal.alert(title, output ? output.slice(-1500) : (result.success ? 'OK' : `exit ${result.exitCode}`));
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [session?.metadata?.machineId, session?.metadata?.path]);
+    const quickCommandsMenuItems = React.useMemo<ActionMenuItem[]>(() => (
+        [...terminalQuickCommands]
+            .sort((a, b) => a.title.localeCompare(b.title))
+            .map((item) => ({
+                label: item.title,
+                onPress: () => {
+                    setQuickCommandsMenuVisible(false);
+                    void runQuickCommand(item.title, item.command);
+                },
+            }))
+    ), [runQuickCommand, terminalQuickCommands]);
     const handleOpenTerminalPanel = React.useCallback(() => {
         setShowTerminal(true);
         setTerminalOpenRequestKey((value) => value + 1);
@@ -216,15 +244,6 @@ export const SessionView = React.memo((props: { id: string }) => {
         registerPreviewPanelOpener(() => setChatPreviewVisible(true));
         return () => registerPreviewPanelOpener(null);
     }, [isDesktopPanelMode]);
-    const autoReviewGuard = useAutoReviewGuard(sessionId);
-    const autoReviewDefaults = useSetting('autoReviewGuardDefaults');
-    const autoReviewEnabled = autoReviewGuard?.enabled === true;
-    const autoReviewStatus = autoReviewGuard?.status ?? 'idle';
-    const [autoReviewSettingsOpen, setAutoReviewSettingsOpen] = React.useState(false);
-    const handleOpenAutoReviewSettings = React.useCallback(() => {
-        hapticsLight();
-        setAutoReviewSettingsOpen(true);
-    }, []);
 
     const linkedGitHubIssue = React.useMemo(() => buildLinkedGitHubIssue(session), [session]);
     const handleOpenLinkedGitHubIssue = React.useCallback(() => {
@@ -499,39 +518,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                                     </Pressable>
                                 )}
                                 <Pressable
-                                    {...webTooltip(autoReviewEnabled ? t('sessionInfo.autoReviewGuardDisable') : t('sessionInfo.autoReviewGuardEnable'))}
-                                    onPress={handleOpenAutoReviewSettings}
-                                    hitSlop={15}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={t('sessionInfo.autoReviewGuard')}
-                                    style={{
-                                        width: 38,
-                                        height: 38,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: 2,
-                                        borderRadius: 19,
-                                        backgroundColor: autoReviewEnabled ? `${theme.colors.button.primary.background}18` : 'transparent',
-                                    }}
-                                >
-                                    <Ionicons
-                                        name={autoReviewEnabled || autoReviewStatus === 'passed' ? 'shield-checkmark-outline' : 'shield-outline'}
-                                        size={21}
-                                        color={autoReviewEnabled ? theme.colors.button.primary.background : theme.colors.header.tint}
-                                    />
-                                    {autoReviewStatus === 'needs_follow_up' && (
-                                        <View style={{
-                                            position: 'absolute',
-                                            top: 5,
-                                            right: 5,
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: 4,
-                                            backgroundColor: '#FF3B30',
-                                        }} />
-                                    )}
-                                </Pressable>
-                                <Pressable
                                     onPress={() => {
                                         if (isDesktopPanelMode) {
                                             // PC: open the full bt-style modal directly,
@@ -561,6 +547,24 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 {/* Terminal: web + tablet only. Phones don't
                                     have room for an xterm surface, and the
                                     underlying xterm.js bundle is web-only. */}
+                                {showQuickCommandsButton && (
+                                    <Pressable
+                                        {...webTooltip(t('terminal.quickCommands'))}
+                                        onPress={() => setQuickCommandsMenuVisible(true)}
+                                        hitSlop={15}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('terminal.quickCommands')}
+                                        style={{
+                                            width: 38,
+                                            height: 38,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: 2,
+                                        }}
+                                    >
+                                        <Ionicons name="terminal-outline" size={22} color={theme.colors.header.tint} />
+                                    </Pressable>
+                                )}
                                 {showTerminalButton && (
                                     <Pressable
                                         {...webTooltip('Terminal')}
@@ -615,6 +619,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                     <SessionGoalPinBanner sessionId={sessionId} onHeightChange={setGoalPinHeight} />
                 </View>
             )}
+
+            {/* Quick commands for phones (terminal icon replacement) */}
+            <ActionMenuModal
+                visible={quickCommandsMenuVisible}
+                items={quickCommandsMenuItems}
+                onClose={() => setQuickCommandsMenuVisible(false)}
+            />
 
             {/* Linked bug quick status menu (right-click / long-press on the bug icon) */}
             <ActionMenuModal
@@ -677,13 +688,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                     onTypeChange={setRightPanelType}
                 />
             )}
-            <AutoReviewGuardSettingsModal
-                visible={autoReviewSettingsOpen}
-                onClose={() => setAutoReviewSettingsOpen(false)}
-                sessionId={sessionId}
-                guard={autoReviewGuard}
-                defaults={autoReviewDefaults}
-            />
         </View>
     );
 });
