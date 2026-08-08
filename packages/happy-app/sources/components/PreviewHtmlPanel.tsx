@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { getPreviewHtmlVersion, peekPreviewHtml, subscribePreviewHtml } from '@/components/tools/previewHtmlStore';
 
@@ -34,6 +35,42 @@ export const PreviewHtmlPanel = React.memo(() => {
                 javaScriptEnabled
                 scrollEnabled
             />
+        </View>
+    );
+});
+
+/**
+ * In-chat-column overlay: covers the chat/input area only, so the session
+ * header and any terminal / right panels stay visible.
+ */
+export const ChatPreviewOverlay = React.memo(({ onClose }: { onClose: () => void }) => {
+    const { theme } = useUnistyles();
+    React.useSyncExternalStore(subscribePreviewHtml, getPreviewHtmlVersion, getPreviewHtmlVersion);
+    const { title } = peekPreviewHtml();
+
+    return (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.colors.surface, zIndex: 20 }}>
+            <View style={{
+                height: 44,
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 12,
+                gap: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.colors.divider,
+            }}>
+                <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+                    <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
+                </Pressable>
+                <Ionicons name="earth-outline" size={16} color={theme.colors.textSecondary} />
+                <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: theme.colors.text }}>
+                    {title?.trim() || 'Preview Html'}
+                </Text>
+                <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+                    <Ionicons name="close" size={20} color={theme.colors.text} />
+                </Pressable>
+            </View>
+            <PreviewHtmlPanel />
         </View>
     );
 });

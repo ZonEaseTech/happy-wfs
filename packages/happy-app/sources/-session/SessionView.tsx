@@ -1,5 +1,6 @@
 import { AgentContentView } from '@/components/AgentContentView';
 import { registerPreviewPanelOpener } from '@/components/tools/previewHtmlStore';
+import { ChatPreviewOverlay } from '@/components/PreviewHtmlPanel';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
@@ -209,9 +210,10 @@ export const SessionView = React.memo((props: { id: string }) => {
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
+    const [chatPreviewVisible, setChatPreviewVisible] = React.useState(false);
     React.useEffect(() => {
         if (!isDesktopPanelMode) return;
-        registerPreviewPanelOpener(() => setRightPanelType('preview'));
+        registerPreviewPanelOpener(() => setChatPreviewVisible(true));
         return () => registerPreviewPanelOpener(null);
     }, [isDesktopPanelMode]);
     const autoReviewGuard = useAutoReviewGuard(sessionId);
@@ -653,6 +655,9 @@ export const SessionView = React.memo((props: { id: string }) => {
                         setShowFileViewer={setShowFileViewer}
                     />
                 ) : null}
+                {chatPreviewVisible && (
+                    <ChatPreviewOverlay onClose={() => setChatPreviewVisible(false)} />
+                )}
             </View>
             </View>
             {showTerminalButton && (

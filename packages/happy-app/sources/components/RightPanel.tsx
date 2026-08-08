@@ -10,9 +10,8 @@ import FilesScreen from '@/app/(app)/session/[id]/files';
 import InfoScreen from '@/app/(app)/session/[id]/info';
 import BrowserScreen from '@/app/(app)/session/[id]/browser';
 import CommitsScreen from '@/app/(app)/session/[id]/commits';
-import { PreviewHtmlPanel } from '@/components/PreviewHtmlPanel';
 
-export type RightPanelType = 'files' | 'info' | 'browser' | 'commits' | 'preview';
+export type RightPanelType = 'files' | 'info' | 'browser' | 'commits';
 
 export const RIGHT_PANEL_WIDTH = 480; // legacy default — runtime width comes from useResizableColumn
 const MIN_RIGHT_PANEL_WIDTH = 320;
@@ -40,7 +39,6 @@ function getTitle(type: RightPanelType): string {
         case 'info': return 'Info';
         case 'browser': return 'Code';
         case 'commits': return 'Commits';
-        case 'preview': return 'Preview';
     }
 }
 
@@ -117,9 +115,7 @@ export const RightPanel = React.memo(function RightPanel(props: {
             </View>
             <View style={{ flex: 1 }}>
                 <RightPanelHeaderSlotContext.Provider value={setHeaderSlot}>
-                    {props.type === 'preview' ? (
-                        <PreviewHtmlPanel />
-                    ) : props.type === 'files' ? (
+                    {props.type === 'files' ? (
                         <FilesScreen sessionId={props.sessionId} embedded />
                     ) : props.type === 'browser' ? (
                         <BrowserScreen sessionId={props.sessionId} embedded />
