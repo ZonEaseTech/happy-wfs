@@ -28,7 +28,7 @@ import { uploadChatImage } from './uploadChatImage';
 import { LocalImage } from '@/components/ImagePreview';
 import { applySettings, mergeSettings, Settings, settingsDefaults, settingsParse, SUPPORTED_SCHEMA_VERSION } from './settings';
 import { Profile, profileParse } from './profile';
-import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt } from './persistence';
+import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt, loadSessionMessagesCache, saveSessionMessagesCache, clearSessionMessagesCache } from './persistence';
 import { initializeTracking, tracking } from '@/track';
 import { parseToken } from '@/utils/parseToken';
 import { getServerUrl } from './serverConfig';
@@ -174,6 +174,11 @@ class Sync {
     private sessionDataKeys = new Map<string, Uint8Array>(); // Store session data encryption keys internally
     /** Per-session last-known seq for v3 incremental fetch */
     private sessionLastSeq = new Map<string, number>();
+    /** Newest decrypted messages per session, mirrored to mmkv so a reopened
+     *  session renders instantly instead of waiting on the network. */
+    private cachedNormalizedMessages = new Map<string, NormalizedMessage[]>();
+    private messageCacheSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private hydratedMessageSessions = new Set<string>();
     /** Callbacks to run before applying a sent message (keyed by localId).
      *  Ensures input is cleared before message appears, regardless of whether
      *  the HTTP response or WebSocket echo arrives first. */
@@ -2439,6 +2444,12 @@ class Sync {
     private fetchMessagesV3 = async (sessionId: string) => {
         if (!this.credentials) return;
 
+        // Cached messages are already plaintext — render them before waiting on
+        // session encryption or the network.
+        if (this.sessionLastSeq.get(sessionId) === undefined) {
+            this.hydrateMessagesFromCache(sessionId);
+        }
+
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) {
             log.log(`💬 fetchMessagesV3: Session encryption not ready for ${sessionId}, will retry`);
@@ -2449,6 +2460,7 @@ class Sync {
         await lock.inLock(async () => {
             const currentCursor = this.sessionLastSeq.get(sessionId);
             if (currentCursor === undefined) {
+
                 // Bootstrap with latest page only to avoid loading very large histories at once.
                 // v3 with no after_seq/before_seq returns latest messages in desc order.
                 const API_ENDPOINT = getServerUrl();
@@ -2739,6 +2751,14 @@ class Sync {
             // Remove encryption keys from memory
             this.encryption.removeSessionEncryption(sessionId);
             this.sessionDataKeys.delete(sessionId);
+
+            // Drop the plaintext message cache for the deleted session
+            const pendingCacheTimer = this.messageCacheSaveTimers.get(sessionId);
+            if (pendingCacheTimer) clearTimeout(pendingCacheTimer);
+            this.messageCacheSaveTimers.delete(sessionId);
+            this.cachedNormalizedMessages.delete(sessionId);
+            this.hydratedMessageSessions.delete(sessionId);
+            clearSessionMessagesCache(sessionId);
 
             // Remove from project manager
             projectManager.removeSession(sessionId);
@@ -3784,7 +3804,49 @@ class Sync {
     // Apply store
     //
 
+    /** Keep the newest page of decrypted messages in memory and mirror it to
+     *  disk (debounced) so the next open of this session can render instantly. */
+    private rememberMessagesForCache(sessionId: string, messages: NormalizedMessage[]) {
+        if (messages.length === 0) return;
+        const byId = new Map<string, NormalizedMessage>();
+        for (const message of this.cachedNormalizedMessages.get(sessionId) ?? []) {
+            byId.set(message.id, message);
+        }
+        for (const message of messages) {
+            byId.set(message.id, message);
+        }
+        const merged = Array.from(byId.values())
+            .sort((a, b) => a.createdAt - b.createdAt || (a.seq ?? 0) - (b.seq ?? 0))
+            .slice(-Sync.INITIAL_MESSAGES_LIMIT);
+        this.cachedNormalizedMessages.set(sessionId, merged);
+
+        const existingTimer = this.messageCacheSaveTimers.get(sessionId);
+        if (existingTimer) clearTimeout(existingTimer);
+        this.messageCacheSaveTimers.set(sessionId, setTimeout(() => {
+            this.messageCacheSaveTimers.delete(sessionId);
+            try {
+                saveSessionMessagesCache(sessionId, this.cachedNormalizedMessages.get(sessionId) ?? []);
+            } catch (error) {
+                log.log(`💬 message cache save failed for ${sessionId}: ${error}`);
+            }
+        }, 1500));
+    }
+
+    /** Render the cached page before the network bootstrap returns. The fetch
+     *  still runs and merges by message id, so stale entries self-correct. */
+    private hydrateMessagesFromCache(sessionId: string) {
+        if (this.hydratedMessageSessions.has(sessionId)) return;
+        this.hydratedMessageSessions.add(sessionId);
+        if (storage.getState().sessionMessages[sessionId]?.messages.length) return;
+        const cached = loadSessionMessagesCache(sessionId) as NormalizedMessage[] | null;
+        if (!cached || cached.length === 0) return;
+        this.cachedNormalizedMessages.set(sessionId, cached);
+        storage.getState().applyMessages(sessionId, cached);
+        log.log(`💬 hydrated ${cached.length} cached messages for session ${sessionId}`);
+    }
+
     private applyMessages = (sessionId: string, messages: NormalizedMessage[]) => {
+        this.rememberMessagesForCache(sessionId, messages);
         const result = storage.getState().applyMessages(sessionId, messages);
         let m: Message[] = [];
         for (let messageId of result.changed) {

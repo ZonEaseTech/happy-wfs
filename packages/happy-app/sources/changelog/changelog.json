@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 14,
+      "date": "2026-08-08",
+      "summary": "Sessions open instantly by rendering their last page from a local cache.",
+      "changes": [
+        "Chat: cache the newest decrypted messages per session on device and render them immediately on open, while the network fetch merges over them in the background."
+      ],
+      "rawMarkdown": "## Version 14 - 2026-08-08\n\n\nSessions open instantly by rendering their last page from a local cache.\n\n- Chat: cache the newest decrypted messages per session on device and render them immediately on open, while the network fetch merges over them in the background."
+    },
+    {
       "version": 13,
       "date": "2026-07-25",
       "summary": "Claude Opus 5 is available and is the new default for Claude sessions.",
@@ -177,5 +186,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 13
+  "latestVersion": 14
 }

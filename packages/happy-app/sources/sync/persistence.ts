@@ -255,6 +255,60 @@ export function saveSessionGoalPins(pins: Record<string, SessionGoalPinRecord[]>
     mmkv.set(SESSION_GOAL_PINS_KEY, JSON.stringify(pins));
 }
 
+/**
+ * Decrypted-message cache, one mmkv entry per session so writing one session
+ * never rewrites the others. Lets a session render its last page instantly on
+ * open while the network bootstrap runs; the server response then merges over
+ * it by message id, so a stale cache can only ever be briefly visible.
+ */
+const SESSION_MESSAGES_CACHE_PREFIX = 'session-messages.v1.';
+const SESSION_MESSAGES_CACHE_INDEX_KEY = 'session-messages.v1.index';
+const SESSION_MESSAGES_CACHE_MAX_SESSIONS = 30;
+
+function sessionMessagesCacheKey(sessionId: string): string {
+    return `${SESSION_MESSAGES_CACHE_PREFIX}${sessionId}`;
+}
+
+function loadSessionMessagesCacheIndex(): string[] {
+    const raw = mmkv.getString(SESSION_MESSAGES_CACHE_INDEX_KEY);
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
+export function loadSessionMessagesCache(sessionId: string): unknown[] | null {
+    const raw = mmkv.getString(sessionMessagesCacheKey(sessionId));
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed?.messages) ? parsed.messages : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveSessionMessagesCache(sessionId: string, messages: unknown[]) {
+    mmkv.set(sessionMessagesCacheKey(sessionId), JSON.stringify({ messages, savedAt: Date.now() }));
+
+    // Keep a bounded MRU index so old sessions cannot grow storage forever.
+    const index = loadSessionMessagesCacheIndex().filter((id) => id !== sessionId);
+    index.unshift(sessionId);
+    for (const staleId of index.splice(SESSION_MESSAGES_CACHE_MAX_SESSIONS)) {
+        mmkv.delete(sessionMessagesCacheKey(staleId));
+    }
+    mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+}
+
+export function clearSessionMessagesCache(sessionId: string) {
+    mmkv.delete(sessionMessagesCacheKey(sessionId));
+    const index = loadSessionMessagesCacheIndex().filter((id) => id !== sessionId);
+    mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+}
+
 export function loadBrowserLastPaths(): Record<string, string> {
     const raw = mmkv.getString(BROWSER_LAST_PATHS_KEY);
     if (!raw) return {};

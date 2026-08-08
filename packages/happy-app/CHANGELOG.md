@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 14 - 2026-08-08
+
+Sessions open instantly by rendering their last page from a local cache.
+
+- Chat: cache the newest decrypted messages per session on device and render them immediately on open, while the network fetch merges over them in the background.
+
 ## Version 13 - 2026-07-25
 
 Claude Opus 5 is available and is the new default for Claude sessions.
