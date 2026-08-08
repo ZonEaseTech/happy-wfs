@@ -1,4 +1,5 @@
 import { AgentContentView } from '@/components/AgentContentView';
+import { registerPreviewPanelOpener } from '@/components/tools/previewHtmlStore';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
@@ -208,6 +209,11 @@ export const SessionView = React.memo((props: { id: string }) => {
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
+    React.useEffect(() => {
+        if (!isDesktopPanelMode) return;
+        registerPreviewPanelOpener(() => setRightPanelType('preview'));
+        return () => registerPreviewPanelOpener(null);
+    }, [isDesktopPanelMode]);
     const autoReviewGuard = useAutoReviewGuard(sessionId);
     const autoReviewDefaults = useSetting('autoReviewGuardDefaults');
     const autoReviewEnabled = autoReviewGuard?.enabled === true;

@@ -3,6 +3,7 @@ import { Text, View, TouchableOpacity, ActivityIndicator, Platform } from 'react
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons, Octicons } from '@expo/vector-icons';
 import { getToolViewComponent } from './views/_all';
+import { openPreviewInPanel, setPreviewHtml } from './previewHtmlStore';
 import { Message, ToolCall } from '@/sync/typesMessage';
 import { ToolInputView, SmartDataView } from '../KeyValueView';
 import { ToolSectionView } from './ToolSectionView';
@@ -53,10 +54,22 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
     const handlePress = React.useCallback(() => {
         if (onPress) {
             onPress();
-        } else if (sessionId && messageId) {
+            return;
+        }
+        // Preview Html cards open beside the chat in desktop panel mode so
+        // the terminal / right panel stays visible; elsewhere they fall
+        // through to the regular tool detail navigation.
+        const previewHtml = /(^|__)preview_html$/.test(tool.name) && typeof tool.input?.html === 'string'
+            ? tool.input.html as string
+            : null;
+        if (previewHtml) {
+            setPreviewHtml(previewHtml, typeof tool.input?.title === 'string' ? tool.input.title : null);
+            if (openPreviewInPanel()) return;
+        }
+        if (sessionId && messageId) {
             router.push(`/session/${sessionId}/message/${messageId}`);
         }
-    }, [onPress, sessionId, messageId, router]);
+    }, [onPress, sessionId, messageId, router, tool.name, tool.input]);
 
     // Enable pressable if either onPress is provided or we have navigation params
     const isPressable = !!(onPress || (sessionId && messageId));

@@ -8,7 +8,7 @@ import { Metadata } from '@/sync/storageTypes';
 import { toolFullViewStyles } from '../ToolFullView';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { LongPressCopy, useCopySelectable } from '@/components/LongPressCopy';
-import { setPreviewHtml } from '../previewHtmlStore';
+import { openPreviewInPanel, setPreviewHtml } from '../previewHtmlStore';
 import { useAuth } from '@/auth/AuthContext';
 import { getServerUrl } from '@/sync/serverConfig';
 import { uploadPublicFileShare } from '@/sync/uploadFileShare';
@@ -154,7 +154,12 @@ export const PreviewHtmlViewFull = React.memo<PreviewHtmlViewFullProps>(({ tool 
             }
         } else if (sessionId) {
             setPreviewHtml(html, title);
-            router.push(`/session/${sessionId}/preview`);
+            // Desktop panel mode shows the preview beside the chat so the
+            // terminal / right panel stays visible; navigation is the
+            // mobile/tablet fallback.
+            if (!openPreviewInPanel()) {
+                router.push(`/session/${sessionId}/preview`);
+            }
         }
     }, [html, title, sessionId, router]);
 
