@@ -1,17 +1,38 @@
 import * as React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { getPreviewHtmlVersion, peekPreviewHtml, subscribePreviewHtml } from '@/components/tools/previewHtmlStore';
 
-const WebView = require('react-native-webview').default;
-
 /**
- * Right-panel embedding of a Preview Html tool result. Reads the module
- * store non-destructively so the panel survives re-renders; SessionView
- * switches the panel type here when a preview card is pressed in desktop
- * panel mode.
+ * Preview surface: iframe on web, WebView on native. react-native-webview
+ * must NOT be required at module load — it throws on web and would take the
+ * whole session screen down with it.
  */
+function PreviewSurface({ html }: { html: string }) {
+    if (Platform.OS === 'web') {
+        return (
+            // @ts-ignore iframe is a web-only DOM element.
+            <iframe
+                title="Preview"
+                srcDoc={html}
+                sandbox="allow-forms allow-modals allow-popups allow-scripts"
+                style={{ border: '0', width: '100%', height: '100%', backgroundColor: 'white' }}
+            />
+        );
+    }
+    const WebView = require('react-native-webview').default;
+    return (
+        <WebView
+            source={{ html }}
+            style={{ flex: 1 }}
+            originWhitelist={['*']}
+            javaScriptEnabled
+            scrollEnabled
+        />
+    );
+}
+
 export const PreviewHtmlPanel = React.memo(() => {
     const { theme } = useUnistyles();
     // Re-render when another preview card is pressed while the panel is open.
@@ -28,13 +49,7 @@ export const PreviewHtmlPanel = React.memo(() => {
 
     return (
         <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-            <WebView
-                source={{ html }}
-                style={{ flex: 1 }}
-                originWhitelist={['*']}
-                javaScriptEnabled
-                scrollEnabled
-            />
+            <PreviewSurface html={html} />
         </View>
     );
 });
