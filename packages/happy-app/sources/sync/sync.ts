@@ -129,7 +129,10 @@ function markSessionViewed(sessionId: string) {
     // Skip for inactive sessions: the server-side metadata update triggers
     // Prisma @updatedAt which would re-sort the session to the top of the
     // inactive list. Local-only update is sufficient for blue dot dismissal.
-    if (session?.metadata && session.active) {
+    // A sparse local copy (no path/machineId) means this client only holds
+    // clobbered metadata; writing it back would keep the session "未知".
+    const hasIdentity = !!(session?.metadata?.path || session?.metadata?.machineId);
+    if (session?.metadata && session.active && hasIdentity) {
         const existing = session.metadata.completionDismissedAt ?? 0;
         if (now - existing > 5000) {
             sessionUpdateMetadataFields(

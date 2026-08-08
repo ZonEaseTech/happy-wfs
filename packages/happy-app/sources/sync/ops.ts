@@ -994,7 +994,7 @@ export async function sessionUpdateSummary(
         currentVersion = serverSnapshot.metadataVersion;
         const decryptedMetadata = await sessionEncryption.decryptRaw(serverSnapshot.metadata) as Metadata | null;
         if (decryptedMetadata) {
-            safeCurrentMetadata = decryptedMetadata;
+            safeCurrentMetadata = adoptSessionIdentityFields(decryptedMetadata, currentMetadata);
         } else if (serverSnapshot.metadataVersion > 0) {
             // The server holds metadata we cannot read. Writing on top of the
             // caller's (possibly stale or empty) copy would clobber the real
@@ -1047,6 +1047,23 @@ export async function sessionUpdateSummary(
 /**
  * Update arbitrary metadata fields on a session (with encryption and version-conflict retry)
  */
+/**
+ * Prefer the server snapshot but never let it drop session identity fields
+ * the caller still holds — a sparse server copy (clobbered metadata) would
+ * otherwise be perpetuated forever and the session shows up as "未知".
+ * Mirrors happy-cli's adoptServerSessionMetadata.
+ */
+function adoptSessionIdentityFields(serverCopy: Metadata, localCopy: Metadata | null | undefined): Metadata {
+    if (!localCopy) return serverCopy;
+    return {
+        ...serverCopy,
+        path: serverCopy.path ?? localCopy.path,
+        host: serverCopy.host ?? localCopy.host,
+        machineId: serverCopy.machineId ?? localCopy.machineId,
+        summary: serverCopy.summary ?? localCopy.summary,
+    };
+}
+
 export async function sessionUpdateMetadataFields(
     sessionId: string,
     currentMetadata: Metadata,
@@ -1067,7 +1084,7 @@ export async function sessionUpdateMetadataFields(
         currentVersion = serverSnapshot.metadataVersion;
         const decryptedMetadata = await sessionEncryption.decryptRaw(serverSnapshot.metadata) as Metadata | null;
         if (decryptedMetadata) {
-            safeCurrentMetadata = decryptedMetadata;
+            safeCurrentMetadata = adoptSessionIdentityFields(decryptedMetadata, currentMetadata);
         } else if (serverSnapshot.metadataVersion > 0) {
             // The server holds metadata we cannot read. Merging updates into
             // the caller's (possibly stale or empty) copy would clobber the
