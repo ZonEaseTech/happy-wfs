@@ -13,7 +13,7 @@ import { Typography } from '@/constants/Typography';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
-import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { getServerUrl } from '@/sync/serverConfig';
 import { useAllMachines } from '@/sync/storage';
@@ -170,6 +170,26 @@ export const DeviceManagementView = React.memo(() => {
         }
     }, []);
 
+    const handleDeleteDevice = React.useCallback(async (machine: Machine) => {
+        const name = machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12);
+        const confirmed = await Modal.confirm(
+            t('devices.deleteDeviceTitle'),
+            t('devices.deleteDeviceConfirm', { name }),
+            { confirmText: t('common.delete'), cancelText: t('common.cancel'), destructive: true },
+        );
+        if (!confirmed) return;
+        if (!auth.credentials) {
+            Modal.alert(t('common.error'), t('devices.needLogin'));
+            return;
+        }
+        try {
+            await deleteDevice(auth.credentials, machine.id);
+            await sync.refreshMachines();
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [auth.credentials]);
+
     const deviceMenuItems = React.useMemo<ActionMenuItem[]>(() => {
         if (!menuDevice) return [];
         return [
@@ -181,8 +201,13 @@ export const DeviceManagementView = React.memo(() => {
                 label: t('devices.rename'),
                 onPress: () => { const device = menuDevice; setMenuDevice(null); void handleRenameDevice(device); },
             },
+            {
+                label: t('devices.deleteDevice'),
+                destructive: true,
+                onPress: () => { const device = menuDevice; setMenuDevice(null); void handleDeleteDevice(device); },
+            },
         ];
-    }, [handleRenameDevice, menuDevice]);
+    }, [handleDeleteDevice, handleRenameDevice, menuDevice]);
 
     const sortedMachines = React.useMemo(
         () => [...machines].sort((a, b) => Number(b.active) - Number(a.active) || machineTitle(a).localeCompare(machineTitle(b))),

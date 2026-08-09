@@ -174,4 +174,34 @@ export function machinesRoutes(app: Fastify) {
         };
     });
 
+    // DELETE /v1/machines/:id — unenroll a device. Access keys tied to the
+    // machine are removed first (they carry a composite FK); sessions that ran
+    // on it keep their history untouched.
+    app.delete('/v1/machines/:id', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                id: z.string()
+            })
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { id } = request.params;
+
+        const machine = await db.machine.findFirst({
+            where: { accountId: userId, id }
+        });
+        if (!machine) {
+            return reply.code(404).send({ error: 'Machine not found' });
+        }
+
+        await db.$transaction(async (tx) => {
+            await tx.accessKey.deleteMany({ where: { accountId: userId, machineId: id } });
+            await tx.machine.delete({ where: { accountId_id: { accountId: userId, id } } });
+        });
+
+        log({ module: 'machines', userId, machineId: id }, 'Machine deleted');
+        return reply.send({ success: true });
+    });
+
 }

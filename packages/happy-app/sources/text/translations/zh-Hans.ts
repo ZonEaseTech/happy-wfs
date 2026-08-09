@@ -90,6 +90,9 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        deleteDevice: '删除设备',
+        deleteDeviceTitle: '删除设备',
+        deleteDeviceConfirm: ({ name }: { name: string }) => `确定删除设备「${name}」吗?删除后需要重新纳管才能使用,历史会话记录保留。`,
         pendingApprovals: '待批准的连接',
         pendingApprovalsFooter: '有电脑请求连接到设备(happy ssh)。批准后该电脑就能直接开终端,无需再次确认。',
         approve: '批准',

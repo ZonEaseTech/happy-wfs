@@ -134,3 +134,15 @@ export async function denyDeviceKeyRequest(credentials: AuthCredentials, id: str
         throw new Error(`Failed to deny key request: ${response.status}`);
     }
 }
+
+/** Unenroll a device. The daemon on that machine stops being reachable; its
+ *  session history is kept. */
+export async function deleteDevice(credentials: AuthCredentials, machineId: string): Promise<void> {
+    const response = await fetch(`${getServerUrl()}/v1/machines/${encodeURIComponent(machineId)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${credentials.token}` }
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to delete device: ${response.status}`);
+    }
+}

@@ -88,6 +88,9 @@ export const it: TranslationStructure = {
     },
 
     devices: {
+        deleteDevice: 'Remove device',
+        deleteDeviceTitle: 'Remove device',
+        deleteDeviceConfirm: ({ name }: { name: string }) => `Remove "${name}"? You will need to enroll it again to use it; session history is kept.`,
         pendingApprovals: 'Pending connections',
         pendingApprovalsFooter: 'A computer asked to connect to a device (happy ssh). Approving lets it open terminals without asking again.',
         approve: 'Approve',

@@ -90,6 +90,9 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        deleteDevice: '刪除設備',
+        deleteDeviceTitle: '刪除設備',
+        deleteDeviceConfirm: ({ name }: { name: string }) => `確定刪除設備「${name}」嗎?刪除後需要重新納管才能使用,歷史會話記錄保留。`,
         pendingApprovals: '待批准的連線',
         pendingApprovalsFooter: '有電腦請求連線到裝置(happy ssh)。批准後該電腦就能直接開終端,無需再次確認。',
         approve: '批准',
