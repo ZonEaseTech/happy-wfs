@@ -12,9 +12,10 @@ import axios from 'axios';
 import tweetnacl from 'tweetnacl';
 import { randomBytes } from 'node:crypto';
 import { configuration } from '@/configuration';
-import { decodeBase64 } from '@/api/encryption';
+import { decodeBase64, libsodiumPublicKeyFromSecretKey } from '@/api/encryption';
+import { deriveKey } from '@/utils/deriveKey';
 import { decryptWithEphemeralKey } from '@/ui/auth';
-import { writeCredentialsLegacy, writeCredentialsDataKey, readCredentials, updateSettings } from '@/persistence';
+import { writeCredentialsDataKey, readCredentials, updateSettings } from '@/persistence';
 
 export type EnrollResult = {
     alreadyEnrolled: boolean;
@@ -73,7 +74,19 @@ export async function enrollDevice(rawToken: string, options: { force?: boolean 
     await updateSettings((settings) => ({ ...settings, deviceMode: true }));
 
     if (opened.length === 32) {
-        await writeCredentialsLegacy({ secret: opened, token: response.token });
+        // Raw account master secret. Storing it as legacy credentials would
+        // register this machine without a data-key envelope, and then no
+        // other client can derive the key needed to talk to it (device_exec
+        // fails with "cannot resolve encryption key"). Derive the account's
+        // content public key — the same derivation the app uses — and store
+        // dataKey credentials so machine registration seals a proper
+        // envelope for this device.
+        const contentDataKey = await deriveKey(opened, 'Happy EnCoder', ['content']);
+        await writeCredentialsDataKey({
+            publicKey: libsodiumPublicKeyFromSecretKey(contentDataKey),
+            machineKey: randomBytes(32),
+            token: response.token
+        });
         return { alreadyEnrolled: false };
     }
     if (opened[0] === 0 && opened.length >= 33) {
