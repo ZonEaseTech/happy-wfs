@@ -56,16 +56,16 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
             onPress();
             return;
         }
-        // Preview Html cards open the same tool detail inside the chat
-        // column in desktop panel mode so the terminal / right panel stays
-        // visible; elsewhere they use the regular tool detail navigation.
-        if (/(^|__)preview_html$/.test(tool.name) && messageId && openToolInPanel(messageId)) {
+        // Desktop panel mode shows the tool detail inside the chat column so
+        // the terminal / right panel stays visible; elsewhere fall through to
+        // the regular tool detail navigation.
+        if (messageId && openToolInPanel(messageId)) {
             return;
         }
         if (sessionId && messageId) {
             router.push(`/session/${sessionId}/message/${messageId}`);
         }
-    }, [onPress, sessionId, messageId, router, tool.name]);
+    }, [onPress, sessionId, messageId, router]);
 
     // Enable pressable if either onPress is provided or we have navigation params
     const isPressable = !!(onPress || (sessionId && messageId));

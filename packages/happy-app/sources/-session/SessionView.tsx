@@ -474,7 +474,15 @@ export const SessionView = React.memo((props: { id: string }) => {
                 }}>
                     <ChatHeaderView
                         {...headerProps}
-                        onBackPress={() => router.back()}
+                        onBackPress={() => {
+                            // While the in-chat tool detail is open, back
+                            // closes it instead of leaving the session.
+                            if (chatToolMessageId) {
+                                setChatToolMessageId(null);
+                                return;
+                            }
+                            router.back();
+                        }}
                         headerRight={session ? () => {
                             return (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>

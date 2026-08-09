@@ -394,8 +394,8 @@ export const SettingsView = React.memo(function SettingsView() {
                     />
                 )}
                 <Item
-                    title={t('tabs.portProxy')}
-                    subtitle={t('settings.portProxySubtitle')}
+                    title={t('tabs.devices')}
+                    subtitle={t('settings.devicesSubtitle')}
                     icon={
                         <Image
                             source={require('@/assets/images/brutalist/Brutalism 117.png')}
@@ -404,7 +404,7 @@ export const SettingsView = React.memo(function SettingsView() {
                             tintColor="#5AC8FA"
                         />
                     }
-                    onPress={() => router.push('/port-proxy')}
+                    onPress={() => router.push('/devices')}
                 />
             </ItemGroup>
 

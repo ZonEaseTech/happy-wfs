@@ -519,26 +519,10 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
-                name="port-proxy/index"
+                name="devices/index"
                 options={{
                     headerShown: true,
-                    headerTitle: t('tabs.portProxy'),
-                    headerBackTitle: t('common.back'),
-                }}
-            />
-            <Stack.Screen
-                name="port-proxy/add"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('portProxy.addProxy'),
-                    headerBackTitle: t('common.back'),
-                }}
-            />
-            <Stack.Screen
-                name="port-proxy/[id]"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('portProxy.editProxy'),
+                    headerTitle: t('tabs.devices'),
                     headerBackTitle: t('common.back'),
                 }}
             />
