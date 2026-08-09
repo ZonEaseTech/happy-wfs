@@ -117,12 +117,18 @@ export const DeviceManagementView = React.memo(() => {
         try {
             const { token } = await createDeviceEnrollToken(auth.credentials, auth.credentials.secret);
             const command = buildEnrollCommand(token, getServerUrl());
-            const copy = await Modal.confirm(t('devices.enrollTitle'), `${t('devices.enrollHint')}\n\n${command}`, {
+            // Prompt (not confirm) so the long one-liner gets a wide, scrollable,
+            // selectable field instead of being squeezed into an alert body.
+            const confirmed = await Modal.prompt(t('devices.enrollTitle'), t('devices.enrollHint'), {
+                defaultValue: command,
                 confirmText: t('common.copy'),
                 cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 4,
+                size: 'large',
             });
-            if (copy) {
-                await Clipboard.setStringAsync(command);
+            if (confirmed) {
+                await Clipboard.setStringAsync(confirmed.trim() || command);
                 hapticsLight();
                 showCopiedToast();
             }

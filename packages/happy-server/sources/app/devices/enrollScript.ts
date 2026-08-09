@@ -71,8 +71,15 @@ export PATH
 echo "happy-enroll: installing Happy CLI"
 "$RUNTIME_DIR/bin/npm" install -g --prefix "$RUNTIME_DIR" --no-fund --no-audit @zonease/happy@latest >/dev/null
 
+# Older CLI builds treat an unknown subcommand as "start an interactive
+# session", which fails noisily when piped from curl (no TTY). Verify support
+# before running, and feed /dev/null so nothing can wait on stdin.
+if ! "$RUNTIME_DIR/bin/happy" device </dev/null 2>/dev/null | grep -q "device enroll"; then
+  fail "installed Happy CLI does not support device enrollment yet — upgrade the CLI and retry"
+fi
+
 echo "happy-enroll: enrolling device"
-"$RUNTIME_DIR/bin/happy" device enroll "$TOKEN"
+"$RUNTIME_DIR/bin/happy" device enroll "$TOKEN" </dev/null
 
 echo "happy-enroll: done — this machine should now appear in Happy"
 `;
