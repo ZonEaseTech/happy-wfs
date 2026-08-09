@@ -8,6 +8,8 @@ import { SidebarView } from './SidebarView';
 import { ResizableHandle } from './ResizableHandle';
 import { useResizableColumn } from '@/utils/useResizableColumn';
 import { isSidebarHiddenPath } from './sidebarVisibility';
+import { TerminalPanel } from './Terminal';
+import { closeTerminalPanel, useTerminalPanelState } from './terminalPanelStore';
 
 const MIN_SIDEBAR_WIDTH = 250;
 const MAX_SIDEBAR_WIDTH = 500;
@@ -79,9 +81,33 @@ export const SidebarNavigator = React.memo(() => {
     );
 
     return (
-        <Drawer
-            screenOptions={drawerNavigationOptions}
-            drawerContent={showPermanentDrawer ? drawerContent : undefined}
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <Drawer
+                    screenOptions={drawerNavigationOptions}
+                    drawerContent={showPermanentDrawer ? drawerContent : undefined}
+                />
+            </View>
+            <GlobalTerminalHost />
+        </View>
+    );
+});
+
+/**
+ * Mounted beside the navigator so an open terminal survives route changes
+ * (chat → devices → settings); only the middle column swaps.
+ */
+const GlobalTerminalHost = React.memo(() => {
+    const terminal = useTerminalPanelState();
+    if (!terminal.targetId) return null;
+    return (
+        <TerminalPanel
+            visible={terminal.visible}
+            onClose={closeTerminalPanel}
+            sessionId={terminal.targetId}
+            cwd={terminal.cwd}
+            isMachineScope={terminal.isMachineScope}
+            openRequestKey={terminal.openRequestKey}
         />
     );
 });

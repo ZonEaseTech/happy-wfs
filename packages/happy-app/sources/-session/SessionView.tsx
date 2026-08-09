@@ -68,7 +68,7 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { RightPanel, RightPanelType } from '@/components/RightPanel';
 import { FileViewerModal } from '@/components/FileViewerModal';
-import { TerminalPanel } from '@/components/Terminal';
+import { closeTerminalPanel, openTerminalPanel, useTerminalPanelState } from '@/components/terminalPanelStore';
 import { buildCopyToAgentBriefPrompt } from './sessionCopyPrompt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
@@ -201,8 +201,10 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Terminal modal: web + tablet only (no room for an xterm UI on phones).
     // Mounted inside SessionViewLoaded so it has session context, but state
     // lives here so the header button can flip it.
-    const [showTerminal, setShowTerminal] = React.useState(false);
-    const [terminalOpenRequestKey, setTerminalOpenRequestKey] = React.useState(0);
+    // Terminal lives at app level (SidebarNavigator) so it survives route
+    // changes; this screen only opens it and reflects its state on the button.
+    const terminalPanel = useTerminalPanelState();
+    const showTerminal = terminalPanel.visible && terminalPanel.targetId === sessionId;
     const showTerminalButton = Platform.OS === 'web' && isTablet;
     // Phones have no xterm surface; the terminal icon opens the synced quick
     // commands instead, executed on the session's machine via machineBash.
@@ -249,9 +251,12 @@ export const SessionView = React.memo((props: { id: string }) => {
             }))
     ), [runQuickCommand, terminalQuickCommands]);
     const handleOpenTerminalPanel = React.useCallback(() => {
-        setShowTerminal(true);
-        setTerminalOpenRequestKey((value) => value + 1);
-    }, []);
+        if (showTerminal) {
+            closeTerminalPanel();
+            return;
+        }
+        openTerminalPanel({ targetId: sessionId, cwd: session?.metadata?.path ?? undefined });
+    }, [sessionId, session?.metadata?.path, showTerminal]);
     // Reset panel if shrinking out of desktop mode (avoid stale panel state on resize).
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
@@ -769,15 +774,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                 )}
             </View>
             </View>
-            {showTerminalButton && (
-                <TerminalPanel
-                    visible={showTerminal}
-                    onClose={() => setShowTerminal(false)}
-                    sessionId={sessionId}
-                    cwd={session?.metadata?.path}
-                    openRequestKey={terminalOpenRequestKey}
-                />
-            )}
             {isDesktopPanelMode && rightPanelType && (
                 <RightPanel
                     sessionId={sessionId}

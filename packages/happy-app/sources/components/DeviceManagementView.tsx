@@ -13,6 +13,7 @@ import { Typography } from '@/constants/Typography';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
+import { openTerminalPanel } from '@/components/terminalPanelStore';
 import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
@@ -107,7 +108,6 @@ export const DeviceManagementView = React.memo(() => {
     const auth = useAuth();
     const machines = useAllMachines();
     const [creating, setCreating] = React.useState(false);
-    const [terminalDevice, setTerminalDevice] = React.useState<Machine | null>(null);
     const [menuDevice, setMenuDevice] = React.useState<Machine | null>(null);
     const [keyRequests, setKeyRequests] = React.useState<DeviceKeyRequest[]>([]);
 
@@ -203,7 +203,7 @@ export const DeviceManagementView = React.memo(() => {
         return [
             {
                 label: t('devices.openTerminal'),
-                onPress: () => { const device = menuDevice; setMenuDevice(null); setTerminalDevice(device); },
+                onPress: () => { const device = menuDevice; setMenuDevice(null); openTerminalPanel({ targetId: device.id, isMachineScope: true }); },
             },
             {
                 label: t('devices.rename'),
@@ -329,15 +329,6 @@ export const DeviceManagementView = React.memo(() => {
                 onClose={() => setMenuDevice(null)}
                 title={menuDevice ? machineTitle(menuDevice) : undefined}
             />
-
-            {terminalDevice && (
-                <Terminal
-                    visible
-                    onClose={() => setTerminalDevice(null)}
-                    sessionId={terminalDevice.id}
-                    isMachineScope
-                />
-            )}
         </ScrollView>
     );
 });
