@@ -10,6 +10,7 @@ import { MessageView } from './MessageView';
 import { Metadata, Session } from '@/sync/storageTypes';
 import { ChatFooter } from './ChatFooter';
 import { Message } from '@/sync/typesMessage';
+import { buildRailEntries, ChatMessageRail, RAIL_SUPPORTED } from '@/components/ChatMessageRail';
 import { layout } from './layout';
 import { createScrollButtonVisibilityController } from './scrollButtonVisibilityController';
 
@@ -115,6 +116,16 @@ const ChatListInternal = React.memo((props: {
         }
     }
 
+    // Message navigator rail (desktop): ticks for the user's own messages,
+    // hover to peek, click to jump back to that point in the conversation.
+    const railEntries = React.useMemo(
+        () => (RAIL_SUPPORTED ? buildRailEntries(visibleMessages) : []),
+        [visibleMessages]
+    );
+    const handleRailSelect = useCallback((index: number) => {
+        flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    }, []);
+
     const keyExtractor = useCallback((item: any) => item.id, []);
     const renderItem = useCallback(({ item, index }: { item: Message, index: number }) => (
         <MessageView
@@ -210,7 +221,15 @@ const ChatListInternal = React.memo((props: {
                 scrollEventThrottle={16}
                 onEndReached={handleEndReached}
                 onEndReachedThreshold={0.5}
+                onScrollToIndexFailed={(info) => {
+                    // Item not measured yet: jump to an estimated offset instead.
+                    flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+                }}
             />
+
+            {railEntries.length > 0 && (
+                <ChatMessageRail entries={railEntries} onSelect={handleRailSelect} />
+            )}
 
             {/* Scroll to bottom button - positioned relative to content area */}
             {showScrollButton && (
