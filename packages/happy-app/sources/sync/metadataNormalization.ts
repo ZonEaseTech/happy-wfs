@@ -40,6 +40,7 @@ export const SESSION_METADATA_WRITE_KEYS = [
     'externalContext',
     'sessionIcon',
     'completionDismissedAt',
+    'goalPins',
 ] as const;
 
 export function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {

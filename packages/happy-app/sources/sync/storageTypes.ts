@@ -114,6 +114,14 @@ export const MetadataSchema = z.object({
     }).optional(),
     sessionIcon: z.string().optional(),
     completionDismissedAt: z.number().nullish(),
+    // User-pinned messages kept visible at the top of the chat ("会话目标").
+    // Stored on the encrypted session metadata so pins follow the user
+    // across devices, same sync path as awaitingClosure / reviewPending.
+    goalPins: z.array(z.object({
+        messageId: z.string(),
+        text: z.string(),
+        pinnedAt: z.number(),
+    })).optional(),
 });
 
 export type Metadata = z.infer<typeof MetadataSchema>;
