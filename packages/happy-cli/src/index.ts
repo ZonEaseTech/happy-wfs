@@ -17,7 +17,7 @@ import packageJson from '../package.json'
 import { z } from 'zod'
 import { startDaemon } from './daemon/run'
 import { enrollDevice } from './device/enroll'
-import { printDeviceList, sshDevice } from './device/ssh'
+import { sshDevice, sshPickAndConnect } from './device/ssh'
 import { checkIfDaemonRunningAndCleanupStaleState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './daemon/controlClient'
 import { getLatestDaemonLog } from './ui/logger'
 import { killRunawayHappyProcesses } from './daemon/doctor'
@@ -506,9 +506,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     const target = args[1]
     try {
       if (!target) {
-        await printDeviceList(credentials)
-        console.log('\nUsage: happy ssh <device>')
-        process.exit(0)
+        process.exit(await sshPickAndConnect(credentials))
       }
       process.exit(await sshDevice(credentials, target))
     } catch (error) {
