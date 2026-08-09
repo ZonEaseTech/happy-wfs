@@ -16,9 +16,8 @@ function getMaxWidth(): number {
         return Number.POSITIVE_INFINITY;
     }
 
-    // For tablets and web, use 1000px so the header tracks the content area
-    // (which was widened from 800 -> 1000 in the same commit family).
-    return 1000;
+    // For tablets and web, use 1200px so the header tracks the content area.
+    return 1200;
 }
 
 // Calculate max width based on device type
@@ -35,9 +34,9 @@ function getMaxLayoutWidth(): number {
         return 1400;
     }
 
-    // For tablets and web, use 1000px (widened from 800 on user request to give
-    // the chat content area more breathing room on PC web).
-    return 1000;
+    // For tablets and web, use 1200px (widened from 1000 on user request to
+    // give the chat content area more breathing room on PC web).
+    return 1200;
 }
 
 export const layout = {
