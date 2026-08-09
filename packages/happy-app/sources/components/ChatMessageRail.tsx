@@ -11,10 +11,10 @@ import { Message } from '@/sync/typesMessage';
  * Desktop-only affordance — phones have no hover.
  */
 
-const RAIL_WIDTH = 26;
+const RAIL_WIDTH = 64;
 const MAX_TICKS = 80;
 const PEEK_MAX_CHARS = 260;
-const TICK_SLOT_HEIGHT = 10;
+const TICK_SLOT_HEIGHT = 11;
 const PEEK_CARD_WIDTH = 460;
 
 export interface RailEntry {
@@ -104,12 +104,50 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
             }}
         >
             <View style={{ alignItems: 'flex-start' }}>
+                {hovered && (
+                    <View
+                        pointerEvents="none"
+                        style={{
+                            position: 'absolute',
+                            left: RAIL_WIDTH,
+                            top: hovered.y - 20,
+                            width: PEEK_CARD_WIDTH,
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderRadius: 14,
+                            backgroundColor: theme.colors.surface,
+                            borderWidth: 1,
+                            borderColor: theme.colors.divider,
+                            shadowColor: theme.colors.shadow.color,
+                            shadowOffset: { width: 0, height: 6 },
+                            shadowOpacity: theme.colors.shadow.opacity,
+                            shadowRadius: 14,
+                            elevation: 8,
+                            zIndex: 10,
+                        }}
+                    >
+                        <Text
+                            numberOfLines={1}
+                            style={{ color: theme.colors.text, fontSize: 15, fontWeight: '600', lineHeight: 22 }}
+                        >
+                            {hovered.entry.text}
+                        </Text>
+                        {hovered.entry.reply && (
+                            <Text
+                                numberOfLines={3}
+                                style={{ color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, marginTop: 6 }}
+                            >
+                                {hovered.entry.reply}
+                            </Text>
+                        )}
+                    </View>
+                )}
                 {entries.map((entry, position) => {
                     const active = hovered?.entry.id === entry.id;
                     // Collapsed: uniform short ticks. Hovered rail: length maps
                     // to message length so the conversation shape shows.
-                    const expanded = Math.min(18, 6 + Math.round(entry.text.length / 12));
-                    const width = active ? 20 : railHovered ? expanded : 8;
+                    const expanded = 14 + Math.min(38, Math.round(entry.text.length / 4));
+                    const width = railHovered ? expanded : 6;
                     return (
                         <Pressable
                             key={entry.id}
@@ -129,43 +167,6 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
                 })}
             </View>
 
-            {hovered && (
-                <View
-                    pointerEvents="none"
-                    style={{
-                        position: 'absolute',
-                        left: RAIL_WIDTH + 6,
-                        top: Math.max(0, hovered.y - 24),
-                        width: PEEK_CARD_WIDTH,
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        borderRadius: 14,
-                        backgroundColor: theme.colors.surface,
-                        borderWidth: 1,
-                        borderColor: theme.colors.divider,
-                        shadowColor: theme.colors.shadow.color,
-                        shadowOffset: { width: 0, height: 6 },
-                        shadowOpacity: theme.colors.shadow.opacity,
-                        shadowRadius: 14,
-                        elevation: 8,
-                    }}
-                >
-                    <Text
-                        numberOfLines={1}
-                        style={{ color: theme.colors.text, fontSize: 15, fontWeight: '600', lineHeight: 22 }}
-                    >
-                        {hovered.entry.text}
-                    </Text>
-                    {hovered.entry.reply && (
-                        <Text
-                            numberOfLines={3}
-                            style={{ color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, marginTop: 6 }}
-                        >
-                            {hovered.entry.reply}
-                        </Text>
-                    )}
-                </View>
-            )}
         </Pressable>
     );
 });
