@@ -122,8 +122,31 @@ const ChatListInternal = React.memo((props: {
         () => (RAIL_SUPPORTED ? buildRailEntries(visibleMessages) : []),
         [visibleMessages]
     );
+    // Jumping to an off-screen index fails while the row is outside the
+    // virtualization window, so land near it by estimated offset first and
+    // retry the exact position once the rows around it have mounted.
+    const railScrollTargetRef = useRef<number | null>(null);
     const handleRailSelect = useCallback((index: number) => {
-        flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+        railScrollTargetRef.current = index;
+        try {
+            flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+        } catch {
+            // handled by onScrollToIndexFailed
+        }
+    }, []);
+    const handleScrollToIndexFailed = useCallback((info: { index: number; averageItemLength: number }) => {
+        flatListRef.current?.scrollToOffset({
+            offset: Math.max(0, info.averageItemLength * info.index),
+            animated: false,
+        });
+        setTimeout(() => {
+            if (railScrollTargetRef.current !== info.index) return;
+            try {
+                flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+            } catch {
+                // Give up quietly: the estimated offset already moved the user close.
+            }
+        }, 220);
     }, []);
 
     const keyExtractor = useCallback((item: any) => item.id, []);
@@ -221,10 +244,7 @@ const ChatListInternal = React.memo((props: {
                 scrollEventThrottle={16}
                 onEndReached={handleEndReached}
                 onEndReachedThreshold={0.5}
-                onScrollToIndexFailed={(info) => {
-                    // Item not measured yet: jump to an estimated offset instead.
-                    flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
-                }}
+                onScrollToIndexFailed={handleScrollToIndexFailed}
             />
 
             {railEntries.length > 0 && (

@@ -88,9 +88,12 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
     if (entries.length === 0) return null;
 
     return (
-        <Pressable
-            onHoverIn={() => { setRailHovered(true); onPreload?.(); }}
-            onHoverOut={() => { setRailHovered(false); setHovered(null); }}
+        <View
+            // Pointer events instead of a wrapping Pressable: a parent
+            // Pressable competes with the tick Pressables for the touch
+            // responder and can swallow their onPress.
+            onPointerEnter={() => { setRailHovered(true); onPreload?.(); }}
+            onPointerLeave={() => { setRailHovered(false); setHovered(null); }}
             style={{
                 position: 'absolute',
                 left: 0,
@@ -152,7 +155,7 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
                         <Pressable
                             key={entry.id}
                             onPress={() => onSelect(entry.index)}
-                            onHoverIn={() => setHovered({ entry, y: position * TICK_SLOT_HEIGHT })}
+                            onPointerEnter={() => setHovered({ entry, y: position * TICK_SLOT_HEIGHT })}
                             hitSlop={{ top: 3, bottom: 3, left: 6, right: 10 }}
                             style={{ height: TICK_SLOT_HEIGHT, justifyContent: 'center' }}
                         >
@@ -166,8 +169,7 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
                     );
                 })}
             </View>
-
-        </Pressable>
+        </View>
     );
 });
 
