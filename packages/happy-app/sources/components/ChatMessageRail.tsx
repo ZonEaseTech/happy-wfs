@@ -25,6 +25,25 @@ export interface RailEntry {
     reply: string | null;
 }
 
+/**
+ * Harness-injected messages (task notifications, system reminders, command
+ * output) arrive as user messages but are not things the user typed, so they
+ * must not become navigator ticks.
+ */
+const SYSTEM_NOISE_PREFIXES = [
+    '<task-notification>',
+    '<system-reminder>',
+    '[SYSTEM NOTIFICATION',
+    '<local-command-stdout>',
+    '<command-name>',
+    '<user-prompt-submit-hook>',
+    'Caveat: The messages below were generated',
+];
+
+function isSystemNoise(text: string): boolean {
+    return SYSTEM_NOISE_PREFIXES.some((prefix) => text.startsWith(prefix));
+}
+
 function messageText(message: Message): string {
     if (message.kind === 'user-text') return (message.displayText ?? message.text ?? '').trim();
     if (message.kind === 'agent-text') return (message.text ?? '').trim();
@@ -37,7 +56,7 @@ export function buildRailEntries(messages: Message[]): RailEntry[] {
         const message = messages[i];
         if (message.kind !== 'user-text') continue;
         const text = messageText(message);
-        if (!text) continue;
+        if (!text || isSystemNoise(text)) continue;
         // The reply lives at a *newer* index in the inverted list.
         let reply: string | null = null;
         for (let j = i - 1; j >= 0 && j >= i - 12; j--) {
@@ -52,7 +71,9 @@ export function buildRailEntries(messages: Message[]): RailEntry[] {
         entries.push({ index: i, id: message.id, text: text.slice(0, PEEK_MAX_CHARS), reply });
         if (entries.length >= MAX_TICKS) break;
     }
-    return entries;
+    // Messages arrive newest-first (inverted list); the rail reads top-down
+    // like the chat, so the newest tick belongs at the bottom.
+    return entries.reverse();
 }
 
 export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
