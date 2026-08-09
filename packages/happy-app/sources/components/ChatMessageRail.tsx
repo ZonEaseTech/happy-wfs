@@ -5,20 +5,30 @@ import { Message } from '@/sync/typesMessage';
 
 /**
  * Vertical navigator rail for a session's own messages: one tick per user
- * message, hover shows a peek card with that message's text, click scrolls
- * the chat to it. Desktop-only affordance — phones have no hover and the
- * rail would eat horizontal space.
+ * message. Hovering anywhere over the rail expands every tick (so the shape
+ * of the conversation becomes readable); hovering a single tick shows a peek
+ * card with that message and the reply it got, and clicking scrolls to it.
+ * Desktop-only affordance — phones have no hover.
  */
 
-const RAIL_WIDTH = 22;
-const MAX_TICKS = 60;
-const PEEK_MAX_CHARS = 220;
+const RAIL_WIDTH = 26;
+const MAX_TICKS = 80;
+const PEEK_MAX_CHARS = 260;
+const TICK_SLOT_HEIGHT = 10;
+const PEEK_CARD_WIDTH = 460;
 
 export interface RailEntry {
     /** Index inside the inverted chat list (0 = newest). */
     index: number;
     id: string;
     text: string;
+    reply: string | null;
+}
+
+function messageText(message: Message): string {
+    if (message.kind === 'user-text') return (message.displayText ?? message.text ?? '').trim();
+    if (message.kind === 'agent-text') return (message.text ?? '').trim();
+    return '';
 }
 
 export function buildRailEntries(messages: Message[]): RailEntry[] {
@@ -26,26 +36,40 @@ export function buildRailEntries(messages: Message[]): RailEntry[] {
     for (let i = 0; i < messages.length; i++) {
         const message = messages[i];
         if (message.kind !== 'user-text') continue;
-        const raw = (message.displayText ?? message.text ?? '').trim();
-        if (!raw) continue;
-        entries.push({ index: i, id: message.id, text: raw.slice(0, PEEK_MAX_CHARS) });
+        const text = messageText(message);
+        if (!text) continue;
+        // The reply lives at a *newer* index in the inverted list.
+        let reply: string | null = null;
+        for (let j = i - 1; j >= 0 && j >= i - 12; j--) {
+            if (messages[j].kind === 'agent-text') {
+                const replyText = messageText(messages[j]);
+                if (replyText) {
+                    reply = replyText.slice(0, PEEK_MAX_CHARS);
+                    break;
+                }
+            }
+        }
+        entries.push({ index: i, id: message.id, text: text.slice(0, PEEK_MAX_CHARS), reply });
         if (entries.length >= MAX_TICKS) break;
     }
     return entries;
 }
 
-export const ChatMessageRail = React.memo(({ entries, onSelect }: {
+export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
     entries: RailEntry[];
     onSelect: (index: number) => void;
+    onPreload?: () => void;
 }) => {
     const { theme } = useUnistyles();
-    const [hovered, setHovered] = React.useState<RailEntry | null>(null);
+    const [railHovered, setRailHovered] = React.useState(false);
+    const [hovered, setHovered] = React.useState<{ entry: RailEntry; y: number } | null>(null);
 
-    if (entries.length < 2) return null;
+    if (entries.length === 0) return null;
 
     return (
-        <View
-            pointerEvents="box-none"
+        <Pressable
+            onHoverIn={() => { setRailHovered(true); onPreload?.(); }}
+            onHoverOut={() => { setRailHovered(false); setHovered(null); }}
             style={{
                 position: 'absolute',
                 left: 0,
@@ -53,27 +77,28 @@ export const ChatMessageRail = React.memo(({ entries, onSelect }: {
                 bottom: 0,
                 width: RAIL_WIDTH,
                 justifyContent: 'center',
-                alignItems: 'center',
+                alignItems: 'flex-start',
+                paddingLeft: 8,
                 zIndex: 5,
             }}
         >
-            <View style={{ gap: 6, alignItems: 'flex-start', paddingVertical: 12 }}>
-                {entries.map((entry) => {
-                    const active = hovered?.id === entry.id;
-                    // Longer messages get a slightly wider tick, mirroring the
-                    // rough shape of the conversation.
-                    const width = Math.min(14, 6 + Math.round(entry.text.length / 30));
+            <View style={{ alignItems: 'flex-start' }}>
+                {entries.map((entry, position) => {
+                    const active = hovered?.entry.id === entry.id;
+                    // Collapsed: uniform short ticks. Hovered rail: length maps
+                    // to message length so the conversation shape shows.
+                    const expanded = Math.min(18, 6 + Math.round(entry.text.length / 12));
+                    const width = active ? 20 : railHovered ? expanded : 8;
                     return (
                         <Pressable
                             key={entry.id}
                             onPress={() => onSelect(entry.index)}
-                            onHoverIn={() => setHovered(entry)}
-                            onHoverOut={() => setHovered((current) => (current?.id === entry.id ? null : current))}
-                            hitSlop={4}
-                            style={{ paddingVertical: 2 }}
+                            onHoverIn={() => setHovered({ entry, y: position * TICK_SLOT_HEIGHT })}
+                            hitSlop={{ top: 3, bottom: 3, left: 6, right: 10 }}
+                            style={{ height: TICK_SLOT_HEIGHT, justifyContent: 'center' }}
                         >
                             <View style={{
-                                width: active ? width + 6 : width,
+                                width,
                                 height: 2,
                                 borderRadius: 1,
                                 backgroundColor: active ? theme.colors.textLink : theme.colors.divider,
@@ -88,30 +113,39 @@ export const ChatMessageRail = React.memo(({ entries, onSelect }: {
                     pointerEvents="none"
                     style={{
                         position: 'absolute',
-                        left: RAIL_WIDTH + 4,
-                        maxWidth: 320,
-                        paddingVertical: 10,
-                        paddingHorizontal: 12,
-                        borderRadius: 12,
+                        left: RAIL_WIDTH + 6,
+                        top: Math.max(0, hovered.y - 24),
+                        width: PEEK_CARD_WIDTH,
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        borderRadius: 14,
                         backgroundColor: theme.colors.surface,
                         borderWidth: 1,
                         borderColor: theme.colors.divider,
                         shadowColor: theme.colors.shadow.color,
-                        shadowOffset: { width: 0, height: 4 },
+                        shadowOffset: { width: 0, height: 6 },
                         shadowOpacity: theme.colors.shadow.opacity,
-                        shadowRadius: 10,
-                        elevation: 6,
+                        shadowRadius: 14,
+                        elevation: 8,
                     }}
                 >
                     <Text
-                        numberOfLines={4}
-                        style={{ color: theme.colors.text, fontSize: 13, lineHeight: 19 }}
+                        numberOfLines={1}
+                        style={{ color: theme.colors.text, fontSize: 15, fontWeight: '600', lineHeight: 22 }}
                     >
-                        {hovered.text}
+                        {hovered.entry.text}
                     </Text>
+                    {hovered.entry.reply && (
+                        <Text
+                            numberOfLines={3}
+                            style={{ color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, marginTop: 6 }}
+                        >
+                            {hovered.entry.reply}
+                        </Text>
+                    )}
                 </View>
             )}
-        </View>
+        </Pressable>
     );
 });
 

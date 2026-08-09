@@ -228,7 +228,11 @@ const ChatListInternal = React.memo((props: {
             />
 
             {railEntries.length > 0 && (
-                <ChatMessageRail entries={railEntries} onSelect={handleRailSelect} />
+                <ChatMessageRail
+                    entries={railEntries}
+                    onSelect={handleRailSelect}
+                    onPreload={handleEndReached}
+                />
             )}
 
             {/* Scroll to bottom button - positioned relative to content area */}
