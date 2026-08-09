@@ -96,6 +96,10 @@ export function DesktopModalShell({ title, onClose, disabled, headerRight, child
             <Stack.Screen
                 options={{
                     headerShown: false,
+                    // transparentModal keeps the previous screen (the chat)
+                    // mounted and painted behind; a plain stack screen would
+                    // leave the navigator's opaque background there instead.
+                    presentation: 'transparentModal',
                     contentStyle: { backgroundColor: 'transparent' },
                     animation: 'fade',
                 }}
