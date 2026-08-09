@@ -95,7 +95,13 @@ export async function deviceExec(
     credentials: Credentials,
     deviceId: string,
     command: string,
-    options: { cwd?: string; timeout?: number; deviceKeyBase64?: string | null } = {},
+    options: {
+        cwd?: string;
+        timeout?: number;
+        deviceKeyBase64?: string | null;
+        /** Machines enrolled by a legacy-mode CLI encrypt with the account master secret. */
+        deviceKeyVariant?: 'legacy' | 'dataKey';
+    } = {},
 ): Promise<DeviceExecResult> {
     const rows = await fetchMachines(credentials);
     const row = rows.find((candidate) => candidate.id === deviceId);
@@ -106,7 +112,7 @@ export async function deviceExec(
         throw new Error(`Device ${deviceId} is offline`);
     }
     const resolved = options.deviceKeyBase64
-        ? { key: decodeBase64(options.deviceKeyBase64), variant: 'dataKey' as const }
+        ? { key: decodeBase64(options.deviceKeyBase64), variant: options.deviceKeyVariant ?? 'dataKey' }
         : resolveMachineKey(credentials, row.dataEncryptionKey);
     if (!resolved) {
         throw new Error(`Cannot resolve encryption key for device ${deviceId}. Re-select the device in the app.`);
