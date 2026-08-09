@@ -12,7 +12,6 @@ import { useRealtimeStatus } from '@/sync/storage';
 import { MainView } from './MainView';
 import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/text';
 import { useInboxHasContent } from '@/hooks/useInboxHasContent';
 import { requestWebNotificationPermission } from '@/sync/webNotifications';
@@ -270,10 +269,11 @@ export const SidebarView = React.memo(() => {
                             accessibilityRole="button"
                             accessibilityLabel={t('tabs.devices')}
                         >
-                            <Ionicons
-                                name="hardware-chip-outline"
-                                size={28}
-                                color={theme.colors.header.tint}
+                            <Image
+                                source={require('@/assets/images/brutalist/Brutalism 70.png')}
+                                contentFit="contain"
+                                style={[{ width: 32, height: 32 }]}
+                                tintColor={theme.colors.header.tint}
                             />
                         </Pressable>
                         <Pressable

@@ -398,7 +398,7 @@ export const SettingsView = React.memo(function SettingsView() {
                     subtitle={t('settings.devicesSubtitle')}
                     icon={
                         <Image
-                            source={require('@/assets/images/brutalist/Brutalism 117.png')}
+                            source={require('@/assets/images/brutalist/Brutalism 70.png')}
                             style={{ width: 36, height: 36 }}
                             contentFit="contain"
                             tintColor="#5AC8FA"
