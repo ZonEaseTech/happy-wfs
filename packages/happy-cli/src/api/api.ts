@@ -189,7 +189,10 @@ export class ApiClient {
           id: opts.machineId,
           metadata: encodeBase64(encrypt(encryptionKey, encryptionVariant, opts.metadata)),
           daemonState: opts.daemonState ? encodeBase64(encrypt(encryptionKey, encryptionVariant, opts.daemonState)) : undefined,
-          dataEncryptionKey: dataEncryptionKey ? encodeBase64(dataEncryptionKey) : undefined
+          dataEncryptionKey: dataEncryptionKey ? encodeBase64(dataEncryptionKey) : undefined,
+          // Plaintext label so other clients can render a device list without
+          // holding this machine's key. Everything else stays encrypted.
+          displayName: opts.metadata.displayName || opts.metadata.host || undefined
         },
         {
           headers: {

@@ -194,7 +194,7 @@ async function listDevicesWithNames(credentials: Credentials): Promise<{ devices
 }
 
 export async function sshPickAndConnect(credentials: Credentials): Promise<number> {
-    const { devices, named } = await listDevicesWithNames(credentials);
+    const { devices } = await listDevicesWithNames(credentials);
     if (devices.length === 0) {
         console.log('No devices enrolled yet. Add one from Happy \u2192 Devices.');
         return 0;
@@ -205,10 +205,6 @@ export async function sshPickAndConnect(credentials: Credentials): Promise<numbe
         }
         console.log('\nUsage: happy ssh <device>');
         return 0;
-    }
-    if (!named) {
-        console.log('This computer has not been authorized yet, so device names are still hidden.');
-        console.log('Pick any device below and approve the request in Happy \u2192 Devices; names appear from then on.\n');
     }
     const chosen = await pickDevice(devices);
     if (!chosen) return 0;

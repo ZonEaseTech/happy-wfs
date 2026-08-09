@@ -515,6 +515,10 @@ model UsageReport {
 model Machine {
   id                 String      @id
   accountId          String
+  /// Plaintext label so any client can render a device list without holding
+  /// this machine's key. Deliberately not encrypted — the encrypted metadata
+  /// still carries everything else.
+  displayName        String?
   account            Account     @relation(fields: [accountId], references: [id])
   metadata           String // Encrypted - contains static machine info
   metadataVersion    Int         @default(0)

@@ -15,12 +15,13 @@ export function machinesRoutes(app: Fastify) {
                 id: z.string(),
                 metadata: z.string(), // Encrypted metadata
                 daemonState: z.string().optional(), // Encrypted daemon state
-                dataEncryptionKey: z.string().nullish()
+                dataEncryptionKey: z.string().nullish(),
+                displayName: z.string().max(120).nullish()
             })
         }
     }, async (request, reply) => {
         const userId = request.userId;
-        const { id, metadata, daemonState, dataEncryptionKey } = request.body;
+        const { id, metadata, daemonState, dataEncryptionKey, displayName } = request.body;
 
         // Check if machine exists (like sessions do)
         const machine = await db.machine.findFirst({
@@ -31,11 +32,17 @@ export function machinesRoutes(app: Fastify) {
         });
 
         if (machine) {
-            // Machine exists - just return it
+            // Machine exists — refresh the plaintext label so renames and
+            // upgrades from older CLIs fill it in without re-registering.
+            if (displayName && displayName !== machine.displayName) {
+                await db.machine.update({ where: { id: machine.id }, data: { displayName } });
+                machine.displayName = displayName;
+            }
             log({ module: 'machines', machineId: id, userId }, 'Found existing machine');
             return reply.send({
                 machine: {
                     id: machine.id,
+                    displayName: machine.displayName,
                     metadata: machine.metadata,
                     metadataVersion: machine.metadataVersion,
                     daemonState: machine.daemonState,
@@ -121,6 +128,7 @@ export function machinesRoutes(app: Fastify) {
 
         return machines.map(m => ({
             id: m.id,
+            displayName: m.displayName,
             metadata: m.metadata,
             metadataVersion: m.metadataVersion,
             daemonState: m.daemonState,

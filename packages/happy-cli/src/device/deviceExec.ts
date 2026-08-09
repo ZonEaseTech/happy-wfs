@@ -31,6 +31,8 @@ export interface DeviceExecResult {
 
 interface RawMachineRow {
     id: string;
+    /** Plaintext label, readable without the machine key. */
+    displayName?: string | null;
     metadata: string | null;
     dataEncryptionKey: string | null;
     active: boolean;
@@ -75,7 +77,7 @@ export async function listDevices(credentials: Credentials): Promise<DeviceSumma
         }
         return {
             id: row.id,
-            name: metadata?.displayName || metadata?.host || row.id.slice(0, 12),
+            name: row.displayName || metadata?.displayName || metadata?.host || row.id.slice(0, 12),
             platform: metadata?.platform ?? null,
             active: row.active,
             lastActiveAt: row.activeAt ?? row.lastActiveAt ?? 0,
