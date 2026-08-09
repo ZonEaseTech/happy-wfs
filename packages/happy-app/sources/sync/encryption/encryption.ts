@@ -140,6 +140,12 @@ export class Encryption {
      * Get machine encryption if it has been initialized
      * Returns null if not initialized (should never happen in normal flow)
      */
+    /** Machines registered by a legacy-mode CLI carry no data-key envelope —
+     *  their effective key is the account master secret. */
+    getLegacyMasterSecret(): Uint8Array {
+        return this.masterSecret;
+    }
+
     getMachineEncryption(machineId: string): MachineEncryption | null {
         return this.machineEncryptions.get(machineId) || null;
     }

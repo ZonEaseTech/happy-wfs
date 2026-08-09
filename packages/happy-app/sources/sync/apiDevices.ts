@@ -105,8 +105,10 @@ export async function listDeviceKeyRequests(credentials: AuthCredentials): Promi
 export interface DeviceDirectoryEntry {
     id: string;
     name: string;
-    /** base64 machine data key */
+    /** base64 machine key */
     key: string;
+    /** Machines enrolled by a legacy-mode CLI use the account master secret. */
+    variant: 'legacy' | 'dataKey';
 }
 
 /**

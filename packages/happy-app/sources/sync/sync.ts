@@ -198,6 +198,18 @@ class Sync {
     getMachineDataKey(machineId: string): Uint8Array | null {
         return this.machineDataKeys.get(machineId) ?? null;
     }
+
+    /**
+     * Key material a CLI needs to talk to a machine. Machines enrolled by a
+     * legacy-mode CLI have no data-key envelope; for those the account master
+     * secret is the key, which is why the variant travels with it.
+     */
+    getMachineKeyMaterial(machineId: string): { key: Uint8Array; variant: 'legacy' | 'dataKey' } | null {
+        const dataKey = this.machineDataKeys.get(machineId);
+        if (dataKey) return { key: dataKey, variant: 'dataKey' };
+        const master = this.encryption?.getLegacyMasterSecret();
+        return master ? { key: master, variant: 'legacy' } : null;
+    }
     private artifactDataKeys = new Map<string, Uint8Array>(); // Store artifact data encryption keys internally
     private settingsSync: InvalidateSync;
     private sessionModeConfigSync: InvalidateSync;

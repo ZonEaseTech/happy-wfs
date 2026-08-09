@@ -29,6 +29,8 @@ function deviceKeysFile(): string {
 export interface CachedDevice {
     name: string;
     key: string;
+    /** Machines enrolled by a legacy-mode CLI use the account master secret. */
+    variant?: 'legacy' | 'dataKey';
 }
 
 async function readDeviceKeys(): Promise<Record<string, CachedDevice>> {
@@ -47,7 +49,7 @@ async function writeDeviceDirectory(entries: CachedDevice2[]): Promise<void> {
     await mkdir(dirname(file), { recursive: true });
     const keys = await readDeviceKeys();
     for (const entry of entries) {
-        keys[entry.id] = { name: entry.name, key: entry.key };
+        keys[entry.id] = { name: entry.name, key: entry.key, variant: entry.variant ?? 'dataKey' };
     }
     await writeFile(file, JSON.stringify(keys, null, 2), { mode: 0o600 });
 }
@@ -56,10 +58,16 @@ interface CachedDevice2 extends CachedDevice {
     id: string;
 }
 
-export async function readCachedDeviceKey(machineId: string): Promise<Uint8Array | null> {
+export interface DeviceKeyMaterial {
+    key: Uint8Array;
+    variant: 'legacy' | 'dataKey';
+}
+
+export async function readCachedDeviceKey(machineId: string): Promise<DeviceKeyMaterial | null> {
     const keys = await readDeviceKeys();
     const stored = keys[machineId];
-    return stored?.key ? decodeBase64(stored.key) : null;
+    if (!stored?.key) return null;
+    return { key: decodeBase64(stored.key), variant: stored.variant ?? 'dataKey' };
 }
 
 /** Locally cached display names, populated by the approval handshake. */
@@ -77,7 +85,7 @@ export async function ensureDeviceKey(
     credentials: Credentials,
     machineId: string,
     onPending?: (info: { id: string }) => void,
-): Promise<Uint8Array> {
+): Promise<DeviceKeyMaterial> {
     const cached = await readCachedDeviceKey(machineId);
     if (cached) return cached;
 
@@ -124,7 +132,7 @@ export async function ensureDeviceKey(
             if (!target) {
                 throw new Error('The app did not include this device in the directory');
             }
-            return decodeBase64(target.key);
+            return { key: decodeBase64(target.key), variant: target.variant ?? 'dataKey' };
         }
     }
     throw new Error('Timed out waiting for approval in the Happy app');

@@ -36,10 +36,9 @@ export async function sshDevice(credentials: Credentials, query: string): Promis
         return 1;
     }
 
-    const key = await ensureDeviceKey(credentials, device.id, () => {
+    const { key, variant } = await ensureDeviceKey(credentials, device.id, () => {
         console.log('Waiting for approval in the Happy app (Devices → pending request)...');
     });
-    const variant = 'dataKey' as const;
 
     const socket: Socket = io(configuration.serverUrl, {
         auth: { token: credentials.token, clientType: 'user-scoped' as const },

@@ -14,7 +14,7 @@ import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { openTerminalPanel } from '@/components/terminalPanelStore';
-import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
@@ -133,10 +133,12 @@ export const DeviceManagementView = React.memo(() => {
         // so a CLI holding a single key could not render a readable list.
         const directory = machines
             .map((machine) => {
-                const key = sync.getMachineDataKey(machine.id);
-                return key ? { id: machine.id, name: machineTitle(machine), key: encodeBase64(key) } : null;
+                const material = sync.getMachineKeyMaterial(machine.id);
+                return material
+                    ? { id: machine.id, name: machineTitle(machine), key: encodeBase64(material.key), variant: material.variant }
+                    : null;
             })
-            .filter((entry): entry is { id: string; name: string; key: string } => !!entry);
+            .filter((entry): entry is DeviceDirectoryEntry => !!entry);
         if (directory.length === 0) {
             Modal.alert(t('common.error'), t('devices.approveNoKey'));
             return;
