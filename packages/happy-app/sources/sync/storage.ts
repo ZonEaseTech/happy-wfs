@@ -4,7 +4,7 @@ import { Session, SessionDraft, Machine, GitStatus, PendingMessage } from "./sto
 import { createReducer, reducer, ReducerState } from "./reducer/reducer";
 import { Message } from "./typesMessage";
 import { NormalizedMessage } from "./typesRaw";
-import { isMachineOnline } from '@/utils/machineUtils';
+import { canHostSessions, isMachineOnline } from '@/utils/machineUtils';
 import { applySettings, Settings } from "./settings";
 import { LocalSettings, applyLocalSettings } from "./localSettings";
 import { Profile } from "./profile";
@@ -1898,6 +1898,20 @@ export function useAllMachines(): Machine[] {
     return storage(useShallow((state) => {
         if (!state.isDataReady) return [];
         return (Object.values(state.machines).sort((a, b) => b.createdAt - a.createdAt)).filter((v) => v.active);
+    }));
+}
+
+/**
+ * Machines that can actually host a new session — enrolled devices are dropped
+ * because their daemon refuses `spawn-happy-session`. Use this everywhere a
+ * machine gets picked to start a session on.
+ */
+export function useSessionCapableMachines(): Machine[] {
+    return storage(useShallow((state) => {
+        if (!state.isDataReady) return [];
+        return Object.values(state.machines)
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .filter((v) => v.active && canHostSessions(v));
     }));
 }
 

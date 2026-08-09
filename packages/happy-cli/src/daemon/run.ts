@@ -84,6 +84,17 @@ export const initialMachineMetadata: MachineMetadata = {
   happyLibDir: projectPath()
 };
 
+/**
+ * Machine metadata including the enrolled-device flag. Local settings are the
+ * source of truth for `deviceMode`, so this always writes the current value
+ * (including `false`) — a box that stops being a device must stop advertising
+ * itself as one, otherwise it stays hidden from the session pickers forever.
+ */
+export async function buildMachineMetadata(): Promise<MachineMetadata> {
+  const settings = await readSettings();
+  return { ...initialMachineMetadata, deviceMode: settings.deviceMode === true };
+}
+
 // Get environment variables for a profile, filtered for agent compatibility
 async function getProfileEnvironmentVariablesForAgent(
   profileId: string,
@@ -1137,9 +1148,10 @@ export async function startDaemon(): Promise<void> {
     api = await ApiClient.create(credentials);
 
     // Get or create machine
+    const machineMetadata = await buildMachineMetadata();
     const machine = await api.getOrCreateMachine({
       machineId,
-      metadata: initialMachineMetadata,
+      metadata: machineMetadata,
       daemonState: initialDaemonState
     });
     logger.debug(`[DAEMON RUN] Machine registered: ${machine.id}`);
@@ -1161,7 +1173,7 @@ export async function startDaemon(): Promise<void> {
 
     // Update machine metadata on server (ensures version is current after daemon restart)
     // Merge with current metadata to preserve fields set by the app (e.g. displayName)
-    apiMachine.updateMachineMetadata((current) => ({ ...current, ...initialMachineMetadata })).catch((error) => {
+    apiMachine.updateMachineMetadata((current) => ({ ...current, ...machineMetadata })).catch((error) => {
       logger.debug('[DAEMON RUN] Failed to update machine metadata', error);
     });
 

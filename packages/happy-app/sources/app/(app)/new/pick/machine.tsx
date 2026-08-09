@@ -3,7 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import { Typography } from '@/constants/Typography';
-import { useAllMachines, useSessions } from '@/sync/storage';
+import { useSessionCapableMachines, useSessions } from '@/sync/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { useCLIDetectionBatch } from '@/hooks/useCLIDetection';
@@ -48,7 +48,7 @@ export default function MachinePickerScreen() {
     const router = useRouter();
     const navigation = useNavigation();
     const params = useLocalSearchParams<{ selectedId?: string }>();
-    const machines = useAllMachines();
+    const machines = useSessionCapableMachines();
     const sessions = useSessions();
 
     const selectedMachine = machines.find(m => m.id === params.selectedId) || null;

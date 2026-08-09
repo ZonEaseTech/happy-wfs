@@ -3,7 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { useAllMachines } from '@/sync/storage';
+import { useSessionCapableMachines } from '@/sync/storage';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { useRouter } from 'expo-router';
 import { t } from '@/text';
@@ -36,7 +36,7 @@ export function EmptySessionsTablet() {
     const { theme } = useUnistyles();
     const styles = stylesheet;
     const router = useRouter();
-    const machines = useAllMachines();
+    const machines = useSessionCapableMachines();
     
     const hasOnlineMachines = React.useMemo(() => {
         return machines.some(machine => isMachineOnline(machine));

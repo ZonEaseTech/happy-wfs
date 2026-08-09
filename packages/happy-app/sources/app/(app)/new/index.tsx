@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Platform, Pressable, useWindowDimensions, ScrollView, TextInput } from 'react-native';
 import Constants from 'expo-constants';
 import { Typography } from '@/constants/Typography';
-import { useAllMachines, storage, useLocalSettingMutable, useSessionModeLastUsed, useSetting, useSettingMutable, useSessions } from '@/sync/storage';
+import { useSessionCapableMachines, storage, useLocalSettingMutable, useSessionModeLastUsed, useSetting, useSettingMutable, useSessions } from '@/sync/storage';
 import { Ionicons, Octicons } from '@expo/vector-icons';
 import { ItemGroup } from '@/components/ItemGroup';
 import { Item } from '@/components/Item';
@@ -385,7 +385,7 @@ function NewSessionWizard() {
     }, [profiles]);
 
     const profileMap = useProfileMap(allProfiles);
-    const machines = useAllMachines();
+    const machines = useSessionCapableMachines();
     const sessions = useSessions();
 
     // Wizard state

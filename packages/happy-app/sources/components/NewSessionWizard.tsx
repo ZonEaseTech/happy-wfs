@@ -8,7 +8,7 @@ import { SessionTypeSelector } from '@/components/SessionTypeSelector';
 import { PermissionModeSelector, PermissionMode, ModelMode } from '@/components/PermissionModeSelector';
 import { ItemGroup } from '@/components/ItemGroup';
 import { Item } from '@/components/Item';
-import { useAllMachines, useSessionModeLastUsed, useSessions, useSetting, storage } from '@/sync/storage';
+import { useSessionCapableMachines, useSessionModeLastUsed, useSessions, useSetting, storage } from '@/sync/storage';
 import { useRouter } from 'expo-router';
 import { AIBackendProfile, validateProfileForAgent, getProfileEnvironmentVariables } from '@/sync/settings';
 import { Modal } from '@/modal';
@@ -535,7 +535,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
     const { theme } = useUnistyles();
     const styles = stylesheet;
     const router = useRouter();
-    const machines = useAllMachines();
+    const machines = useSessionCapableMachines();
     const sessions = useSessions();
     const recentMachinePaths = useSetting('recentMachinePaths');
     const lastUsedAgent = useSetting('lastUsedAgent');

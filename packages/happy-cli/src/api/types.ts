@@ -189,6 +189,10 @@ export const MachineMetadataSchema = z.object({
   happyHomeDir: z.string(),
   happyLibDir: z.string(),
   displayName: z.string().optional(),
+  // True when this machine was added with `happy device enroll`: it serves
+  // shell/files/terminal over machine RPC but refuses `spawn-happy-session`,
+  // so clients must keep it out of session pickers.
+  deviceMode: z.boolean().optional(),
 })
 
 export type MachineMetadata = z.infer<typeof MachineMetadataSchema>

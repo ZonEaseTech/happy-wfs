@@ -249,6 +249,10 @@ export const MachineMetadataSchema = z.object({
     username: z.string().optional(),
     arch: z.string().optional(),
     displayName: z.string().optional(), // Custom display name for the machine
+    // Set by machines added with `happy device enroll`: they serve
+    // shell/files/terminal but refuse to host agent sessions, so session
+    // pickers must skip them.
+    deviceMode: z.boolean().optional(),
     // Daemon status fields
     daemonLastKnownStatus: z.enum(['running', 'shutting-down']).optional(),
     daemonLastKnownPid: z.number().optional(),
