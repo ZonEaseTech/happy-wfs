@@ -14,7 +14,7 @@ import { randomBytes } from 'node:crypto';
 import { configuration } from '@/configuration';
 import { decodeBase64 } from '@/api/encryption';
 import { decryptWithEphemeralKey } from '@/ui/auth';
-import { writeCredentialsLegacy, writeCredentialsDataKey, readCredentials } from '@/persistence';
+import { writeCredentialsLegacy, writeCredentialsDataKey, readCredentials, updateSettings } from '@/persistence';
 
 export type EnrollResult = {
     alreadyEnrolled: boolean;
@@ -67,6 +67,10 @@ export async function enrollDevice(rawToken: string, options: { force?: boolean 
     if (!opened) {
         throw new Error('Enrollment failed: could not open the account key with this token');
     }
+
+    // Mark this machine as an enrolled device: it serves shell/files/terminal
+    // over machine RPC but must not host agent sessions.
+    await updateSettings((settings) => ({ ...settings, deviceMode: true }));
 
     if (opened.length === 32) {
         await writeCredentialsLegacy({ secret: opened, token: response.token });

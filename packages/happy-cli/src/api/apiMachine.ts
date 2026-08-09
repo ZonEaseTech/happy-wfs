@@ -6,6 +6,7 @@
 import { io, Socket } from 'socket.io-client';
 import { homedir } from 'node:os';
 import { logger } from '@/ui/logger';
+import { readSettings } from '@/persistence';
 import { configuration } from '@/configuration';
 import { isDebug } from '@/utils/env';
 import { MachineMetadata, DaemonState, Machine, Update, UpdateMachineBody } from './types';
@@ -256,6 +257,13 @@ export class ApiMachineClient {
     }: MachineRpcHandlers) {
         // Register spawn session handler
         this.rpcHandlerManager.registerHandler('spawn-happy-session', async (params: any) => {
+            // Enrolled devices expose shell/files/terminal only — they are not
+            // meant to host agent sessions, so refuse instead of installing an
+            // agent runtime on someone's production box.
+            const settings = await readSettings();
+            if (settings.deviceMode) {
+                throw new Error('This machine is enrolled as a device and does not host sessions');
+            }
             const { directory, sessionId, resumeSessionId, intent, sessionTitle, skipForkSession, machineId, approvedNewDirectoryCreation, agent, token, environmentVariables, worktreeBasePath, worktreeBranchName, workspaceRepos, workspacePath, repoScripts, mcpServers } = params || {};
             logger.debug(`[API MACHINE] Spawning session with params: ${JSON.stringify(params)}`);
 

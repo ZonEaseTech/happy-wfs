@@ -83,12 +83,17 @@ export async function listDevices(credentials: Credentials): Promise<DeviceSumma
     });
 }
 
+/**
+ * `deviceKeyBase64` comes from the session metadata the app wrote when the user
+ * picked a target device: a CLI process only holds the account's content public
+ * key, so it can never open a machine's key envelope on its own.
+ */
 export async function deviceExec(
     socket: Socket<any, any>,
     credentials: Credentials,
     deviceId: string,
     command: string,
-    options: { cwd?: string; timeout?: number } = {},
+    options: { cwd?: string; timeout?: number; deviceKeyBase64?: string | null } = {},
 ): Promise<DeviceExecResult> {
     const rows = await fetchMachines(credentials);
     const row = rows.find((candidate) => candidate.id === deviceId);
@@ -98,9 +103,11 @@ export async function deviceExec(
     if (!row.active) {
         throw new Error(`Device ${deviceId} is offline`);
     }
-    const resolved = resolveMachineKey(credentials, row.dataEncryptionKey);
+    const resolved = options.deviceKeyBase64
+        ? { key: decodeBase64(options.deviceKeyBase64), variant: 'dataKey' as const }
+        : resolveMachineKey(credentials, row.dataEncryptionKey);
     if (!resolved) {
-        throw new Error(`Cannot resolve encryption key for device ${deviceId}`);
+        throw new Error(`Cannot resolve encryption key for device ${deviceId}. Re-select the device in the app.`);
     }
 
     const timeout = options.timeout ?? 60000;

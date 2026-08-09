@@ -36,8 +36,14 @@ export const MetadataSchema = z.object({
         updatedAt: z.number()
     }).optional(),
     summaryPinned: z.boolean().optional(),
-    // Device (machine id) the session's AI runs commands on by default.
-    targetDeviceId: z.string().nullish(),
+    // Device this session's AI runs commands on by default. Carries the
+    // machine's data key because a CLI process cannot open the key envelope
+    // itself; session metadata is already end-to-end encrypted.
+    targetDevice: z.object({
+        id: z.string(),
+        name: z.string(),
+        key: z.string().nullable(),
+    }).nullish(),
     // User-driven "awaiting closure" mark — the agent's work is verified
     // and the user wants the session pinned to the top of the "待完结" tab
     // until they explicitly close it out. Stored as a stamped record so

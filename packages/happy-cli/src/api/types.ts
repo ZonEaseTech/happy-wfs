@@ -353,8 +353,10 @@ export type Metadata = {
     updatedAt: number
   },
   summaryPinned?: boolean,
-  /** Device (machine id) this session's AI should run commands on by default. */
-  targetDeviceId?: string | null,
+  /** Device this session's AI runs commands on by default. Carries the machine
+   *  data key because a CLI process only holds the account's content public key
+   *  and cannot open the key envelope itself. */
+  targetDevice?: { id: string, name: string, key: string | null } | null,
   machineId?: string,
   claudeSessionId?: string, // Claude Code session ID
   tools?: string[],

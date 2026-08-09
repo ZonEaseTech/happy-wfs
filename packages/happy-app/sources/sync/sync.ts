@@ -189,6 +189,15 @@ class Sync {
     /** Per-session lock to serialize fetchMessagesV3 and websocket message application */
     private sessionMessageLocks = new Map<string, AsyncLock>();
     private machineDataKeys = new Map<string, Uint8Array>(); // Store machine data encryption keys internally
+    /**
+     * A CLI process only holds the account's content *public* key, so it can
+     * never open a machine's key envelope itself. When the user targets a
+     * device for a session we hand the key over inside the session metadata,
+     * which is already end-to-end encrypted between app and CLI.
+     */
+    getMachineDataKey(machineId: string): Uint8Array | null {
+        return this.machineDataKeys.get(machineId) ?? null;
+    }
     private artifactDataKeys = new Map<string, Uint8Array>(); // Store artifact data encryption keys internally
     private settingsSync: InvalidateSync;
     private sessionModeConfigSync: InvalidateSync;
@@ -450,7 +459,22 @@ class Sync {
 
 
     private buildSystemPrompt(sessionId: string): string {
-        return systemPrompt;
+        // A target device is only useful if the agent knows to prefer it —
+        // otherwise it just reaches for local Bash and answers about the
+        // machine hosting the session.
+        const targetDevice = storage.getState().sessions[sessionId]?.metadata?.targetDevice;
+        if (!targetDevice) {
+            return systemPrompt;
+        }
+        return [
+            systemPrompt,
+            `# Target device
+
+This session targets the enrolled device "${targetDevice.name}" (id: ${targetDevice.id}).`
+            + ` Run shell commands there with the device_exec MCP tool instead of the local Bash tool,`
+            + ` and read "this machine" / "the current machine" as that device unless the user says otherwise.`
+            + ` Use local Bash only for work that must happen on the session's own machine (e.g. editing this repo).`,
+        ].join('\n\n');
     }
 
     private buildPendingPreview(rawContent: unknown): { previewText: string; imageCount: number } {

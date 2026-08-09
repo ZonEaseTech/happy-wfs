@@ -36,6 +36,7 @@ import type { GitHubIssue } from '@/sync/apiGithub';
 import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
 import { BUG_STATUS_ACCENTS, bugStatusLabel, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
 import { useAllMachines } from '@/sync/storage';
+import { encodeBase64 } from '@/encryption/base64';
 import { sessionUpdateMetadataFields } from '@/sync/ops';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
@@ -296,16 +297,23 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Target device: which enrolled machine this session's AI runs commands on.
     const allMachines = useAllMachines();
     const [deviceMenuVisible, setDeviceMenuVisible] = React.useState(false);
-    const targetDeviceId = session?.metadata?.targetDeviceId ?? null;
-    const handleSelectTargetDevice = React.useCallback((deviceId: string | null) => {
+    const targetDeviceId = session?.metadata?.targetDevice?.id ?? null;
+    const handleSelectTargetDevice = React.useCallback((deviceId: string | null, deviceName?: string) => {
         setDeviceMenuVisible(false);
         if (!session?.metadata) return;
+        // Hand the machine key to the CLI here: a CLI process only holds the
+        // account's content public key and cannot open the key envelope itself.
+        const key = deviceId ? sync.getMachineDataKey(deviceId) : null;
         sessionUpdateMetadataFields(
             sessionId,
             session.metadata,
-            { targetDeviceId: deviceId },
+            {
+                targetDevice: deviceId
+                    ? { id: deviceId, name: deviceName ?? deviceId, key: key ? encodeBase64(key) : null }
+                    : null,
+            },
             session.metadataVersion,
-        ).catch((error) => {
+        ).catch((error: unknown) => {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         });
     }, [session?.metadata, session?.metadataVersion, sessionId]);
@@ -320,7 +328,7 @@ export const SessionView = React.memo((props: { id: string }) => {
             items.push({
                 label: `${name}${machine.active ? '' : ` · ${t('devices.offline')}`}`,
                 selected: targetDeviceId === machine.id,
-                onPress: () => handleSelectTargetDevice(machine.id),
+                onPress: () => handleSelectTargetDevice(machine.id, name),
             });
         }
         return items;

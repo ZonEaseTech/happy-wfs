@@ -93,7 +93,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         }
         try {
             const devices = await listDevices(credentials);
-            const target = client.targetDeviceId;
+            const target = client.targetDevice?.id ?? null;
             const lines = devices.map((device) => {
                 const marks = [device.active ? 'online' : 'offline'];
                 if (device.id === target) marks.push('session default');
@@ -120,7 +120,8 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         if (!credentials) {
             return { content: [{ type: 'text', text: 'No Happy credentials on this machine.' }] };
         }
-        const deviceId = args.deviceId || client.targetDeviceId;
+        const target = client.targetDevice;
+        const deviceId = args.deviceId || target?.id;
         if (!deviceId) {
             return { content: [{ type: 'text', text: 'No device selected for this session. Pick one in the app or pass deviceId (see device_list).' }] };
         }
@@ -128,6 +129,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
             const result = await deviceExec(client.rpcSocket as any, credentials, deviceId, args.command, {
                 cwd: args.cwd,
                 timeout: args.timeout,
+                deviceKeyBase64: deviceId === target?.id ? target?.key : null,
             });
             const parts = [`exit code: ${result.exitCode}`];
             if (result.stdout) parts.push(`stdout:\n${result.stdout}`);

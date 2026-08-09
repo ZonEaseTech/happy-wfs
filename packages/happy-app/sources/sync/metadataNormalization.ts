@@ -41,6 +41,7 @@ export const SESSION_METADATA_WRITE_KEYS = [
     'sessionIcon',
     'completionDismissedAt',
     'goalPins',
+    'targetDevice',
 ] as const;
 
 export function normalizeSessionMetadataForWrite(metadata: Metadata): Metadata {

@@ -209,6 +209,9 @@ interface Settings {
   profiles: AIBackendProfile[]
   // CLI-local environment variable cache (not synced)
   localEnvironmentVariables: Record<string, Record<string, string>> // profileId -> env vars
+  /** Enrolled-device mode: expose machine RPC (shell, files, terminal) but do
+   *  not host agent sessions. Set by `happy device enroll`. */
+  deviceMode?: boolean
 }
 
 const defaultSettings: Settings = {
