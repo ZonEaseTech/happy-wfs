@@ -11,6 +11,7 @@ import { ChatList } from '@/components/ChatList';
 import { Deferred } from '@/components/Deferred';
 import { DuplicateSheet } from '@/components/DuplicateSheet';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
+import { QuickCommandResultModal, type QuickCommandRun } from '@/components/QuickCommandResultModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { PendingQueuePanel } from '@/components/PendingQueuePanel';
@@ -207,18 +208,32 @@ export const SessionView = React.memo((props: { id: string }) => {
     const terminalQuickCommands = useSetting('terminalQuickCommands');
     const showQuickCommandsButton = !showTerminalButton && terminalQuickCommands.length > 0;
     const [quickCommandsMenuVisible, setQuickCommandsMenuVisible] = React.useState(false);
+    const [quickCommandRun, setQuickCommandRun] = React.useState<QuickCommandRun | null>(null);
     const runQuickCommand = React.useCallback(async (title: string, command: string) => {
         const machineId = session?.metadata?.machineId;
         if (!machineId) {
             Modal.alert(t('common.error'), t('openclaw.machineNotFound'));
             return;
         }
+        setQuickCommandRun({ title, command, running: true, output: '', failed: false });
         try {
             const result = await machineBash(machineId, { command, cwd: session?.metadata?.path ?? undefined, timeout: 60000 });
             const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim();
-            Modal.alert(title, output ? output.slice(-1500) : (result.success ? 'OK' : `exit ${result.exitCode}`));
+            setQuickCommandRun({
+                title,
+                command,
+                running: false,
+                output: output || (result.success ? 'OK' : `exit ${result.exitCode}`),
+                failed: !result.success,
+            });
         } catch (error) {
-            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+            setQuickCommandRun({
+                title,
+                command,
+                running: false,
+                output: error instanceof Error ? error.message : String(error),
+                failed: true,
+            });
         }
     }, [session?.metadata?.machineId, session?.metadata?.path]);
     const quickCommandsMenuItems = React.useMemo<ActionMenuItem[]>(() => (
@@ -681,6 +696,8 @@ export const SessionView = React.memo((props: { id: string }) => {
                     <SessionGoalPinBanner sessionId={sessionId} onHeightChange={setGoalPinHeight} />
                 </View>
             )}
+
+            <QuickCommandResultModal run={quickCommandRun} onClose={() => setQuickCommandRun(null)} />
 
             {/* Quick commands for phones (terminal icon replacement) */}
             <ActionMenuModal

@@ -1666,6 +1666,7 @@ export const ca: TranslationStructure = {
         quickCommandsDeleteTitle: 'Delete quick command',
         quickCommandsDeleteMessage: ({ title }: { title: string }) => `Delete "${title}"?`,
         quickCommandsTerminalNotReady: 'Terminal is not ready yet.',
+        quickCommandsRunning: 'Running…',
     },
 
     modals: {

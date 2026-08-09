@@ -1668,6 +1668,7 @@ export const zhHant: TranslationStructure = {
         quickCommandsDeleteTitle: '刪除快捷指令',
         quickCommandsDeleteMessage: ({ title }: { title: string }) => `刪除「${title}」？`,
         quickCommandsTerminalNotReady: '終端還沒有準備好。',
+        quickCommandsRunning: '執行中…',
     },
 
     modals: {

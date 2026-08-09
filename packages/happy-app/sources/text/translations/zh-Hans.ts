@@ -1668,6 +1668,7 @@ export const zhHans: TranslationStructure = {
         quickCommandsDeleteTitle: '删除快捷指令',
         quickCommandsDeleteMessage: ({ title }: { title: string }) => `删除“${title}”？`,
         quickCommandsTerminalNotReady: '终端还没有准备好。',
+        quickCommandsRunning: '执行中…',
     },
 
     modals: {
