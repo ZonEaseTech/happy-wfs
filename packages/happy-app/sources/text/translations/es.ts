@@ -88,6 +88,8 @@ export const es: TranslationStructure = {
     },
 
     devices: {
+        markAsDevice: 'Mark as device only',
+        allowSessions: 'Allow hosting sessions',
         deleteDevice: 'Remove device',
         deleteDeviceTitle: 'Remove device',
         deleteDeviceConfirm: ({ name }: { name: string }) => `Remove "${name}"? You will need to enroll it again to use it; session history is kept.`,

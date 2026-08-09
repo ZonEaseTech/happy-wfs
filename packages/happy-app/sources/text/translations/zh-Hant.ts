@@ -90,6 +90,8 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        markAsDevice: '標記為純裝置(不承載工作階段)',
+        allowSessions: '允許承載工作階段',
         deleteDevice: '刪除設備',
         deleteDeviceTitle: '刪除設備',
         deleteDeviceConfirm: ({ name }: { name: string }) => `確定刪除設備「${name}」嗎?刪除後需要重新納管才能使用,歷史會話記錄保留。`,

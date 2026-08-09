@@ -16,12 +16,13 @@ export function machinesRoutes(app: Fastify) {
                 metadata: z.string(), // Encrypted metadata
                 daemonState: z.string().optional(), // Encrypted daemon state
                 dataEncryptionKey: z.string().nullish(),
-                displayName: z.string().max(120).nullish()
+                displayName: z.string().max(120).nullish(),
+                isDevice: z.boolean().nullish()
             })
         }
     }, async (request, reply) => {
         const userId = request.userId;
-        const { id, metadata, daemonState, dataEncryptionKey, displayName } = request.body;
+        const { id, metadata, daemonState, dataEncryptionKey, displayName, isDevice } = request.body;
 
         // Check if machine exists (like sessions do)
         const machine = await db.machine.findFirst({
@@ -34,15 +35,21 @@ export function machinesRoutes(app: Fastify) {
         if (machine) {
             // Machine exists — refresh the plaintext label so renames and
             // upgrades from older CLIs fill it in without re-registering.
-            if (displayName && displayName !== machine.displayName) {
-                await db.machine.update({ where: { id: machine.id }, data: { displayName } });
-                machine.displayName = displayName;
+            const refresh: { displayName?: string; isDevice?: boolean } = {};
+            if (displayName && displayName !== machine.displayName) refresh.displayName = displayName;
+            // Only ever set the flag from the CLI: clearing it is a user action
+            // in the app, and a stale CLI must not undo that.
+            if (isDevice === true && !machine.isDevice) refresh.isDevice = true;
+            if (Object.keys(refresh).length > 0) {
+                await db.machine.update({ where: { id: machine.id }, data: refresh });
+                Object.assign(machine, refresh);
             }
             log({ module: 'machines', machineId: id, userId }, 'Found existing machine');
             return reply.send({
                 machine: {
                     id: machine.id,
                     displayName: machine.displayName,
+                    isDevice: machine.isDevice,
                     metadata: machine.metadata,
                     metadataVersion: machine.metadataVersion,
                     daemonState: machine.daemonState,
@@ -116,6 +123,23 @@ export function machinesRoutes(app: Fastify) {
 
 
     // Machines API
+    // Lets the app correct the flag for machines enrolled before the CLI
+    // started reporting it, without touching the machine itself.
+    app.patch('/v1/machines/:id/device-flag', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({ id: z.string() }),
+            body: z.object({ isDevice: z.boolean() }),
+            response: { 200: z.object({ ok: z.boolean() }) }
+        }
+    }, async (request, reply) => {
+        await db.machine.updateMany({
+            where: { id: request.params.id, accountId: request.userId },
+            data: { isDevice: request.body.isDevice }
+        });
+        return reply.send({ ok: true });
+    });
+
     app.get('/v1/machines', {
         preHandler: app.authenticate,
     }, async (request, reply) => {
@@ -129,6 +153,7 @@ export function machinesRoutes(app: Fastify) {
         return machines.map(m => ({
             id: m.id,
             displayName: m.displayName,
+            isDevice: m.isDevice,
             metadata: m.metadata,
             metadataVersion: m.metadataVersion,
             daemonState: m.daemonState,

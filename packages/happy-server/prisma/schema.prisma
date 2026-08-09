@@ -519,6 +519,10 @@ model Machine {
   /// this machine's key. Deliberately not encrypted — the encrypted metadata
   /// still carries everything else.
   displayName        String?
+  /// Enrolled devices serve shell/files/terminal but never host sessions.
+  /// Kept server-side so it can be corrected from the app for machines that
+  /// enrolled before the CLI started reporting it.
+  isDevice           Boolean     @default(false)
   account            Account     @relation(fields: [accountId], references: [id])
   metadata           String // Encrypted - contains static machine info
   metadataVersion    Int         @default(0)

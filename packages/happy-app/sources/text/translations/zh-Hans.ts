@@ -90,6 +90,8 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        markAsDevice: '标记为纯设备(不承载会话)',
+        allowSessions: '允许承载会话',
         deleteDevice: '删除设备',
         deleteDeviceTitle: '删除设备',
         deleteDeviceConfirm: ({ name }: { name: string }) => `确定删除设备「${name}」吗?删除后需要重新纳管才能使用,历史会话记录保留。`,

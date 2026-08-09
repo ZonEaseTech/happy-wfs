@@ -1652,6 +1652,8 @@ This session targets the enrolled device "${targetDevice.name}" (id: ${targetDev
             daemonState?: string | null;
             daemonStateVersion?: number;
             dataEncryptionKey?: string | null; // Add support for per-machine encryption keys
+            isDevice?: boolean; // Plaintext: enrolled devices never host sessions
+            displayName?: string | null; // Plaintext label, readable without the machine key
             seq: number;
             active: boolean;
             activeAt: number;  // Changed from lastActiveAt
@@ -1707,6 +1709,8 @@ This session targets the enrolled device "${targetDevice.name}" (id: ${targetDev
                     updatedAt: machine.updatedAt,
                     active: machine.active,
                     activeAt: machine.activeAt,
+                    isDevice: machine.isDevice === true,
+                    displayName: machine.displayName ?? null,
                     metadata,
                     metadataVersion: machine.metadataVersion,
                     daemonState,
@@ -1722,6 +1726,8 @@ This session targets the enrolled device "${targetDevice.name}" (id: ${targetDev
                     updatedAt: machine.updatedAt,
                     active: machine.active,
                     activeAt: machine.activeAt,
+                    isDevice: machine.isDevice === true,
+                    displayName: machine.displayName ?? null,
                     metadata: null,
                     metadataVersion: machine.metadataVersion,
                     daemonState: null,

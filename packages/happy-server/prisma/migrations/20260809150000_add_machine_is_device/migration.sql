@@ -1,0 +1,1 @@
+ALTER TABLE "Machine" ADD COLUMN "isDevice" BOOLEAN NOT NULL DEFAULT false;

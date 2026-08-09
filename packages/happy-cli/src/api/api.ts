@@ -192,7 +192,10 @@ export class ApiClient {
           dataEncryptionKey: dataEncryptionKey ? encodeBase64(dataEncryptionKey) : undefined,
           // Plaintext label so other clients can render a device list without
           // holding this machine's key. Everything else stays encrypted.
-          displayName: opts.metadata.displayName || opts.metadata.host || undefined
+          displayName: opts.metadata.displayName || opts.metadata.host || undefined,
+          // Plaintext too: clients must be able to keep enrolled devices out of
+          // session pickers without decrypting this machine's metadata.
+          isDevice: opts.metadata.deviceMode === true ? true : undefined
         },
         {
           headers: {

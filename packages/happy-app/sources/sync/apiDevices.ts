@@ -161,3 +161,26 @@ export async function deleteDevice(credentials: AuthCredentials, machineId: stri
         throw new Error(`Failed to delete device: ${response.status}`);
     }
 }
+
+/**
+ * Correct the device flag for a machine. Enrolled devices serve shell and
+ * terminals but never host sessions; machines enrolled before the CLI started
+ * reporting this need it set from here.
+ */
+export async function setMachineDeviceFlag(
+    credentials: AuthCredentials,
+    machineId: string,
+    isDevice: boolean
+): Promise<void> {
+    const response = await fetch(`${getServerUrl()}/v1/machines/${encodeURIComponent(machineId)}/device-flag`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isDevice })
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to update device flag: ${response.status}`);
+    }
+}

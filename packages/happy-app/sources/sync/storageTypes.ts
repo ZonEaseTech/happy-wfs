@@ -264,6 +264,10 @@ export type MachineMetadata = z.infer<typeof MachineMetadataSchema>;
 
 export interface Machine {
     id: string;
+    /** Plaintext server flag: enrolled devices never host sessions. */
+    isDevice?: boolean;
+    /** Plaintext label, readable without this machine's key. */
+    displayName?: string | null;
     seq: number;
     createdAt: number;
     updatedAt: number;

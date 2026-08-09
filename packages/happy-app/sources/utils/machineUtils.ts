@@ -11,5 +11,8 @@ export function isMachineOnline(machine: Machine): boolean {
  * out; the device management screen still lists everything.
  */
 export function canHostSessions(machine: Machine): boolean {
-    return machine.metadata?.deviceMode !== true;
+    // Two sources: the encrypted metadata (set by the CLI) and the plaintext
+    // server flag (correctable from the app for machines enrolled before the
+    // CLI reported it). Either one marks the machine as device-only.
+    return machine.metadata?.deviceMode !== true && machine.isDevice !== true;
 }

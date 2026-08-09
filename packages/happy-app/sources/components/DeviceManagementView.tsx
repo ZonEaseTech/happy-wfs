@@ -14,7 +14,7 @@ import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { openTerminalPanel } from '@/components/terminalPanelStore';
-import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
@@ -206,6 +206,17 @@ export const DeviceManagementView = React.memo(() => {
             {
                 label: t('devices.openTerminal'),
                 onPress: () => { const device = menuDevice; setMenuDevice(null); openTerminalPanel({ targetId: device.id, isMachineScope: true }); },
+            },
+            {
+                label: menuDevice.isDevice ? t('devices.allowSessions') : t('devices.markAsDevice'),
+                onPress: () => {
+                    const device = menuDevice;
+                    setMenuDevice(null);
+                    if (!auth.credentials) return;
+                    setMachineDeviceFlag(auth.credentials, device.id, !device.isDevice).catch((error) => {
+                        Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+                    });
+                },
             },
             {
                 label: t('devices.rename'),
