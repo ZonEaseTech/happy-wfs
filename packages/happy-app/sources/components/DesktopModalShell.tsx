@@ -47,16 +47,18 @@ export function DesktopModalShell({ title, onClose, disabled, headerRight, child
                     backgroundColor: 'rgba(0,0,0,0.18)',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    padding: 24,
+                    padding: 16,
                 }}
             >
                 <Pressable
                     onPress={(e: any) => e.stopPropagation?.()}
                     style={{
-                        width: '100%',
-                        height: '100%',
-                        maxWidth: 1100,
-                        maxHeight: 880,
+                        // Match the code browser modal so file/diff/preview
+                        // surfaces get the same near-fullscreen room.
+                        width: '95%',
+                        height: '95%',
+                        maxWidth: 1600,
+                        maxHeight: 1100,
                         backgroundColor: theme.colors.surface,
                         borderRadius: 14,
                         overflow: 'hidden',
