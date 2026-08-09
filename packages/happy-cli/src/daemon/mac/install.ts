@@ -11,7 +11,19 @@ const PLIST_DIR = join(os.homedir(), 'Library', 'LaunchAgents');
 const PLIST_FILE = join(PLIST_DIR, `${PLIST_LABEL}.plist`);
 const LOG_DIR = join(os.homedir(), '.happy');
 
+/** launchd starts with a bare environment, so a self-hosted server URL or
+ *  custom home dir must be baked into the plist — otherwise the daemon falls
+ *  back to defaults after a reboot and never reconnects. */
+function plistEnvironment(): string {
+    const entries: Array<[string, string]> = [];
+    if (process.env.HAPPY_SERVER_URL) entries.push(['HAPPY_SERVER_URL', process.env.HAPPY_SERVER_URL]);
+    if (process.env.HAPPY_HOME_DIR) entries.push(['HAPPY_HOME_DIR', process.env.HAPPY_HOME_DIR]);
+    if (process.env.HAPPY_WEBAPP_URL) entries.push(['HAPPY_WEBAPP_URL', process.env.HAPPY_WEBAPP_URL]);
+    return entries.map(([key, value]) => `\n                <key>${key}</key>\n                <string>${value}</string>`).join('');
+}
+
 export async function install(): Promise<void> {
+    const plistEnvironmentEntries = plistEnvironment();
     const runtime = process.execPath;
     const entrypoint = join(projectPath(), 'dist', 'index.mjs');
 
@@ -50,6 +62,10 @@ export async function install(): Promise<void> {
                 <string>daemon</string>
                 <string>start-sync</string>
             </array>
+
+            <key>EnvironmentVariables</key>
+            <dict>${plistEnvironmentEntries}
+            </dict>
 
             <key>RunAtLoad</key>
             <true/>

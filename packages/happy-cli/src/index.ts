@@ -16,6 +16,7 @@ import { authAndSetupMachineIfNeeded } from './ui/auth'
 import packageJson from '../package.json'
 import { z } from 'zod'
 import { startDaemon } from './daemon/run'
+import { enrollDevice } from './device/enroll'
 import { checkIfDaemonRunningAndCleanupStaleState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './daemon/controlClient'
 import { getLatestDaemonLog } from './ui/logger'
 import { killRunawayHappyProcesses } from './daemon/doctor'
@@ -495,6 +496,36 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1);
     }
     return;
+  } else if (subcommand === 'device') {
+    const deviceSubcommand = args[1]
+    if (deviceSubcommand === 'enroll') {
+      const token = args[2]
+      if (!token) {
+        console.error(chalk.red('Error:'), 'Missing enrollment token. Usage: happy device enroll <token>')
+        process.exit(1)
+      }
+      try {
+        const result = await enrollDevice(token, { force: args.includes('--force') })
+        if (result.alreadyEnrolled) {
+          console.log('This machine is already linked to a Happy account. Re-run with --force to relink.')
+        } else {
+          console.log('Device enrolled')
+        }
+        await install()
+        console.log('Daemon installed and started')
+      } catch (error) {
+        console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+        process.exit(1)
+      }
+      process.exit(0)
+    }
+    console.log(`
+${chalk.bold('happy device')} - Device enrollment
+
+${chalk.bold('Usage:')}
+  happy device enroll <token>   Link this machine to a Happy account and start the daemon
+`)
+    process.exit(0)
   } else if (subcommand === 'daemon') {
     // Show daemon management help
     const daemonSubcommand = args[1]

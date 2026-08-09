@@ -25,6 +25,7 @@ import { kvRoutes } from "./routes/kvRoutes";
 import { chatRoutes } from "./routes/chatRoutes";
 import { openclawRoutes } from "./routes/openclawRoutes";
 import { portProxyRoutes } from "./routes/portProxyRoutes";
+import { deviceRoutes } from "./routes/deviceRoutes";
 import { v3SessionRoutes } from "./routes/v3SessionRoutes";
 import { shareRoutes } from "./routes/shareRoutes";
 import { publicShareRoutes } from "./routes/publicShareRoutes";
@@ -92,6 +93,7 @@ export async function startApi() {
     chatRoutes(typed);
     openclawRoutes(typed);
     portProxyRoutes(typed);
+    deviceRoutes(typed);
     v3SessionRoutes(typed);
     shareRoutes(typed);
     publicShareRoutes(typed);

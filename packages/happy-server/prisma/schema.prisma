@@ -64,6 +64,7 @@ model Account {
   UserKVStore         UserKVStore[]
   OpenClawMachine     OpenClawMachine[]
   portProxies         PortProxy[]
+  deviceEnrollTokens  DeviceEnrollToken[]
   sharedBySessions    SessionShare[]           @relation("SharedBySessions")
   sharedWithSessions  SessionShare[]           @relation("SharedWithSessions")
   publicSessionShares PublicSessionShare[]     @relation("PublicSessionShares")
@@ -637,6 +638,24 @@ model UserRelationship {
 //
 // Feed
 //
+
+/// One-time device enrollment token. The user-facing token is "<lookupId>.<secret>";
+/// only lookupId reaches the server, so `response` (the account key sealed to a
+/// keypair derived from secret) stays undecryptable server-side.
+model DeviceEnrollToken {
+  id              String    @id @default(cuid())
+  lookupId        String    @unique
+  accountId       String
+  account         Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  response        String
+  label           String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  usedByMachineId String?
+  createdAt       DateTime  @default(now())
+
+  @@index([accountId, createdAt(sort: Desc)])
+}
 
 model PublicShareLink {
   id        String   @id @default(cuid())

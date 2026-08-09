@@ -8,7 +8,19 @@ import { projectPath } from '@/projectPath';
 
 const SERVICE_NAME = 'happy-daemon.service';
 
+/** Service units start with an empty environment, so a self-hosted server URL
+ *  or custom home dir must be baked in — otherwise the daemon silently falls
+ *  back to defaults after a reboot and never reconnects. */
+function environmentLines(): string {
+    const lines: string[] = [];
+    if (process.env.HAPPY_SERVER_URL) lines.push(`Environment=HAPPY_SERVER_URL=${process.env.HAPPY_SERVER_URL}`);
+    if (process.env.HAPPY_HOME_DIR) lines.push(`Environment=HAPPY_HOME_DIR=${process.env.HAPPY_HOME_DIR}`);
+    if (process.env.HAPPY_WEBAPP_URL) lines.push(`Environment=HAPPY_WEBAPP_URL=${process.env.HAPPY_WEBAPP_URL}`);
+    return lines.length ? '\n        ' + lines.join('\n        ') : '';
+}
+
 export async function install(): Promise<void> {
+    const daemonEnvironmentLines = environmentLines();
     const runtime = process.execPath;
     const entrypoint = path.join(projectPath(), 'dist', 'index.mjs');
 
@@ -31,7 +43,7 @@ export async function install(): Promise<void> {
         ExecStart=${runtime} --no-warnings --no-deprecation ${entrypoint} daemon start-sync
         Restart=on-failure
         RestartSec=30
-        Environment=HOME=${homedir}
+        Environment=HOME=${homedir}${daemonEnvironmentLines}
 
         [Install]
         WantedBy=default.target
