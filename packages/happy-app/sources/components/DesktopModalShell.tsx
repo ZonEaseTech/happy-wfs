@@ -44,7 +44,7 @@ export function DesktopModalShell({ title, onClose, disabled, headerRight, child
                 onPress={handleClose}
                 style={{
                     flex: 1,
-                    backgroundColor: 'rgba(0,0,0,0.45)',
+                    backgroundColor: 'rgba(0,0,0,0.18)',
                     justifyContent: 'center',
                     alignItems: 'center',
                     padding: 24,
