@@ -12,6 +12,7 @@ import { useRealtimeStatus } from '@/sync/storage';
 import { MainView } from './MainView';
 import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/text';
 import { useInboxHasContent } from '@/hooks/useInboxHasContent';
 import { requestWebNotificationPermission } from '@/sync/webNotifications';
@@ -264,14 +265,15 @@ export const SidebarView = React.memo(() => {
                             )}
                         </Pressable>
                         <Pressable
-                            onPress={() => router.push('/(app)/port-proxy')}
+                            onPress={() => router.push('/(app)/devices')}
                             hitSlop={15}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('tabs.devices')}
                         >
-                            <Image
-                                source={require('@/assets/images/brutalist/Brutalism 117.png')}
-                                contentFit="contain"
-                                style={[{ width: 32, height: 32 }]}
-                                tintColor={theme.colors.header.tint}
+                            <Ionicons
+                                name="hardware-chip-outline"
+                                size={28}
+                                color={theme.colors.header.tint}
                             />
                         </Pressable>
                         <Pressable
