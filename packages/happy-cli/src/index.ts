@@ -17,6 +17,7 @@ import packageJson from '../package.json'
 import { z } from 'zod'
 import { startDaemon } from './daemon/run'
 import { enrollDevice } from './device/enroll'
+import { printDeviceList, sshDevice } from './device/ssh'
 import { checkIfDaemonRunningAndCleanupStaleState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './daemon/controlClient'
 import { getLatestDaemonLog } from './ui/logger'
 import { killRunawayHappyProcesses } from './daemon/doctor'
@@ -496,6 +497,24 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1);
     }
     return;
+  } else if (subcommand === 'ssh') {
+    const credentials = await readCredentials()
+    if (!credentials) {
+      console.error(chalk.red('Error:'), 'Not authenticated. Run "happy auth" first.')
+      process.exit(1)
+    }
+    const target = args[1]
+    try {
+      if (!target) {
+        await printDeviceList(credentials)
+        console.log('\nUsage: happy ssh <device>')
+        process.exit(0)
+      }
+      process.exit(await sshDevice(credentials, target))
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
   } else if (subcommand === 'device') {
     const deviceSubcommand = args[1]
     if (deviceSubcommand === 'enroll') {

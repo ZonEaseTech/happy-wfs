@@ -88,6 +88,15 @@ export const it: TranslationStructure = {
     },
 
     devices: {
+        pendingApprovals: 'Pending connections',
+        pendingApprovalsFooter: 'A computer asked to connect to a device (happy ssh). Approving lets it open terminals without asking again.',
+        approve: 'Approve',
+        deny: 'Deny',
+        approveNoKey: 'Device key is not available yet — try again shortly',
+        openTerminal: 'Open terminal',
+        rename: 'Rename',
+        renameTitle: 'Device name',
+        renameHint: 'Give this device a memorable name; leave empty to use its hostname',
         selectDevice: 'Select target device',
         useSessionMachine: 'This session\'s machine',
         addDeviceTitle: 'Add device',

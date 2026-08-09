@@ -140,6 +140,11 @@ class ApiSocket {
         return this.encryption?.getSessionEncryption(sessionId) ?? null;
     }
 
+    /** Device terminals stream PTY frames keyed by machine instead of session. */
+    getMachineEncryption(machineId: string) {
+        return this.encryption?.getMachineEncryption(machineId) ?? null;
+    }
+
     //
     // RPC Handler Registration
     //

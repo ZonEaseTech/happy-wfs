@@ -64,6 +64,7 @@ model Account {
   UserKVStore         UserKVStore[]
   OpenClawMachine     OpenClawMachine[]
   deviceEnrollTokens  DeviceEnrollToken[]
+  deviceKeyRequests   DeviceKeyRequest[]
   sharedBySessions    SessionShare[]           @relation("SharedBySessions")
   sharedWithSessions  SessionShare[]           @relation("SharedWithSessions")
   publicSessionShares PublicSessionShare[]     @relation("PublicSessionShares")
@@ -652,6 +653,25 @@ model DeviceEnrollToken {
   usedAt          DateTime?
   usedByMachineId String?
   createdAt       DateTime  @default(now())
+
+  @@index([accountId, createdAt(sort: Desc)])
+}
+
+/// A CLI asking the app to hand over one machine's data key so it can open an
+/// interactive shell there (`happy ssh`). Only the app holds the content private
+/// key, so the CLI publishes a throwaway public key and the app seals the
+/// machine key to it after the user approves — the server relays ciphertext only.
+model DeviceKeyRequest {
+  id         String    @id @default(cuid())
+  accountId  String
+  account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  machineId  String
+  publicKey  String
+  label      String?
+  response   String?
+  approvedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
 
   @@index([accountId, createdAt(sort: Desc)])
 }

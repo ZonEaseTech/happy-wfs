@@ -157,7 +157,15 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
                             onPress={() => onSelect(entry.index)}
                             onPointerEnter={() => setHovered({ entry, y: position * TICK_SLOT_HEIGHT })}
                             hitSlop={{ top: 3, bottom: 3, left: 6, right: 10 }}
-                            style={{ height: TICK_SLOT_HEIGHT, justifyContent: 'center' }}
+                            // Span the whole rail: sizing the hit area to the
+                            // tick made short ticks (6px collapsed) almost
+                            // impossible to hover.
+                            style={{
+                                height: TICK_SLOT_HEIGHT,
+                                width: RAIL_WIDTH,
+                                justifyContent: 'center',
+                                alignItems: 'flex-start',
+                            }}
                         >
                             <View style={{
                                 width,

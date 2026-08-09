@@ -90,6 +90,15 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        pendingApprovals: '待批准的連線',
+        pendingApprovalsFooter: '有電腦請求連線到裝置(happy ssh)。批准後該電腦就能直接開終端,無需再次確認。',
+        approve: '批准',
+        deny: '拒絕',
+        approveNoKey: '暫時拿不到該裝置的金鑰,請稍後重試',
+        openTerminal: '開啟終端',
+        rename: '備註名稱',
+        renameTitle: '裝置備註',
+        renameHint: '給這台裝置取個好認的名字,留空則用主機名',
         selectDevice: '選擇目標裝置',
         useSessionMachine: '本工作階段所在機器',
         addDeviceTitle: '新增裝置',

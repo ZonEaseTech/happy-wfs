@@ -201,7 +201,10 @@ export class ApiMachineClient {
         // FolderPicker can browse anywhere on the host. Set HAPPY_DAEMON_ROOT
         // to a tighter directory (e.g. ~/projects) if you want directory
         // traversal protection back.
-        registerCommonHandlers(this.rpcHandlerManager, process.env.HAPPY_DAEMON_ROOT || '/');
+        // Pass the machine id as the PTY scope so `happy ssh <device>` can open
+        // an interactive shell here — the same protocol sessions use, keyed by
+        // machine instead of session.
+        registerCommonHandlers(this.rpcHandlerManager, process.env.HAPPY_DAEMON_ROOT || '/', this.machine.id);
         registerOpenClawHandlers(this.rpcHandlerManager, {
             key: this.machine.encryptionKey
         });

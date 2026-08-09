@@ -10,6 +10,8 @@ export interface TerminalProps {
     sessionId: string;
     /** Optional working directory hint forwarded to the CLI as pty-start.cwd. */
     cwd?: string;
+    /** When true, `sessionId` is a machine id (device terminal). Web-only feature. */
+    isMachineScope?: boolean;
     /** Incremented by the header terminal button to open/create the current session terminal. */
     openRequestKey?: number;
 }

@@ -79,3 +79,58 @@ export async function revokeDeviceEnrollToken(credentials: AuthCredentials, id: 
 export function buildEnrollCommand(token: string, apiUrl: string): string {
     return `curl -fsSL ${apiUrl.replace(/\/+$/, '')}/enroll.sh | sh -s -- ${token}`;
 }
+
+export interface DeviceKeyRequest {
+    id: string;
+    machineId: string;
+    publicKey: string;
+    label: string | null;
+    approved: boolean;
+    expiresAt: number;
+    createdAt: number;
+}
+
+export async function listDeviceKeyRequests(credentials: AuthCredentials): Promise<DeviceKeyRequest[]> {
+    const response = await fetch(`${getServerUrl()}/v1/devices/key-requests`, {
+        headers: { 'Authorization': `Bearer ${credentials.token}` }
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to list key requests: ${response.status}`);
+    }
+    const data = await response.json() as { requests: DeviceKeyRequest[] };
+    return data.requests;
+}
+
+/**
+ * Approve a `happy ssh` authorization: seal the machine's data key to the
+ * requesting CLI's throwaway public key. The server only ever relays this
+ * ciphertext, so the account stays end-to-end encrypted.
+ */
+export async function approveDeviceKeyRequest(
+    credentials: AuthCredentials,
+    request: DeviceKeyRequest,
+    machineDataKey: Uint8Array
+): Promise<void> {
+    const sealed = encryptBox(machineDataKey, decodeBase64(request.publicKey));
+    const response = await fetch(`${getServerUrl()}/v1/devices/key-requests/${encodeURIComponent(request.id)}/approve`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ response: encodeBase64(sealed) })
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to approve key request: ${response.status}`);
+    }
+}
+
+export async function denyDeviceKeyRequest(credentials: AuthCredentials, id: string): Promise<void> {
+    const response = await fetch(`${getServerUrl()}/v1/devices/key-requests/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${credentials.token}` }
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to deny key request: ${response.status}`);
+    }
+}

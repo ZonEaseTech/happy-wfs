@@ -13,9 +13,14 @@ import { Typography } from '@/constants/Typography';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
-import { buildEnrollCommand, createDeviceEnrollToken } from '@/sync/apiDevices';
+import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { sync } from '@/sync/sync';
 import { getServerUrl } from '@/sync/serverConfig';
 import { useAllMachines } from '@/sync/storage';
+import { machineUpdateMetadata } from '@/sync/ops';
+import { Terminal } from '@/components/Terminal';
+import type { ActionMenuItem } from '@/components/ActionMenu';
+import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { Machine } from '@/sync/storageTypes';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -101,6 +106,83 @@ export const DeviceManagementView = React.memo(() => {
     const auth = useAuth();
     const machines = useAllMachines();
     const [creating, setCreating] = React.useState(false);
+    const [terminalDevice, setTerminalDevice] = React.useState<Machine | null>(null);
+    const [menuDevice, setMenuDevice] = React.useState<Machine | null>(null);
+    const [keyRequests, setKeyRequests] = React.useState<DeviceKeyRequest[]>([]);
+
+    // Poll for `happy ssh` authorization requests: they are short-lived and the
+    // user is usually staring at this screen waiting to approve one.
+    React.useEffect(() => {
+        if (!auth.credentials) return;
+        const credentials = auth.credentials;
+        let cancelled = false;
+        const load = () => {
+            listDeviceKeyRequests(credentials)
+                .then((requests) => { if (!cancelled) setKeyRequests(requests.filter((request) => !request.approved)); })
+                .catch(() => { });
+        };
+        load();
+        const interval = setInterval(load, 5000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [auth.credentials]);
+
+    const handleApproveKeyRequest = React.useCallback(async (request: DeviceKeyRequest) => {
+        if (!auth.credentials) return;
+        const machineKey = sync.getMachineDataKey(request.machineId);
+        if (!machineKey) {
+            Modal.alert(t('common.error'), t('devices.approveNoKey'));
+            return;
+        }
+        try {
+            await approveDeviceKeyRequest(auth.credentials, request, machineKey);
+            setKeyRequests((current) => current.filter((item) => item.id !== request.id));
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [auth.credentials]);
+
+    const handleDenyKeyRequest = React.useCallback(async (request: DeviceKeyRequest) => {
+        if (!auth.credentials) return;
+        try {
+            await denyDeviceKeyRequest(auth.credentials, request.id);
+            setKeyRequests((current) => current.filter((item) => item.id !== request.id));
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [auth.credentials]);
+
+    const handleRenameDevice = React.useCallback(async (machine: Machine) => {
+        if (!machine.metadata) return;
+        const next = await Modal.prompt(t('devices.renameTitle'), t('devices.renameHint'), {
+            defaultValue: machine.metadata.displayName || machine.metadata.host || '',
+            confirmText: t('common.save'),
+            cancelText: t('common.cancel'),
+        });
+        if (next === null) return;
+        try {
+            await machineUpdateMetadata(
+                machine.id,
+                { ...machine.metadata, displayName: next.trim() || undefined },
+                machine.metadataVersion,
+            );
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, []);
+
+    const deviceMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        if (!menuDevice) return [];
+        return [
+            {
+                label: t('devices.openTerminal'),
+                onPress: () => { const device = menuDevice; setMenuDevice(null); setTerminalDevice(device); },
+            },
+            {
+                label: t('devices.rename'),
+                onPress: () => { const device = menuDevice; setMenuDevice(null); void handleRenameDevice(device); },
+            },
+        ];
+    }, [handleRenameDevice, menuDevice]);
 
     const sortedMachines = React.useMemo(
         () => [...machines].sort((a, b) => Number(b.active) - Number(a.active) || machineTitle(a).localeCompare(machineTitle(b))),
@@ -152,6 +234,33 @@ export const DeviceManagementView = React.memo(() => {
                 />
             </ItemGroup>
 
+            {keyRequests.length > 0 && (
+                <ItemGroup title={t('devices.pendingApprovals')} footer={t('devices.pendingApprovalsFooter')}>
+                    {keyRequests.map((request) => {
+                        const machine = machines.find((candidate) => candidate.id === request.machineId);
+                        return (
+                            <Item
+                                key={request.id}
+                                title={machine ? machineTitle(machine) : request.machineId.slice(0, 12)}
+                                subtitle={request.label ?? undefined}
+                                icon={<Ionicons name="key-outline" size={29} color={theme.colors.textLink} />}
+                                rightElement={(
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                                        <Pressable onPress={() => { void handleApproveKeyRequest(request); }} hitSlop={8}>
+                                            <Text style={{ fontSize: 15, color: theme.colors.textLink }}>{t('devices.approve')}</Text>
+                                        </Pressable>
+                                        <Pressable onPress={() => { void handleDenyKeyRequest(request); }} hitSlop={8}>
+                                            <Text style={{ fontSize: 15, color: theme.colors.textDestructive }}>{t('devices.deny')}</Text>
+                                        </Pressable>
+                                    </View>
+                                )}
+                                showChevron={false}
+                            />
+                        );
+                    })}
+                </ItemGroup>
+            )}
+
             {sortedMachines.length === 0 ? (
                 <View style={styles.emptyContainer}>
                     <Ionicons name="hardware-chip-outline" size={44} color={theme.colors.textSecondary} />
@@ -174,10 +283,27 @@ export const DeviceManagementView = React.memo(() => {
                                     </Text>
                                 </View>
                             )}
-                            showChevron={false}
+                            onPress={() => setMenuDevice(machine)}
+                            showChevron
                         />
                     ))}
                 </ItemGroup>
+            )}
+
+            <ActionMenuModal
+                visible={!!menuDevice}
+                items={deviceMenuItems}
+                onClose={() => setMenuDevice(null)}
+                title={menuDevice ? machineTitle(menuDevice) : undefined}
+            />
+
+            {terminalDevice && (
+                <Terminal
+                    visible
+                    onClose={() => setTerminalDevice(null)}
+                    sessionId={terminalDevice.id}
+                    isMachineScope
+                />
             )}
         </ScrollView>
     );

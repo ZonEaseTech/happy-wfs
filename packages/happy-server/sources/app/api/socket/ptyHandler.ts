@@ -39,19 +39,24 @@ export function registerPtyHandlers(io: Server, socket: Socket, userId: string, 
                 return;
             }
 
-            // Authorization: caller must have at least edit access to the
-            // session. checkSessionAccess returns null if no access at all,
-            // including the case where the session doesn't exist.
+            // `sessionId` doubles as the PTY scope: it is either a real session
+            // or an enrolled machine (that is how `happy ssh` reaches a device).
+            // Sessions keep the shared-access rules; machines are owner-only.
             const access = await checkSessionAccess(userId, sessionId);
-            if (!access) {
+            let ownerId: string;
+            if (access) {
+                ownerId = access.isOwner ? userId : await resolveOwnerId(sessionId, userId);
+            } else if (await isOwnedMachine(userId, sessionId)) {
+                ownerId = userId;
+            } else {
                 socket.emit('pty-error', { sessionId, ptyId, error: 'forbidden' });
                 return;
             }
 
-            // Look up the CLI socket via the session owner's rpcListeners.
-            // The CLI registers `{sessionId}:pty-start` on connect, so its
-            // presence pins the active CLI socket for this session.
-            const ownerListeners = getOrCreateUserRpcListeners(access.isOwner ? userId : await resolveOwnerId(sessionId, userId));
+            // Look up the CLI socket via the owner's rpcListeners. The CLI
+            // registers `{scopeId}:pty-start` on connect, so its presence pins
+            // the active CLI/daemon socket for this scope.
+            const ownerListeners = getOrCreateUserRpcListeners(ownerId);
             const cliSocket = ownerListeners.get(`${sessionId}:pty-start`);
 
             if (!cliSocket || !cliSocket.connected) {
@@ -80,10 +85,10 @@ export function registerPtyHandlers(io: Server, socket: Socket, userId: string, 
                 return;
             }
 
-            // Only the CLI socket attached to this session may emit output.
-            // session-scoped sockets pin to a single sessionId at handshake
-            // time so we can authorize cheaply.
-            if (connection.connectionType !== 'session-scoped' || connection.sessionId !== sessionId) {
+            // Only the CLI/daemon socket attached to this scope may emit output.
+            // Both session-scoped and machine-scoped sockets pin their id at
+            // handshake time, so authorizing is a cheap comparison.
+            if (!isScopeOwnerSocket(connection, sessionId)) {
                 return;
             }
 
@@ -110,7 +115,7 @@ export function registerPtyHandlers(io: Server, socket: Socket, userId: string, 
                 return;
             }
 
-            if (connection.connectionType !== 'session-scoped' || connection.sessionId !== sessionId) {
+            if (!isScopeOwnerSocket(connection, sessionId)) {
                 return;
             }
 
@@ -123,6 +128,28 @@ export function registerPtyHandlers(io: Server, socket: Socket, userId: string, 
             log({ module: 'websocket', level: 'error' }, `Error in pty-exit: ${error}`);
         }
     });
+}
+
+/** True when this socket is the CLI/daemon that owns the PTY scope — either a
+ *  session-scoped socket for a session id, or a machine-scoped socket for a
+ *  machine id (the `happy ssh` path). */
+function isScopeOwnerSocket(connection: ClientConnection, scopeId: string): boolean {
+    if (connection.connectionType === 'session-scoped') {
+        return connection.sessionId === scopeId;
+    }
+    if (connection.connectionType === 'machine-scoped') {
+        return connection.machineId === scopeId;
+    }
+    return false;
+}
+
+/** Machine PTY scopes are owner-only: no sharing model exists for machines. */
+async function isOwnedMachine(userId: string, machineId: string): Promise<boolean> {
+    const machine = await db.machine.findFirst({
+        where: { id: machineId, accountId: userId },
+        select: { id: true }
+    });
+    return !!machine;
 }
 
 /**

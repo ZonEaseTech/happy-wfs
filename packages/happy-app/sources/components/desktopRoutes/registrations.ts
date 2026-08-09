@@ -8,6 +8,7 @@ import { registerDesktopRoute } from './registry';
 /** Title key (i18n path) for each registered route — used by deep-link redirector. */
 export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
     '/memory': 'memory.title',
+    '/devices': 'tabs.devices',
     '/settings/company': 'company.title',
     '/settings/company/members': 'company.members',
     '/settings/company/invites': 'company.invites',
@@ -31,6 +32,7 @@ export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
 };
 
 registerDesktopRoute('/memory', () => import('@/app/(app)/memory'));
+registerDesktopRoute('/devices', () => import('@/app/(app)/devices/index'));
 registerDesktopRoute('/settings/company', () => import('@/app/(app)/settings/company'));
 registerDesktopRoute('/settings/company/members', () => import('@/app/(app)/settings/company/members'));
 registerDesktopRoute('/settings/company/invites', () => import('@/app/(app)/settings/company/invites'));

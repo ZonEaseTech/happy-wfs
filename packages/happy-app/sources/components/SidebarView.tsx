@@ -12,6 +12,7 @@ import { useRealtimeStatus } from '@/sync/storage';
 import { MainView } from './MainView';
 import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useDesktopRoutes } from '@/components/desktopRoutes';
 import { t } from '@/text';
 import { useInboxHasContent } from '@/hooks/useInboxHasContent';
 import { requestWebNotificationPermission } from '@/sync/webNotifications';
@@ -137,6 +138,9 @@ export const SidebarView = React.memo(() => {
     const { theme } = useUnistyles();
     const safeArea = useSafeAreaInsets();
     const router = useRouter();
+    // Open as a desktop drawer instead of navigating: a full route change
+    // unmounts the session view and takes the open terminal / file panel with it.
+    const { open: openDesktop } = useDesktopRoutes();
     const headerHeight = useHeaderHeight();
     const socketStatus = useSocketStatus();
     const realtimeStatus = useRealtimeStatus();
@@ -264,13 +268,13 @@ export const SidebarView = React.memo(() => {
                             )}
                         </Pressable>
                         <Pressable
-                            onPress={() => router.push('/(app)/devices')}
+                            onPress={() => openDesktop('/devices', { title: t('tabs.devices') })}
                             hitSlop={15}
                             accessibilityRole="button"
                             accessibilityLabel={t('tabs.devices')}
                         >
                             <Image
-                                source={require('@/assets/images/brutalist/Brutalism 70.png')}
+                                source={require('@/assets/images/brutalist/Brutalism 71.png')}
                                 contentFit="contain"
                                 style={[{ width: 32, height: 32 }]}
                                 tintColor={theme.colors.header.tint}

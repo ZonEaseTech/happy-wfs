@@ -90,6 +90,15 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        pendingApprovals: '待批准的连接',
+        pendingApprovalsFooter: '有电脑请求连接到设备(happy ssh)。批准后该电脑就能直接开终端,无需再次确认。',
+        approve: '批准',
+        deny: '拒绝',
+        approveNoKey: '暂时拿不到该设备的密钥,请稍后重试',
+        openTerminal: '打开终端',
+        rename: '备注名称',
+        renameTitle: '设备备注',
+        renameHint: '给这台设备起个好认的名字,留空则用主机名',
         selectDevice: '选择目标设备',
         useSessionMachine: '本会话所在机器',
         addDeviceTitle: '添加设备',

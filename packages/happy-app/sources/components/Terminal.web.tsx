@@ -48,6 +48,8 @@ export interface TerminalProps {
     sessionId: string;
     /** Optional working directory hint forwarded to the CLI as pty-start.cwd. */
     cwd?: string;
+    /** When true, `sessionId` is a machine id — used by device terminals. */
+    isMachineScope?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,14 +270,20 @@ function ptyErrorMessage(err: unknown): string {
 // + `params` ciphertext in its envelope.
 // ---------------------------------------------------------------------------
 
-async function encryptData(sessionId: string, data: unknown): Promise<string | null> {
-    const enc = apiSocket.getSessionEncryption(sessionId);
+/** PTY scopes are either a session or an enrolled machine (device terminals);
+ *  both use the same wire protocol, only the key source differs. */
+function scopeEncryption(scopeId: string, isMachine: boolean) {
+    return isMachine ? apiSocket.getMachineEncryption(scopeId) : apiSocket.getSessionEncryption(scopeId);
+}
+
+async function encryptData(scopeId: string, data: unknown, isMachine = false): Promise<string | null> {
+    const enc = scopeEncryption(scopeId, isMachine);
     if (!enc) return null;
     return enc.encryptRaw(data);
 }
 
-async function decryptData(sessionId: string, encrypted: string): Promise<any | null> {
-    const enc = apiSocket.getSessionEncryption(sessionId);
+async function decryptData(scopeId: string, encrypted: string, isMachine = false): Promise<any | null> {
+    const enc = scopeEncryption(scopeId, isMachine);
     if (!enc) return null;
     return enc.decryptRaw(encrypted);
 }
@@ -288,6 +296,8 @@ async function decryptData(sessionId: string, encrypted: string): Promise<any | 
 
 interface TerminalRuntimeProps {
     sessionId: string;
+    /** When true, `sessionId` is a machine id (device terminal). */
+    isMachineScope?: boolean;
     cwd?: string;
     bundle: XtermBundle;
     onError: (msg: string) => void;
@@ -298,7 +308,14 @@ interface TerminalRuntimeProps {
     terminalTheme: TerminalResolvedTheme;
 }
 
-const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundle, onError, active = true, onInputSenderChange, onClearHandlerChange, terminalTheme }) => {
+/** Same PTY protocol either way — only the RPC namespace differs. */
+function scopeRPC<R, A>(scopeId: string, isMachine: boolean, method: string, params: A): Promise<R> {
+    return isMachine
+        ? apiSocket.machineRPC<R, A>(scopeId, method, params)
+        : apiSocket.sessionRPC<R, A>(scopeId, method, params);
+}
+
+const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineScope = false, cwd, bundle, onError, active = true, onInputSenderChange, onClearHandlerChange, terminalTheme }) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const termRef = React.useRef<InstanceType<XtermModule['Terminal']> | null>(null);
     const fitRef = React.useRef<InstanceType<FitAddonModule['FitAddon']> | null>(null);
@@ -327,14 +344,14 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             if (!ptyId) return;
             const cols = termRef.current.cols;
             const rows = termRef.current.rows;
-            apiSocket.sessionRPC(sessionId, 'pty-resize', { ptyId, cols, rows }).catch(() => {});
+            scopeRPC(sessionId, isMachineScope, 'pty-resize', { ptyId, cols, rows }).catch(() => {});
         } catch { /* container detached */ }
     }, [sessionId]);
 
     const sendPtyInput = React.useCallback(async (data: string) => {
         if (!ptyIdRef.current || closedRef.current) return;
         try {
-            const encryptedData = await encryptData(sessionId, data);
+            const encryptedData = await encryptData(sessionId, data, isMachineScope);
             if (encryptedData == null) return;
             apiSocket.send('pty-input', {
                 sessionId,
@@ -410,8 +427,9 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 // node-pty failed to native-build at install time. We have to
                 // check the discriminator BEFORE assuming ptyId exists.
                 type PtyStartResult = { ok: true; ptyId: string } | { ok: false; error: string };
-                const result = await apiSocket.sessionRPC<PtyStartResult, { cols: number; rows: number; cwd?: string }>(
+                const result = await scopeRPC<PtyStartResult, { cols: number; rows: number; cwd?: string }>(
                     sessionId,
+                    isMachineScope,
                     'pty-start',
                     { cols: dims.cols, rows: dims.rows, cwd },
                 );
@@ -419,7 +437,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                     // User closed before spawn returned — clean up immediately.
                     try {
                         if (result?.ok && result.ptyId) {
-                            await apiSocket.sessionRPC(sessionId, 'pty-close', { ptyId: result.ptyId });
+                            await scopeRPC(sessionId, isMachineScope, 'pty-close', { ptyId: result.ptyId });
                         }
                     } catch { /* best-effort */ }
                     return;
@@ -473,7 +491,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
                 if (frame.sessionId !== sessionId) return;
                 if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) return;
                 const decryptedB64 = typeof frame.data === 'string'
-                    ? await decryptData(sessionId, frame.data)
+                    ? await decryptData(sessionId, frame.data, isMachineScope)
                     : null;
                 if (typeof decryptedB64 !== 'string') return;
                 // base64 → Uint8Array. Use atob (web-only file).
@@ -520,7 +538,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
             if (ptyId) {
                 // Fire-and-forget; if the CLI is gone the server eventually
                 // gc's the spawn anyway.
-                apiSocket.sessionRPC(sessionId, 'pty-close', { ptyId }).catch(() => {});
+                scopeRPC(sessionId, isMachineScope, 'pty-close', { ptyId }).catch(() => {});
             }
             try { term.dispose(); } catch { /* ignore */ }
             termRef.current = null;
@@ -568,7 +586,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, cwd, bundl
 // Outer modal: portal + chrome + lazy boot.
 // ---------------------------------------------------------------------------
 
-export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd }) => {
+export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd, isMachineScope = false }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [terminalThemeSetting] = useSettingMutable('terminalTheme');
     const resolvedTerminalTheme = resolveTerminalTheme(terminalThemeSetting);
@@ -917,6 +935,7 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                     {bundle && (
                         <TerminalRuntime
                             sessionId={sessionId}
+                            isMachineScope={isMachineScope}
                             cwd={cwd}
                             bundle={bundle}
                             onError={handleError}
