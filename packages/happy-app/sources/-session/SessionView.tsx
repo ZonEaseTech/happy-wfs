@@ -1,6 +1,6 @@
 import { AgentContentView } from '@/components/AgentContentView';
-import { registerPreviewPanelOpener } from '@/components/tools/previewHtmlStore';
-import { ChatPreviewOverlay } from '@/components/PreviewHtmlPanel';
+import { registerToolPanelOpener } from '@/components/tools/previewHtmlStore';
+import { ChatToolOverlay } from '@/-session/ChatToolOverlay';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
@@ -238,11 +238,11 @@ export const SessionView = React.memo((props: { id: string }) => {
     React.useEffect(() => {
         if (!isDesktopPanelMode && rightPanelType) setRightPanelType(null);
     }, [isDesktopPanelMode, rightPanelType]);
-    const [chatPreviewVisible, setChatPreviewVisible] = React.useState(false);
+    const [chatToolMessageId, setChatToolMessageId] = React.useState<string | null>(null);
     React.useEffect(() => {
         if (!isDesktopPanelMode) return;
-        registerPreviewPanelOpener(() => setChatPreviewVisible(true));
-        return () => registerPreviewPanelOpener(null);
+        registerToolPanelOpener((messageId) => setChatToolMessageId(messageId));
+        return () => registerToolPanelOpener(null);
     }, [isDesktopPanelMode]);
 
     const linkedGitHubIssue = React.useMemo(() => buildLinkedGitHubIssue(session), [session]);
@@ -666,8 +666,12 @@ export const SessionView = React.memo((props: { id: string }) => {
                         setShowFileViewer={setShowFileViewer}
                     />
                 ) : null}
-                {chatPreviewVisible && (
-                    <ChatPreviewOverlay onClose={() => setChatPreviewVisible(false)} />
+                {chatToolMessageId && (
+                    <ChatToolOverlay
+                        sessionId={sessionId}
+                        messageId={chatToolMessageId}
+                        onClose={() => setChatToolMessageId(null)}
+                    />
                 )}
             </View>
             </View>
