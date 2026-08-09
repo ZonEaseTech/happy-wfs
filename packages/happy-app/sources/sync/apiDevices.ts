@@ -3,6 +3,7 @@ import { AuthCredentials } from '@/auth/tokenStorage';
 import { getServerUrl } from './serverConfig';
 import { encodeBase64, decodeBase64 } from '@/encryption/base64';
 import { encryptBox, getPublicKeyForBox } from '@/encryption/libsodium';
+import { encodeUTF8 } from '@/encryption/text';
 
 export interface DeviceEnrollToken {
     id: string;
@@ -101,17 +102,29 @@ export async function listDeviceKeyRequests(credentials: AuthCredentials): Promi
     return data.requests;
 }
 
+export interface DeviceDirectoryEntry {
+    id: string;
+    name: string;
+    /** base64 machine data key */
+    key: string;
+}
+
 /**
- * Approve a `happy ssh` authorization: seal the machine's data key to the
- * requesting CLI's throwaway public key. The server only ever relays this
- * ciphertext, so the account stays end-to-end encrypted.
+ * Approve a `happy ssh` authorization.
+ *
+ * Seals a directory of the account's devices — id, display name and data key —
+ * to the requesting CLI's throwaway public key. Names are end-to-end encrypted
+ * per machine, so a CLI that only had one machine's key could not even render a
+ * readable device list; handing over the whole directory in one approval keeps
+ * the prompt to a single tap and makes `happy ssh` usable.
  */
 export async function approveDeviceKeyRequest(
     credentials: AuthCredentials,
     request: DeviceKeyRequest,
-    machineDataKey: Uint8Array
+    directory: DeviceDirectoryEntry[]
 ): Promise<void> {
-    const sealed = encryptBox(machineDataKey, decodeBase64(request.publicKey));
+    const payload = encodeUTF8(JSON.stringify({ devices: directory }));
+    const sealed = encryptBox(payload, decodeBase64(request.publicKey));
     const response = await fetch(`${getServerUrl()}/v1/devices/key-requests/${encodeURIComponent(request.id)}/approve`, {
         method: 'POST',
         headers: {

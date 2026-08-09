@@ -26,7 +26,12 @@ function deviceKeysFile(): string {
     return join(configuration.happyHomeDir, 'device-keys.json');
 }
 
-async function readDeviceKeys(): Promise<Record<string, string>> {
+export interface CachedDevice {
+    name: string;
+    key: string;
+}
+
+async function readDeviceKeys(): Promise<Record<string, CachedDevice>> {
     const file = deviceKeysFile();
     if (!existsSync(file)) return {};
     try {
@@ -37,18 +42,30 @@ async function readDeviceKeys(): Promise<Record<string, string>> {
     }
 }
 
-async function writeDeviceKey(machineId: string, keyBase64: string): Promise<void> {
+async function writeDeviceDirectory(entries: CachedDevice2[]): Promise<void> {
     const file = deviceKeysFile();
     await mkdir(dirname(file), { recursive: true });
     const keys = await readDeviceKeys();
-    keys[machineId] = keyBase64;
+    for (const entry of entries) {
+        keys[entry.id] = { name: entry.name, key: entry.key };
+    }
     await writeFile(file, JSON.stringify(keys, null, 2), { mode: 0o600 });
+}
+
+interface CachedDevice2 extends CachedDevice {
+    id: string;
 }
 
 export async function readCachedDeviceKey(machineId: string): Promise<Uint8Array | null> {
     const keys = await readDeviceKeys();
     const stored = keys[machineId];
-    return stored ? decodeBase64(stored) : null;
+    return stored?.key ? decodeBase64(stored.key) : null;
+}
+
+/** Locally cached display names, populated by the approval handshake. */
+export async function readCachedDeviceNames(): Promise<Record<string, string>> {
+    const keys = await readDeviceKeys();
+    return Object.fromEntries(Object.entries(keys).map(([id, entry]) => [id, entry.name]));
 }
 
 /**
@@ -90,10 +107,24 @@ export async function ensureDeviceKey(
         if (status.data.approved && status.data.response) {
             const opened = decryptWithEphemeralKey(decodeBase64(status.data.response), secretKey);
             if (!opened) {
-                throw new Error('Could not open the device key returned by the app');
+                throw new Error('Could not open the device directory returned by the app');
             }
-            await writeDeviceKey(machineId, encodeBase64(opened));
-            return opened;
+            let parsed: { devices?: CachedDevice2[] };
+            try {
+                parsed = JSON.parse(Buffer.from(opened).toString('utf8'));
+            } catch {
+                throw new Error('Device directory from the app was malformed');
+            }
+            const devices = parsed.devices ?? [];
+            if (devices.length === 0) {
+                throw new Error('The app returned an empty device directory');
+            }
+            await writeDeviceDirectory(devices);
+            const target = devices.find((device) => device.id === machineId);
+            if (!target) {
+                throw new Error('The app did not include this device in the directory');
+            }
+            return decodeBase64(target.key);
         }
     }
     throw new Error('Timed out waiting for approval in the Happy app');

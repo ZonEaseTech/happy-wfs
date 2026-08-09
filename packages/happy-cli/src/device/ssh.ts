@@ -13,7 +13,7 @@ import { Credentials } from '@/persistence';
 import { configuration } from '@/configuration';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from '@/api/encryption';
 import { listDevices, type DeviceSummary } from './deviceExec';
-import { ensureDeviceKey } from './deviceKeys';
+import { ensureDeviceKey, readCachedDeviceNames } from './deviceKeys';
 
 function matchDevice(devices: DeviceSummary[], query: string): DeviceSummary | null {
     const lowered = query.trim().toLowerCase();
@@ -25,7 +25,7 @@ function matchDevice(devices: DeviceSummary[], query: string): DeviceSummary | n
 }
 
 export async function sshDevice(credentials: Credentials, query: string): Promise<number> {
-    const devices = await listDevices(credentials);
+    const { devices } = await listDevicesWithNames(credentials);
     const device = matchDevice(devices, query);
     if (!device) {
         console.error(`No enrolled device matches "${query}". Run "happy ssh" with no arguments to list devices.`);
@@ -181,8 +181,21 @@ function pickDevice(devices: DeviceSummary[]): Promise<DeviceSummary | null> {
  * No device argument: pick one interactively on a TTY, otherwise just list them
  * so the command stays usable in scripts and pipes.
  */
+/** Device names are encrypted per machine; the CLI can only render the ones it
+ *  received in the approval handshake, so fall back to a short id otherwise. */
+async function listDevicesWithNames(credentials: Credentials): Promise<{ devices: DeviceSummary[]; named: boolean }> {
+    const [devices, names] = await Promise.all([listDevices(credentials), readCachedDeviceNames()]);
+    let named = false;
+    const withNames = devices.map((device) => {
+        const cached = names[device.id];
+        if (cached) named = true;
+        return cached ? { ...device, name: cached } : device;
+    });
+    return { devices: withNames, named };
+}
+
 export async function sshPickAndConnect(credentials: Credentials): Promise<number> {
-    const devices = await listDevices(credentials);
+    const { devices, named } = await listDevicesWithNames(credentials);
     if (devices.length === 0) {
         console.log('No devices enrolled yet. Add one from Happy \u2192 Devices.');
         return 0;
@@ -193,6 +206,10 @@ export async function sshPickAndConnect(credentials: Credentials): Promise<numbe
         }
         console.log('\nUsage: happy ssh <device>');
         return 0;
+    }
+    if (!named) {
+        console.log('This computer has not been authorized yet, so device names are still hidden.');
+        console.log('Pick any device below and approve the request in Happy \u2192 Devices; names appear from then on.\n');
     }
     const chosen = await pickDevice(devices);
     if (!chosen) return 0;

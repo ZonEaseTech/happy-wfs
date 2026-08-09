@@ -15,6 +15,7 @@ import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
+import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
 import { useAllMachines } from '@/sync/storage';
 import { machineUpdateMetadata } from '@/sync/ops';
@@ -128,18 +129,25 @@ export const DeviceManagementView = React.memo(() => {
 
     const handleApproveKeyRequest = React.useCallback(async (request: DeviceKeyRequest) => {
         if (!auth.credentials) return;
-        const machineKey = sync.getMachineDataKey(request.machineId);
-        if (!machineKey) {
+        // Hand over the whole directory: device names are encrypted per machine,
+        // so a CLI holding a single key could not render a readable list.
+        const directory = machines
+            .map((machine) => {
+                const key = sync.getMachineDataKey(machine.id);
+                return key ? { id: machine.id, name: machineTitle(machine), key: encodeBase64(key) } : null;
+            })
+            .filter((entry): entry is { id: string; name: string; key: string } => !!entry);
+        if (directory.length === 0) {
             Modal.alert(t('common.error'), t('devices.approveNoKey'));
             return;
         }
         try {
-            await approveDeviceKeyRequest(auth.credentials, request, machineKey);
+            await approveDeviceKeyRequest(auth.credentials, request, directory);
             setKeyRequests((current) => current.filter((item) => item.id !== request.id));
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         }
-    }, [auth.credentials]);
+    }, [auth.credentials, machines]);
 
     const handleDenyKeyRequest = React.useCallback(async (request: DeviceKeyRequest) => {
         if (!auth.credentials) return;
