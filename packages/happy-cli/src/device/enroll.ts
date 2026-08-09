@@ -9,6 +9,7 @@
  */
 
 import axios from 'axios';
+import tweetnacl from 'tweetnacl';
 import { randomBytes } from 'node:crypto';
 import { configuration } from '@/configuration';
 import { decodeBase64 } from '@/api/encryption';
@@ -58,7 +59,11 @@ export async function enrollDevice(rawToken: string, options: { force?: boolean 
     }
 
     const sealed = decodeBase64(response.response);
-    const opened = decryptWithEphemeralKey(sealed, secret);
+    // The app sealed the account key to libsodium's crypto_box_seed_keypair
+    // derivation of this secret, which is scalarmult_base(SHA-512(seed)[0:32])
+    // — not the raw seed. Mirror that derivation or the box will not open.
+    const boxSecretKey = tweetnacl.hash(secret).slice(0, 32);
+    const opened = decryptWithEphemeralKey(sealed, boxSecretKey);
     if (!opened) {
         throw new Error('Enrollment failed: could not open the account key with this token');
     }
