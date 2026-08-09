@@ -14,6 +14,7 @@ import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useDesktopRoutes } from '@/components/desktopRoutes';
 import { t } from '@/text';
+import { usePendingDeviceKeyRequests } from '@/hooks/usePendingDeviceKeyRequests';
 import { useInboxHasContent } from '@/hooks/useInboxHasContent';
 import { requestWebNotificationPermission } from '@/sync/webNotifications';
 
@@ -145,6 +146,7 @@ export const SidebarView = React.memo(() => {
     const socketStatus = useSocketStatus();
     const realtimeStatus = useRealtimeStatus();
     const friendRequests = useFriendRequests();
+    const pendingDeviceApprovals = usePendingDeviceKeyRequests();
     const inboxHasContent = useInboxHasContent();
     React.useEffect(() => {
         requestWebNotificationPermission();
@@ -279,6 +281,9 @@ export const SidebarView = React.memo(() => {
                                 style={[{ width: 32, height: 32 }]}
                                 tintColor={theme.colors.header.tint}
                             />
+                            {pendingDeviceApprovals > 0 && (
+                                <View style={styles.indicatorDot} />
+                            )}
                         </Pressable>
                         <Pressable
                             onPress={() => router.push('/settings')}
