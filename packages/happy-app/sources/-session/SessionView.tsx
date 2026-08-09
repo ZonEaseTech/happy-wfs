@@ -34,6 +34,8 @@ import { sessionAbort, sessionDelete, machineBash, machineGetClaudeSessionUserMe
 import type { GitHubIssue } from '@/sync/apiGithub';
 import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
 import { BUG_STATUS_ACCENTS, bugStatusLabel, type BugReportDetail, type BugStatus } from '@/sync/bugTypes';
+import { useAllMachines } from '@/sync/storage';
+import { sessionUpdateMetadataFields } from '@/sync/ops';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import { storage, useAcceptedFriends, useIsDataReady, useLocalSetting, useLocalSettingMutable, useRealtimeStatus, useSessionMessages, useSessionPendingMessages, useSessionUsage, useSetting, useSettingMutable } from '@/sync/storage';
 import { getSessionParticipants, getSessionShares } from '@/sync/apiSharing';
@@ -276,6 +278,38 @@ export const SessionView = React.memo((props: { id: string }) => {
         return () => { cancelled = true; };
     }, [linkedBugId]);
     const [bugStatusMenuVisible, setBugStatusMenuVisible] = React.useState(false);
+    // Target device: which enrolled machine this session's AI runs commands on.
+    const allMachines = useAllMachines();
+    const [deviceMenuVisible, setDeviceMenuVisible] = React.useState(false);
+    const targetDeviceId = session?.metadata?.targetDeviceId ?? null;
+    const handleSelectTargetDevice = React.useCallback((deviceId: string | null) => {
+        setDeviceMenuVisible(false);
+        if (!session?.metadata) return;
+        sessionUpdateMetadataFields(
+            sessionId,
+            session.metadata,
+            { targetDeviceId: deviceId },
+            session.metadataVersion,
+        ).catch((error) => {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        });
+    }, [session?.metadata, session?.metadataVersion, sessionId]);
+    const deviceMenuItems = React.useMemo<ActionMenuItem[]>(() => {
+        const items: ActionMenuItem[] = [{
+            label: t('devices.useSessionMachine'),
+            selected: !targetDeviceId,
+            onPress: () => handleSelectTargetDevice(null),
+        }];
+        for (const machine of [...allMachines].sort((a, b) => Number(b.active) - Number(a.active))) {
+            const name = machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12);
+            items.push({
+                label: `${name}${machine.active ? '' : ` · ${t('devices.offline')}`}`,
+                selected: targetDeviceId === machine.id,
+                onPress: () => handleSelectTargetDevice(machine.id),
+            });
+        }
+        return items;
+    }, [allMachines, handleSelectTargetDevice, targetDeviceId]);
     const handleLinkedBugStatusChange = React.useCallback((status: BugStatus, action?: 'return_to_pending') => {
         if (!linkedHappyBug) return;
         const credentials = sync.getCredentials();
@@ -504,6 +538,26 @@ export const SessionView = React.memo((props: { id: string }) => {
                                         <Ionicons name="ticket-outline" size={21} color={theme.colors.header.tint} />
                                     </Pressable>
                                 )}
+                                <Pressable
+                                    {...webTooltip(t('devices.selectDevice'))}
+                                    onPress={() => setDeviceMenuVisible(true)}
+                                    hitSlop={15}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t('devices.selectDevice')}
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 2,
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="hardware-chip-outline"
+                                        size={21}
+                                        color={targetDeviceId ? theme.colors.textLink : theme.colors.header.tint}
+                                    />
+                                </Pressable>
                                 {linkedHappyBug && (
                                     <Pressable
                                         {...webTooltip(t('bug.openBugDetail'))}
@@ -633,6 +687,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                 visible={quickCommandsMenuVisible}
                 items={quickCommandsMenuItems}
                 onClose={() => setQuickCommandsMenuVisible(false)}
+            />
+
+            {/* Target device picker */}
+            <ActionMenuModal
+                visible={deviceMenuVisible}
+                items={deviceMenuItems}
+                onClose={() => setDeviceMenuVisible(false)}
             />
 
             {/* Linked bug quick status menu (right-click / long-press on the bug icon) */}

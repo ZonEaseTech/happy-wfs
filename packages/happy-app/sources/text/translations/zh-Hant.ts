@@ -90,6 +90,8 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        selectDevice: '選擇目標裝置',
+        useSessionMachine: '本工作階段所在機器',
         addDeviceTitle: '新增裝置',
         addDevice: '產生納管指令',
         addDeviceFooter: '在目標機器上執行產生的指令即可納管,目標機無需預裝任何環境。',

@@ -353,6 +353,8 @@ export type Metadata = {
     updatedAt: number
   },
   summaryPinned?: boolean,
+  /** Device (machine id) this session's AI should run commands on by default. */
+  targetDeviceId?: string | null,
   machineId?: string,
   claudeSessionId?: string, // Claude Code session ID
   tools?: string[],

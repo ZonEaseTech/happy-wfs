@@ -14,6 +14,8 @@ import { AddressInfo } from "node:net";
 import { z } from "zod";
 import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
+import { readCredentials } from "@/persistence";
+import { deviceExec, listDevices } from "@/device/deviceExec";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
 import { applyDefaultWorkingDirectory } from '@/orchestrator/common';
@@ -79,6 +81,62 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
             return { success: false, error: String(error) };
         }
     };
+
+    mcp.registerTool('device_list', {
+        description: 'List enrolled Happy devices (servers and computers) with their online state. Use before device_exec when you need a device id.',
+        title: 'List Devices',
+        inputSchema: {},
+    }, async () => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return { content: [{ type: 'text', text: 'No Happy credentials on this machine.' }] };
+        }
+        try {
+            const devices = await listDevices(credentials);
+            const target = client.targetDeviceId;
+            const lines = devices.map((device) => {
+                const marks = [device.active ? 'online' : 'offline'];
+                if (device.id === target) marks.push('session default');
+                return `${device.id}  ${device.name}${device.platform ? ` (${device.platform})` : ''}  [${marks.join(', ')}]`;
+            });
+            return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'No devices enrolled yet.' }] };
+        } catch (error) {
+            return { content: [{ type: 'text', text: `Failed to list devices: ${error instanceof Error ? error.message : String(error)}` }] };
+        }
+    });
+
+    mcp.registerTool('device_exec', {
+        description: 'Run a shell command on an enrolled device (a server or computer registered in Happy). '
+            + 'Omit deviceId to use the device the user selected for this session. Returns stdout, stderr and exit code.',
+        title: 'Run Command on Device',
+        inputSchema: {
+            command: z.string().describe('Shell command to run on the device'),
+            deviceId: z.string().optional().describe('Target device id. Defaults to the session\'s selected device.'),
+            cwd: z.string().optional().describe('Working directory on the device'),
+            timeout: z.number().optional().describe('Timeout in milliseconds (default 60000)'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return { content: [{ type: 'text', text: 'No Happy credentials on this machine.' }] };
+        }
+        const deviceId = args.deviceId || client.targetDeviceId;
+        if (!deviceId) {
+            return { content: [{ type: 'text', text: 'No device selected for this session. Pick one in the app or pass deviceId (see device_list).' }] };
+        }
+        try {
+            const result = await deviceExec(client.rpcSocket as any, credentials, deviceId, args.command, {
+                cwd: args.cwd,
+                timeout: args.timeout,
+            });
+            const parts = [`exit code: ${result.exitCode}`];
+            if (result.stdout) parts.push(`stdout:\n${result.stdout}`);
+            if (result.stderr) parts.push(`stderr:\n${result.stderr}`);
+            return { content: [{ type: 'text', text: parts.join('\n\n') }] };
+        } catch (error) {
+            return { content: [{ type: 'text', text: `Device command failed: ${error instanceof Error ? error.message : String(error)}` }] };
+        }
+    });
 
     mcp.registerTool('change_title', {
         description: 'Change the title of the current chat session',
@@ -293,8 +351,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;

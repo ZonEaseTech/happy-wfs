@@ -90,6 +90,8 @@ export const en = {
     },
 
     devices: {
+        selectDevice: 'Select target device',
+        useSessionMachine: 'This session\'s machine',
         addDeviceTitle: 'Add device',
         addDevice: 'Generate enrollment command',
         addDeviceFooter: 'Run the generated command on the target machine — nothing needs to be preinstalled there.',

@@ -90,6 +90,8 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        selectDevice: '选择目标设备',
+        useSessionMachine: '本会话所在机器',
         addDeviceTitle: '添加设备',
         addDevice: '生成纳管命令',
         addDeviceFooter: '在目标机器上执行生成的命令即可纳管,目标机无需预装任何环境。',
