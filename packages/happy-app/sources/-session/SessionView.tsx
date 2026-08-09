@@ -66,7 +66,8 @@ import { useRouter } from 'expo-router';
 import * as React from 'react';
 import { useMemo } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
-import { RightPanel, RightPanelType } from '@/components/RightPanel';
+import { RightPanelType } from '@/components/RightPanel';
+import { setRightPanelSession, setRightPanelType, useRightPanelState } from '@/components/rightPanelStore';
 import { FileViewerModal } from '@/components/FileViewerModal';
 import { closeTerminalPanel, openTerminalPanel, useTerminalPanelState } from '@/components/terminalPanelStore';
 import { buildCopyToAgentBriefPrompt } from './sessionCopyPrompt';
@@ -194,7 +195,14 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Desktop web: open files/info as a right-side panel instead of pushing routes.
     // Threshold 1024px = roughly the smallest screen where 480px panel + chat still feels uncramped.
     const isDesktopPanelMode = Platform.OS === 'web' && windowWidth >= 1024;
-    const [rightPanelType, setRightPanelType] = React.useState<RightPanelType | null>(null);
+    // Right panel lives at app level (SidebarNavigator, rendered after the
+    // terminal) so the column order stays chat → terminal → panel and an open
+    // panel survives route changes.
+    const rightPanel = useRightPanelState();
+    const rightPanelType = rightPanel.sessionId === sessionId ? rightPanel.type : null;
+    React.useEffect(() => {
+        setRightPanelSession(sessionId);
+    }, [sessionId]);
     // PC code-slash button (rendered in this header) opens the bt-style FileViewerModal
     // mounted inside SessionViewLoaded; state lives here so the button can read/toggle it.
     const [showFileViewer, setShowFileViewer] = React.useState(false);
@@ -774,14 +782,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                 )}
             </View>
             </View>
-            {isDesktopPanelMode && rightPanelType && (
-                <RightPanel
-                    sessionId={sessionId}
-                    type={rightPanelType}
-                    onClose={() => setRightPanelType(null)}
-                    onTypeChange={setRightPanelType}
-                />
-            )}
         </View>
     );
 });

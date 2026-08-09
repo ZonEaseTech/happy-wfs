@@ -10,6 +10,8 @@ import { useResizableColumn } from '@/utils/useResizableColumn';
 import { isSidebarHiddenPath } from './sidebarVisibility';
 import { TerminalPanel } from './Terminal';
 import { closeTerminalPanel, useTerminalPanelState } from './terminalPanelStore';
+import { RightPanel } from './RightPanel';
+import { setRightPanelType, useRightPanelState } from './rightPanelStore';
 
 const MIN_SIDEBAR_WIDTH = 250;
 const MAX_SIDEBAR_WIDTH = 500;
@@ -89,6 +91,7 @@ export const SidebarNavigator = React.memo(() => {
                 />
             </View>
             <GlobalTerminalHost />
+            <GlobalRightPanelHost />
         </View>
     );
 });
@@ -97,6 +100,19 @@ export const SidebarNavigator = React.memo(() => {
  * Mounted beside the navigator so an open terminal survives route changes
  * (chat → devices → settings); only the middle column swaps.
  */
+const GlobalRightPanelHost = React.memo(() => {
+    const panel = useRightPanelState();
+    if (!panel.type || !panel.sessionId) return null;
+    return (
+        <RightPanel
+            sessionId={panel.sessionId}
+            type={panel.type}
+            onClose={() => setRightPanelType(null)}
+            onTypeChange={setRightPanelType}
+        />
+    );
+});
+
 const GlobalTerminalHost = React.memo(() => {
     const terminal = useTerminalPanelState();
     if (!terminal.targetId) return null;
