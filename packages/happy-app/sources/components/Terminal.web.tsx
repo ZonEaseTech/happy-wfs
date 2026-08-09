@@ -961,12 +961,15 @@ type TerminalPanelTab = {
     title: string;
     sessionId: string;
     cwd?: string;
+    /** True when sessionId is a machine id — device terminals talk machine RPC. */
+    isMachineScope?: boolean;
 };
 
 type TerminalWorkspace = {
     key: string;
     sessionId: string;
     cwd?: string;
+    isMachineScope?: boolean;
     tabs: TerminalPanelTab[];
     activeTabId: string;
     tabCounter: number;
@@ -977,19 +980,20 @@ interface TerminalPanelProps extends TerminalProps {
     openRequestKey?: number;
 }
 
-function createTerminalWorkspace(sessionId: string, cwd?: string): TerminalWorkspace {
+function createTerminalWorkspace(sessionId: string, cwd?: string, isMachineScope?: boolean): TerminalWorkspace {
     const title = terminalLabelFromCwd(cwd);
     return {
         key: sessionId,
         sessionId,
         cwd,
+        isMachineScope,
         tabCounter: 1,
         activeTabId: `${sessionId}:terminal-1`,
-        tabs: [{ id: `${sessionId}:terminal-1`, title, sessionId, cwd }],
+        tabs: [{ id: `${sessionId}:terminal-1`, title, sessionId, cwd, isMachineScope }],
     };
 }
 
-export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, sessionId, cwd, openRequestKey = 0 }) => {
+export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, sessionId, cwd, isMachineScope, openRequestKey = 0 }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [errorClosed, setErrorClosed] = React.useState(false);
     const inputSendersRef = React.useRef<Record<string, ((data: string) => void) | undefined>>({});
@@ -1036,10 +1040,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
         setErrorClosed(false);
         setWorkspaces((current) => {
             if (current[sessionId]) return current;
-            return { ...current, [sessionId]: createTerminalWorkspace(sessionId, cwd) };
+            return { ...current, [sessionId]: createTerminalWorkspace(sessionId, cwd, isMachineScope) };
         });
         setActiveWorkspaceKey(sessionId);
-    }, [cwd, openRequestKey, sessionId, visible]);
+    }, [cwd, isMachineScope, openRequestKey, sessionId, visible]);
 
     const resolvedTerminalTheme = resolveTerminalTheme(terminalThemeSetting);
     const panelTheme = TERMINAL_THEME_COLORS[resolvedTerminalTheme];
@@ -1138,7 +1142,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
 
     const handleAddTerminalTab = React.useCallback(() => {
         setWorkspaces((current) => {
-            const workspace = current[activeWorkspaceKey] ?? createTerminalWorkspace(sessionId, cwd);
+            const workspace = current[activeWorkspaceKey] ?? createTerminalWorkspace(sessionId, cwd, isMachineScope);
             const nextIndex = workspace.tabCounter + 1;
             const baseTitle = terminalLabelFromCwd(workspace.cwd ?? cwd);
             const nextTab = {
@@ -1146,6 +1150,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                 title: `${baseTitle} ${nextIndex}`,
                 sessionId: workspace.sessionId,
                 cwd: workspace.cwd ?? cwd,
+                isMachineScope: workspace.isMachineScope,
             };
             return {
                 ...current,
@@ -1157,7 +1162,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                 },
             };
         });
-    }, [activeWorkspaceKey, cwd, sessionId]);
+    }, [activeWorkspaceKey, cwd, isMachineScope, sessionId]);
 
     const handleSelectTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
         setActiveWorkspaceKey(workspaceKey);
@@ -1643,6 +1648,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                         >
                             <TerminalRuntime
                                 sessionId={tab.sessionId}
+                                isMachineScope={tab.isMachineScope}
                                 cwd={tab.cwd}
                                 bundle={bundle}
                                 onError={handleError}
