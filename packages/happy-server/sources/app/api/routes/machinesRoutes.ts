@@ -33,10 +33,14 @@ export function machinesRoutes(app: Fastify) {
         });
 
         if (machine) {
-            // Machine exists — refresh the plaintext label so renames and
-            // upgrades from older CLIs fill it in without re-registering.
+            // Machine exists — fill the plaintext label when it is still empty,
+            // so machines registered by an older CLI get one without
+            // re-enrolling. Never overwrite: the CLI only knows the hostname,
+            // and a rename in the app must survive every daemon restart.
+            // Clearing the rename sets the column back to null, which lets the
+            // hostname take over again on the next registration.
             const refresh: { displayName?: string; isDevice?: boolean } = {};
-            if (displayName && displayName !== machine.displayName) refresh.displayName = displayName;
+            if (displayName && !machine.displayName) refresh.displayName = displayName;
             // Only ever set the flag from the CLI: clearing it is a user action
             // in the app, and a stale CLI must not undo that.
             if (isDevice === true && !machine.isDevice) refresh.isDevice = true;
