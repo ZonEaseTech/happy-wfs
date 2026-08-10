@@ -88,6 +88,17 @@ cat > "$CLI_DIR/package.json" <<'HAPPY_PKG_JSON'
 HAPPY_PKG_JSON
 "$RUNTIME_DIR/bin/npm" install --prefix "$CLI_DIR" --no-fund --no-audit --omit=optional >/dev/null
 
+# --omit=optional is all-or-nothing, and node-pty is optional too — skipping it
+# leaves the device with no terminal, which is most of what a device is for. Add
+# it back explicitly, reading the range from the CLI that was just installed so
+# the two cannot drift.
+PTY_RANGE=$("$RUNTIME_DIR/bin/node" -p "require('$CLI_DIR/node_modules/@zonease/happy/package.json').optionalDependencies['node-pty']" 2>/dev/null)
+if [ -n "$PTY_RANGE" ] && [ "$PTY_RANGE" != "undefined" ]; then
+  "$RUNTIME_DIR/bin/npm" install --prefix "$CLI_DIR" --no-fund --no-audit --omit=optional "node-pty@$PTY_RANGE" >/dev/null
+else
+  echo "happy-enroll: warning — could not determine the node-pty range; the terminal may be unavailable" >&2
+fi
+
 # The rest of this script, and the daemon service file the CLI writes, both go
 # through $RUNTIME_DIR/bin — keep that entry point regardless of layout.
 ln -sf "$CLI_DIR/node_modules/.bin/happy" "$RUNTIME_DIR/bin/happy"
