@@ -2,6 +2,22 @@ import { Dimensions, Platform } from 'react-native';
 import { getDeviceType } from '@/utils/responsive';
 import { isRunningOnMac } from '@/utils/platform';
 
+/**
+ * Above this viewport width the content column widens from 1000 to 1200.
+ *
+ * Sized off the sidebar: a laptop display leaves ~1200pt beside it, so a 1200
+ * column runs edge to edge there with no breathing room — the reason 1200 has
+ * to stay off MacBook-class screens. 1800 keeps every built-in Mac display
+ * (16" is 1728pt) on the narrower column and starts the wider one at the 1920pt
+ * external monitors that actually have the room.
+ */
+const WIDE_VIEWPORT_MIN_WIDTH = 1800;
+
+/** Content column for tablets and web, chosen by how much room the viewport has. */
+function responsiveContentWidth(): number {
+    return Dimensions.get('window').width >= WIDE_VIEWPORT_MIN_WIDTH ? 1200 : 1000;
+}
+
 // Calculate max width based on device type
 function getMaxWidth(): number {
     const deviceType = getDeviceType();
@@ -16,8 +32,8 @@ function getMaxWidth(): number {
         return Number.POSITIVE_INFINITY;
     }
 
-    // For tablets and web, use 1200px so the header tracks the content area.
-    return 1200;
+    // Header tracks the content area, so it uses the same responsive width.
+    return responsiveContentWidth();
 }
 
 // Calculate max width based on device type
@@ -34,9 +50,7 @@ function getMaxLayoutWidth(): number {
         return 1400;
     }
 
-    // For tablets and web, use 1200px (widened from 1000 on user request to
-    // give the chat content area more breathing room on PC web).
-    return 1200;
+    return responsiveContentWidth();
 }
 
 export const layout = {
