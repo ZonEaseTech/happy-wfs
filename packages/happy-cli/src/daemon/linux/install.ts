@@ -12,7 +12,11 @@ const SERVICE_NAME = 'happy-daemon.service';
  *  or custom home dir must be baked in — otherwise the daemon silently falls
  *  back to defaults after a reboot and never reconnects. */
 function environmentLines(): string {
-    const lines: string[] = [];
+    // Type=simple + the default KillMode reaps the whole cgroup when the main
+    // process exits, so a successor this daemon spawns for itself never
+    // survives. The flag tells it to exit non-zero and let Restart= re-exec
+    // the new code instead.
+    const lines: string[] = ['Environment=HAPPY_DAEMON_SUPERVISED=1'];
     if (process.env.HAPPY_SERVER_URL) lines.push(`Environment=HAPPY_SERVER_URL=${process.env.HAPPY_SERVER_URL}`);
     if (process.env.HAPPY_HOME_DIR) lines.push(`Environment=HAPPY_HOME_DIR=${process.env.HAPPY_HOME_DIR}`);
     if (process.env.HAPPY_WEBAPP_URL) lines.push(`Environment=HAPPY_WEBAPP_URL=${process.env.HAPPY_WEBAPP_URL}`);

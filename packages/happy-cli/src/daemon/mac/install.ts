@@ -6,7 +6,7 @@ import { logger } from '@/ui/logger';
 import { trimIdent } from '@/utils/trimIdent';
 import { projectPath } from '@/projectPath';
 
-const PLIST_LABEL = 'com.happy-cli.daemon';
+export const PLIST_LABEL = 'com.happy-cli.daemon';
 const PLIST_DIR = join(os.homedir(), 'Library', 'LaunchAgents');
 const PLIST_FILE = join(PLIST_DIR, `${PLIST_LABEL}.plist`);
 const LOG_DIR = join(os.homedir(), '.happy');
@@ -15,7 +15,10 @@ const LOG_DIR = join(os.homedir(), '.happy');
  *  custom home dir must be baked into the plist — otherwise the daemon falls
  *  back to defaults after a reboot and never reconnects. */
 function plistEnvironment(): string {
-    const entries: Array<[string, string]> = [];
+    // launchd tears down the job's descendants once the job exits, so a
+    // successor this daemon spawns for itself never survives. The flag tells it
+    // to exit non-zero and let KeepAlive re-exec the new code instead.
+    const entries: Array<[string, string]> = [['HAPPY_DAEMON_SUPERVISED', '1']];
     if (process.env.HAPPY_SERVER_URL) entries.push(['HAPPY_SERVER_URL', process.env.HAPPY_SERVER_URL]);
     if (process.env.HAPPY_HOME_DIR) entries.push(['HAPPY_HOME_DIR', process.env.HAPPY_HOME_DIR]);
     if (process.env.HAPPY_WEBAPP_URL) entries.push(['HAPPY_WEBAPP_URL', process.env.HAPPY_WEBAPP_URL]);

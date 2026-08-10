@@ -17,6 +17,7 @@ import { isDebug } from '@/utils/env';
 import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, readSettings, getActiveProfile, getEnvironmentVariables, validateProfileForAgent, getProfileEnvironmentVariables } from '@/persistence';
 
 import { cleanupDaemonState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './controlClient';
+import { PLIST_LABEL } from './mac/install';
 
 /**
  * Session-scoped HAPPY_* control variables that the daemon injects into
@@ -1225,6 +1226,20 @@ export async function startDaemon(): Promise<void> {
         logger.debug('[DAEMON RUN] Daemon is outdated, triggering self-restart with latest version, clearing heartbeat interval');
 
         clearInterval(restartOnStaleVersionAndHeartbeat);
+
+        // Under launchd/systemd the successor we spawn below is torn down with
+        // us — launchd reaps the job's descendants, systemd reaps the cgroup —
+        // and a clean exit does not trip KeepAlive/Restart=on-failure either,
+        // so the machine drops off entirely. Exit non-zero instead and let the
+        // supervisor re-exec the entrypoint, which now holds the new code.
+        // XPC_SERVICE_NAME carries the job label, so plists written before the
+        // flag existed are still recognised without reinstalling the agent.
+        const supervised = process.env.HAPPY_DAEMON_SUPERVISED === '1'
+          || process.env.XPC_SERVICE_NAME === PLIST_LABEL;
+        if (supervised) {
+          logger.debug('[DAEMON RUN] Supervised daemon is outdated, exiting non-zero so the service manager restarts us with the new version');
+          process.exit(1);
+        }
 
         // Spawn new daemon through the CLI
         // We do not need to clean ourselves up - we will be killed by
