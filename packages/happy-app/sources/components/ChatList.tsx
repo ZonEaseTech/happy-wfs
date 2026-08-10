@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useSession, useSessionMessages, useProfile } from "@/sync/storage";
 import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from 'react-native';
 import { useCallback, useRef, useState } from 'react';
-import { useHeaderHeight } from '@/utils/responsive';
+import { useHeaderHeight, useIsTablet } from '@/utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
@@ -118,9 +118,12 @@ const ChatListInternal = React.memo((props: {
 
     // Message navigator rail (desktop): ticks for the user's own messages,
     // hover to peek, click to jump back to that point in the conversation.
+    // Phone-sized screens have no room for the rail, so they get neither the
+    // rail nor its gutter.
+    const isTablet = useIsTablet();
     const railEntries = React.useMemo(
-        () => (RAIL_SUPPORTED ? buildRailEntries(visibleMessages) : []),
-        [visibleMessages]
+        () => (RAIL_SUPPORTED && isTablet ? buildRailEntries(visibleMessages) : []),
+        [isTablet, visibleMessages]
     );
     // Jumping to an off-screen index fails while the row is outside the
     // virtualization window, so land near it by estimated offset first and
