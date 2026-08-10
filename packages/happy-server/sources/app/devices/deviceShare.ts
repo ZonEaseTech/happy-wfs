@@ -124,7 +124,8 @@ export async function deviceShareExec(grant: DeviceShareGrant, input: {
         throw Object.assign(new Error('Device is not part of this share'), { statusCode: 403 });
     }
     const listeners = getOrCreateUserRpcListeners(grant.accountId);
-    const method = `machine:${input.machineId}:bash`;
+    // Daemons register machine-scoped handlers as `<machineId>:<method>`.
+    const method = `${input.machineId}:bash`;
     const targetSocket = listeners.get(method);
     if (!targetSocket?.connected) {
         throw Object.assign(new Error('Device is offline'), { statusCode: 409 });
