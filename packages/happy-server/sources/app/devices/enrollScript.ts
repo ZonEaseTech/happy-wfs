@@ -69,7 +69,11 @@ PATH="$RUNTIME_DIR/bin:$PATH"
 export PATH
 
 echo "happy-enroll: installing Happy CLI"
-"$RUNTIME_DIR/bin/npm" install -g --prefix "$RUNTIME_DIR" --no-fund --no-audit @zonease/happy@latest >/dev/null
+# --omit=optional skips the platform tool packages (difftastic, ripgrep, ~142MB).
+# They exist for agent sessions, and an enrolled device refuses to host those —
+# see the deviceMode guard on spawn-happy-session. A machine promoted to hosting
+# sessions later needs a plain reinstall to pull them in.
+"$RUNTIME_DIR/bin/npm" install -g --prefix "$RUNTIME_DIR" --no-fund --no-audit --omit=optional @zonease/happy@latest >/dev/null
 
 # Older CLI builds treat an unknown subcommand as "start an interactive
 # session", which fails noisily when piped from curl (no TTY). Verify support

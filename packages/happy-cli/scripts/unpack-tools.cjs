@@ -111,7 +111,14 @@ async function unpackTools() {
         const toolsDir = getToolsDir();
         const archivesDir = path.join(toolsDir, 'archives');
         const unpackedPath = path.join(toolsDir, 'unpacked');
-        
+
+        // Published packages no longer carry archives — the binaries arrive as
+        // an os/cpu-tagged sidecar that npm installs on its own. Only a repo
+        // checkout still has archives to unpack, so this is a no-op elsewhere.
+        if (!fs.existsSync(archivesDir)) {
+            return { success: true, skipped: true };
+        }
+
         // Check if already unpacked
         if (areToolsUnpacked(toolsDir)) {
             console.log(`Tools already unpacked for ${platformDir}`);

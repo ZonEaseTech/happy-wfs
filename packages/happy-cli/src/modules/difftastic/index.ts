@@ -3,9 +3,7 @@
  */
 
 import { spawn } from 'child_process';
-import { join, resolve } from 'path';
-import { platform, arch } from 'os';
-import { projectPath } from '@/projectPath';
+import { toolPath } from '@/utils/toolsDir';
 
 export interface DifftasticResult {
     exitCode: number
@@ -21,9 +19,7 @@ export interface DifftasticOptions {
  * Get the platform-specific binary path
  */
 function getBinaryPath(): string {
-    const platformName = platform();
-    const binaryName = platformName === 'win32' ? 'difft.exe' : 'difft';
-    return resolve(join(projectPath(), 'tools', 'unpacked', binaryName));
+    return toolPath('difft');
 }
 
 /**

@@ -57,6 +57,28 @@ jobs:
       - name: Run tests
         run: yarn workspace @zonease/happy test
 
+      # Must run before the CLI: its optionalDependencies pin these exact
+      # versions, and a CLI published first would install without its tools.
+      # They carry their own version and only change when download-tools.sh
+      # moves, so an unchanged version is already on npm and is skipped.
+      - name: Publish platform tool packages
+        working-directory: packages/happy-cli
+        run: |
+          set -euo pipefail
+          node scripts/build-tool-packages.cjs
+          for dir in tools/packages/*/; do
+            name="$(node -p "require('./${dir}package.json').name")"
+            version="$(node -p "require('./${dir}package.json').version")"
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "${name}@${version} already published — skipping"
+              continue
+            fi
+            echo "publishing ${name}@${version}"
+            (cd "$dir" && npm publish --provenance --access public)
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish to npm
         working-directory: packages/happy-cli
         run: npm publish --provenance --access public

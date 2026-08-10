@@ -25,6 +25,7 @@ import { backfillClaudeSessionHistory } from '@/claude/utils/claudeBackfill';
 import { generateHookSettingsFile, cleanupHookSettingsFile } from '@/claude/utils/generateHookSettings';
 import { registerKillSessionHandler } from './registerKillSessionHandler';
 import { projectPath } from '../projectPath';
+import { resolveToolsDir } from '@/utils/toolsDir';
 import { resolve, join } from 'node:path';
 import { detectGitWorktree } from '@/utils/gitWorktree';
 import { startOfflineReconnection, connectionState } from '@/utils/serverConnectionErrors';
@@ -169,7 +170,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         homeDir: os.homedir(),
         happyHomeDir: configuration.happyHomeDir,
         happyLibDir: projectPath(),
-        happyToolsDir: resolve(projectPath(), 'tools', 'unpacked'),
+        happyToolsDir: resolveToolsDir(),
         startedFromDaemon: options.startedBy === 'daemon',
         hostPid: process.pid,
         startedBy: options.startedBy || 'terminal',

@@ -14,6 +14,7 @@ import { resolve, join } from 'node:path';
 import type { AgentState, Metadata } from '@/api/types';
 import { configuration } from '@/configuration';
 import { projectPath } from '@/projectPath';
+import { resolveToolsDir } from '@/utils/toolsDir';
 import { detectGitWorktree } from '@/utils/gitWorktree';
 import { discoverCodexSkills } from '@/codex/utils/skillDiscovery';
 import packageJson from '../../package.json';
@@ -152,7 +153,7 @@ export function createSessionMetadata(opts: CreateSessionMetadataOptions): Sessi
         homeDir: os.homedir(),
         happyHomeDir: configuration.happyHomeDir,
         happyLibDir: projectPath(),
-        happyToolsDir: resolve(projectPath(), 'tools', 'unpacked'),
+        happyToolsDir: resolveToolsDir(),
         startedFromDaemon: opts.startedBy === 'daemon',
         hostPid: process.pid,
         startedBy: opts.startedBy || 'terminal',

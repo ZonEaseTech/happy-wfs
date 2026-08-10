@@ -114,10 +114,24 @@ function createMockRipgrep() {
     };
 }
 
+/**
+ * Binaries ship as an os/cpu-tagged sidecar so npm only downloads the matching
+ * platform. Repo checkouts and installs made before that still have the old
+ * tools/unpacked layout — keep resolving it so an upgrade never loses ripgrep.
+ * Mirrors resolveToolsDir in src/utils/toolsDir.ts.
+ */
+function resolveToolsDir() {
+    try {
+        return path.dirname(require.resolve(`@zonease/happy-tools-${process.arch}-${process.platform}/package.json`));
+    } catch {
+        return path.join(__dirname, '..', 'tools', 'unpacked');
+    }
+}
+
 // Load ripgrep with graceful fallback chain
 function loadRipgrepNative() {
     const runtime = detectRuntime();
-    const toolsDir = path.join(__dirname, '..', 'tools', 'unpacked');
+    const toolsDir = resolveToolsDir();
     const nativePath = path.join(toolsDir, 'ripgrep.node');
     const binaryPath = path.join(toolsDir, 'rg');
 
