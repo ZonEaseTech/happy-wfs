@@ -6,6 +6,7 @@ import { encryptWithDataKey, decryptWithDataKey, encodeBase64, decodeBase64 } fr
 
 const TOKEN_BYTES = 32;
 const ENCRYPT_PATH = ['device-share-key'];
+const TOKEN_PATH = ['device-share-token'];
 
 export type DeviceShareGrant = {
     id: string;
@@ -50,6 +51,7 @@ export async function deviceShareCreate(accountId: string, input: {
         data: {
             accountId,
             tokenHash: hashToken(token),
+            tokenCipher: Buffer.from(encryptBytes(TOKEN_PATH, new TextEncoder().encode(token) as Uint8Array<ArrayBuffer>)),
             label: input.label?.trim() || null,
             deviceKeys,
             expiresAt: input.expiresAt ?? null,
@@ -156,4 +158,13 @@ export async function deviceShareDevices(grant: DeviceShareGrant): Promise<Array
         select: { id: true, displayName: true, active: true },
     });
     return rows.map((row) => ({ id: row.id, name: row.displayName || row.id.slice(0, 12), active: row.active }));
+}
+
+/** Re-read a grant's token so the owner can copy the config again. Null for
+ *  grants minted before tokens were stored. */
+export async function deviceShareToken(accountId: string, id: string): Promise<string | null> {
+    const row = await db.deviceShareToken.findFirst({ where: { id, accountId, revokedAt: null } });
+    if (!row?.tokenCipher) return null;
+    const plain = decryptBytes(TOKEN_PATH, new Uint8Array(row.tokenCipher) as Uint8Array<ArrayBuffer>);
+    return plain ? new TextDecoder().decode(plain) : null;
 }

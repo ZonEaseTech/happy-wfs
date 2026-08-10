@@ -90,6 +90,8 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        mcpShareViewConfig: '查看配置',
+        mcpShareTokenUnavailable: '这条授权是旧版本生成的,没有保存令牌,无法再次查看。请撤销后重新生成。',
         selectAllDevices: '全选',
         invertDevices: '反选',
         mcpShares: '已生成的 MCP',

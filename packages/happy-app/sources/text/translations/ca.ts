@@ -88,6 +88,8 @@ export const ca: TranslationStructure = {
     },
 
     devices: {
+        mcpShareViewConfig: 'View config',
+        mcpShareTokenUnavailable: 'This grant predates token storage, so it cannot be reopened. Revoke it and create a new one.',
         selectAllDevices: 'Select all',
         invertDevices: 'Invert',
         mcpShares: 'Generated MCP grants',

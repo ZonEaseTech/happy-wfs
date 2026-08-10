@@ -90,6 +90,8 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        mcpShareViewConfig: '檢視設定',
+        mcpShareTokenUnavailable: '這條授權是舊版本產生的,沒有保存權杖,無法再次檢視。請撤銷後重新產生。',
         selectAllDevices: '全選',
         invertDevices: '反選',
         mcpShares: '已產生的 MCP',

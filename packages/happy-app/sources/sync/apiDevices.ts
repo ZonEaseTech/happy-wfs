@@ -283,3 +283,16 @@ export async function addDevicesToShare(
         throw new Error(`Failed to add devices: ${response.status}`);
     }
 }
+
+/** Re-read a grant's token so the owner can copy the MCP config again. */
+export async function getDeviceShareToken(credentials: AuthCredentials, id: string): Promise<string | null> {
+    const response = await fetch(`${getServerUrl()}/v1/devices/shares/${encodeURIComponent(id)}/token`, {
+        headers: { 'Authorization': `Bearer ${credentials.token}` }
+    });
+    if (response.status === 404) return null;
+    if (!response.ok) {
+        throw new Error(`Failed to read share token: ${response.status}`);
+    }
+    const data = await response.json() as { token: string };
+    return data.token;
+}

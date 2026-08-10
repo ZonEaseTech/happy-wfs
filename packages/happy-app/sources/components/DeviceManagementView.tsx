@@ -15,7 +15,7 @@ import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { openTerminalPanel } from '@/components/terminalPanelStore';
 import { DeviceMcpShareModal } from '@/components/DeviceMcpShareModal';
-import { listDeviceShares, revokeDeviceShare, type DeviceShare, renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { buildDeviceMcpConfig, getDeviceShareToken, listDeviceShares, revokeDeviceShare, type DeviceShare, renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
@@ -269,6 +269,30 @@ export const DeviceManagementView = React.memo(() => {
         });
     }, [reloadShares, sortedMachines]);
 
+    const handleViewShareConfig = React.useCallback(async (share: DeviceShare) => {
+        if (!auth.credentials) {
+            Modal.alert(t('common.error'), t('devices.needLogin'));
+            return;
+        }
+        try {
+            const token = await getDeviceShareToken(auth.credentials, share.id);
+            if (!token) {
+                Modal.alert(t('devices.mcpShareViewConfig'), t('devices.mcpShareTokenUnavailable'));
+                return;
+            }
+            await Modal.prompt(t('devices.shareMcpTitle'), t('devices.shareMcpHint'), {
+                defaultValue: buildDeviceMcpConfig(getServerUrl(), token),
+                confirmText: t('common.copy'),
+                cancelText: t('common.cancel'),
+                multiline: true,
+                multilineRows: 10,
+                size: 'large',
+            });
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [auth.credentials]);
+
     const handleRevokeShare = React.useCallback(async (share: DeviceShare) => {
         const confirmed = await Modal.confirm(
             t('devices.mcpShareRevoke'),
@@ -440,6 +464,9 @@ export const DeviceManagementView = React.memo(() => {
                                     <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
                                         {share.lastUsedAt ? new Date(share.lastUsedAt).toLocaleDateString() : t('devices.mcpShareNeverUsed')}
                                     </Text>
+                                    <Pressable onPress={() => { void handleViewShareConfig(share); }} hitSlop={8}>
+                                        <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.mcpShareViewConfig')}</Text>
+                                    </Pressable>
                                     <Pressable onPress={() => handleAddDevicesToShare(share)} hitSlop={8}>
                                         <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.mcpShareAddDevices')}</Text>
                                     </Pressable>

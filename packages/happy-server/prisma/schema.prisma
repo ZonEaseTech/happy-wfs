@@ -695,6 +695,9 @@ model DeviceShareToken {
   accountId  String
   account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   tokenHash  String    @unique
+  /// The token itself, encrypted at rest, so the owner can reopen the config
+  /// later instead of minting a new grant.
+  tokenCipher Bytes?
   label      String?
   /// machineId -> base64 of the device key, each encrypted at rest with the
   /// server master secret. One grant can cover several devices.

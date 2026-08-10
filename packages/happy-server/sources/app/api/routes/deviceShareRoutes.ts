@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Fastify } from "../types";
-import { deviceShareAddDevices, deviceShareCreate, deviceShareDevices, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
+import { deviceShareToken, deviceShareAddDevices, deviceShareCreate, deviceShareDevices, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
 
 const JSONRPC_VERSION = '2.0';
 const MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -67,6 +67,15 @@ export function deviceShareRoutes(app: Fastify) {
                 createdAt: share.createdAt.getTime(),
             }))
         });
+    });
+
+    app.get('/v1/devices/shares/:id/token', {
+        preHandler: app.authenticate,
+        schema: { params: z.object({ id: z.string() }) }
+    }, async (request, reply) => {
+        const token = await deviceShareToken(request.userId, request.params.id);
+        if (!token) return reply.code(404).send({ error: 'Token unavailable for this grant' });
+        return reply.send({ token });
     });
 
     app.patch('/v1/devices/shares/:id', {
