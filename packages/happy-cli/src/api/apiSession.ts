@@ -366,7 +366,15 @@ export class ApiSessionClient extends EventEmitter {
                     }
                 } else if (data.body.t === 'update-session') {
                     if (data.body.metadata && data.body.metadata.version > this.metadataVersion) {
-                        this.metadata = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(data.body.metadata.value));
+                        // Same guard as the update-metadata responses below: a
+                        // broadcast that fails to decrypt, or that carries a
+                        // sparse copy written by another client, must not wipe
+                        // what this session knows about itself — the next write
+                        // would push that loss back to the server.
+                        this.metadata = adoptServerSessionMetadata(
+                            this.metadata,
+                            decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(data.body.metadata.value)),
+                        );
                         this.metadataVersion = data.body.metadata.version;
                         this.syncedModel = this.metadata?.model?.trim() || null;
                     }
@@ -1230,7 +1238,16 @@ export class ApiSessionClient extends EventEmitter {
     private async updateMetadataAsync(handler: (metadata: Metadata) => Metadata): Promise<void> {
         await this.metadataLock.inLock(async () => {
             await backoff(async () => {
-                let updated = handler(this.metadata!); // Weird state if metadata is null - should never happen but here we are
+                // update-metadata replaces the whole document. Handlers build on
+                // the local copy — several spread it and are null-safe — so
+                // without a base they would send a one-key object that wipes the
+                // session's identity and renders it as "unknown" everywhere.
+                const base = this.metadata;
+                if (!base) {
+                    logger.debug('[API] skipping metadata update: no local metadata to build on');
+                    return;
+                }
+                const updated = adoptServerSessionMetadata(base, handler(base))!;
                 const answer = await this.socket.emitWithAck('update-metadata', { sid: this.sessionId, expectedVersion: this.metadataVersion, metadata: encodeBase64(encrypt(this.encryptionKey, this.encryptionVariant, updated)) });
                 if (answer.result === 'success') {
                     this.metadata = adoptServerSessionMetadata(this.metadata, decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata)));
