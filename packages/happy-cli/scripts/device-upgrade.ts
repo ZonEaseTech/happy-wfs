@@ -68,7 +68,9 @@ async function main() {
     const result = await deviceExec(socket, credentials, match.id, command, {
         deviceKeyBase64: encodeBase64(key),
         deviceKeyVariant: variant,
-        timeout: 180000,
+        // The device kills the child when this expires, so a slow npm install
+        // needs headroom — a SIGTERM mid-install leaves bin links unwritten.
+        timeout: Number(flag('--timeout') ?? 180000),
     });
     console.log(JSON.stringify(result, null, 2));
     socket.close();
