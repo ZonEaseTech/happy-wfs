@@ -17,7 +17,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const { PLATFORMS, TOOLS_PACKAGE_VERSION, sidecarManifest } = createRequire(import.meta.url)('../../scripts/build-tool-packages.cjs');
+const { PLATFORMS, TOOLS_PACKAGE_VERSION, sidecarManifest, optionalDependenciesWithSidecars } = createRequire(import.meta.url)('../../scripts/build-tool-packages.cjs');
 
 const repoRoot = resolve(__dirname, '../..');
 const read = (relativePath: string) => readFileSync(resolve(repoRoot, relativePath), 'utf8');
@@ -33,8 +33,27 @@ describe('platform tool packages', () => {
                 encoding: 'utf8',
             }),
         );
-        expect(committed.optionalDependencies).toBeUndefined();
+        const declared = Object.keys(committed.optionalDependencies ?? {});
+        expect(declared.filter((name) => name.startsWith('@zonease/happy-tools-'))).toEqual([]);
         expect(committed.files).not.toContain('tools');
+    });
+
+    it('keeps the optional dependencies that are not sidecars', () => {
+        // node-pty is optional too. Replacing the whole object instead of
+        // merging dropped it from a published release and every machine that
+        // upgraded lost its terminal, with the CLI reporting a build failure
+        // for a package that had simply never been installed.
+        const committed = JSON.parse(
+            execFileSync('git', ['show', 'HEAD:packages/happy-cli/package.json'], {
+                cwd: resolve(repoRoot, '../..'),
+                encoding: 'utf8',
+            }),
+        );
+        expect(committed.optionalDependencies).toHaveProperty('node-pty');
+
+        const injected = optionalDependenciesWithSidecars(committed.optionalDependencies);
+        expect(injected['node-pty']).toBe(committed.optionalDependencies['node-pty']);
+        expect(Object.keys(injected)).toHaveLength(PLATFORMS.length + 1);
     });
 
     it('are injected by the publish workflow', () => {

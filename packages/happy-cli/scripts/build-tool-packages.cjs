@@ -139,12 +139,25 @@ async function buildPackage(platform) {
  * exist on npm — including the very release that first publishes them. Inject
  * them at publish time instead.
  */
+/**
+ * Adds the sidecars to whatever optional dependencies already exist. Replacing
+ * the object instead of merging dropped node-pty from a published release, and
+ * every machine that upgraded lost its terminal — the CLI reported a native
+ * build failure for a package that had simply never been installed.
+ */
+function optionalDependenciesWithSidecars(existing) {
+    return {
+        ...existing,
+        ...Object.fromEntries(
+            PLATFORMS.map((platform) => [`@zonease/happy-tools-${platform}`, TOOLS_PACKAGE_VERSION]),
+        ),
+    };
+}
+
 function writeOptionalDeps() {
     const manifestPath = path.join(root, 'package.json');
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    manifest.optionalDependencies = Object.fromEntries(
-        PLATFORMS.map((platform) => [`@zonease/happy-tools-${platform}`, TOOLS_PACKAGE_VERSION]),
-    );
+    manifest.optionalDependencies = optionalDependenciesWithSidecars(manifest.optionalDependencies);
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
     console.log(`\npackage.json now depends on ${PLATFORMS.length} tool packages @ ${TOOLS_PACKAGE_VERSION}`);
 }
@@ -164,7 +177,7 @@ async function main() {
     }
 }
 
-module.exports = { PLATFORMS, TOOLS_PACKAGE_VERSION, sidecarManifest };
+module.exports = { PLATFORMS, TOOLS_PACKAGE_VERSION, sidecarManifest, optionalDependenciesWithSidecars };
 
 if (require.main === module) {
     main().catch((error) => {

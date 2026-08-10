@@ -148,5 +148,8 @@
     "registry": "https://registry.npmjs.org",
     "access": "public"
   },
-  "packageManager": "yarn@1.22.22"
+  "packageManager": "yarn@1.22.22",
+  "optionalDependencies": {
+    "node-pty": "^1.0.0"
+  }
 }
