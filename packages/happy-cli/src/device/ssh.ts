@@ -13,7 +13,7 @@ import { Credentials } from '@/persistence';
 import { configuration } from '@/configuration';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from '@/api/encryption';
 import { deviceExec, listDevices, type DeviceSummary } from './deviceExec';
-import { ensureDeviceKey, readCachedDeviceNames } from './deviceKeys';
+import { ensureDeviceKey, pruneDeviceAliases, readCachedDeviceKey, readCachedDeviceNames } from './deviceKeys';
 
 function matchDevice(devices: DeviceSummary[], query: string): DeviceSummary | null {
     const lowered = query.trim().toLowerCase();
@@ -67,27 +67,102 @@ export function parseSshArgs(args: string[]): SshArgs {
  * becomes this process's — so it composes with scripts and CI. Progress notes
  * go to stderr to keep stdout exactly what the command printed.
  */
+interface ResolvedDevice {
+    device: { id: string; name: string };
+    key: Uint8Array;
+    variant: 'legacy' | 'dataKey';
+}
+
+/**
+ * Resolve without touching the network. The approval handshake already cached
+ * the name and key, and that listing request is the largest single piece of a
+ * command's latency.
+ *
+ * Bails out when a name matches more than one id: the cache cannot tell which
+ * of them still exists, and guessing wrong costs a whole extra round trip.
+ */
+async function resolveFromCache(query: string): Promise<ResolvedDevice | null> {
+    const names = await readCachedDeviceNames();
+    const id = pickCachedDeviceId(names, query);
+    if (!id) return null;
+    const material = await readCachedDeviceKey(id);
+    return material ? { device: { id, name: names[id] }, ...material } : null;
+}
+
+/**
+ * The one id this query can only mean, or null to go ask the server.
+ *
+ * Null on ambiguity is the whole point: re-enrolling a machine gives it a new
+ * id while the old entry keeps the same name, and picking the dead one costs a
+ * failed round trip plus the lookup that was being avoided — slower than never
+ * having tried.
+ */
+export function pickCachedDeviceId(names: Record<string, string>, query: string): string | null {
+    if (names[query]) return query;
+    const lowered = query.trim().toLowerCase();
+    for (const test of [
+        (name: string) => name === lowered,
+        (name: string) => name.startsWith(lowered),
+        (name: string) => name.includes(lowered),
+    ]) {
+        const matches = Object.keys(names).filter((id) => test(names[id].toLowerCase()));
+        if (matches.length === 1) return matches[0];
+        if (matches.length > 1) return null;
+    }
+    return null;
+}
+
+/** The authoritative path: reports a bad name or an offline device, and asks
+ *  for approval when this machine has never been authorized for it. */
+async function resolveFromServer(credentials: Credentials, query: string): Promise<ResolvedDevice | null> {
+    const { devices } = await listDevicesWithNames(credentials);
+    const device = matchDevice(devices, query);
+    if (!device) {
+        console.error(`No enrolled device matches "${query}". Run "happy ssh" with no arguments to list devices.`);
+        return null;
+    }
+    if (!device.active) {
+        console.error(`Device "${device.name}" is offline.`);
+        return null;
+    }
+    const { key, variant } = await ensureDeviceKey(credentials, device.id, () => {
+        console.error('Waiting for approval in the Happy app (Devices → pending request)...');
+    });
+    // Now that the server has settled which id owns this name, retire any other
+    // entry claiming it, so the next run can take the fast path.
+    await pruneDeviceAliases(device.id, device.name);
+    return { device, key, variant };
+}
+
 export async function runOnDevice(
     credentials: Credentials,
     query: string,
     command: string,
     options: { timeoutMs?: number } = {},
 ): Promise<number> {
-    const { devices } = await listDevicesWithNames(credentials);
-    const device = matchDevice(devices, query);
-    if (!device) {
-        console.error(`No enrolled device matches "${query}". Run "happy ssh" with no arguments to list devices.`);
-        return 1;
-    }
-    if (!device.active) {
-        console.error(`Device "${device.name}" is offline.`);
-        return 1;
-    }
+    const cached = await resolveFromCache(query);
+    const resolved = cached ?? await resolveFromServer(credentials, query);
+    if (!resolved) return 1;
 
-    const { key, variant } = await ensureDeviceKey(credentials, device.id, () => {
-        console.error('Waiting for approval in the Happy app (Devices → pending request)...');
-    });
+    try {
+        return await execOnResolved(credentials, resolved, command, options);
+    } catch (error) {
+        // The cached device may have been renamed, re-enrolled or taken
+        // offline; only the server can say which, and only now is the listing
+        // worth paying for.
+        if (!cached) throw error;
+        const fresh = await resolveFromServer(credentials, query);
+        if (!fresh) return 1;
+        return await execOnResolved(credentials, fresh, command, options);
+    }
+}
 
+async function execOnResolved(
+    credentials: Credentials,
+    { device, key, variant }: ResolvedDevice,
+    command: string,
+    options: { timeoutMs?: number },
+): Promise<number> {
     const socket: Socket = io(configuration.serverUrl, {
         auth: { token: credentials.token, clientType: 'user-scoped' as const },
         path: '/v1/updates',

@@ -44,14 +44,33 @@ async function readDeviceKeys(): Promise<Record<string, CachedDevice>> {
     }
 }
 
+/**
+ * Replaces the cache rather than merging into it: the app sends its whole
+ * machine list, so anything absent no longer exists. Merging left the ids of
+ * re-enrolled machines behind forever, and since re-enrolling changes the id,
+ * the cache ended up with two entries under one name — one of them dead.
+ */
 async function writeDeviceDirectory(entries: CachedDevice2[]): Promise<void> {
     const file = deviceKeysFile();
     await mkdir(dirname(file), { recursive: true });
-    const keys = await readDeviceKeys();
+    const keys: Record<string, CachedDevice> = {};
     for (const entry of entries) {
         keys[entry.id] = { name: entry.name, key: entry.key, variant: entry.variant ?? 'dataKey' };
     }
     await writeFile(file, JSON.stringify(keys, null, 2), { mode: 0o600 });
+}
+
+/**
+ * Drops other entries carrying this name, called once the server has confirmed
+ * which id the name really belongs to. Without it a stale duplicate is picked
+ * again on every run, and the fast path costs more than it saves.
+ */
+export async function pruneDeviceAliases(id: string, name: string): Promise<void> {
+    const keys = await readDeviceKeys();
+    const stale = Object.keys(keys).filter((candidate) => candidate !== id && keys[candidate].name === name);
+    if (stale.length === 0) return;
+    for (const candidate of stale) delete keys[candidate];
+    await writeFile(deviceKeysFile(), JSON.stringify(keys, null, 2), { mode: 0o600 });
 }
 
 interface CachedDevice2 extends CachedDevice {
