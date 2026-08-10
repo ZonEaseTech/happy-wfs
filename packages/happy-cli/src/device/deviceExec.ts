@@ -109,19 +109,28 @@ export async function deviceExec(
         deviceKeyBase64?: string | null;
         /** Machines enrolled by a legacy-mode CLI encrypt with the account master secret. */
         deviceKeyVariant?: 'legacy' | 'dataKey';
+        /** Set when the caller already resolved the device and its key — skips
+         *  a second /v1/machines round trip on every command. */
+        skipMachineLookup?: boolean;
     } = {},
 ): Promise<DeviceExecResult> {
-    const rows = await fetchMachines(credentials);
-    const row = rows.find((candidate) => candidate.id === deviceId);
-    if (!row) {
-        throw new Error(`Device ${deviceId} not found`);
-    }
-    if (!row.active) {
-        throw new Error(`Device ${deviceId} is offline`);
-    }
+    // The listing is only needed to resolve the key and to report "offline"
+    // before spending a round trip. A caller that already looked the device up
+    // has both, and fetching again doubles the latency of every command.
+    const row = options.skipMachineLookup ? null : await (async () => {
+        const rows = await fetchMachines(credentials);
+        const found = rows.find((candidate) => candidate.id === deviceId);
+        if (!found) {
+            throw new Error(`Device ${deviceId} not found`);
+        }
+        if (!found.active) {
+            throw new Error(`Device ${deviceId} is offline`);
+        }
+        return found;
+    })();
     const resolved = options.deviceKeyBase64
         ? { key: decodeBase64(options.deviceKeyBase64), variant: options.deviceKeyVariant ?? 'dataKey' }
-        : resolveMachineKey(credentials, row.dataEncryptionKey);
+        : resolveMachineKey(credentials, row!.dataEncryptionKey);
     if (!resolved) {
         throw new Error(`Cannot resolve encryption key for device ${deviceId}. Re-select the device in the app.`);
     }

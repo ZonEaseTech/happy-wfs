@@ -103,6 +103,8 @@ export async function runOnDevice(
             deviceKeyBase64: encodeBase64(key),
             deviceKeyVariant: variant,
             timeout: options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
+            // matchDevice already read the listing and rejected offline devices.
+            skipMachineLookup: true,
         });
         if (result.stdout) process.stdout.write(result.stdout);
         if (result.stderr) process.stderr.write(result.stderr);

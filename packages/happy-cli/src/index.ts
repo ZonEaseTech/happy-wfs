@@ -9,38 +9,17 @@
 
 import chalk from 'chalk'
 import { isDebug } from '@/utils/env'
-import { runClaude, StartOptions } from '@/claude/runClaude'
 import { logger } from './ui/logger'
 import { readCredentials, readSettings } from './persistence'
-import { authAndSetupMachineIfNeeded } from './ui/auth'
 import packageJson from '../package.json'
 import { z } from 'zod'
-import { startDaemon } from './daemon/run'
-import { enrollDevice } from './device/enroll'
-import { parseSshArgs, runOnDevice, sshDevice, sshPickAndConnect } from './device/ssh'
-import { checkIfDaemonRunningAndCleanupStaleState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './daemon/controlClient'
-import { getLatestDaemonLog } from './ui/logger'
-import { killRunawayHappyProcesses } from './daemon/doctor'
-import { install } from './daemon/install'
-import { uninstall } from './daemon/uninstall'
-import { ApiClient } from './api/api'
-import { runDoctorCommand } from './ui/doctor'
-import { listDaemonSessions, stopDaemonSession } from './daemon/controlClient'
-import { handleAuthCommand } from './commands/auth'
-import { handleConnectCommand } from './commands/connect'
-import { handleUpdateCommand } from './commands/update'
-import { handleSessionCommand } from './commands/session'
-import { handleTaskCommand } from './commands/task'
-import { handleReleaseCommand } from './commands/release'
-import { handleGithubCommand } from './commands/github'
-import { handleDiagnoseCommand } from './commands/diagnose'
-import { handleEvidenceCommand } from './commands/evidence'
-import { spawnHappyCLI } from './utils/spawnHappyCLI'
-import { claudeCliPath } from './claude/claudeLocal'
+import type { StartOptions } from '@/claude/runClaude'
 import { execFileSync } from 'node:child_process'
 
 /** Spawn a detached daemon process and poll until it writes its state file (up to 5s). */
 async function spawnAndWaitForDaemon(): Promise<boolean> {
+  const { spawnHappyCLI } = await import('./utils/spawnHappyCLI');
+  const { checkIfDaemonRunningAndCleanupStaleState } = await import('./daemon/controlClient');
   const child = spawnHappyCLI(['daemon', 'start-sync'], {
     detached: true,
     stdio: 'ignore',
@@ -85,6 +64,8 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     }
     return;
   } else if (subcommand === 'doctor') {
+    const { killRunawayHappyProcesses } = await import('./daemon/doctor');
+    const { runDoctorCommand } = await import('./ui/doctor');
     // Check for clean subcommand
     if (args[1] === 'clean') {
       const result = await killRunawayHappyProcesses()
@@ -99,6 +80,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
   } else if (subcommand === 'auth') {
     // Handle auth subcommands
     try {
+      const { handleAuthCommand } = await import('./commands/auth');
       await handleAuthCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -111,6 +93,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
   } else if (subcommand === 'connect') {
     // Handle connect subcommands
     try {
+      const { handleConnectCommand } = await import('./commands/connect');
       await handleConnectCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -121,6 +104,10 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     }
     return;
   } else if (subcommand === 'codex') {
+    const { authAndSetupMachineIfNeeded } = await import('./ui/auth');
+    const { isDaemonRunningCurrentlyInstalledHappyVersion } = await import('./daemon/controlClient');
+    const { spawnHappyCLI } = await import('./utils/spawnHappyCLI');
+
     // Handle codex command
     try {
       const { runCodex } = await import('@/codex/runCodex');
@@ -161,6 +148,10 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     }
     return;
   } else if (subcommand === 'gemini') {
+    const { authAndSetupMachineIfNeeded } = await import('./ui/auth');
+    const { isDaemonRunningCurrentlyInstalledHappyVersion } = await import('./daemon/controlClient');
+    const { spawnHappyCLI } = await import('./utils/spawnHappyCLI');
+
     // Handle gemini subcommands
     const geminiSubcommand = args[1];
     
@@ -380,6 +371,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     return;
   } else if (subcommand === 'update') {
     try {
+      const { handleUpdateCommand } = await import('./commands/update');
       await handleUpdateCommand();
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -393,6 +385,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     // Keep for backward compatibility - redirect to auth logout
     console.log(chalk.yellow('Note: "happy logout" is deprecated. Use "happy auth logout" instead.\n'));
     try {
+      const { handleAuthCommand } = await import('./commands/auth');
       await handleAuthCommand(['logout']);
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -416,6 +409,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     return;
   } else if (subcommand === 'session') {
     try {
+      const { handleSessionCommand } = await import('./commands/session');
       await handleSessionCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -427,6 +421,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     return;
   } else if (subcommand === 'task') {
     try {
+      const { handleTaskCommand } = await import('./commands/task');
       await handleTaskCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -438,6 +433,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     return;
   } else if (subcommand === 'release') {
     try {
+      const { handleReleaseCommand } = await import('./commands/release');
       await handleReleaseCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -449,6 +445,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     return;
   } else if (subcommand === 'github') {
     try {
+      const { handleGithubCommand } = await import('./commands/github');
       await handleGithubCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -460,6 +457,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     return;
   } else if (subcommand === 'diagnose') {
     try {
+      const { handleDiagnoseCommand } = await import('./commands/diagnose');
       await handleDiagnoseCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -471,6 +469,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     return;
   } else if (subcommand === 'evidence') {
     try {
+      const { handleEvidenceCommand } = await import('./commands/evidence');
       await handleEvidenceCommand(args.slice(1));
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
@@ -503,6 +502,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       console.error(chalk.red('Error:'), 'Not authenticated. Run "happy auth" first.')
       process.exit(1)
     }
+    const { parseSshArgs, runOnDevice, sshDevice, sshPickAndConnect } = await import('./device/ssh')
     const { target, command, timeoutMs } = parseSshArgs(args.slice(1))
     try {
       if (command) {
@@ -523,6 +523,8 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
   } else if (subcommand === 'device') {
     const deviceSubcommand = args[1]
     if (deviceSubcommand === 'enroll') {
+      const { enrollDevice } = await import('./device/enroll')
+      const { install } = await import('./daemon/install')
       const token = args[2]
       if (!token) {
         console.error(chalk.red('Error:'), 'Missing enrollment token. Usage: happy device enroll <token>')
@@ -551,6 +553,12 @@ ${chalk.bold('Usage:')}
 `)
     process.exit(0)
   } else if (subcommand === 'daemon') {
+    const { startDaemon } = await import('./daemon/run');
+    const { install } = await import('./daemon/install');
+    const { uninstall } = await import('./daemon/uninstall');
+    const { runDoctorCommand } = await import('./ui/doctor');
+    const { getLatestDaemonLog } = await import('./ui/logger');
+    const { listDaemonSessions, stopDaemonSession, stopDaemon } = await import('./daemon/controlClient');
     // Show daemon management help
     const daemonSubcommand = args[1]
 
@@ -788,6 +796,7 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
       // Run claude --help and display its output
       // Use execFileSync directly with claude CLI for runtime-agnostic compatibility
       try {
+        const { claudeCliPath } = await import('./claude/claudeLocal')
         const claudeHelp = execFileSync(claudeCliPath, ['--help'], { encoding: 'utf8' })
         console.log(claudeHelp)
       } catch (e) {
@@ -826,6 +835,10 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
     }
 
     // Normal flow - auth and machine setup
+    const { authAndSetupMachineIfNeeded } = await import('./ui/auth');
+    const { isDaemonRunningCurrentlyInstalledHappyVersion } = await import('./daemon/controlClient');
+    const { spawnHappyCLI } = await import('./utils/spawnHappyCLI');
+    const { runClaude } = await import('@/claude/runClaude');
     const {
       credentials
     } = await authAndSetupMachineIfNeeded();
@@ -923,6 +936,7 @@ ${chalk.bold('Examples:')}
 
   try {
     // Create API client and send push notification
+    const { ApiClient } = await import('./api/api');
     const api = await ApiClient.create(credentials);
 
     // Use custom title or default to "Happy"
