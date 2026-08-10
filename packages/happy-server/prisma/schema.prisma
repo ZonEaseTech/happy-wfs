@@ -520,6 +520,10 @@ model Machine {
   /// this machine's key. Deliberately not encrypted — the encrypted metadata
   /// still carries everything else.
   displayName        String?
+  /// Plaintext note describing what this machine is for. Readable without the
+  /// machine key so device listings — including the AI-facing ones — can show
+  /// it.
+  description        String?
   /// Enrolled devices serve shell/files/terminal but never host sessions.
   /// Kept server-side so it can be corrected from the app for machines that
   /// enrolled before the CLI started reporting it.

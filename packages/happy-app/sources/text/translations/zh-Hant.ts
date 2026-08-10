@@ -90,6 +90,9 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        describe: '用途說明',
+        describeTitle: '裝置用途',
+        describeHint: '寫清這台機器的用途,AI 在裝置列表裡會看到,便於挑對機器執行命令。',
         mcpShareViewConfig: '檢視設定',
         mcpShareTokenUnavailable: '這條授權是舊版本產生的,沒有保存權杖,無法再次檢視。請撤銷後重新產生。',
         selectAllDevices: '全選',

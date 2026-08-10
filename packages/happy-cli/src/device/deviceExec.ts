@@ -17,6 +17,8 @@ import { decryptWithEphemeralKey } from '@/ui/auth';
 export interface DeviceSummary {
     id: string;
     name: string;
+    /** Operator note describing what this machine is for. */
+    description: string | null;
     platform: string | null;
     active: boolean;
     lastActiveAt: number;
@@ -33,6 +35,8 @@ interface RawMachineRow {
     id: string;
     /** Plaintext label, readable without the machine key. */
     displayName?: string | null;
+    /** Plaintext note about what this machine is for. */
+    description?: string | null;
     metadata: string | null;
     dataEncryptionKey: string | null;
     active: boolean;
@@ -78,6 +82,7 @@ export async function listDevices(credentials: Credentials): Promise<DeviceSumma
         return {
             id: row.id,
             name: row.displayName || metadata?.displayName || metadata?.host || row.id.slice(0, 12),
+            description: row.description ?? null,
             platform: metadata?.platform ?? null,
             active: row.active,
             lastActiveAt: row.activeAt ?? row.lastActiveAt ?? 0,

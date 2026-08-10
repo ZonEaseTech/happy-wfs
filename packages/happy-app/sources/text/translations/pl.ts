@@ -99,6 +99,9 @@ export const pl: TranslationStructure = {
     },
 
     devices: {
+        describe: 'Purpose',
+        describeTitle: 'Device purpose',
+        describeHint: 'Describe what this machine is for. The AI sees this in device listings, so it can pick the right machine.',
         mcpShareViewConfig: 'View config',
         mcpShareTokenUnavailable: 'This grant predates token storage, so it cannot be reopened. Revoke it and create a new one.',
         selectAllDevices: 'Select all',

@@ -275,6 +275,8 @@ export interface Machine {
     isDevice?: boolean;
     /** Plaintext label, readable without this machine's key. */
     displayName?: string | null;
+    /** Operator note about what this machine is for; shown to the AI too. */
+    description?: string | null;
     seq: number;
     createdAt: number;
     updatedAt: number;

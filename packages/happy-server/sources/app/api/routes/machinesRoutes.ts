@@ -53,6 +53,7 @@ export function machinesRoutes(app: Fastify) {
                 machine: {
                     id: machine.id,
                     displayName: machine.displayName,
+                    description: machine.description,
                     isDevice: machine.isDevice,
                     metadata: machine.metadata,
                     metadataVersion: machine.metadataVersion,
@@ -157,6 +158,7 @@ export function machinesRoutes(app: Fastify) {
         return machines.map(m => ({
             id: m.id,
             displayName: m.displayName,
+            description: m.description,
             isDevice: m.isDevice,
             metadata: m.metadata,
             metadataVersion: m.metadataVersion,
@@ -218,21 +220,24 @@ export function machinesRoutes(app: Fastify) {
         preHandler: app.authenticate,
         schema: {
             params: z.object({ id: z.string() }),
-            body: z.object({ displayName: z.string().max(120).nullable() })
+            body: z.object({
+                displayName: z.string().max(120).nullable().optional(),
+                description: z.string().max(500).nullable().optional(),
+            })
         }
     }, async (request, reply) => {
         const userId = request.userId;
         const { id } = request.params;
-        const displayName = request.body.displayName?.trim() || null;
-
         const machine = await db.machine.findFirst({ where: { accountId: userId, id } });
         if (!machine) {
             return reply.code(404).send({ error: 'Machine not found' });
         }
-        await db.machine.update({
-            where: { accountId_id: { accountId: userId, id } },
-            data: { displayName }
-        });
+        const data: { displayName?: string | null; description?: string | null } = {};
+        if (request.body.displayName !== undefined) data.displayName = request.body.displayName?.trim() || null;
+        if (request.body.description !== undefined) data.description = request.body.description?.trim() || null;
+        if (Object.keys(data).length > 0) {
+            await db.machine.update({ where: { accountId_id: { accountId: userId, id } }, data });
+        }
         return reply.send({ success: true });
     });
 

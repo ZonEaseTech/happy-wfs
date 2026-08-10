@@ -155,7 +155,7 @@ export function deviceShareRoutes(app: Fastify) {
             const name = body?.params?.name;
             if (name === 'device_list') {
                 const granted = await deviceShareDevices(grant);
-                const lines = granted.map((device) => `${device.id}  ${device.name}  [${device.active ? 'online' : 'offline'}]`);
+                const lines = granted.map((device) => `${device.id}  ${device.name}  [${device.active ? 'online' : 'offline'}]${device.description ? `  — ${device.description}` : ''}`);
                 return reply.send(rpcResult(id, {
                     content: [{ type: 'text', text: lines.join('\n') || 'No devices in this share.' }],
                 }));

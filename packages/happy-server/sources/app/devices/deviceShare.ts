@@ -169,12 +169,12 @@ export async function deviceShareExec(grant: DeviceShareGrant, input: {
 }
 
 /** Devices covered by a grant, with the plaintext label clients can render. */
-export async function deviceShareDevices(grant: DeviceShareGrant): Promise<Array<{ id: string; name: string; active: boolean }>> {
+export async function deviceShareDevices(grant: DeviceShareGrant): Promise<Array<{ id: string; name: string; description: string | null; active: boolean }>> {
     const rows = await db.machine.findMany({
         where: { accountId: grant.accountId, id: { in: [...grant.devices.keys()] } },
-        select: { id: true, displayName: true, active: true },
+        select: { id: true, displayName: true, description: true, active: true },
     });
-    return rows.map((row) => ({ id: row.id, name: row.displayName || row.id.slice(0, 12), active: row.active }));
+    return rows.map((row) => ({ id: row.id, name: row.displayName || row.id.slice(0, 12), description: row.description, active: row.active }));
 }
 
 /** Re-read a grant's token so the owner can copy the config again. Null for

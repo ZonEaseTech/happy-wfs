@@ -97,7 +97,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
             const lines = devices.map((device) => {
                 const marks = [device.active ? 'online' : 'offline'];
                 if (target.includes(device.id)) marks.push('session default');
-                return `${device.id}  ${device.name}${device.platform ? ` (${device.platform})` : ''}  [${marks.join(', ')}]`;
+                return `${device.id}  ${device.name}${device.platform ? ` (${device.platform})` : ''}  [${marks.join(', ')}]${device.description ? `  — ${device.description}` : ''}`;
             });
             return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'No devices enrolled yet.' }] };
         } catch (error) {

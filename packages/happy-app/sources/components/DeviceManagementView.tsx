@@ -15,7 +15,7 @@ import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { openTerminalPanel } from '@/components/terminalPanelStore';
 import { DeviceMcpShareModal } from '@/components/DeviceMcpShareModal';
-import { buildDeviceMcpConfig, getDeviceShareToken, listDeviceShares, revokeDeviceShare, type DeviceShare, renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { updateDevicePublicFields, buildDeviceMcpConfig, getDeviceShareToken, listDeviceShares, revokeDeviceShare, type DeviceShare, renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
@@ -91,6 +91,7 @@ function machineTitle(machine: Machine): string {
 
 function machineSubtitle(machine: Machine): string {
     const parts = [
+        machine.description || null,
         machine.metadata?.platform,
         machine.metadata?.arch,
         machine.metadata?.happyCliVersion ? `CLI ${machine.metadata.happyCliVersion}` : null,
@@ -194,6 +195,23 @@ export const DeviceManagementView = React.memo(() => {
         }
     }, [auth.credentials]);
 
+    const handleDescribeDevice = React.useCallback(async (machine: Machine) => {
+        const next = await Modal.prompt(t('devices.describeTitle'), t('devices.describeHint'), {
+            defaultValue: machine.description ?? '',
+            confirmText: t('common.save'),
+            cancelText: t('common.cancel'),
+            multiline: true,
+            multilineRows: 4,
+        });
+        if (next === null || !auth.credentials) return;
+        try {
+            await updateDevicePublicFields(auth.credentials, machine.id, { description: next.trim() || null });
+            await sync.refreshMachines();
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [auth.credentials]);
+
     const handleDeleteDevice = React.useCallback(async (machine: Machine) => {
         const name = machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12);
         const confirmed = await Modal.confirm(
@@ -237,12 +255,16 @@ export const DeviceManagementView = React.memo(() => {
                 onPress: () => { const device = menuDevice; setMenuDevice(null); void handleRenameDevice(device); },
             },
             {
+                label: t('devices.describe'),
+                onPress: () => { const device = menuDevice; setMenuDevice(null); void handleDescribeDevice(device); },
+            },
+            {
                 label: t('devices.deleteDevice'),
                 destructive: true,
                 onPress: () => { const device = menuDevice; setMenuDevice(null); void handleDeleteDevice(device); },
             },
         ];
-    }, [handleDeleteDevice, handleRenameDevice, menuDevice]);
+    }, [handleDeleteDevice, handleDescribeDevice, handleRenameDevice, menuDevice]);
 
     const sortedMachines = React.useMemo(
         () => [...machines].sort((a, b) => Number(b.active) - Number(a.active) || machineTitle(a).localeCompare(machineTitle(b))),
@@ -426,6 +448,14 @@ export const DeviceManagementView = React.memo(() => {
                                                 accessibilityLabel={t('devices.rename')}
                                             >
                                                 <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.rename')}</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                onPress={() => { void handleDescribeDevice(machine); }}
+                                                hitSlop={8}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={t('devices.describe')}
+                                            >
+                                                <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.describe')}</Text>
                                             </Pressable>
                                             <Pressable
                                                 onPress={() => { void handleDeleteDevice(machine); }}
