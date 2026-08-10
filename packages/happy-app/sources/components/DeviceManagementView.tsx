@@ -14,7 +14,8 @@ import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { openTerminalPanel } from '@/components/terminalPanelStore';
-import { buildDeviceMcpConfig, createDeviceShare, renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { DeviceMcpShareModal } from '@/components/DeviceMcpShareModal';
+import { renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
@@ -187,39 +188,6 @@ export const DeviceManagementView = React.memo(() => {
         }
     }, [auth.credentials]);
 
-    const handleShareMcp = React.useCallback(async (machine: Machine) => {
-        if (!auth.credentials) {
-            Modal.alert(t('common.error'), t('devices.needLogin'));
-            return;
-        }
-        const deviceKey = sync.getMachineDataKey(machine.id);
-        if (!deviceKey) {
-            Modal.alert(t('common.error'), t('devices.approveNoKey'));
-            return;
-        }
-        const confirmed = await Modal.confirm(
-            t('devices.shareMcp'),
-            t('devices.shareMcpWarning'),
-            { confirmText: t('common.continue'), cancelText: t('common.cancel') },
-        );
-        if (!confirmed) return;
-        try {
-            const name = machineTitle(machine);
-            const share = await createDeviceShare(auth.credentials, machine.id, encodeBase64(deviceKey), { label: name });
-            const config = buildDeviceMcpConfig(getServerUrl(), share.token, name);
-            await Modal.prompt(t('devices.shareMcpTitle'), t('devices.shareMcpHint'), {
-                defaultValue: config,
-                confirmText: t('common.copy'),
-                cancelText: t('common.cancel'),
-                multiline: true,
-                multilineRows: 10,
-                size: 'large',
-            });
-        } catch (error) {
-            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
-        }
-    }, [auth.credentials]);
-
     const handleDeleteDevice = React.useCallback(async (machine: Machine) => {
         const name = machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12);
         const confirmed = await Modal.confirm(
@@ -263,21 +231,25 @@ export const DeviceManagementView = React.memo(() => {
                 onPress: () => { const device = menuDevice; setMenuDevice(null); void handleRenameDevice(device); },
             },
             {
-                label: t('devices.shareMcp'),
-                onPress: () => { const device = menuDevice; setMenuDevice(null); void handleShareMcp(device); },
-            },
-            {
                 label: t('devices.deleteDevice'),
                 destructive: true,
                 onPress: () => { const device = menuDevice; setMenuDevice(null); void handleDeleteDevice(device); },
             },
         ];
-    }, [handleDeleteDevice, handleRenameDevice, handleShareMcp, menuDevice]);
+    }, [handleDeleteDevice, handleRenameDevice, menuDevice]);
 
     const sortedMachines = React.useMemo(
         () => [...machines].sort((a, b) => Number(b.active) - Number(a.active) || machineTitle(a).localeCompare(machineTitle(b))),
         [machines],
     );
+
+    const handleShareMcp = React.useCallback(() => {
+        Modal.show({
+            component: DeviceMcpShareModal,
+            props: { machines: sortedMachines, machineTitle },
+        });
+    }, [sortedMachines]);
+
 
     const handleAddDevice = React.useCallback(async () => {
         if (creating) return;
@@ -314,6 +286,12 @@ export const DeviceManagementView = React.memo(() => {
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <ItemGroup title={t('devices.addDeviceTitle')} footer={t('devices.addDeviceFooter')}>
+                <Item
+                    title={t('devices.shareMcp')}
+                    icon={<Ionicons name="share-social-outline" size={29} color={theme.colors.textLink} />}
+                    onPress={handleShareMcp}
+                    showChevron={false}
+                />
                 <Item
                     title={t('devices.addDevice')}
                     icon={creating
@@ -390,14 +368,6 @@ export const DeviceManagementView = React.memo(() => {
                                                 accessibilityLabel={t('devices.rename')}
                                             >
                                                 <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.rename')}</Text>
-                                            </Pressable>
-                                            <Pressable
-                                                onPress={() => { void handleShareMcp(machine); }}
-                                                hitSlop={8}
-                                                accessibilityRole="button"
-                                                accessibilityLabel={t('devices.shareMcp')}
-                                            >
-                                                <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.shareMcp')}</Text>
                                             </Pressable>
                                             <Pressable
                                                 onPress={() => { void handleDeleteDevice(machine); }}

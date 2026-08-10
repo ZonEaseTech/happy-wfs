@@ -90,6 +90,7 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        shareMcpPickHint: '勾選要分享的裝置,一個 MCP 設定可包含多台。',
         shareMcp: '產生 MCP',
         shareMcpTitle: 'MCP 設定已產生',
         shareMcpHint: '把下面的設定發給對方,加入其 AI 客戶端即可使用這台裝置。權杖只顯示這一次。',

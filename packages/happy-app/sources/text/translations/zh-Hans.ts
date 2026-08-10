@@ -90,6 +90,7 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        shareMcpPickHint: '勾选要分享的设备,一个 MCP 配置可包含多台。',
         shareMcp: '生成 MCP',
         shareMcpTitle: 'MCP 配置已生成',
         shareMcpHint: '把下面的配置发给对方,加入其 AI 客户端即可使用这台设备。令牌只显示这一次。',

@@ -202,22 +202,21 @@ export async function renameDevicePublicLabel(credentials: AuthCredentials, mach
     }
 }
 
-/** Create a hosted-MCP grant for a device. The device key travels with the
- *  request because the server drives the device for the grantee — sharing a
- *  device deliberately relaxes end-to-end encryption for that device. */
+/** Create a hosted-MCP grant covering one or more devices. The device keys
+ *  travel with the request because the server drives them for the grantee —
+ *  sharing deliberately relaxes end-to-end encryption for those devices. */
 export async function createDeviceShare(
     credentials: AuthCredentials,
-    machineId: string,
-    deviceKeyBase64: string,
+    devices: Array<{ machineId: string; deviceKey: string }>,
     options: { label?: string; expiresInDays?: number } = {}
 ): Promise<{ id: string; token: string }> {
-    const response = await fetch(`${getServerUrl()}/v1/devices/${encodeURIComponent(machineId)}/shares`, {
+    const response = await fetch(`${getServerUrl()}/v1/devices/shares`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${credentials.token}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ deviceKey: deviceKeyBase64, ...options })
+        body: JSON.stringify({ devices, ...options })
     });
     if (!response.ok) {
         throw new Error(`Failed to create device share: ${response.status}`);
@@ -225,10 +224,10 @@ export async function createDeviceShare(
     return await response.json() as { id: string; token: string };
 }
 
-export function buildDeviceMcpConfig(serverUrl: string, token: string, deviceName: string): string {
+export function buildDeviceMcpConfig(serverUrl: string, token: string): string {
     return JSON.stringify({
         mcpServers: {
-            [`happy-${deviceName.replace(/[^A-Za-z0-9_-]+/g, '-').toLowerCase() || 'device'}`]: {
+            'happy-devices': {
                 type: 'http',
                 url: `${serverUrl.replace(/\/+$/, '')}/v1/mcp/device`,
                 headers: { Authorization: `Bearer ${token}` }

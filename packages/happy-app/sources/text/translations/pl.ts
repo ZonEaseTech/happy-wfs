@@ -99,6 +99,7 @@ export const pl: TranslationStructure = {
     },
 
     devices: {
+        shareMcpPickHint: 'Pick the devices to share — one MCP config can cover several.',
         shareMcp: 'Share via MCP',
         shareMcpTitle: 'MCP config created',
         shareMcpHint: 'Send this config to the other person; adding it to their AI client grants access to this device. The token is shown only once.',

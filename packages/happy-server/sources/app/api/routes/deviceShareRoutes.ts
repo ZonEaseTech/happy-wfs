@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Fastify } from "../types";
-import { deviceShareCreate, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
+import { deviceShareCreate, deviceShareDevices, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
 
 const JSONRPC_VERSION = '2.0';
 const MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -26,12 +26,14 @@ function bearerToken(request: { headers: Record<string, unknown> }): string | nu
  * that clients need over a single POST — initialize, tools/list, tools/call.
  */
 export function deviceShareRoutes(app: Fastify) {
-    app.post('/v1/devices/:machineId/shares', {
+    app.post('/v1/devices/shares', {
         preHandler: app.authenticate,
         schema: {
-            params: z.object({ machineId: z.string() }),
             body: z.object({
-                deviceKey: z.string().min(1),
+                devices: z.array(z.object({
+                    machineId: z.string(),
+                    deviceKey: z.string().min(1),
+                })).min(1).max(50),
                 label: z.string().max(120).optional(),
                 expiresInDays: z.number().int().min(1).max(365).optional(),
             })
@@ -42,8 +44,7 @@ export function deviceShareRoutes(app: Fastify) {
                 ? new Date(Date.now() + request.body.expiresInDays * 86400000)
                 : null;
             const created = await deviceShareCreate(request.userId, {
-                machineId: request.params.machineId,
-                deviceKeyBase64: request.body.deviceKey,
+                devices: request.body.devices,
                 label: request.body.label ?? null,
                 expiresAt,
             });
@@ -59,7 +60,7 @@ export function deviceShareRoutes(app: Fastify) {
         return reply.send({
             shares: shares.map((share) => ({
                 id: share.id,
-                machineId: share.machineId,
+                machineIds: Object.keys((share.deviceKeys ?? {}) as Record<string, string>),
                 label: share.label,
                 expiresAt: share.expiresAt?.getTime() ?? null,
                 lastUsedAt: share.lastUsedAt?.getTime() ?? null,
@@ -102,13 +103,19 @@ export function deviceShareRoutes(app: Fastify) {
             return reply.code(202).send();
         }
         if (method === 'tools/list') {
+            const granted = await deviceShareDevices(grant);
             return reply.send(rpcResult(id, {
                 tools: [{
+                    name: 'device_list',
+                    description: `List the Happy devices this token can drive: ${granted.map((device) => device.name).join(', ') || 'none'}.`,
+                    inputSchema: { type: 'object', properties: {} },
+                }, {
                     name: 'device_exec',
-                    description: 'Run a shell command on the shared Happy device. Returns stdout, stderr and exit code.',
+                    description: 'Run a shell command on one of the shared Happy devices. Returns stdout, stderr and exit code.',
                     inputSchema: {
                         type: 'object',
                         properties: {
+                            deviceId: { type: 'string', description: 'Target device id (see device_list). Optional when only one device is shared.' },
                             command: { type: 'string', description: 'Shell command to run' },
                             cwd: { type: 'string', description: 'Working directory' },
                             timeout: { type: 'number', description: 'Timeout in milliseconds (default 60000)' },
@@ -120,15 +127,30 @@ export function deviceShareRoutes(app: Fastify) {
         }
         if (method === 'tools/call') {
             const name = body?.params?.name;
+            if (name === 'device_list') {
+                const granted = await deviceShareDevices(grant);
+                const lines = granted.map((device) => `${device.id}  ${device.name}  [${device.active ? 'online' : 'offline'}]`);
+                return reply.send(rpcResult(id, {
+                    content: [{ type: 'text', text: lines.join('\n') || 'No devices in this share.' }],
+                }));
+            }
             if (name !== 'device_exec') {
                 return reply.send(rpcError(id, -32602, `Unknown tool: ${name}`));
             }
             const args = body?.params?.arguments ?? {};
+            const machineIds = [...grant.devices.keys()];
+            const machineId = typeof args.deviceId === 'string' && args.deviceId
+                ? args.deviceId
+                : (machineIds.length === 1 ? machineIds[0] : null);
+            if (!machineId) {
+                return reply.send(rpcError(id, -32602, 'deviceId is required when the token covers several devices (see device_list)'));
+            }
             if (typeof args.command !== 'string' || !args.command.trim()) {
                 return reply.send(rpcError(id, -32602, 'command is required'));
             }
             try {
                 const result = await deviceShareExec(grant, {
+                    machineId,
                     command: args.command,
                     cwd: typeof args.cwd === 'string' ? args.cwd : undefined,
                     timeout: typeof args.timeout === 'number' ? args.timeout : undefined,

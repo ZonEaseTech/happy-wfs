@@ -694,17 +694,17 @@ model DeviceShareToken {
   id         String    @id @default(cuid())
   accountId  String
   account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  machineId  String
   tokenHash  String    @unique
   label      String?
-  deviceKey  Bytes
+  /// machineId -> base64 of the device key, each encrypted at rest with the
+  /// server master secret. One grant can cover several devices.
+  deviceKeys Json
   expiresAt  DateTime?
   revokedAt  DateTime?
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
 
   @@index([accountId, createdAt(sort: Desc)])
-  @@index([machineId])
 }
 
 model PublicShareLink {
