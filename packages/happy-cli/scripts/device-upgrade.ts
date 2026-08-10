@@ -7,7 +7,7 @@
  */
 
 import { readCredentials } from '@/persistence';
-import { listDevices, deviceExec } from '@/device/deviceExec';
+import { listDevices, deviceExec, type DeviceSummary } from '@/device/deviceExec';
 import { ensureDeviceKey, readCachedDeviceNames } from '@/device/deviceKeys';
 import { encodeBase64 } from '@/api/encryption';
 import { io, type Socket } from 'socket.io-client';
@@ -26,10 +26,16 @@ async function main() {
     const online = devices.filter((d) => d.active);
     console.log(`${devices.length} machines, ${online.length} online`);
 
-    // One approval seals the directory for every device, so ask about the first
-    // online one we do not have a key for yet.
+    const flag = (name: string) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : null);
+    const target = flag('--run');
+    const matches = (names: Record<string, string>, device: DeviceSummary) =>
+        !!target && (names[device.id] ?? '').toLowerCase().includes(target.toLowerCase());
+
+    // One approval seals the directory for every device. Only ask for it when
+    // the device we actually want is unreachable — otherwise a newly enrolled
+    // machine we have no interest in would block every run for ten minutes.
     let names = await readCachedDeviceNames();
-    const missing = online.find((d) => !names[d.id]);
+    const missing = online.some((d) => matches(names, d)) ? null : online.find((d) => !names[d.id]);
     if (missing) {
         console.log(`Requesting authorization (approve once in Happy → Devices)...`);
         await ensureDeviceKey(credentials, missing.id, (info) => {
@@ -42,14 +48,12 @@ async function main() {
         console.log(`  ${device.id.slice(0, 8)}  ${names[device.id] ?? '(name unavailable)'}`);
     }
 
-    const flag = (name: string) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : null);
-    const target = flag('--run');
     if (!target) {
         console.log('\nPass --run <name-substring> to upgrade a device.');
         return;
     }
 
-    const match = online.find((d) => (names[d.id] ?? '').toLowerCase().includes(target.toLowerCase()));
+    const match = online.find((d) => matches(names, d));
     if (!match) throw new Error(`No online device matches "${target}"`);
 
     const { key, variant } = await ensureDeviceKey(credentials, match.id);
