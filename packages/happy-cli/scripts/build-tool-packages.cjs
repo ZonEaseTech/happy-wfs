@@ -40,7 +40,8 @@ const TOOL_VERSIONS = { difft: '0.67.0', rg: '15.1.0' };
 
 const root = path.resolve(__dirname, '..');
 const archivesDir = path.join(root, 'tools', 'archives');
-const outRoot = path.resolve(process.argv[2] ?? path.join(root, 'tools', 'packages'));
+const outArg = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
+const outRoot = path.resolve(outArg ?? path.join(root, 'tools', 'packages'));
 const version = TOOLS_PACKAGE_VERSION;
 
 /**
@@ -124,6 +125,23 @@ async function buildPackage(platform) {
     console.log(`${platform.padEnd(14)} ${(size / 1048576).toFixed(1)} MB  ${outDir}`);
 }
 
+/**
+ * The published manifest must depend on the sidecars, but the checked-in one
+ * must not: yarn resolves optionalDependencies even with --ignore-optional, so
+ * declaring them in the repo makes `yarn install` fail for everyone until they
+ * exist on npm — including the very release that first publishes them. Inject
+ * them at publish time instead.
+ */
+function writeOptionalDeps() {
+    const manifestPath = path.join(root, 'package.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.optionalDependencies = Object.fromEntries(
+        PLATFORMS.map((platform) => [`@zonease/happy-tools-${platform}`, TOOLS_PACKAGE_VERSION]),
+    );
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+    console.log(`\npackage.json now depends on ${PLATFORMS.length} tool packages @ ${TOOLS_PACKAGE_VERSION}`);
+}
+
 async function main() {
     if (!fs.existsSync(archivesDir)) {
         throw new Error(`no archives at ${archivesDir} — run scripts/download-tools.sh all`);
@@ -134,6 +152,9 @@ async function main() {
         await buildPackage(platform);
     }
     console.log(`\n${PLATFORMS.length} packages at ${outRoot}, version ${version}`);
+    if (process.argv.includes('--write-optional-deps')) {
+        writeOptionalDeps();
+    }
 }
 
 main().catch((error) => {

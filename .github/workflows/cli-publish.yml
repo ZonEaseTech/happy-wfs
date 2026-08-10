@@ -33,13 +33,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # --ignore-optional breaks a bootstrap cycle: the CLI's optionalDependencies
-      # are the platform tool packages this same run publishes further down, so
-      # resolving them here fails on the very release that first introduces a new
-      # tools version. Nothing built or tested here needs the binaries — the
-      # resolver falls back to the tools/unpacked copy in the repo.
       - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-optional
+        run: yarn install --frozen-lockfile
 
       - name: Assert git tag matches package version
         run: |
@@ -62,15 +57,17 @@ jobs:
       - name: Run tests
         run: yarn workspace @zonease/happy test
 
-      # Must run before the CLI: its optionalDependencies pin these exact
+      # Must run before the CLI: the manifest it writes pins these exact
       # versions, and a CLI published first would install without its tools.
       # They carry their own version and only change when download-tools.sh
       # moves, so an unchanged version is already on npm and is skipped.
+      # --write-optional-deps adds them to package.json here rather than in the
+      # repo, where yarn would try to resolve them before they exist.
       - name: Publish platform tool packages
         working-directory: packages/happy-cli
         run: |
           set -euo pipefail
-          node scripts/build-tool-packages.cjs
+          node scripts/build-tool-packages.cjs --write-optional-deps
           for dir in tools/packages/*/; do
             name="$(node -p "require('./${dir}package.json').name")"
             version="$(node -p "require('./${dir}package.json').version")"
