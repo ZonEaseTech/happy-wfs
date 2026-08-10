@@ -1,5 +1,6 @@
 import { logger } from '@/ui/logger';
-import { exec, ExecOptions } from 'child_process';
+import { exec, spawn, ExecOptions } from 'child_process';
+import { randomUUID } from 'node:crypto';
 import { promisify } from 'util';
 import { appendFile, readFile, writeFile, readdir, stat, rename, unlink, rm, mkdir, lstat } from 'fs/promises';
 import { join, resolve } from 'path';
@@ -206,6 +207,25 @@ interface PtyStartRequest {
     cols: number;
     rows: number;
     cwd?: string;
+    /**
+     * Run one command and stream its output instead of allocating a terminal.
+     *
+     * Rides the pty-output / pty-exit events so the server relays it unchanged —
+     * it forwards the encrypted payload opaquely. A terminal would merge stdout
+     * and stderr, translate line endings and run the user's rc files, so this
+     * spawns a plain piped child and tags each frame with the stream it came
+     * from.
+     */
+    exec?: {
+        command: string;
+        timeoutMs?: number;
+    };
+}
+
+/** pty-output payload in exec mode; the terminal path sends a bare string. */
+interface ExecOutputFrame {
+    stream: 'stdout' | 'stderr';
+    chunk: string;
 }
 
 interface PtyStartResponse {
@@ -340,6 +360,10 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             const options: ExecOptions = {
                 cwd: data.cwd === '/' ? undefined : data.cwd,
                 timeout: data.timeout || 30000, // Default 30 seconds timeout
+                // node's 1MB default kills the child and reports failure once
+                // output crosses it — the command has already succeeded by
+                // then, and the caller sees a truncated result with an error.
+                maxBuffer: 64 * 1024 * 1024,
                 // launchd and systemd hand the daemon a bare PATH, so without
                 // this a command that works when typed into the device terminal
                 // fails here with "command not found".
@@ -1045,18 +1069,36 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         // sessionId/ptyId/exitCode stay readable. The previous version
         // encrypted the whole envelope as a single string and the server
         // silently dropped it (`typeof data !== 'object'`).
-        const emitEncrypted = (event: 'pty-output' | 'pty-exit', payload: { sessionId: string; ptyId: string; data?: string; exitCode?: number }): void => {
+        const emitEncrypted = (
+            event: 'pty-output' | 'pty-exit',
+            payload: { sessionId: string; ptyId: string; data?: string | ExecOutputFrame; exitCode?: number },
+            /**
+             * Exec streaming cannot lose frames: a dropped output frame
+             * truncates the command and a dropped exit frame leaves the caller
+             * reporting failure for a command that succeeded. A terminal is the
+             * opposite — stale bytes are noise, so it keeps the volatile emit.
+             */
+            reliable = false,
+        ): void => {
             const socket = rpcHandlerManager.getSocket();
             if (!socket || !socket.connected) {
                 return;
             }
             const envelope: Record<string, unknown> = { sessionId: payload.sessionId, ptyId: payload.ptyId };
-            if (event === 'pty-output' && typeof payload.data === 'string') {
+            // Carried to the server so its own relay stops dropping these under
+            // pressure: both legs of this path default to volatile, which is
+            // right for a terminal and wrong for a byte stream.
+            if (reliable) envelope.reliable = true;
+            if (event === 'pty-output' && payload.data !== undefined) {
                 const key = rpcHandlerManager.getEncryptionKey();
                 const variant = rpcHandlerManager.getEncryptionVariant();
                 envelope.data = encodeBase64(encrypt(key, variant, payload.data));
             } else if (event === 'pty-exit' && typeof payload.exitCode === 'number') {
                 envelope.exitCode = payload.exitCode;
+            }
+            if (reliable) {
+                socket.emit(event, envelope);
+                return;
             }
             // volatile.emit: drop on socket buffer pressure rather than queue.
             // For PTY output that's the right tradeoff — stale bytes are noise.
@@ -1129,7 +1171,82 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         };
 
         rpcHandlerManager.registerHandler<PtyStartRequest, PtyStartResponse>('pty-start', async (data) => {
-            logger.debug('[pty-start] request', { cols: data.cols, rows: data.rows, cwd: data.cwd });
+            logger.debug('[pty-start] request', { cols: data.cols, rows: data.rows, cwd: data.cwd, exec: !!data.exec });
+
+            if (data.exec) {
+                const execId = randomUUID();
+                // The child starts paused: pty-start has not returned yet, so
+                // the caller has no listeners bound and anything written before
+                // that is lost. Resume on the next tick, once the response is
+                // on its way.
+                const child = spawn(process.env.SHELL || '/bin/sh', ['-c', data.exec.command], {
+                    cwd: data.cwd,
+                    env: await resolveLoginShellEnv(),
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                });
+                // Kill on the caller's budget, matching what the buffered path
+                // does — otherwise a hung command streams nothing forever.
+                const killTimer = setTimeout(() => child.kill('SIGTERM'), data.exec.timeoutMs ?? 300_000);
+                child.stdout?.pause();
+                child.stderr?.pause();
+                setImmediate(() => { child.stdout?.resume(); child.stderr?.resume(); });
+
+                // Batch like the terminal path does. One frame per chunk floods
+                // the socket on a command with real output — frames arrive after
+                // the exit frame and the caller, already finished, drops them.
+                const pending: Record<'stdout' | 'stderr', Buffer[]> = { stdout: [], stderr: [] };
+                let pendingBytes = 0;
+                let frameCount = 0;
+                let flushTimer: NodeJS.Timeout | null = null;
+                const flushExec = (): void => {
+                    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+                    pendingBytes = 0;
+                    frameCount++;
+                    for (const stream of ['stdout', 'stderr'] as const) {
+                        if (pending[stream].length === 0) continue;
+                        const chunk = Buffer.concat(pending[stream]);
+                        pending[stream] = [];
+                        emitEncrypted('pty-output', {
+                            sessionId,
+                            ptyId: execId,
+                            data: { stream, chunk: chunk.toString('base64') },
+                        }, true);
+                    }
+                };
+                for (const [stream, source] of [['stdout', child.stdout], ['stderr', child.stderr]] as const) {
+                    source?.on('data', (chunk: Buffer) => {
+                        pending[stream].push(chunk);
+                        pendingBytes += chunk.length;
+                        if (pendingBytes >= PTY_OUTPUT_FLUSH_BYTES) {
+                            flushExec();
+                            return;
+                        }
+                        if (!flushTimer) flushTimer = setTimeout(flushExec, PTY_OUTPUT_FLUSH_MS);
+                    });
+                }
+                child.on('close', (code, signal) => {
+                    clearTimeout(killTimer);
+                    logger.debug(`[exec] close code=${code} signal=${signal} pending=${pendingBytes}`);
+                    // Drain first: an exit frame overtaking buffered output would
+                    // truncate the command's tail.
+                    flushExec();
+                    logger.debug(`[exec] flushed ${frameCount} frames, emitting exit`);
+                    // A signalled child has no code; report non-zero so a caller
+                    // cannot read a killed command as success.
+                    emitEncrypted('pty-exit', { sessionId, ptyId: execId, exitCode: code ?? (signal ? 143 : 1) }, true);
+                });
+                child.on('error', (error) => {
+                    clearTimeout(killTimer);
+                    emitEncrypted('pty-output', {
+                        sessionId,
+                        ptyId: execId,
+                        data: { stream: 'stderr', chunk: Buffer.from(`${error.message}\n`).toString('base64') },
+                    }, true);
+                    emitEncrypted('pty-exit', { sessionId, ptyId: execId, exitCode: 1 }, true);
+                });
+                return { ok: true, ptyId: execId };
+            }
+
             try {
                 const { ptyId, term } = spawnShell({
                     cols: data.cols,

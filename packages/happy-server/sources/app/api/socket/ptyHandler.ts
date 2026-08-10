@@ -95,7 +95,8 @@ export function registerPtyHandlers(io: Server, socket: Socket, userId: string, 
             broadcastToSessionApps(io, userId, sessionId, 'pty-output', {
                 sessionId,
                 ptyId,
-                data: data.data
+                data: data.data,
+                ...(data.reliable === true ? { reliable: true } : {})
             }, /* skip */ socket);
         } catch (error) {
             log({ module: 'websocket', level: 'error' }, `Error in pty-output: ${error}`);
@@ -122,7 +123,8 @@ export function registerPtyHandlers(io: Server, socket: Socket, userId: string, 
             broadcastToSessionApps(io, userId, sessionId, 'pty-exit', {
                 sessionId,
                 ptyId,
-                exitCode
+                exitCode,
+                ...(data.reliable === true ? { reliable: true } : {})
             }, /* skip */ socket);
         } catch (error) {
             log({ module: 'websocket', level: 'error' }, `Error in pty-exit: ${error}`);
@@ -216,7 +218,15 @@ function emitToSessionInterested(
         } else if (conn.connectionType === 'machine-scoped') {
             continue;
         }
-        conn.socket.volatile.emit(eventName, payload);
+        // Terminal frames stay volatile: when a client cannot keep up, stale
+        // bytes are noise and queueing them only delays the live ones. A
+        // streamed command is the opposite — a dropped frame truncates its
+        // output, and a dropped exit leaves the caller waiting forever.
+        if ((payload as { reliable?: boolean }).reliable) {
+            conn.socket.emit(eventName, payload);
+        } else {
+            conn.socket.volatile.emit(eventName, payload);
+        }
     }
 }
 

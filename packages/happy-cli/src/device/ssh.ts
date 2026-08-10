@@ -34,6 +34,8 @@ export interface SshArgs {
     /** Everything after `--`, or null for an interactive shell. */
     command: string | null;
     timeoutMs: number;
+    /** Print output as it arrives, at the cost of the daemon's fast path. */
+    stream: boolean;
 }
 
 /**
@@ -49,7 +51,12 @@ export function parseSshArgs(args: string[]): SshArgs {
 
     let target: string | null = null;
     let timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS;
+    let stream = false;
     for (let i = 0; i < head.length; i++) {
+        if (head[i] === '--stream' || head[i] === '-s') {
+            stream = true;
+            continue;
+        }
         if (head[i] === '--timeout' || head[i] === '-t') {
             const seconds = Number(head[++i]);
             if (Number.isFinite(seconds) && seconds > 0) timeoutMs = seconds * 1000;
@@ -57,7 +64,7 @@ export function parseSshArgs(args: string[]): SshArgs {
         }
         if (!target && !head[i].startsWith('-')) target = head[i];
     }
-    return { target, command: command && command.trim() ? command : null, timeoutMs };
+    return { target, command: command && command.trim() ? command : null, timeoutMs, stream };
 }
 
 /**
@@ -139,11 +146,15 @@ export async function runOnDevice(
     credentials: Credentials,
     query: string,
     command: string,
-    options: { timeoutMs?: number } = {},
+    options: { timeoutMs?: number; stream?: boolean } = {},
 ): Promise<number> {
     const cached = await resolveFromCache(query);
     const resolved = cached ?? await resolveFromServer(credentials, query);
     if (!resolved) return 1;
+
+    if (options.stream) {
+        return await streamOnResolved(credentials, resolved, command, options);
+    }
 
     // A running daemon already holds a connection to the server; borrowing it
     // skips a TLS + WebSocket handshake worth roughly a third of the command.
@@ -184,6 +195,73 @@ function reportResult(result: DeviceExecResult): number {
         console.error(result.error);
     }
     return result.exitCode ?? (result.success ? 0 : 1);
+}
+
+/**
+ * Stream one command's output as it is produced.
+ *
+ * Rides the same pty-output / pty-exit events as the terminal, so the server
+ * relays it without knowing anything new; the frames carry which stream each
+ * chunk came from, which a real terminal could not tell us. Cannot go through
+ * the daemon's connection — that is a request/response port — so this trades
+ * the fast path for seeing output as it happens.
+ */
+async function streamOnResolved(
+    credentials: Credentials,
+    { device, key, variant }: ResolvedDevice,
+    command: string,
+    options: { timeoutMs?: number },
+): Promise<number> {
+    const socket: Socket = io(configuration.serverUrl, {
+        auth: { token: credentials.token, clientType: 'user-scoped' as const },
+        path: '/v1/updates',
+        transports: ['websocket'],
+    });
+    await new Promise<void>((resolve, reject) => {
+        socket.once('connect', () => resolve());
+        socket.once('connect_error', reject);
+    });
+
+    const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+    try {
+        const answer: any = await socket.timeout(30000).emitWithAck('rpc-call', {
+            method: `${device.id}:pty-start`,
+            params: encodeBase64(encrypt(key, variant, {
+                cols: process.stdout.columns || 80,
+                rows: process.stdout.rows || 24,
+                exec: { command, timeoutMs },
+            })),
+        });
+        if (!answer?.ok) throw new Error(answer?.error || 'pty-start failed');
+        const started = decrypt(key, variant, decodeBase64(answer.result)) as { ok: boolean; ptyId?: string; error?: string };
+        if (!started?.ok || !started.ptyId) {
+            throw new Error(started?.error ?? 'Device refused to start the command');
+        }
+
+        return await new Promise<number>((resolve) => {
+            const execId = started.ptyId!;
+            // The device kills the child on its own budget; this only covers a
+            // device that goes away mid-command, which produces no exit frame.
+            const guard = setTimeout(() => resolve(1), timeoutMs + 30_000);
+            socket.on('pty-output', (envelope: any) => {
+                if (envelope?.sessionId !== device.id || envelope?.ptyId !== execId) return;
+                try {
+                    const frame = decrypt(key, variant, decodeBase64(envelope.data)) as { stream?: string; chunk?: string };
+                    if (typeof frame?.chunk !== 'string') return;
+                    const target = frame.stream === 'stderr' ? process.stderr : process.stdout;
+                    target.write(Buffer.from(frame.chunk, 'base64'));
+                } catch { /* drop an undecryptable frame rather than abort */ }
+            });
+            socket.on('pty-exit', (envelope: any) => {
+                if (envelope?.sessionId !== device.id || envelope?.ptyId !== execId) return;
+                clearTimeout(guard);
+                resolve(typeof envelope.exitCode === 'number' ? envelope.exitCode : 1);
+            });
+            socket.on('disconnect', () => { clearTimeout(guard); resolve(1); });
+        });
+    } finally {
+        socket.close();
+    }
 }
 
 async function execOnResolved(

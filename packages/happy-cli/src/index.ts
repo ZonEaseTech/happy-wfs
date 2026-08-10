@@ -503,14 +503,14 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1)
     }
     const { parseSshArgs, runOnDevice, sshDevice, sshPickAndConnect } = await import('./device/ssh')
-    const { target, command, timeoutMs } = parseSshArgs(args.slice(1))
+    const { target, command, timeoutMs, stream } = parseSshArgs(args.slice(1))
     try {
       if (command) {
         if (!target) {
           console.error(chalk.red('Error:'), 'Which device? Usage: happy ssh <device> -- <command>')
           process.exit(1)
         }
-        process.exit(await runOnDevice(credentials, target, command, { timeoutMs }))
+        process.exit(await runOnDevice(credentials, target, command, { timeoutMs, stream }))
       }
       if (!target) {
         process.exit(await sshPickAndConnect(credentials))
