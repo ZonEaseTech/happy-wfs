@@ -88,6 +88,13 @@ export const ca: TranslationStructure = {
     },
 
     devices: {
+        mcpShares: 'Generated MCP grants',
+        mcpSharesFooter: 'The token is shown only once, at creation. Revoking cuts off access immediately.',
+        mcpShareDevices: ({ count }: { count: number }) => `${count} devices`,
+        mcpShareAddDevices: 'Add devices',
+        mcpShareRevoke: 'Revoke',
+        mcpShareRevokeConfirm: 'Revoking cuts off access to these devices for whoever holds this token. Continue?',
+        mcpShareNeverUsed: 'Never used',
         shareMcpPickHint: 'Pick the devices to share — one MCP config can cover several.',
         shareMcp: 'Share via MCP',
         shareMcpTitle: 'MCP config created',

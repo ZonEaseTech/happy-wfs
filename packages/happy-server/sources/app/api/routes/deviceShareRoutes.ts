@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Fastify } from "../types";
-import { deviceShareCreate, deviceShareDevices, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
+import { deviceShareAddDevices, deviceShareCreate, deviceShareDevices, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
 
 const JSONRPC_VERSION = '2.0';
 const MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -67,6 +67,23 @@ export function deviceShareRoutes(app: Fastify) {
                 createdAt: share.createdAt.getTime(),
             }))
         });
+    });
+
+    app.patch('/v1/devices/shares/:id', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({ id: z.string() }),
+            body: z.object({
+                devices: z.array(z.object({
+                    machineId: z.string(),
+                    deviceKey: z.string().min(1),
+                })).min(1).max(50)
+            })
+        }
+    }, async (request, reply) => {
+        const updated = await deviceShareAddDevices(request.userId, request.params.id, request.body.devices);
+        if (!updated) return reply.code(404).send({ error: 'Share not found' });
+        return reply.send({ success: true });
     });
 
     app.delete('/v1/devices/shares/:id', {

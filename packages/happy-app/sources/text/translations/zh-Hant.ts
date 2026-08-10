@@ -90,6 +90,13 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        mcpShares: '已產生的 MCP',
+        mcpSharesFooter: '權杖只在產生時顯示一次。撤銷後對方立即失去存取權限。',
+        mcpShareDevices: ({ count }: { count: number }) => `${count} 台裝置`,
+        mcpShareAddDevices: '追加裝置',
+        mcpShareRevoke: '撤銷',
+        mcpShareRevokeConfirm: '撤銷後使用該權杖的人將立即無法存取這些裝置,確定嗎?',
+        mcpShareNeverUsed: '尚未使用',
         shareMcpPickHint: '勾選要分享的裝置,一個 MCP 設定可包含多台。',
         shareMcp: '產生 MCP',
         shareMcpTitle: 'MCP 設定已產生',

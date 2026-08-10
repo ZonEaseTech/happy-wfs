@@ -15,7 +15,7 @@ import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { openTerminalPanel } from '@/components/terminalPanelStore';
 import { DeviceMcpShareModal } from '@/components/DeviceMcpShareModal';
-import { renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { listDeviceShares, revokeDeviceShare, type DeviceShare, renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
@@ -110,6 +110,12 @@ export const DeviceManagementView = React.memo(() => {
     const machines = useAllMachines();
     const [creating, setCreating] = React.useState(false);
     const [menuDevice, setMenuDevice] = React.useState<Machine | null>(null);
+    const [shares, setShares] = React.useState<DeviceShare[]>([]);
+    const reloadShares = React.useCallback(() => {
+        if (!auth.credentials) return;
+        listDeviceShares(auth.credentials).then(setShares).catch(() => { });
+    }, [auth.credentials]);
+    React.useEffect(() => { reloadShares(); }, [reloadShares]);
     // Desktop web has room for inline row actions; phones keep the tap-to-open
     // action sheet.
     const { width: windowWidth } = useWindowDimensions();
@@ -246,9 +252,37 @@ export const DeviceManagementView = React.memo(() => {
     const handleShareMcp = React.useCallback(() => {
         Modal.show({
             component: DeviceMcpShareModal,
-            props: { machines: sortedMachines, machineTitle },
+            props: { machines: sortedMachines, machineTitle, onDone: reloadShares },
         });
-    }, [sortedMachines]);
+    }, [reloadShares, sortedMachines]);
+
+    const handleAddDevicesToShare = React.useCallback((share: DeviceShare) => {
+        Modal.show({
+            component: DeviceMcpShareModal,
+            props: {
+                machines: sortedMachines,
+                machineTitle,
+                appendToShareId: share.id,
+                alreadyIncluded: share.machineIds,
+                onDone: reloadShares,
+            },
+        });
+    }, [reloadShares, sortedMachines]);
+
+    const handleRevokeShare = React.useCallback(async (share: DeviceShare) => {
+        const confirmed = await Modal.confirm(
+            t('devices.mcpShareRevoke'),
+            t('devices.mcpShareRevokeConfirm'),
+            { confirmText: t('devices.mcpShareRevoke'), cancelText: t('common.cancel'), destructive: true },
+        );
+        if (!confirmed || !auth.credentials) return;
+        try {
+            await revokeDeviceShare(auth.credentials, share.id);
+            reloadShares();
+        } catch (error) {
+            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+        }
+    }, [auth.credentials, reloadShares]);
 
 
     const handleAddDevice = React.useCallback(async () => {
@@ -383,6 +417,38 @@ export const DeviceManagementView = React.memo(() => {
                             )}
                             onPress={showInlineActions ? undefined : () => setMenuDevice(machine)}
                             showChevron={!showInlineActions}
+                        />
+                    ))}
+                </ItemGroup>
+            )}
+
+            {shares.length > 0 && (
+                <ItemGroup title={t('devices.mcpShares')} footer={t('devices.mcpSharesFooter')}>
+                    {shares.map((share) => (
+                        <Item
+                            key={share.id}
+                            title={t('devices.mcpShareDevices', { count: share.machineIds.length })}
+                            subtitle={share.machineIds
+                                .map((machineId) => {
+                                    const machine = machines.find((candidate) => candidate.id === machineId);
+                                    return machine ? machineTitle(machine) : machineId.slice(0, 8);
+                                })
+                                .join(' · ') || undefined}
+                            icon={<Ionicons name="share-social-outline" size={29} color={theme.colors.textSecondary} />}
+                            rightElement={(
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                                    <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
+                                        {share.lastUsedAt ? new Date(share.lastUsedAt).toLocaleDateString() : t('devices.mcpShareNeverUsed')}
+                                    </Text>
+                                    <Pressable onPress={() => handleAddDevicesToShare(share)} hitSlop={8}>
+                                        <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.mcpShareAddDevices')}</Text>
+                                    </Pressable>
+                                    <Pressable onPress={() => { void handleRevokeShare(share); }} hitSlop={8}>
+                                        <Text style={{ fontSize: 14, color: theme.colors.textDestructive }}>{t('devices.mcpShareRevoke')}</Text>
+                                    </Pressable>
+                                </View>
+                            )}
+                            showChevron={false}
                         />
                     ))}
                 </ItemGroup>

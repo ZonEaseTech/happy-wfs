@@ -235,3 +235,51 @@ export function buildDeviceMcpConfig(serverUrl: string, token: string): string {
         }
     }, null, 2);
 }
+
+export interface DeviceShare {
+    id: string;
+    machineIds: string[];
+    label: string | null;
+    expiresAt: number | null;
+    lastUsedAt: number | null;
+    createdAt: number;
+}
+
+export async function listDeviceShares(credentials: AuthCredentials): Promise<DeviceShare[]> {
+    const response = await fetch(`${getServerUrl()}/v1/devices/shares`, {
+        headers: { 'Authorization': `Bearer ${credentials.token}` }
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to list device shares: ${response.status}`);
+    }
+    const data = await response.json() as { shares: DeviceShare[] };
+    return data.shares;
+}
+
+export async function revokeDeviceShare(credentials: AuthCredentials, id: string): Promise<void> {
+    const response = await fetch(`${getServerUrl()}/v1/devices/shares/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${credentials.token}` }
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to revoke device share: ${response.status}`);
+    }
+}
+
+export async function addDevicesToShare(
+    credentials: AuthCredentials,
+    id: string,
+    devices: Array<{ machineId: string; deviceKey: string }>
+): Promise<void> {
+    const response = await fetch(`${getServerUrl()}/v1/devices/shares/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ devices })
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to add devices: ${response.status}`);
+    }
+}

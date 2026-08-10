@@ -66,6 +66,25 @@ export async function deviceShareList(accountId: string) {
     });
 }
 
+/** Add devices to an existing grant. Keys already stored are kept as-is. */
+export async function deviceShareAddDevices(accountId: string, id: string, devices: Array<{ machineId: string; deviceKey: string }>): Promise<boolean> {
+    const row = await db.deviceShareToken.findFirst({ where: { id, accountId, revokedAt: null } });
+    if (!row) return false;
+    const owned = await db.machine.findMany({
+        where: { accountId, id: { in: devices.map((device) => device.machineId) } },
+        select: { id: true },
+    });
+    const ownedIds = new Set(owned.map((machine) => machine.id));
+    const deviceKeys = { ...((row.deviceKeys ?? {}) as Record<string, string>) };
+    for (const device of devices) {
+        if (!ownedIds.has(device.machineId) || deviceKeys[device.machineId]) continue;
+        const sealed = encryptBytes(ENCRYPT_PATH, new Uint8Array(decodeBase64(device.deviceKey)) as Uint8Array<ArrayBuffer>);
+        deviceKeys[device.machineId] = encodeBase64(sealed);
+    }
+    await db.deviceShareToken.update({ where: { id: row.id }, data: { deviceKeys } });
+    return true;
+}
+
 export async function deviceShareRevoke(accountId: string, id: string): Promise<boolean> {
     const result = await db.deviceShareToken.updateMany({
         where: { id, accountId, revokedAt: null },
