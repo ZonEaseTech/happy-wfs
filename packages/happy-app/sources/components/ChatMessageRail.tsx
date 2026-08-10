@@ -11,7 +11,9 @@ import { Message } from '@/sync/typesMessage';
  * Desktop-only affordance — phones have no hover.
  */
 
-const RAIL_WIDTH = 64;
+/** Rail gutter width. Exported so the chat list can reserve space for it
+ *  when the viewport is narrower than the content max width. */
+export const RAIL_WIDTH = 32;
 const MAX_TICKS = 80;
 const PEEK_MAX_CHARS = 260;
 const TICK_SLOT_HEIGHT = 11;

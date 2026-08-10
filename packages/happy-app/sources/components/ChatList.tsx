@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useSession, useSessionMessages, useProfile } from "@/sync/storage";
-import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useCallback, useRef, useState } from 'react';
 import { useHeaderHeight } from '@/utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import { MessageView } from './MessageView';
 import { Metadata, Session } from '@/sync/storageTypes';
 import { ChatFooter } from './ChatFooter';
 import { Message } from '@/sync/typesMessage';
-import { buildRailEntries, ChatMessageRail, RAIL_SUPPORTED } from '@/components/ChatMessageRail';
+import { buildRailEntries, ChatMessageRail, RAIL_SUPPORTED, RAIL_WIDTH } from '@/components/ChatMessageRail';
 import { layout } from './layout';
 import { createScrollButtonVisibilityController } from './scrollButtonVisibilityController';
 
@@ -125,6 +125,10 @@ const ChatListInternal = React.memo((props: {
     // Jumping to an off-screen index fails while the row is outside the
     // virtualization window, so land near it by estimated offset first and
     // retry the exact position once the rows around it have mounted.
+    // Below the content max width there is no natural gutter, so the rail
+    // would sit on top of the messages — reserve its width instead.
+    const { width: windowWidth } = useWindowDimensions();
+    const railGutter = railEntries.length > 0 && windowWidth < layout.maxWidth ? RAIL_WIDTH : 0;
     const railScrollTargetRef = useRef<number | null>(null);
     const handleRailSelect = useCallback((index: number) => {
         railScrollTargetRef.current = index;
@@ -235,6 +239,7 @@ const ChatListInternal = React.memo((props: {
                     minIndexForVisible: 0,
                     autoscrollToTopThreshold: 100,
                 }}
+                contentContainerStyle={railGutter > 0 ? { paddingLeft: railGutter } : undefined}
                 keyboardShouldPersistTaps="always"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 renderItem={renderItem}
