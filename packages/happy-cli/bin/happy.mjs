@@ -2,7 +2,17 @@
 
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { homedir } from 'os';
 import { join, dirname } from 'path';
+
+// V8 keeps compiled bytecode here between runs. Set before the child starts, so
+// it covers the entry's own imports too — half a command's time goes into
+// compiling this bundle. Mirrors configuration.happyHomeDir; a wrong guess only
+// costs a cache miss.
+if (!process.env.NODE_COMPILE_CACHE) {
+  const happyHome = process.env.HAPPY_HOME_DIR || join(homedir(), '.happy');
+  process.env.NODE_COMPILE_CACHE = join(happyHome, 'compile-cache');
+}
 
 // Check if we're already running with the flags
 const hasNoWarnings = process.execArgv.includes('--no-warnings');
