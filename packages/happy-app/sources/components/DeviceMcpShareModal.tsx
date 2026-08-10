@@ -37,6 +37,15 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
         key: sync.getMachineDataKey(machine.id),
     })), [machines]);
 
+    const selectableIds = React.useMemo(
+        () => options.filter((option) => option.key).map((option) => option.machine.id),
+        [options],
+    );
+    const selectAll = React.useCallback(() => setSelected(new Set(selectableIds)), [selectableIds]);
+    const invert = React.useCallback(() => {
+        setSelected((current) => new Set(selectableIds.filter((id) => !current.has(id))));
+    }, [selectableIds]);
+
     const toggle = React.useCallback((machineId: string) => {
         setSelected((current) => {
             const next = new Set(current);
@@ -98,9 +107,17 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
             maxWidth: '100%',
             maxHeight: 520,
         }}>
-            <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '600', paddingHorizontal: 16, paddingTop: 16 }}>
-                {appendToShareId ? t('devices.mcpShareManageDevices') : t('devices.shareMcp')}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
+                <Text style={{ flex: 1, color: theme.colors.text, fontSize: 16, fontWeight: '600' }}>
+                    {appendToShareId ? t('devices.mcpShareManageDevices') : t('devices.shareMcp')}
+                </Text>
+                <Pressable onPress={selectAll} hitSlop={8}>
+                    <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.selectAllDevices')}</Text>
+                </Pressable>
+                <Pressable onPress={invert} hitSlop={8}>
+                    <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.invertDevices')}</Text>
+                </Pressable>
+            </View>
             <Text style={{ color: theme.colors.textSecondary, fontSize: 13, lineHeight: 19, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 }}>
                 {t('devices.shareMcpPickHint')}
             </Text>
