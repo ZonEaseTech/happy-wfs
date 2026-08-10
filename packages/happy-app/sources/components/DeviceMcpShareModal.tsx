@@ -75,8 +75,20 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
     }, [auth.credentials, busy, onClose, options, selected]);
 
     return (
-        <View style={{ maxHeight: 520, minWidth: 320 }}>
-            <Text style={{ color: theme.colors.textSecondary, fontSize: 13, lineHeight: 19, padding: 16, paddingBottom: 8 }}>
+        <View style={{
+            backgroundColor: theme.colors.surface,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: theme.colors.divider,
+            overflow: 'hidden',
+            width: 420,
+            maxWidth: '100%',
+            maxHeight: 520,
+        }}>
+            <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '600', paddingHorizontal: 16, paddingTop: 16 }}>
+                {t('devices.shareMcp')}
+            </Text>
+            <Text style={{ color: theme.colors.textSecondary, fontSize: 13, lineHeight: 19, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 }}>
                 {t('devices.shareMcpPickHint')}
             </Text>
             <ScrollView style={{ maxHeight: 320 }}>
