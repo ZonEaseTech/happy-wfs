@@ -10,6 +10,7 @@ import { validatePath } from './pathSecurity';
 import { getDiffDetail } from './diffStore';
 import { getToolOutputRecord } from './toolOutputStore';
 import { spawnShell, resizePty, closePty, writeToPty, PTY_UNAVAILABLE } from '@/modules/pty';
+import { resolveLoginShellEnv } from '@/modules/shellEnv/loginShellEnv';
 import { encrypt, decrypt, encodeBase64, decodeBase64 } from '@/api/encryption';
 import { MAX_SESSION_UPLOAD_FILE_BYTES, resolveSessionUploadPaths } from './sessionFileUpload';
 
@@ -339,6 +340,10 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             const options: ExecOptions = {
                 cwd: data.cwd === '/' ? undefined : data.cwd,
                 timeout: data.timeout || 30000, // Default 30 seconds timeout
+                // launchd and systemd hand the daemon a bare PATH, so without
+                // this a command that works when typed into the device terminal
+                // fails here with "command not found".
+                env: await resolveLoginShellEnv(),
             };
 
             logger.debug('Shell command executing...', { cwd: options.cwd, timeout: options.timeout });
