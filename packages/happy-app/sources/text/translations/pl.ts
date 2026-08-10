@@ -99,6 +99,10 @@ export const pl: TranslationStructure = {
     },
 
     devices: {
+        shareMcp: 'Share via MCP',
+        shareMcpTitle: 'MCP config created',
+        shareMcpHint: 'Send this config to the other person; adding it to their AI client grants access to this device. The token is shown only once.',
+        shareMcpWarning: 'Heads up: sharing lets the server hold this device key, so this device is no longer end-to-end encrypted.',
         markAsDevice: 'Mark as device only',
         allowSessions: 'Allow hosting sessions',
         deleteDevice: 'Remove device',

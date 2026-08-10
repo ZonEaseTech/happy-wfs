@@ -90,6 +90,10 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        shareMcp: '生成 MCP',
+        shareMcpTitle: 'MCP 配置已生成',
+        shareMcpHint: '把下面的配置发给对方,加入其 AI 客户端即可使用这台设备。令牌只显示这一次。',
+        shareMcpWarning: '注意:分享后服务器需持有该设备密钥,该设备不再是端到端加密。',
         markAsDevice: '标记为纯设备(不承载会话)',
         allowSessions: '允许承载会话',
         deleteDevice: '删除设备',

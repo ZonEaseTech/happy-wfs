@@ -65,6 +65,7 @@ model Account {
   OpenClawMachine     OpenClawMachine[]
   deviceEnrollTokens  DeviceEnrollToken[]
   deviceKeyRequests   DeviceKeyRequest[]
+  deviceShareTokens   DeviceShareToken[]
   sharedBySessions    SessionShare[]           @relation("SharedBySessions")
   sharedWithSessions  SessionShare[]           @relation("SharedWithSessions")
   publicSessionShares PublicSessionShare[]     @relation("PublicSessionShares")
@@ -682,6 +683,28 @@ model DeviceKeyRequest {
   createdAt  DateTime  @default(now())
 
   @@index([accountId, createdAt(sort: Desc)])
+}
+
+/// A hosted-MCP grant: lets someone outside this account drive one enrolled
+/// device through the server's MCP endpoint. The device data key is stored
+/// here (encrypted at rest with the server master secret) because the server
+/// must encrypt the RPC payloads itself — end-to-end encryption is
+/// deliberately relaxed for devices the owner shares this way.
+model DeviceShareToken {
+  id         String    @id @default(cuid())
+  accountId  String
+  account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  machineId  String
+  tokenHash  String    @unique
+  label      String?
+  deviceKey  Bytes
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([accountId, createdAt(sort: Desc)])
+  @@index([machineId])
 }
 
 model PublicShareLink {

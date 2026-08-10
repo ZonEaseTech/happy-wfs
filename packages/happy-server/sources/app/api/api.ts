@@ -34,6 +34,7 @@ import { memoryRoutes } from "./routes/memoryRoutes";
 import { githubRoutes } from "./routes/githubRoutes";
 import { fileShareRoutes } from "./routes/fileShareRoutes";
 import { shareLinkRoutes } from "./routes/shareLinkRoutes";
+import { deviceShareRoutes } from "./routes/deviceShareRoutes";
 import { bugRoutes } from "./routes/bugRoutes";
 import { bugPublicRoutes } from "./routes/bugPublicRoutes";
 import { ensureDefaultCompanyMemberships } from "@/app/company/companyBootstrap";
@@ -101,6 +102,7 @@ export async function startApi() {
     githubRoutes(typed);
     fileShareRoutes(typed);
     shareLinkRoutes(typed);
+    deviceShareRoutes(typed);
     bugRoutes(typed);
     bugPublicRoutes(typed);
 

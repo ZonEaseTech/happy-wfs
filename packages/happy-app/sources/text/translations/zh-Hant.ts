@@ -90,6 +90,10 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        shareMcp: '產生 MCP',
+        shareMcpTitle: 'MCP 設定已產生',
+        shareMcpHint: '把下面的設定發給對方,加入其 AI 客戶端即可使用這台裝置。權杖只顯示這一次。',
+        shareMcpWarning: '注意:分享後伺服器需持有該裝置金鑰,該裝置不再是端對端加密。',
         markAsDevice: '標記為純裝置(不承載工作階段)',
         allowSessions: '允許承載工作階段',
         deleteDevice: '刪除設備',

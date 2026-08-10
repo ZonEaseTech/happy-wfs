@@ -201,3 +201,38 @@ export async function renameDevicePublicLabel(credentials: AuthCredentials, mach
         throw new Error(`Failed to rename device: ${response.status}`);
     }
 }
+
+/** Create a hosted-MCP grant for a device. The device key travels with the
+ *  request because the server drives the device for the grantee — sharing a
+ *  device deliberately relaxes end-to-end encryption for that device. */
+export async function createDeviceShare(
+    credentials: AuthCredentials,
+    machineId: string,
+    deviceKeyBase64: string,
+    options: { label?: string; expiresInDays?: number } = {}
+): Promise<{ id: string; token: string }> {
+    const response = await fetch(`${getServerUrl()}/v1/devices/${encodeURIComponent(machineId)}/shares`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ deviceKey: deviceKeyBase64, ...options })
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to create device share: ${response.status}`);
+    }
+    return await response.json() as { id: string; token: string };
+}
+
+export function buildDeviceMcpConfig(serverUrl: string, token: string, deviceName: string): string {
+    return JSON.stringify({
+        mcpServers: {
+            [`happy-${deviceName.replace(/[^A-Za-z0-9_-]+/g, '-').toLowerCase() || 'device'}`]: {
+                type: 'http',
+                url: `${serverUrl.replace(/\/+$/, '')}/v1/mcp/device`,
+                headers: { Authorization: `Bearer ${token}` }
+            }
+        }
+    }, null, 2);
+}
