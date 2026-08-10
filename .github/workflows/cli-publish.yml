@@ -33,8 +33,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # --ignore-optional breaks a bootstrap cycle: the CLI's optionalDependencies
+      # are the platform tool packages this same run publishes further down, so
+      # resolving them here fails on the very release that first introduces a new
+      # tools version. Nothing built or tested here needs the binaries — the
+      # resolver falls back to the tools/unpacked copy in the repo.
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --ignore-optional
 
       - name: Assert git tag matches package version
         run: |
