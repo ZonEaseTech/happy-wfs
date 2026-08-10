@@ -9,6 +9,22 @@ import type { Machine } from '@/sync/storageTypes';
 
 export type TargetDeviceSelection = Array<{ id: string; name: string; key: string | null }>;
 
+function deviceName(machine: Machine): string {
+    return machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12);
+}
+
+/**
+ * Every machine whose data key this client can hand to the CLI. A machine
+ * without one cannot be targeted at all — the CLI has no way to open its key
+ * envelope, so it needs the key passed through session metadata.
+ */
+export function selectableTargetDevices(machines: Machine[]): TargetDeviceSelection {
+    return machines
+        .map((machine) => ({ machine, key: sync.getMachineDataKey(machine.id) }))
+        .filter(({ key }) => key)
+        .map(({ machine, key }) => ({ id: machine.id, name: deviceName(machine), key: encodeBase64(key!) }));
+}
+
 /**
  * Multi-select target devices for a session. "This session's machine" is the
  * empty selection; picking devices hands their keys to the CLI so it can run
@@ -27,7 +43,7 @@ export const TargetDevicePickerModal = React.memo(({ machines, initialSelected, 
         .sort((a, b) => Number(b.active) - Number(a.active))
         .map((machine) => ({
             machine,
-            name: machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12),
+            name: deviceName(machine),
             key: sync.getMachineDataKey(machine.id),
         })), [machines]);
     const selectableIds = React.useMemo(() => options.filter((option) => option.key).map((option) => option.machine.id), [options]);

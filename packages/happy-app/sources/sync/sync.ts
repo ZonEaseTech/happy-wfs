@@ -474,18 +474,39 @@ class Sync {
         // A target device is only useful if the agent knows to prefer it —
         // otherwise it just reaches for local Bash and answers about the
         // machine hosting the session.
-        const targetDevice = storage.getState().sessions[sessionId]?.metadata?.targetDevice;
-        if (!targetDevice) {
+        const metadata = storage.getState().sessions[sessionId]?.metadata;
+        const devices = metadata?.targetDevices?.length
+            ? metadata.targetDevices
+            : (metadata?.targetDevice ? [metadata.targetDevice] : []);
+        if (devices.length === 0) {
             return systemPrompt;
+        }
+        // One device means the user redirected the session at it, so "this
+        // machine" should follow. Several means they only granted reach — new
+        // sessions target the whole fleet by default, and reading that as "you
+        // are running on the first one" would answer every question about the
+        // wrong host.
+        if (devices.length === 1) {
+            return [
+                systemPrompt,
+                `# Target device
+
+This session targets the enrolled device "${devices[0].name}" (id: ${devices[0].id}).`
+                + ` Run shell commands there with the device_exec MCP tool instead of the local Bash tool,`
+                + ` and read "this machine" / "the current machine" as that device unless the user says otherwise.`
+                + ` Use local Bash only for work that must happen on the session's own machine (e.g. editing this repo).`,
+            ].join('\n\n');
         }
         return [
             systemPrompt,
-            `# Target device
+            `# Reachable devices
 
-This session targets the enrolled device "${targetDevice.name}" (id: ${targetDevice.id}).`
-            + ` Run shell commands there with the device_exec MCP tool instead of the local Bash tool,`
-            + ` and read "this machine" / "the current machine" as that device unless the user says otherwise.`
-            + ` Use local Bash only for work that must happen on the session's own machine (e.g. editing this repo).`,
+This session can run commands on these enrolled devices with the device_exec MCP tool:
+${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
+
+"This machine" still means the session's own machine — use local Bash for that.`
+            + ` Reach for device_exec when the user names one of the devices above, or when the work belongs on it.`
+            + ` device_list shows which of them are online.`,
         ].join('\n\n');
     }
 

@@ -1,7 +1,7 @@
 import { AgentContentView } from '@/components/AgentContentView';
 import { registerToolPanelOpener } from '@/components/tools/previewHtmlStore';
 import { ChatToolOverlay } from '@/-session/ChatToolOverlay';
-import { TargetDevicePickerModal, type TargetDeviceSelection } from '@/-session/TargetDevicePickerModal';
+import { TargetDevicePickerModal, selectableTargetDevices, type TargetDeviceSelection } from '@/-session/TargetDevicePickerModal';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
@@ -316,6 +316,25 @@ export const SessionView = React.memo((props: { id: string }) => {
         [session?.metadata?.targetDevice, session?.metadata?.targetDevices],
     );
     const targetDeviceId = targetDeviceIds[0] ?? null;
+
+    // A session that has never been configured targets every device it can
+    // reach, so the AI can act on the whole fleet without the user opening the
+    // picker first. Keys only travel through session metadata, so this has to
+    // be written out rather than implied. An explicit empty array means the
+    // user chose this session's own machine, and is left alone.
+    React.useEffect(() => {
+        const metadata = session?.metadata;
+        if (!metadata || metadata.targetDevices != null) return;
+        const devices = selectableTargetDevices(allMachines);
+        if (devices.length === 0) return;
+        sessionUpdateMetadataFields(
+            sessionId,
+            metadata,
+            { targetDevices: devices, targetDevice: devices[0] },
+            session.metadataVersion,
+        ).catch(() => { /* a later render retries; nothing to surface here */ });
+    }, [allMachines, session?.metadata, session?.metadataVersion, sessionId]);
+
     const handleOpenDevicePicker = React.useCallback(() => {
         if (!session?.metadata) return;
         Modal.show({
@@ -329,9 +348,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                         sessionId,
                         session.metadata,
                         {
-                            // targetDevice mirrors the first pick so CLI builds
-                            // that predate multi-device targeting keep working.
-                            targetDevices: devices.length > 0 ? devices : null,
+                            // An empty array, not null: null means "never
+                            // chosen" and gets defaulted to every device, so
+                            // writing it here would undo the user's pick on the
+                            // next render. targetDevice mirrors the first pick
+                            // so CLI builds that predate multi-device targeting
+                            // keep working.
+                            targetDevices: devices,
                             targetDevice: devices[0] ?? null,
                         },
                         session.metadataVersion,
