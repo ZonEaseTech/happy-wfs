@@ -90,6 +90,8 @@ export const zhHant: TranslationStructure = {
     },
 
     devices: {
+        selectAllDevices: '全選',
+        invertDevices: '反選',
         mcpShares: '已產生的 MCP',
         mcpSharesFooter: '權杖只在產生時顯示一次。撤銷後對方立即失去存取權限。',
         mcpShareDevices: ({ count }: { count: number }) => `${count} 台裝置`,

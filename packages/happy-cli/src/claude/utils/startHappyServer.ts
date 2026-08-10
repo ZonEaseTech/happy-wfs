@@ -93,10 +93,10 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         }
         try {
             const devices = await listDevices(credentials);
-            const target = client.targetDevice?.id ?? null;
+            const target = client.targetDevices.map((device) => device.id);
             const lines = devices.map((device) => {
                 const marks = [device.active ? 'online' : 'offline'];
-                if (device.id === target) marks.push('session default');
+                if (target.includes(device.id)) marks.push('session default');
                 return `${device.id}  ${device.name}${device.platform ? ` (${device.platform})` : ''}  [${marks.join(', ')}]`;
             });
             return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'No devices enrolled yet.' }] };
@@ -120,8 +120,12 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         if (!credentials) {
             return { content: [{ type: 'text', text: 'No Happy credentials on this machine.' }] };
         }
-        const target = client.targetDevice;
-        const deviceId = args.deviceId || target?.id;
+        const targets = client.targetDevices;
+        const deviceId = args.deviceId
+            || (targets.length === 1 ? targets[0].id : null);
+        if (!deviceId && targets.length > 1) {
+            return { content: [{ type: 'text', text: `This session targets several devices — pass deviceId: ${targets.map((device) => `${device.name} (${device.id})`).join(', ')}` }] };
+        }
         if (!deviceId) {
             return { content: [{ type: 'text', text: 'No device selected for this session. Pick one in the app or pass deviceId (see device_list).' }] };
         }
@@ -129,7 +133,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
             const result = await deviceExec(client.rpcSocket as any, credentials, deviceId, args.command, {
                 cwd: args.cwd,
                 timeout: args.timeout,
-                deviceKeyBase64: deviceId === target?.id ? target?.key : null,
+                deviceKeyBase64: targets.find((device) => device.id === deviceId)?.key ?? null,
             });
             const parts = [`exit code: ${result.exitCode}`];
             if (result.stdout) parts.push(`stdout:\n${result.stdout}`);

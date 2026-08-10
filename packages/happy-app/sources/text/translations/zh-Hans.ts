@@ -90,6 +90,8 @@ export const zhHans: TranslationStructure = {
     },
 
     devices: {
+        selectAllDevices: '全选',
+        invertDevices: '反选',
         mcpShares: '已生成的 MCP',
         mcpSharesFooter: '令牌只在生成时显示一次。撤销后对方立即失去访问权限。',
         mcpShareDevices: ({ count }: { count: number }) => `${count} 台设备`,

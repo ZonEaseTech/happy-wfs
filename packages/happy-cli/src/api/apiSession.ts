@@ -172,7 +172,12 @@ export class ApiSessionClient extends EventEmitter {
   /** Live socket for machine-to-machine RPC (device execution). */
   get rpcSocket(): Socket<ServerToClientEvents, ClientToServerEvents> { return this.socket; }
   /** Device the user picked for this session in the app, if any. */
-  get targetDevice(): { id: string, name: string, key: string | null } | null { return this.metadata?.targetDevice ?? null; }
+  get targetDevice(): { id: string, name: string, key: string | null } | null { return this.targetDevices[0] ?? null; }
+  get targetDevices(): Array<{ id: string, name: string, key: string | null }> {
+    const list = this.metadata?.targetDevices;
+    if (list && list.length > 0) return list;
+    return this.metadata?.targetDevice ? [this.metadata.targetDevice] : [];
+  }
     private pendingMessages: UserMessage[] = [];
     private pendingMessageCallback: ((message: UserMessage) => void) | null = null;
     readonly rpcHandlerManager: RpcHandlerManager;

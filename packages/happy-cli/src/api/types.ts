@@ -361,6 +361,8 @@ export type Metadata = {
    *  data key because a CLI process only holds the account's content public key
    *  and cannot open the key envelope itself. */
   targetDevice?: { id: string, name: string, key: string | null } | null,
+  /** All devices this session targets; targetDevice mirrors the first one. */
+  targetDevices?: Array<{ id: string, name: string, key: string | null }> | null,
   machineId?: string,
   claudeSessionId?: string, // Claude Code session ID
   tools?: string[],

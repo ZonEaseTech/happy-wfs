@@ -44,6 +44,13 @@ export const MetadataSchema = z.object({
         name: z.string(),
         key: z.string().nullable(),
     }).nullish(),
+    // Multi-device targeting. targetDevice stays in sync with the first entry
+    // so CLI builds that predate this field keep working.
+    targetDevices: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        key: z.string().nullable(),
+    })).nullish(),
     // User-driven "awaiting closure" mark — the agent's work is verified
     // and the user wants the session pinned to the top of the "待完结" tab
     // until they explicitly close it out. Stored as a stamped record so

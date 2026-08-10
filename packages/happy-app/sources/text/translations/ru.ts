@@ -99,6 +99,8 @@ export const ru: TranslationStructure = {
     },
 
     devices: {
+        selectAllDevices: 'Select all',
+        invertDevices: 'Invert',
         mcpShares: 'Generated MCP grants',
         mcpSharesFooter: 'The token is shown only once, at creation. Revoking cuts off access immediately.',
         mcpShareDevices: ({ count }: { count: number }) => `${count} devices`,

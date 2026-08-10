@@ -1,6 +1,7 @@
 import { AgentContentView } from '@/components/AgentContentView';
 import { registerToolPanelOpener } from '@/components/tools/previewHtmlStore';
 import { ChatToolOverlay } from '@/-session/ChatToolOverlay';
+import { TargetDevicePickerModal, type TargetDeviceSelection } from '@/-session/TargetDevicePickerModal';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
@@ -309,43 +310,39 @@ export const SessionView = React.memo((props: { id: string }) => {
     const [bugStatusMenuVisible, setBugStatusMenuVisible] = React.useState(false);
     // Target device: which enrolled machine this session's AI runs commands on.
     const allMachines = useAllMachines();
-    const [deviceMenuVisible, setDeviceMenuVisible] = React.useState(false);
-    const targetDeviceId = session?.metadata?.targetDevice?.id ?? null;
-    const handleSelectTargetDevice = React.useCallback((deviceId: string | null, deviceName?: string) => {
-        setDeviceMenuVisible(false);
+    const targetDeviceIds = React.useMemo(
+        () => (session?.metadata?.targetDevices?.map((device) => device.id)
+            ?? (session?.metadata?.targetDevice ? [session.metadata.targetDevice.id] : [])),
+        [session?.metadata?.targetDevice, session?.metadata?.targetDevices],
+    );
+    const targetDeviceId = targetDeviceIds[0] ?? null;
+    const handleOpenDevicePicker = React.useCallback(() => {
         if (!session?.metadata) return;
-        // Hand the machine key to the CLI here: a CLI process only holds the
-        // account's content public key and cannot open the key envelope itself.
-        const key = deviceId ? sync.getMachineDataKey(deviceId) : null;
-        sessionUpdateMetadataFields(
-            sessionId,
-            session.metadata,
-            {
-                targetDevice: deviceId
-                    ? { id: deviceId, name: deviceName ?? deviceId, key: key ? encodeBase64(key) : null }
-                    : null,
+        Modal.show({
+            component: TargetDevicePickerModal,
+            props: {
+                machines: allMachines,
+                initialSelected: targetDeviceIds,
+                onSubmit: (devices: TargetDeviceSelection) => {
+                    if (!session?.metadata) return;
+                    sessionUpdateMetadataFields(
+                        sessionId,
+                        session.metadata,
+                        {
+                            // targetDevice mirrors the first pick so CLI builds
+                            // that predate multi-device targeting keep working.
+                            targetDevices: devices.length > 0 ? devices : null,
+                            targetDevice: devices[0] ?? null,
+                        },
+                        session.metadataVersion,
+                    ).catch((error: unknown) => {
+                        Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
+                    });
+                },
             },
-            session.metadataVersion,
-        ).catch((error: unknown) => {
-            Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         });
-    }, [session?.metadata, session?.metadataVersion, sessionId]);
-    const deviceMenuItems = React.useMemo<ActionMenuItem[]>(() => {
-        const items: ActionMenuItem[] = [{
-            label: t('devices.useSessionMachine'),
-            selected: !targetDeviceId,
-            onPress: () => handleSelectTargetDevice(null),
-        }];
-        for (const machine of [...allMachines].sort((a, b) => Number(b.active) - Number(a.active))) {
-            const name = machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12);
-            items.push({
-                label: `${name}${machine.active ? '' : ` · ${t('devices.offline')}`}`,
-                selected: targetDeviceId === machine.id,
-                onPress: () => handleSelectTargetDevice(machine.id, name),
-            });
-        }
-        return items;
-    }, [allMachines, handleSelectTargetDevice, targetDeviceId]);
+    }, [allMachines, session?.metadata, session?.metadataVersion, sessionId, targetDeviceIds]);
+
     const handleLinkedBugStatusChange = React.useCallback((status: BugStatus, action?: 'return_to_pending') => {
         if (!linkedHappyBug) return;
         const credentials = sync.getCredentials();
@@ -576,7 +573,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                                 )}
                                 <Pressable
                                     {...webTooltip(t('devices.selectDevice'))}
-                                    onPress={() => setDeviceMenuVisible(true)}
+                                    onPress={handleOpenDevicePicker}
                                     hitSlop={15}
                                     accessibilityRole="button"
                                     accessibilityLabel={t('devices.selectDevice')}
@@ -725,13 +722,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                 visible={quickCommandsMenuVisible}
                 items={quickCommandsMenuItems}
                 onClose={() => setQuickCommandsMenuVisible(false)}
-            />
-
-            {/* Target device picker */}
-            <ActionMenuModal
-                visible={deviceMenuVisible}
-                items={deviceMenuItems}
-                onClose={() => setDeviceMenuVisible(false)}
             />
 
             {/* Linked bug quick status menu (right-click / long-press on the bug icon) */}
