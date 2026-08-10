@@ -17,7 +17,7 @@ import packageJson from '../package.json'
 import { z } from 'zod'
 import { startDaemon } from './daemon/run'
 import { enrollDevice } from './device/enroll'
-import { sshDevice, sshPickAndConnect } from './device/ssh'
+import { parseSshArgs, runOnDevice, sshDevice, sshPickAndConnect } from './device/ssh'
 import { checkIfDaemonRunningAndCleanupStaleState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './daemon/controlClient'
 import { getLatestDaemonLog } from './ui/logger'
 import { killRunawayHappyProcesses } from './daemon/doctor'
@@ -503,8 +503,15 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       console.error(chalk.red('Error:'), 'Not authenticated. Run "happy auth" first.')
       process.exit(1)
     }
-    const target = args[1]
+    const { target, command, timeoutMs } = parseSshArgs(args.slice(1))
     try {
+      if (command) {
+        if (!target) {
+          console.error(chalk.red('Error:'), 'Which device? Usage: happy ssh <device> -- <command>')
+          process.exit(1)
+        }
+        process.exit(await runOnDevice(credentials, target, command, { timeoutMs }))
+      }
       if (!target) {
         process.exit(await sshPickAndConnect(credentials))
       }

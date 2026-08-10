@@ -29,6 +29,9 @@ export interface DeviceExecResult {
     stdout: string;
     stderr: string;
     exitCode: number;
+    /** Set when the device itself rejected or killed the command — a timeout
+     *  reports no stderr, so this is the only explanation the caller gets. */
+    error?: string;
 }
 
 interface RawMachineRow {
