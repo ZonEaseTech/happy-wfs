@@ -11,6 +11,7 @@
  * something reaches for ripgrep.
  */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -22,10 +23,18 @@ const repoRoot = resolve(__dirname, '../..');
 const read = (relativePath: string) => readFileSync(resolve(repoRoot, relativePath), 'utf8');
 
 describe('platform tool packages', () => {
-    it('are absent from the checked-in manifest', () => {
-        const manifest = JSON.parse(read('package.json'));
-        expect(manifest.optionalDependencies).toBeUndefined();
-        expect(manifest.files).not.toContain('tools');
+    it('are absent from the committed manifest', () => {
+        // Read from git, not the working tree: the publish step injects the
+        // dependency before `npm publish`, which runs this suite through
+        // prepublishOnly. The invariant is about what is committed.
+        const committed = JSON.parse(
+            execFileSync('git', ['show', 'HEAD:packages/happy-cli/package.json'], {
+                cwd: resolve(repoRoot, '../..'),
+                encoding: 'utf8',
+            }),
+        );
+        expect(committed.optionalDependencies).toBeUndefined();
+        expect(committed.files).not.toContain('tools');
     });
 
     it('are injected by the publish workflow', () => {
