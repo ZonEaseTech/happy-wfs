@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import * as React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
@@ -109,6 +109,10 @@ export const DeviceManagementView = React.memo(() => {
     const machines = useAllMachines();
     const [creating, setCreating] = React.useState(false);
     const [menuDevice, setMenuDevice] = React.useState<Machine | null>(null);
+    // Desktop web has room for inline row actions; phones keep the tap-to-open
+    // action sheet.
+    const { width: windowWidth } = useWindowDimensions();
+    const showInlineActions = Platform.OS === 'web' && windowWidth >= 900;
     const [keyRequests, setKeyRequests] = React.useState<DeviceKeyRequest[]>([]);
 
     // Poll for `happy ssh` authorization requests: they are short-lived and the
@@ -322,15 +326,45 @@ export const DeviceManagementView = React.memo(() => {
                             subtitle={machineSubtitle(machine)}
                             icon={<Ionicons name="hardware-chip-outline" size={29} color={theme.colors.textSecondary} />}
                             rightElement={(
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <View style={[styles.statusDot, { backgroundColor: machine.active ? '#16A34A' : theme.colors.textSecondary }]} />
-                                    <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
-                                        {machine.active ? t('devices.online') : t('devices.offline')}
-                                    </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: showInlineActions ? 14 : 6 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <View style={[styles.statusDot, { backgroundColor: machine.active ? '#16A34A' : theme.colors.textSecondary }]} />
+                                        <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
+                                            {machine.active ? t('devices.online') : t('devices.offline')}
+                                        </Text>
+                                    </View>
+                                    {showInlineActions && (
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                            <Pressable
+                                                onPress={() => openTerminalPanel({ targetId: machine.id, isMachineScope: true })}
+                                                hitSlop={8}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={t('devices.openTerminal')}
+                                            >
+                                                <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.openTerminal')}</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                onPress={() => { void handleRenameDevice(machine); }}
+                                                hitSlop={8}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={t('devices.rename')}
+                                            >
+                                                <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.rename')}</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                onPress={() => { void handleDeleteDevice(machine); }}
+                                                hitSlop={8}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={t('devices.deleteDevice')}
+                                            >
+                                                <Text style={{ fontSize: 14, color: theme.colors.textDestructive }}>{t('devices.deleteDevice')}</Text>
+                                            </Pressable>
+                                        </View>
+                                    )}
                                 </View>
                             )}
-                            onPress={() => setMenuDevice(machine)}
-                            showChevron
+                            onPress={showInlineActions ? undefined : () => setMenuDevice(machine)}
+                            showChevron={!showInlineActions}
                         />
                     ))}
                 </ItemGroup>
