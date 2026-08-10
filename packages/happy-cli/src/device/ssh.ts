@@ -12,7 +12,8 @@ import { io, type Socket } from 'socket.io-client';
 import { Credentials } from '@/persistence';
 import { configuration } from '@/configuration';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from '@/api/encryption';
-import { deviceExec, listDevices, type DeviceSummary } from './deviceExec';
+import { deviceExec, listDevices, type DeviceExecResult, type DeviceSummary } from './deviceExec';
+import { execOnDeviceViaDaemon } from '@/daemon/controlClient';
 import { ensureDeviceKey, pruneDeviceAliases, readCachedDeviceKey, readCachedDeviceNames } from './deviceKeys';
 
 function matchDevice(devices: DeviceSummary[], query: string): DeviceSummary | null {
@@ -144,6 +145,17 @@ export async function runOnDevice(
     const resolved = cached ?? await resolveFromServer(credentials, query);
     if (!resolved) return 1;
 
+    // A running daemon already holds a connection to the server; borrowing it
+    // skips a TLS + WebSocket handshake worth roughly a third of the command.
+    const viaDaemon = await execOnDeviceViaDaemon(
+        resolved.device.id,
+        command,
+        options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
+    ).catch(() => null);
+    if (viaDaemon) {
+        return reportResult(viaDaemon as DeviceExecResult);
+    }
+
     try {
         return await execOnResolved(credentials, resolved, command, options);
     } catch (error) {
@@ -155,6 +167,23 @@ export async function runOnDevice(
         if (!fresh) return 1;
         return await execOnResolved(credentials, fresh, command, options);
     }
+}
+
+/**
+ * Both paths — the daemon's connection and a socket of our own — must present a
+ * command identically, or which one happened to be used would be observable.
+ */
+function reportResult(result: DeviceExecResult): number {
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+    // On an ordinary non-zero exit the device echoes node's "Command failed:
+    // <whole command>" wrapper, which already contains stderr — printing it
+    // repeats the error and the script back at the user. Only the cases it
+    // explains on its own, such as a timeout, are worth surfacing.
+    if (result.error && !result.error.startsWith('Command failed:')) {
+        console.error(result.error);
+    }
+    return result.exitCode ?? (result.success ? 0 : 1);
 }
 
 async function execOnResolved(
@@ -181,16 +210,7 @@ async function execOnResolved(
             // matchDevice already read the listing and rejected offline devices.
             skipMachineLookup: true,
         });
-        if (result.stdout) process.stdout.write(result.stdout);
-        if (result.stderr) process.stderr.write(result.stderr);
-        // On an ordinary non-zero exit the device echoes node's "Command
-        // failed: <whole command>" wrapper, which already contains stderr —
-        // printing it repeats the error and the script back at the user. Only
-        // the cases it explains on its own, such as a timeout, are worth it.
-        if (result.error && !result.error.startsWith('Command failed:')) {
-            console.error(result.error);
-        }
-        return result.exitCode ?? (result.success ? 0 : 1);
+        return reportResult(result);
     } finally {
         socket.close();
     }

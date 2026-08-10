@@ -17,6 +17,9 @@ import { isDebug } from '@/utils/env';
 import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, readSettings, getActiveProfile, getEnvironmentVariables, validateProfileForAgent, getProfileEnvironmentVariables } from '@/persistence';
 
 import { cleanupDaemonState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './controlClient';
+import { deviceExec } from '@/device/deviceExec';
+import { readCachedDeviceKey } from '@/device/deviceKeys';
+import { encodeBase64 } from '@/api/encryption';
 import { PLIST_LABEL } from './mac/install';
 
 /**
@@ -1118,12 +1121,33 @@ export async function startDaemon(): Promise<void> {
     };
 
     // Start control server
+    // Assigned once the machine client connects, below. The control server
+    // starts first, so device-exec requests arriving before then are refused
+    // and the caller falls back to its own socket.
+    let connectedMachine: { rpcSocket: any } | null = null;
+
     const { port: controlPort, stop: stopControlServer } = await startDaemonControlServer({
       getChildren: getCurrentChildren,
       stopSession,
       spawnSession,
       requestShutdown: () => requestShutdown('happy-cli'),
-      onHappySessionWebhook
+      onHappySessionWebhook,
+      execOnDevice: async (deviceId, command, timeoutMs) => {
+        if (!connectedMachine) {
+          throw new Error('Daemon is not connected yet');
+        }
+        // Same cache the CLI reads, so the key never crosses the local socket.
+        const material = await readCachedDeviceKey(deviceId);
+        if (!material) {
+          throw new Error(`No cached key for device ${deviceId}`);
+        }
+        return await deviceExec(connectedMachine.rpcSocket, credentials, deviceId, command, {
+          deviceKeyBase64: encodeBase64(material.key),
+          deviceKeyVariant: material.variant,
+          timeout: timeoutMs,
+          skipMachineLookup: true
+        });
+      }
     });
 
     // Write initial daemon state (no lock needed for state file)
@@ -1171,6 +1195,7 @@ export async function startDaemon(): Promise<void> {
 
     // Connect to server
     apiMachine.connect();
+    connectedMachine = apiMachine;
 
     // Update machine metadata on server (ensures version is current after daemon restart)
     // Merge with current metadata to preserve fields set by the app (e.g. displayName)

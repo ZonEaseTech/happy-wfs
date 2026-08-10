@@ -20,13 +20,16 @@ export function startDaemonControlServer({
   stopSession,
   spawnSession,
   requestShutdown,
-  onHappySessionWebhook
+  onHappySessionWebhook,
+  execOnDevice
 }: {
   getChildren: () => TrackedSession[];
   stopSession: (sessionId: string) => boolean;
   spawnSession: (options: SpawnSessionOptions) => Promise<SpawnSessionResult>;
   requestShutdown: () => void;
   onHappySessionWebhook: (sessionId: string, metadata: Metadata) => void;
+  /** Runs a command on an enrolled device over the daemon's live connection. */
+  execOnDevice: (deviceId: string, command: string, timeoutMs: number) => Promise<unknown>;
 }): Promise<{ port: number; stop: () => Promise<void> }> {
   return new Promise((resolve) => {
     const app = fastify({
@@ -152,6 +155,29 @@ export function startDaemonControlServer({
     });
 
     // Stop specific session
+    // Device command over the daemon's existing connection. A CLI opening its
+    // own socket spends ~500ms on the TLS and WebSocket handshake; the daemon
+    // is already connected. The device key is not passed in — the daemon reads
+    // it from the same cache the CLI would have used.
+    typed.post('/device-exec', {
+      schema: {
+        body: z.object({
+          deviceId: z.string(),
+          command: z.string(),
+          timeoutMs: z.number().optional()
+        })
+      }
+    }, async (request, reply) => {
+      const { deviceId, command, timeoutMs } = request.body;
+      logger.debug(`[CONTROL SERVER] Device exec request for ${deviceId}`);
+      try {
+        return { ok: true, result: await execOnDevice(deviceId, command, timeoutMs ?? 300000) };
+      } catch (error) {
+        // The caller falls back to its own socket, so this is a hint, not a stop.
+        return reply.code(200).send({ ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    });
+
     typed.post('/stop-session', {
       schema: {
         body: z.object({

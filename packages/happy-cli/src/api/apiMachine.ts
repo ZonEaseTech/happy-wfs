@@ -160,6 +160,9 @@ type MachineRpcHandlers = {
 
 export class ApiMachineClient {
     private socket!: Socket<ServerToDaemonEvents, DaemonToServerEvents>;
+    /** The daemon's live connection. Reused for device RPC so a CLI command does
+     *  not spend ~500ms building its own TLS + WebSocket handshake. */
+    get rpcSocket(): Socket<ServerToDaemonEvents, DaemonToServerEvents> { return this.socket; }
     private keepAliveInterval: NodeJS.Timeout | null = null;
     private rpcHandlerManager: RpcHandlerManager;
 

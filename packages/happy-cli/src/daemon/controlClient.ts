@@ -69,6 +69,26 @@ export async function notifyDaemonSessionStarted(
   });
 }
 
+/**
+ * Run a device command through the daemon's live connection.
+ *
+ * Returns null when there is no usable daemon, so the caller can fall back to
+ * opening its own socket — that handshake is what this exists to avoid, not
+ * something to fail over.
+ */
+export async function execOnDeviceViaDaemon(
+  deviceId: string,
+  command: string,
+  timeoutMs: number,
+): Promise<any | null> {
+  const response = await daemonPost('/device-exec', { deviceId, command, timeoutMs });
+  if (!response || response.error || response.ok !== true) {
+    logger.debug(`[CONTROL CLIENT] Device exec via daemon unavailable: ${response?.error ?? 'no daemon'}`);
+    return null;
+  }
+  return response.result;
+}
+
 export async function listDaemonSessions(): Promise<any[]> {
   const result = await daemonPost('/list');
   return result.children || [];
