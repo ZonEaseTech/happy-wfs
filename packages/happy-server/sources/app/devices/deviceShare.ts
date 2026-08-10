@@ -138,11 +138,17 @@ export async function deviceShareExec(grant: DeviceShareGrant, input: {
         cwd: input.cwd,
         timeout,
     }, deviceKey));
+    // Daemons answer `rpc-request` with the encrypted payload as a bare
+    // base64 string; older/other paths may wrap it in { ok, result }.
     const answer: any = await targetSocket.timeout(timeout + 5000).emitWithAck('rpc-request', { method, params });
-    if (!answer || answer.ok !== true) {
+    const payload = typeof answer === 'string' ? answer : answer?.result;
+    if (typeof payload !== 'string') {
         throw new Error(typeof answer?.error === 'string' ? answer.error : 'Device call failed');
     }
-    const result = decryptWithDataKey(decodeBase64(answer.result), deviceKey) as any;
+    const result = decryptWithDataKey(decodeBase64(payload), deviceKey) as any;
+    if (result && typeof result === 'object' && typeof result.error === 'string') {
+        throw new Error(result.error);
+    }
     return {
         success: result?.success ?? false,
         stdout: result?.stdout ?? '',
