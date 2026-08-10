@@ -194,9 +194,15 @@ export function spawnShell(opts: SpawnShellOptions): SpawnShellResult {
 
     const shell = process.env.SHELL || (process.platform === 'win32' ? 'powershell.exe' : 'bash');
     const cwd = opts.cwd ?? process.cwd();
-    const shellArgs = process.platform !== 'win32' && isBashShell(shell)
-        ? ['--rcfile', createHappyBashRc(), '-i']
-        : [];
+    // Non-bash POSIX shells (zsh on macOS, fish) start as login shells so the
+    // user's profile runs: the daemon inherits launchd's minimal PATH, which
+    // has no /opt/homebrew/bin or /usr/local/bin, and an interactive-only zsh
+    // would leave `docker`, `brew`, `node` etc. "command not found".
+    const shellArgs = process.platform === 'win32'
+        ? []
+        : isBashShell(shell)
+            ? ['--rcfile', createHappyBashRc(), '-i']
+            : ['-l', '-i'];
 
     // The daemon runs with NO_COLOR=1 so agent subprocesses emit plain,
     // parseable output. The interactive terminal is the opposite — it must
