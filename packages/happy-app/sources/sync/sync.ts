@@ -1675,6 +1675,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             dataEncryptionKey?: string | null; // Add support for per-machine encryption keys
             isDevice?: boolean; // Plaintext: enrolled devices never host sessions
             displayName?: string | null; // Plaintext label, readable without the machine key
+            description?: string | null; // Plaintext operator note about what the machine is for
             seq: number;
             active: boolean;
             activeAt: number;  // Changed from lastActiveAt
@@ -1732,6 +1733,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                     activeAt: machine.activeAt,
                     isDevice: machine.isDevice === true,
                     displayName: machine.displayName ?? null,
+                    description: machine.description ?? null,
                     metadata,
                     metadataVersion: machine.metadataVersion,
                     daemonState,
@@ -1749,6 +1751,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                     activeAt: machine.activeAt,
                     isDevice: machine.isDevice === true,
                     displayName: machine.displayName ?? null,
+                    description: machine.description ?? null,
                     metadata: null,
                     metadataVersion: machine.metadataVersion,
                     daemonState: null,

@@ -90,8 +90,10 @@ function machineTitle(machine: Machine): string {
 }
 
 function machineSubtitle(machine: Machine): string {
+    // The note is free-form and may be multi-line; the row shows one short line.
+    const note = machine.description?.trim().replace(/\s+/g, ' ');
     const parts = [
-        machine.description || null,
+        note ? (note.length > 60 ? `${note.slice(0, 60)}…` : note) : null,
         machine.metadata?.platform,
         machine.metadata?.arch,
         machine.metadata?.happyCliVersion ? `CLI ${machine.metadata.happyCliVersion}` : null,
