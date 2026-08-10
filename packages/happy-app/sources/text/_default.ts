@@ -97,7 +97,7 @@ export const en = {
         mcpShares: 'Generated MCP grants',
         mcpSharesFooter: 'The token is shown only once, at creation. Revoking cuts off access immediately.',
         mcpShareDevices: ({ count }: { count: number }) => `${count} devices`,
-        mcpShareAddDevices: 'Add devices',
+        mcpShareManageDevices: 'Manage devices',
         mcpShareRevoke: 'Revoke',
         mcpShareRevokeConfirm: 'Revoking cuts off access to these devices for whoever holds this token. Continue?',
         mcpShareNeverUsed: 'Never used',

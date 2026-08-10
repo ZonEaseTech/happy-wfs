@@ -266,7 +266,7 @@ export async function revokeDeviceShare(credentials: AuthCredentials, id: string
     }
 }
 
-export async function addDevicesToShare(
+export async function setShareDevices(
     credentials: AuthCredentials,
     id: string,
     devices: Array<{ machineId: string; deviceKey: string }>
@@ -280,7 +280,7 @@ export async function addDevicesToShare(
         body: JSON.stringify({ devices })
     });
     if (!response.ok) {
-        throw new Error(`Failed to add devices: ${response.status}`);
+        throw new Error(`Failed to update devices: ${response.status}`);
     }
 }
 

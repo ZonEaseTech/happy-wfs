@@ -7,7 +7,7 @@ import { t } from '@/text';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
-import { addDevicesToShare, buildDeviceMcpConfig, createDeviceShare } from '@/sync/apiDevices';
+import { buildDeviceMcpConfig, createDeviceShare, setShareDevices } from '@/sync/apiDevices';
 import { useAuth } from '@/auth/AuthContext';
 import type { Machine } from '@/sync/storageTypes';
 
@@ -27,16 +27,15 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
 }) => {
     const { theme } = useUnistyles();
     const auth = useAuth();
-    const [selected, setSelected] = React.useState<Set<string>>(new Set());
+    const [selected, setSelected] = React.useState<Set<string>>(() => new Set(alreadyIncluded ?? []));
     const [busy, setBusy] = React.useState(false);
 
-    const includedIds = React.useMemo(() => new Set(alreadyIncluded ?? []), [alreadyIncluded]);
-    const options = React.useMemo(() => machines
-        .filter((machine) => !includedIds.has(machine.id))
-        .map((machine) => ({
-            machine,
-            key: sync.getMachineDataKey(machine.id),
-        })), [includedIds, machines]);
+    // Manage mode lists every device with the current members pre-checked, so
+    // unticking one removes it from the grant.
+    const options = React.useMemo(() => machines.map((machine) => ({
+        machine,
+        key: sync.getMachineDataKey(machine.id),
+    })), [machines]);
 
     const toggle = React.useCallback((machineId: string) => {
         setSelected((current) => {
@@ -53,7 +52,7 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
             return;
         }
         const confirmed = await Modal.confirm(
-            appendToShareId ? t('devices.mcpShareAddDevices') : t('devices.shareMcp'),
+            appendToShareId ? t('devices.mcpShareManageDevices') : t('devices.shareMcp'),
             t('devices.shareMcpWarning'),
             { confirmText: t('common.continue'), cancelText: t('common.cancel') },
         );
@@ -64,7 +63,7 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
                 .filter((option) => selected.has(option.machine.id) && option.key)
                 .map((option) => ({ machineId: option.machine.id, deviceKey: encodeBase64(option.key!) }));
             if (appendToShareId) {
-                await addDevicesToShare(auth.credentials, appendToShareId, devices);
+                await setShareDevices(auth.credentials, appendToShareId, devices);
                 onClose();
                 onDone?.();
                 return;
@@ -100,7 +99,7 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
             maxHeight: 520,
         }}>
             <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '600', paddingHorizontal: 16, paddingTop: 16 }}>
-                {appendToShareId ? t('devices.mcpShareAddDevices') : t('devices.shareMcp')}
+                {appendToShareId ? t('devices.mcpShareManageDevices') : t('devices.shareMcp')}
             </Text>
             <Text style={{ color: theme.colors.textSecondary, fontSize: 13, lineHeight: 19, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 }}>
                 {t('devices.shareMcpPickHint')}
@@ -146,7 +145,7 @@ export const DeviceMcpShareModal = React.memo(({ machines, machineTitle, onClose
                 </Pressable>
                 <Pressable onPress={() => { void handleGenerate(); }} hitSlop={8} disabled={selected.size === 0 || busy}>
                     <Text style={{ fontSize: 15, color: selected.size === 0 || busy ? theme.colors.textSecondary : theme.colors.textLink, fontWeight: '600' }}>
-                        {appendToShareId ? t('devices.mcpShareAddDevices') : t('devices.shareMcp')}{selected.size > 0 ? ` (${selected.size})` : ''}
+                        {appendToShareId ? t('devices.mcpShareManageDevices') : t('devices.shareMcp')}{selected.size > 0 ? ` (${selected.size})` : ''}
                     </Text>
                 </Pressable>
             </View>

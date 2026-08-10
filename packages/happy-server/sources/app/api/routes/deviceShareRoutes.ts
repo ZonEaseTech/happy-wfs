@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Fastify } from "../types";
-import { deviceShareToken, deviceShareAddDevices, deviceShareCreate, deviceShareDevices, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
+import { deviceShareToken, deviceShareSetDevices, deviceShareCreate, deviceShareDevices, deviceShareExec, deviceShareList, deviceShareResolve, deviceShareRevoke } from "@/app/devices/deviceShare";
 
 const JSONRPC_VERSION = '2.0';
 const MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -90,7 +90,7 @@ export function deviceShareRoutes(app: Fastify) {
             })
         }
     }, async (request, reply) => {
-        const updated = await deviceShareAddDevices(request.userId, request.params.id, request.body.devices);
+        const updated = await deviceShareSetDevices(request.userId, request.params.id, request.body.devices);
         if (!updated) return reply.code(404).send({ error: 'Share not found' });
         return reply.send({ success: true });
     });

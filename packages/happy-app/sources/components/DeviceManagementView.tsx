@@ -256,7 +256,7 @@ export const DeviceManagementView = React.memo(() => {
         });
     }, [reloadShares, sortedMachines]);
 
-    const handleAddDevicesToShare = React.useCallback((share: DeviceShare) => {
+    const handleManageShareDevices = React.useCallback((share: DeviceShare) => {
         Modal.show({
             component: DeviceMcpShareModal,
             props: {
@@ -467,8 +467,8 @@ export const DeviceManagementView = React.memo(() => {
                                     <Pressable onPress={() => { void handleViewShareConfig(share); }} hitSlop={8}>
                                         <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.mcpShareViewConfig')}</Text>
                                     </Pressable>
-                                    <Pressable onPress={() => handleAddDevicesToShare(share)} hitSlop={8}>
-                                        <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.mcpShareAddDevices')}</Text>
+                                    <Pressable onPress={() => handleManageShareDevices(share)} hitSlop={8}>
+                                        <Text style={{ fontSize: 14, color: theme.colors.textLink }}>{t('devices.mcpShareManageDevices')}</Text>
                                     </Pressable>
                                     <Pressable onPress={() => { void handleRevokeShare(share); }} hitSlop={8}>
                                         <Text style={{ fontSize: 14, color: theme.colors.textDestructive }}>{t('devices.mcpShareRevoke')}</Text>

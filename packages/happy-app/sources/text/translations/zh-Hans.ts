@@ -97,7 +97,7 @@ export const zhHans: TranslationStructure = {
         mcpShares: '已生成的 MCP',
         mcpSharesFooter: '令牌只在生成时显示一次。撤销后对方立即失去访问权限。',
         mcpShareDevices: ({ count }: { count: number }) => `${count} 台设备`,
-        mcpShareAddDevices: '追加设备',
+        mcpShareManageDevices: '管理设备',
         mcpShareRevoke: '撤销',
         mcpShareRevokeConfirm: '撤销后使用该令牌的人将立即无法访问这些设备,确定吗?',
         mcpShareNeverUsed: '尚未使用',
