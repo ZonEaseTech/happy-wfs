@@ -14,6 +14,8 @@ export interface TerminalProps {
     isMachineScope?: boolean;
     /** Incremented by the header terminal button to open/create the current session terminal. */
     openRequestKey?: number;
+    /** Tab label override — device terminals pass the device's note name. */
+    label?: string;
 }
 
 export function Terminal(_props: TerminalProps): null {

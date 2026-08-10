@@ -123,6 +123,7 @@ const GlobalTerminalHost = React.memo(() => {
             sessionId={terminal.targetId}
             cwd={terminal.cwd}
             isMachineScope={terminal.isMachineScope}
+            label={terminal.label}
             openRequestKey={terminal.openRequestKey}
         />
     );

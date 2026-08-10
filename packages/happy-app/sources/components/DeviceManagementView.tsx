@@ -237,7 +237,7 @@ export const DeviceManagementView = React.memo(() => {
         return [
             {
                 label: t('devices.openTerminal'),
-                onPress: () => { const device = menuDevice; setMenuDevice(null); openTerminalPanel({ targetId: device.id, isMachineScope: true }); },
+                onPress: () => { const device = menuDevice; setMenuDevice(null); openTerminalPanel({ targetId: device.id, isMachineScope: true, label: machineTitle(device) }); },
             },
             {
                 label: menuDevice.isDevice ? t('devices.allowSessions') : t('devices.markAsDevice'),
@@ -434,7 +434,7 @@ export const DeviceManagementView = React.memo(() => {
                                     {showInlineActions && (
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                             <Pressable
-                                                onPress={() => openTerminalPanel({ targetId: machine.id, isMachineScope: true })}
+                                                onPress={() => openTerminalPanel({ targetId: machine.id, isMachineScope: true, label: machineTitle(machine) })}
                                                 hitSlop={8}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('devices.openTerminal')}

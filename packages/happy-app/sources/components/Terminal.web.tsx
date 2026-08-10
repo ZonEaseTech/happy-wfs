@@ -50,6 +50,8 @@ export interface TerminalProps {
     cwd?: string;
     /** When true, `sessionId` is a machine id — used by device terminals. */
     isMachineScope?: boolean;
+    /** Tab/header label override — device terminals pass the device's note name. */
+    label?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -586,7 +588,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
 // Outer modal: portal + chrome + lazy boot.
 // ---------------------------------------------------------------------------
 
-export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd, isMachineScope = false }) => {
+export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId, cwd, isMachineScope = false, label }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [terminalThemeSetting] = useSettingMutable('terminalTheme');
     const resolvedTerminalTheme = resolveTerminalTheme(terminalThemeSetting);
@@ -873,7 +875,7 @@ export const Terminal: React.FC<TerminalProps> = ({ visible, onClose, sessionId,
                 >
                     <Ionicons name="terminal-outline" size={16} color="#e5e5e5" style={{ marginRight: 8 }} />
                     <Text style={{ color: '#e5e5e5', fontSize: 13, fontWeight: '600' }}>
-                        {isMinimized ? '终端 (后台)' : '终端'}
+                        {label || '终端'}{isMinimized ? ' (后台)' : ''}
                     </Text>
                     <View style={{ flex: 1 }} />
                     {!isMinimized && (
@@ -970,6 +972,8 @@ type TerminalWorkspace = {
     sessionId: string;
     cwd?: string;
     isMachineScope?: boolean;
+    /** Tab label override — device terminals use the device's note name. */
+    label?: string;
     tabs: TerminalPanelTab[];
     activeTabId: string;
     tabCounter: number;
@@ -980,20 +984,23 @@ interface TerminalPanelProps extends TerminalProps {
     openRequestKey?: number;
 }
 
-function createTerminalWorkspace(sessionId: string, cwd?: string, isMachineScope?: boolean): TerminalWorkspace {
-    const title = terminalLabelFromCwd(cwd);
+function createTerminalWorkspace(sessionId: string, cwd?: string, isMachineScope?: boolean, label?: string): TerminalWorkspace {
+    // Device terminals have no cwd to name themselves after, so the caller
+    // passes the device's note name.
+    const title = label || terminalLabelFromCwd(cwd);
     return {
         key: sessionId,
         sessionId,
         cwd,
         isMachineScope,
+        label,
         tabCounter: 1,
         activeTabId: `${sessionId}:terminal-1`,
         tabs: [{ id: `${sessionId}:terminal-1`, title, sessionId, cwd, isMachineScope }],
     };
 }
 
-export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, sessionId, cwd, isMachineScope, openRequestKey = 0 }) => {
+export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, sessionId, cwd, isMachineScope, label, openRequestKey = 0 }) => {
     const [bundle, setBundle] = React.useState<XtermBundle | null>(loadedBundle);
     const [errorClosed, setErrorClosed] = React.useState(false);
     const inputSendersRef = React.useRef<Record<string, ((data: string) => void) | undefined>>({});
@@ -1040,10 +1047,10 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
         setErrorClosed(false);
         setWorkspaces((current) => {
             if (current[sessionId]) return current;
-            return { ...current, [sessionId]: createTerminalWorkspace(sessionId, cwd, isMachineScope) };
+            return { ...current, [sessionId]: createTerminalWorkspace(sessionId, cwd, isMachineScope, label) };
         });
         setActiveWorkspaceKey(sessionId);
-    }, [cwd, isMachineScope, openRequestKey, sessionId, visible]);
+    }, [cwd, isMachineScope, label, openRequestKey, sessionId, visible]);
 
     const resolvedTerminalTheme = resolveTerminalTheme(terminalThemeSetting);
     const panelTheme = TERMINAL_THEME_COLORS[resolvedTerminalTheme];
@@ -1142,9 +1149,9 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
 
     const handleAddTerminalTab = React.useCallback(() => {
         setWorkspaces((current) => {
-            const workspace = current[activeWorkspaceKey] ?? createTerminalWorkspace(sessionId, cwd, isMachineScope);
+            const workspace = current[activeWorkspaceKey] ?? createTerminalWorkspace(sessionId, cwd, isMachineScope, label);
             const nextIndex = workspace.tabCounter + 1;
-            const baseTitle = terminalLabelFromCwd(workspace.cwd ?? cwd);
+            const baseTitle = workspace.label || label || terminalLabelFromCwd(workspace.cwd ?? cwd);
             const nextTab = {
                 id: `${workspace.sessionId}:terminal-${nextIndex}`,
                 title: `${baseTitle} ${nextIndex}`,
@@ -1162,7 +1169,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                 },
             };
         });
-    }, [activeWorkspaceKey, cwd, isMachineScope, sessionId]);
+    }, [activeWorkspaceKey, cwd, isMachineScope, label, sessionId]);
 
     const handleSelectTerminalTab = React.useCallback((workspaceKey: string, tabId: string) => {
         setActiveWorkspaceKey(workspaceKey);
@@ -1488,7 +1495,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ visible, onClose, 
                             >
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 12, fontWeight: 700, color: workspace.key === activeWorkspaceKey ? '#2563eb' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {terminalLabelFromCwd(workspace.cwd)}
+                                        {workspace.label || terminalLabelFromCwd(workspace.cwd)}
                                     </div>
                                     <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {t('terminal.terminalCount', { count: workspace.tabs.length })} · {workspace.cwd ?? workspace.sessionId}

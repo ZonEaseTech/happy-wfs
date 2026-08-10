@@ -11,6 +11,8 @@ export type TerminalPanelState = {
     targetId: string | null;
     cwd?: string;
     isMachineScope: boolean;
+    /** Tab label: the device's note name for device terminals. */
+    label?: string;
     /** Bumped on every open request so the panel can focus/re-attach. */
     openRequestKey: number;
 };
@@ -24,12 +26,13 @@ function emit() {
     listeners.forEach((listener) => listener());
 }
 
-export function openTerminalPanel(params: { targetId: string; cwd?: string; isMachineScope?: boolean }) {
+export function openTerminalPanel(params: { targetId: string; cwd?: string; isMachineScope?: boolean; label?: string }) {
     state = {
         visible: true,
         targetId: params.targetId,
         cwd: params.cwd,
         isMachineScope: params.isMachineScope ?? false,
+        label: params.label,
         openRequestKey: state.openRequestKey + 1,
     };
     emit();
