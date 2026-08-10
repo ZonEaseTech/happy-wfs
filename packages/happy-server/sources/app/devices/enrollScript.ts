@@ -69,11 +69,29 @@ PATH="$RUNTIME_DIR/bin:$PATH"
 export PATH
 
 echo "happy-enroll: installing Happy CLI"
-# --omit=optional skips the platform tool packages (difftastic, ripgrep, ~142MB).
+# Installed as a project rather than with -g: npm 10 ignores --omit=optional for
+# a package named on the command line, and installs its optional dependencies
+# anyway. Only a package.json-driven install honours it.
+#
+# What that omits is the platform tool packages (difftastic, ripgrep, ~143MB).
 # They exist for agent sessions, and an enrolled device refuses to host those —
 # see the deviceMode guard on spawn-happy-session. A machine promoted to hosting
-# sessions later needs a plain reinstall to pull them in.
-"$RUNTIME_DIR/bin/npm" install -g --prefix "$RUNTIME_DIR" --no-fund --no-audit --omit=optional @zonease/happy@latest >/dev/null
+# sessions later needs a plain "npm install -g @zonease/happy" to pull them in.
+CLI_DIR="$HAPPY_HOME_DIR/cli"
+mkdir -p "$CLI_DIR"
+cat > "$CLI_DIR/package.json" <<'HAPPY_PKG_JSON'
+{
+  "name": "happy-device-install",
+  "private": true,
+  "dependencies": { "@zonease/happy": "latest" }
+}
+HAPPY_PKG_JSON
+"$RUNTIME_DIR/bin/npm" install --prefix "$CLI_DIR" --no-fund --no-audit --omit=optional >/dev/null
+
+# The rest of this script, and the daemon service file the CLI writes, both go
+# through $RUNTIME_DIR/bin — keep that entry point regardless of layout.
+ln -sf "$CLI_DIR/node_modules/.bin/happy" "$RUNTIME_DIR/bin/happy"
+ln -sf "$CLI_DIR/node_modules/.bin/happy-mcp" "$RUNTIME_DIR/bin/happy-mcp"
 
 # Older CLI builds treat an unknown subcommand as "start an interactive
 # session", which fails noisily when piped from curl (no TTY). Verify support

@@ -15,12 +15,18 @@ describe('enroll script', () => {
         const install = script.split('\n').find((line) => line.includes('npm" install'));
         expect(install).toBeDefined();
         expect(install).toContain('--omit=optional');
-        expect(install).toContain('@zonease/happy@latest');
+        // npm 10 ignores --omit=optional for a package named on the command
+        // line, so this must stay a package.json-driven install: -g here would
+        // silently pull ~143MB of binaries back onto every device.
+        expect(install).not.toContain('-g');
+        expect(install).toContain('--prefix "$CLI_DIR"');
+        expect(script).toContain('"@zonease/happy": "latest"');
     });
 
-    it('keeps the runtime private to the happy home directory', () => {
+    it('keeps a stable entry point under the private runtime', () => {
         expect(script).toContain('RUNTIME_DIR="$HAPPY_HOME_DIR/runtime"');
-        expect(script).toContain('--prefix "$RUNTIME_DIR"');
+        expect(script).toContain('ln -sf "$CLI_DIR/node_modules/.bin/happy" "$RUNTIME_DIR/bin/happy"');
+        expect(script).toContain('"$RUNTIME_DIR/bin/happy" device enroll');
     });
 
     it('carries the server url through so a self-hosted device reconnects', () => {
