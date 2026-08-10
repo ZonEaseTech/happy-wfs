@@ -12,8 +12,11 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+
+const { PLATFORMS, TOOLS_PACKAGE_VERSION, sidecarManifest } = createRequire(import.meta.url)('../../scripts/build-tool-packages.cjs');
 
 const repoRoot = resolve(__dirname, '../..');
 const read = (relativePath: string) => readFileSync(resolve(repoRoot, relativePath), 'utf8');
@@ -34,9 +37,23 @@ describe('platform tool packages', () => {
     });
 
     it('cover every platform the unpacker knows about', () => {
-        const builder = read('scripts/build-tool-packages.cjs');
-        for (const platform of ['arm64-darwin', 'x64-darwin', 'arm64-linux', 'x64-linux', 'x64-win32', 'arm64-win32']) {
-            expect(builder).toContain(`'${platform}'`);
-        }
+        expect(PLATFORMS).toEqual(
+            expect.arrayContaining(['arm64-darwin', 'x64-darwin', 'arm64-linux', 'x64-linux', 'x64-win32', 'arm64-win32']),
+        );
+        expect(PLATFORMS).toHaveLength(6);
+    });
+
+    it('carry what npm provenance requires', () => {
+        // A missing repository.url is a 422 at publish time and nowhere earlier;
+        // it cost a release here.
+        const manifest = sidecarManifest('x64-linux');
+        expect(manifest.repository?.url).toBe(JSON.parse(read('package.json')).repository.url);
+        expect(manifest.name).toBe('@zonease/happy-tools-x64-linux');
+        expect(manifest.version).toBe(TOOLS_PACKAGE_VERSION);
+    });
+
+    it('tag each sidecar so npm installs only the matching one', () => {
+        expect(sidecarManifest('arm64-darwin')).toMatchObject({ os: ['darwin'], cpu: ['arm64'] });
+        expect(sidecarManifest('x64-win32')).toMatchObject({ os: ['win32'], cpu: ['x64'] });
     });
 });

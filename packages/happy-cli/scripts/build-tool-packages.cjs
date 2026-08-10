@@ -77,8 +77,28 @@ async function extract(archivePath, destDir) {
     });
 }
 
-async function buildPackage(platform) {
+/**
+ * `npm publish --provenance` refuses the upload unless repository.url matches
+ * the repo the attestation was signed from, and that only surfaces at publish
+ * time — so the field is taken from the CLI manifest rather than restated here.
+ */
+function sidecarManifest(platform) {
     const { cpu, os } = splitPlatform(platform);
+    return {
+        name: `@zonease/happy-tools-${platform}`,
+        version: TOOLS_PACKAGE_VERSION,
+        description: `difftastic and ripgrep binaries for ${platform}, used by @zonease/happy`,
+        license: 'MIT',
+        repository: require(path.join(root, 'package.json')).repository,
+        os: [os],
+        cpu: [cpu],
+        // Consumers resolve the directory from package.json and join a binary
+        // name onto it, so no entry point is needed.
+        files: ['*'],
+    };
+}
+
+async function buildPackage(platform) {
     const outDir = path.join(outRoot, platform);
     fs.rmSync(outDir, { recursive: true, force: true });
     fs.mkdirSync(outDir, { recursive: true });
@@ -104,20 +124,7 @@ async function buildPackage(platform) {
         }
     }
 
-    fs.writeFileSync(
-        path.join(outDir, 'package.json'),
-        JSON.stringify({
-            name: `@zonease/happy-tools-${platform}`,
-            version,
-            description: `difftastic and ripgrep binaries for ${platform}, used by @zonease/happy`,
-            license: 'MIT',
-            os: [os],
-            cpu: [cpu],
-            // Consumers resolve the directory from package.json and join a
-            // binary name onto it, so no entry point is needed.
-            files: ['*'],
-        }, null, 2) + '\n',
-    );
+    fs.writeFileSync(path.join(outDir, 'package.json'), JSON.stringify(sidecarManifest(platform), null, 2) + '\n');
 
     const size = fs.readdirSync(outDir)
         .map((entry) => fs.statSync(path.join(outDir, entry)).size)
@@ -157,7 +164,11 @@ async function main() {
     }
 }
 
-main().catch((error) => {
-    console.error(error.message);
-    process.exit(1);
-});
+module.exports = { PLATFORMS, TOOLS_PACKAGE_VERSION, sidecarManifest };
+
+if (require.main === module) {
+    main().catch((error) => {
+        console.error(error.message);
+        process.exit(1);
+    });
+}
