@@ -184,3 +184,20 @@ export async function setMachineDeviceFlag(
         throw new Error(`Failed to update device flag: ${response.status}`);
     }
 }
+
+/** Update the device's plaintext label so every client — and the CLI device
+ *  list the AI reads — can see the rename, not just this account's own
+ *  clients that can decrypt the machine metadata. */
+export async function renameDevicePublicLabel(credentials: AuthCredentials, machineId: string, displayName: string | null): Promise<void> {
+    const response = await fetch(`${getServerUrl()}/v1/machines/${encodeURIComponent(machineId)}`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ displayName })
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to rename device: ${response.status}`);
+    }
+}

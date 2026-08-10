@@ -14,7 +14,7 @@ import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useAuth } from '@/auth/AuthContext';
 import { openTerminalPanel } from '@/components/terminalPanelStore';
-import { approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
+import { renameDevicePublicLabel, approveDeviceKeyRequest, buildEnrollCommand, createDeviceEnrollToken, deleteDevice, denyDeviceKeyRequest, listDeviceKeyRequests, setMachineDeviceFlag, type DeviceDirectoryEntry, type DeviceKeyRequest } from '@/sync/apiDevices';
 import { sync } from '@/sync/sync';
 import { encodeBase64 } from '@/encryption/base64';
 import { getServerUrl } from '@/sync/serverConfig';
@@ -179,10 +179,13 @@ export const DeviceManagementView = React.memo(() => {
                 { ...machine.metadata, displayName: next.trim() || undefined },
                 machine.metadataVersion,
             );
+            if (auth.credentials) {
+                await renameDevicePublicLabel(auth.credentials, machine.id, next.trim() || null);
+            }
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         }
-    }, []);
+    }, [auth.credentials]);
 
     const handleDeleteDevice = React.useCallback(async (machine: Machine) => {
         const name = machine.metadata?.displayName || machine.metadata?.host || machine.id.slice(0, 12);

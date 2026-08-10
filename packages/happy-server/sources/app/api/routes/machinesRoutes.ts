@@ -207,6 +207,31 @@ export function machinesRoutes(app: Fastify) {
         };
     });
 
+    // PATCH /v1/machines/:id — update the plaintext label. The encrypted
+    // metadata keeps its own displayName for this machine's own clients; this
+    // column is what every other client (and the CLI device list) can read.
+    app.patch('/v1/machines/:id', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({ id: z.string() }),
+            body: z.object({ displayName: z.string().max(120).nullable() })
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { id } = request.params;
+        const displayName = request.body.displayName?.trim() || null;
+
+        const machine = await db.machine.findFirst({ where: { accountId: userId, id } });
+        if (!machine) {
+            return reply.code(404).send({ error: 'Machine not found' });
+        }
+        await db.machine.update({
+            where: { accountId_id: { accountId: userId, id } },
+            data: { displayName }
+        });
+        return reply.send({ success: true });
+    });
+
     // DELETE /v1/machines/:id — unenroll a device. Access keys tied to the
     // machine are removed first (they carry a composite FK); sessions that ran
     // on it keep their history untouched.
