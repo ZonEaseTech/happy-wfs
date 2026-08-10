@@ -15,9 +15,9 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { logger } from '@/ui/logger';
 
 // Minimal subset of node-pty's IPty interface — enough for what we use here.
@@ -65,6 +65,33 @@ let cachedModule: NodePtyModule | null = null;
 let loadAttempted = false;
 let loadError: Error | null = null;
 
+/**
+ * On unix node-pty does not exec the shell directly — it execs a bundled
+ * `spawn-helper` binary. Installs that lose that file's exec bit still load the
+ * module fine and only fail later, with a bare "posix_spawnp failed" and no
+ * hint at the cause, so restore the bit here instead of shipping a terminal
+ * that is dead on arrival.
+ */
+function ensureSpawnHelperExecutable(): void {
+    if (process.platform === 'win32') return;
+    try {
+        // Same dynamic-require reasoning as below: keep the bundler out of it.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const root = dirname(dirname(require.resolve('node-pty')));
+        const candidates = [
+            join(root, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper'),
+            join(root, 'build', 'Release', 'spawn-helper'),
+        ];
+        for (const candidate of candidates) {
+            if (!existsSync(candidate) || (statSync(candidate).mode & 0o111) !== 0) continue;
+            chmodSync(candidate, 0o755);
+            logger.debug(`[pty] restored exec bit on ${candidate}`);
+        }
+    } catch (err) {
+        logger.debug('[pty] could not check spawn-helper permissions:', err);
+    }
+}
+
 function loadNodePty(): NodePtyModule | null {
     if (loadAttempted) {
         return cachedModule;
@@ -75,6 +102,7 @@ function loadNodePty(): NodePtyModule | null {
         // native module at build time, and so the error stays catchable here.
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const mod = require('node-pty') as NodePtyModule;
+        ensureSpawnHelperExecutable();
         cachedModule = mod;
         return mod;
     } catch (err) {
