@@ -1,6 +1,11 @@
 # Changelog
 
-## Version 14 - 2026-08-08
+## Version 15 - 2026-08-11
+
+Memories open instantly, and the inbox can be cleared with one tap.
+
+- Memory: cache the memory list on device and render it immediately on open, revalidating in the background; the Active/Archived/All tabs now filter locally instead of refetching, and the memory screen, picker sheet, and injected-memories modal share one cache.
+- Inbox: add a "Mark all read" action next to "Clear read" that clears every badge in a single request.
 
 Sessions open instantly by rendering their last page from a local cache.
 

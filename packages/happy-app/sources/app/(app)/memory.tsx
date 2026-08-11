@@ -9,7 +9,8 @@ import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
 import { Modal } from '@/modal';
 import { useAuth } from '@/auth/AuthContext';
-import { listMemories, createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, type MemoryRow, type MemoryArchiveFilter } from '@/sync/apiMemory';
+import { createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, type MemoryRow, type MemoryArchiveFilter } from '@/sync/apiMemory';
+import { useMemories, refreshMemories, upsertMemory, removeMemory } from '@/sync/memoryCache';
 import { showToast } from '@/components/Toast';
 import { hapticsLight } from '@/components/haptics';
 import { t } from '@/text';
@@ -33,12 +34,15 @@ export default function MemoryScreen() {
     const { theme } = useUnistyles();
     const { isInDrawer } = useDesktopRoute();
     const auth = useAuth();
-    const [memories, setMemories] = React.useState<MemoryRow[]>([]);
-    const [isLoading, setIsLoading] = React.useState(true);
-    const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const [error, setError] = React.useState<string | null>(null);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [archiveFilter, setArchiveFilter] = React.useState<MemoryArchiveFilter>('active');
+    // Rows come from the shared MMKV-backed cache: the list renders from the
+    // previous session's copy right away and revalidates in the background,
+    // and switching archive tabs filters locally instead of refetching.
+    const { memories, allMemories, isLoading } = useMemories(auth.credentials ?? null, archiveFilter);
+    // Only a pull-to-refresh drives the spinner — the revalidation that runs on
+    // open stays invisible so cached rows appear without any loading chrome.
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
     const router = useRouter();
 
     /**
@@ -59,23 +63,15 @@ export default function MemoryScreen() {
         }
     }, [router]);
 
-    const refresh = React.useCallback(async (silent: boolean = false) => {
+    const handleManualRefresh = React.useCallback(async () => {
         if (!auth.credentials) return;
-        if (silent) setIsRefreshing(true);
-        else setIsLoading(true);
-        setError(null);
+        setIsRefreshing(true);
         try {
-            const list = await listMemories(auth.credentials, { archived: archiveFilter });
-            setMemories(list);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to load memories');
+            await refreshMemories(auth.credentials, { force: true });
         } finally {
-            setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [auth.credentials, archiveFilter]);
-
-    React.useEffect(() => { void refresh(); }, [refresh]);
+    }, [auth.credentials]);
 
     const handleAdd = React.useCallback(async () => {
         if (!auth.credentials) return;
@@ -87,14 +83,14 @@ export default function MemoryScreen() {
         const trimmed = content?.trim();
         if (!trimmed) return;
         try {
-            await createMemory(auth.credentials, { content: trimmed, source: 'manual' });
+            const created = await createMemory(auth.credentials, { content: trimmed, source: 'manual' });
             hapticsLight();
             showToast(t('memory.saved'));
-            void refresh(true);
+            upsertMemory(created);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.saveFailed'));
         }
-    }, [auth.credentials, refresh]);
+    }, [auth.credentials]);
 
     const handleEdit = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
@@ -106,38 +102,38 @@ export default function MemoryScreen() {
         const trimmed = content?.trim();
         if (!trimmed || trimmed === m.content) return;
         try {
-            await updateMemory(auth.credentials, m.id, trimmed);
+            const updated = await updateMemory(auth.credentials, m.id, trimmed);
             hapticsLight();
             showToast(t('memory.saved'));
-            void refresh(true);
+            upsertMemory(updated);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.saveFailed'));
         }
-    }, [auth.credentials, refresh]);
+    }, [auth.credentials]);
 
     const handleArchive = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
         try {
-            await archiveMemory(auth.credentials, m.id);
+            const archived = await archiveMemory(auth.credentials, m.id);
             hapticsLight();
             showToast(t('memory.archived'));
-            void refresh(true);
+            upsertMemory(archived);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
         }
-    }, [auth.credentials, refresh]);
+    }, [auth.credentials]);
 
     const handleUnarchive = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
         try {
-            await unarchiveMemory(auth.credentials, m.id);
+            const unarchived = await unarchiveMemory(auth.credentials, m.id);
             hapticsLight();
             showToast(t('memory.unarchived'));
-            void refresh(true);
+            upsertMemory(unarchived);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
         }
-    }, [auth.credentials, refresh]);
+    }, [auth.credentials]);
 
     const handleDelete = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
@@ -151,11 +147,11 @@ export default function MemoryScreen() {
             await deleteMemory(auth.credentials, m.id);
             hapticsLight();
             showToast(t('memory.deleted'));
-            void refresh(true);
+            removeMemory(m.id);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.deleteFailed'));
         }
-    }, [auth.credentials, refresh]);
+    }, [auth.credentials]);
 
     const addButton = React.useMemo(() => (
         <Pressable onPress={handleAdd} style={{ paddingHorizontal: 12, paddingVertical: 4 }}>
@@ -174,13 +170,12 @@ export default function MemoryScreen() {
         const filtered = q
             ? memories.filter((m) => m.content.toLowerCase().includes(q))
             : memories;
+        // `memories` already arrives newest-first from the cache, so the
+        // buckets stay sorted without re-sorting them here.
         const buckets: Record<GroupKey, MemoryRow[]> = { 'manual': [], 'message-pin': [] };
         for (const m of filtered) {
             const key: GroupKey = m.source === 'message-pin' ? 'message-pin' : 'manual';
             buckets[key].push(m);
-        }
-        for (const k of GROUP_ORDER) {
-            buckets[k].sort((a, b) => b.createdAt - a.createdAt);
         }
         return GROUP_ORDER
             .map((key) => ({ key, items: buckets[key] }))
@@ -325,17 +320,10 @@ export default function MemoryScreen() {
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <ActivityIndicator size="small" color={theme.colors.textSecondary} />
                 </View>
-            ) : error ? (
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-                    <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
-                    <Text style={{ marginTop: 16, fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center', ...Typography.default() }}>
-                        {error}
-                    </Text>
-                </View>
-            ) : memories.length === 0 ? (
+            ) : allMemories.length === 0 ? (
                 <ScrollView
                     contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}
-                    refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => refresh(true)} />}
+                    refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleManualRefresh} />}
                 >
                     <Ionicons name="library-outline" size={56} color={theme.colors.textSecondary} />
                     <Text style={{ marginTop: 16, fontSize: 16, color: theme.colors.text, textAlign: 'center', ...Typography.default('semiBold') }}>
@@ -365,7 +353,7 @@ export default function MemoryScreen() {
                     {searchBar}
                     <ScrollView
                         contentContainerStyle={{ paddingBottom: 24 }}
-                        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => refresh(true)} />}
+                        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleManualRefresh} />}
                         keyboardShouldPersistTaps="handled"
                     >
                         {totalFiltered === 0 ? (
@@ -375,7 +363,11 @@ export default function MemoryScreen() {
                                 paddingTop: 64,
                                 paddingHorizontal: 32,
                             }}>
-                                <Ionicons name="search-outline" size={48} color={theme.colors.textSecondary} />
+                                <Ionicons
+                                    name={isSearching ? 'search-outline' : 'library-outline'}
+                                    size={48}
+                                    color={theme.colors.textSecondary}
+                                />
                                 <Text style={{
                                     marginTop: 16,
                                     fontSize: 15,
@@ -383,17 +375,19 @@ export default function MemoryScreen() {
                                     textAlign: 'center',
                                     ...Typography.default('semiBold'),
                                 }}>
-                                    {t('memory.searchEmpty')}
+                                    {isSearching ? t('memory.searchEmpty') : t('memory.tabEmpty')}
                                 </Text>
-                                <Text style={{
-                                    marginTop: 6,
-                                    fontSize: 13,
-                                    color: theme.colors.textSecondary,
-                                    textAlign: 'center',
-                                    ...Typography.default(),
-                                }}>
-                                    {t('memory.searchEmptyHint')}
-                                </Text>
+                                {isSearching && (
+                                    <Text style={{
+                                        marginTop: 6,
+                                        fontSize: 13,
+                                        color: theme.colors.textSecondary,
+                                        textAlign: 'center',
+                                        ...Typography.default(),
+                                    }}>
+                                        {t('memory.searchEmptyHint')}
+                                    </Text>
+                                )}
                             </View>
                         ) : (
                             <>

@@ -38,6 +38,7 @@ export const ru: TranslationStructure = {
 
     inbox: {
         clearRead: 'Clear read',
+        markAllRead: 'Отметить все прочитанными',
         // Inbox screen
         emptyTitle: 'Входящие пусты',
         emptyDescription: 'Подключитесь к друзьям, чтобы начать делиться сессиями',
@@ -1443,6 +1444,7 @@ export const ru: TranslationStructure = {
         tabActive: 'Активные',
         tabArchived: 'Архив',
         tabAll: 'Все',
+        tabEmpty: 'Здесь пока ничего нет',
     },
 
     worktreeConfig: {

@@ -29,6 +29,7 @@ export const zhHans: TranslationStructure = {
 
     inbox: {
         clearRead: '清空已读',
+        markAllRead: '全部已读',
         // Inbox screen
         emptyTitle: '收件箱为空',
         emptyDescription: '与好友建立连接，开始共享会话',
@@ -1434,6 +1435,7 @@ export const zhHans: TranslationStructure = {
         tabActive: '活跃',
         tabArchived: '归档',
         tabAll: '全部',
+        tabEmpty: '此分类下暂无记忆',
     },
 
     worktreeConfig: {

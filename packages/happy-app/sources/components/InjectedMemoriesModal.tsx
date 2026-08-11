@@ -6,7 +6,7 @@ import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
 import { useAuth } from '@/auth/AuthContext';
-import { listMemories, type MemoryRow } from '@/sync/apiMemory';
+import { useMemories, refreshMemories } from '@/sync/memoryCache';
 import { loadMutedMemoryIds, saveMutedMemoryIds } from '@/sync/persistence';
 import { t } from '@/text';
 
@@ -28,22 +28,21 @@ export const InjectedMemoriesModal = React.memo(({ visible, onClose, sessionId, 
     const { theme } = useUnistyles();
     const router = useRouter();
     const auth = useAuth();
-    const [memories, setMemories] = React.useState<MemoryRow[]>([]);
-    const [loading, setLoading] = React.useState(false);
     const [mutedIds, setMutedIds] = React.useState<Set<string>>(() => new Set(loadMutedMemoryIds(sessionId)));
 
     const idSet = React.useMemo(() => new Set(injectedMemoryIds), [injectedMemoryIds]);
 
+    // Served from the shared memory cache, so reopening the modal costs no request.
+    const { memories: activeMemories, isLoading } = useMemories(auth.credentials ?? null, 'active');
+    const memories = React.useMemo(
+        () => activeMemories.filter((m) => idSet.has(m.id)),
+        [activeMemories, idSet],
+    );
+    const loading = isLoading;
+
     React.useEffect(() => {
-        if (!visible || !auth.credentials) return;
-        let cancelled = false;
-        setLoading(true);
-        listMemories(auth.credentials)
-            .then(list => { if (!cancelled) setMemories(list.filter((m) => idSet.has(m.id))); })
-            .catch(() => { if (!cancelled) setMemories([]); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, [visible, auth.credentials, idSet]);
+        if (visible && auth.credentials) void refreshMemories(auth.credentials);
+    }, [visible, auth.credentials]);
 
     const toggleMute = React.useCallback((memoryId: string, nextMuted: boolean) => {
         setMutedIds((prev) => {

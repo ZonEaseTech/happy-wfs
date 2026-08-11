@@ -74,6 +74,25 @@ export async function markFeedItemRead(
     }
 }
 
+/**
+ * Clears the badge on every unread feed item in one request. Idempotent —
+ * calling it with nothing unread is a no-op on the server.
+ */
+export async function markAllFeedItemsRead(
+    credentials: AuthCredentials
+): Promise<void> {
+    const API_ENDPOINT = getServerUrl();
+    const response = await fetch(`${API_ENDPOINT}/v1/feed/read-all`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`
+        }
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to mark all feed items as read: ${response.status}`);
+    }
+}
+
 export async function deleteFeedItem(
     credentials: AuthCredentials,
     itemId: string

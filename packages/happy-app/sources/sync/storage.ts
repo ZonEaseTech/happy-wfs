@@ -205,6 +205,7 @@ interface StorageState {
     removeFeedItem: (itemId: string) => void;
     removeReadFeedItems: () => void;
     markFeedItemRead: (itemId: string) => void;
+    markAllFeedItemsRead: () => void;
     clearFeed: () => void;
     // Registered repos methods
     setRegisteredRepos: (machineId: string, repos: RegisteredRepo[], version: number) => void;
@@ -1793,6 +1794,15 @@ export const storage = create<StorageState>()((set, get) => {
                 item.id === itemId ? { ...item, badge: false } : item
             )
         })),
+        markAllFeedItemsRead: () => set((state) => {
+            if (!state.feedItems.some(item => item.badge)) return state;
+            return {
+                ...state,
+                feedItems: state.feedItems.map(item =>
+                    item.badge ? { ...item, badge: false } : item
+                )
+            };
+        }),
         clearFeed: () => set((state) => ({
             ...state,
             feedItems: [],

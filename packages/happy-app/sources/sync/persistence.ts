@@ -392,6 +392,38 @@ export function saveMutedMemoryIds(sessionId: string, ids: string[]): void {
     mmkv.set(MUTED_MEMORY_IDS_KEY_PREFIX + sessionId, JSON.stringify(ids));
 }
 
+// Cached copy of the user's full memory list (both active and archived rows),
+// so the memory screen and picker render instantly instead of waiting on the
+// network. Revalidated in the background — see sync/memoryCache.ts.
+const MEMORY_CACHE_KEY = 'memory-cache-v1';
+
+export interface MemoryCacheEntry {
+    items: unknown[];
+    updatedAt: number;
+}
+
+export function loadMemoryCache(): MemoryCacheEntry | null {
+    const raw = mmkv.getString(MEMORY_CACHE_KEY);
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.items) || typeof parsed.updatedAt !== 'number') {
+            return null;
+        }
+        return { items: parsed.items, updatedAt: parsed.updatedAt };
+    } catch {
+        return null;
+    }
+}
+
+export function saveMemoryCache(entry: MemoryCacheEntry): void {
+    mmkv.set(MEMORY_CACHE_KEY, JSON.stringify(entry));
+}
+
+export function clearMemoryCache(): void {
+    mmkv.delete(MEMORY_CACHE_KEY);
+}
+
 export function clearPersistence() {
     mmkv.clearAll();
 }

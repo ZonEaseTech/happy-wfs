@@ -27,6 +27,7 @@ export const en = {
 
     inbox: {
         clearRead: 'Clear read',
+        markAllRead: 'Mark all read',
         // Inbox screen
         emptyTitle: 'Empty Inbox',
         emptyDescription: 'Connect with friends to start sharing sessions',
@@ -1448,6 +1449,7 @@ export const en = {
         tabActive: 'Active',
         tabArchived: 'Archived',
         tabAll: 'All',
+        tabEmpty: 'Nothing in this tab yet',
     },
 
     worktreeConfig: {

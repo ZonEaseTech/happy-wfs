@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Fastify } from "../types";
 import { FeedBodySchema } from "@/app/feed/types";
 import { feedGet } from "@/app/feed/feedGet";
+import { feedMarkAllRead } from "@/app/feed/feedMarkAllRead";
 import { Context } from "@/context";
 import { db } from "@/storage/db";
 
@@ -38,6 +39,18 @@ export function feedRoutes(app: Fastify) {
             limit: request.query?.limit
         });
         return reply.send({ items: items.items, hasMore: items.hasMore });
+    });
+
+    app.patch('/v1/feed/read-all', {
+        preHandler: app.authenticate,
+        schema: {
+            response: {
+                200: z.object({ ok: z.boolean(), updated: z.number() })
+            }
+        }
+    }, async (request, reply) => {
+        const updated = await feedMarkAllRead(Context.create(request.userId));
+        return reply.send({ ok: true, updated });
     });
 
     app.patch('/v1/feed/:id/read', {

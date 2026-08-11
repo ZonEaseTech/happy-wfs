@@ -30,6 +30,7 @@ export const ja: TranslationStructure = {
 
     inbox: {
         clearRead: 'Clear read',
+        markAllRead: 'すべて既読にする',
         // Inbox screen
         emptyTitle: '受信トレイは空です',
         emptyDescription: '友達と接続してセッションを共有しましょう',
@@ -1464,6 +1465,7 @@ export const ja: TranslationStructure = {
         tabActive: 'アクティブ',
         tabArchived: 'アーカイブ',
         tabAll: 'すべて',
+        tabEmpty: 'このタブにはまだ何もありません',
     },
 
     worktreeConfig: {

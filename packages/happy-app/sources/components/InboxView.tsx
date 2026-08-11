@@ -19,7 +19,7 @@ import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 import { sync } from '@/sync/sync';
 import { storage } from '@/sync/storage';
 import { useAuth } from '@/auth/AuthContext';
-import { clearReadFeedItems } from '@/sync/apiFeed';
+import { clearReadFeedItems, markAllFeedItemsRead } from '@/sync/apiFeed';
 import { Platform } from 'react-native';
 
 const styles = StyleSheet.create((theme) => ({
@@ -225,19 +225,34 @@ export const InboxView = React.memo(({}: InboxViewProps) => {
                         <ItemGroup title={
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Text style={styles.sectionTitleText}>{t('inbox.updates')}</Text>
-                                {feedItems.some((item) => !item.badge) && (
-                                    <Pressable
-                                        onPress={() => {
-                                            storage.getState().removeReadFeedItems();
-                                            if (credentials) {
-                                                clearReadFeedItems(credentials).catch(console.error);
-                                            }
-                                        }}
-                                        hitSlop={10}
-                                    >
-                                        <Text style={styles.clearReadText}>{t('inbox.clearRead')}</Text>
-                                    </Pressable>
-                                )}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                                    {feedItems.some((item) => item.badge) && (
+                                        <Pressable
+                                            onPress={() => {
+                                                storage.getState().markAllFeedItemsRead();
+                                                if (credentials) {
+                                                    markAllFeedItemsRead(credentials).catch(console.error);
+                                                }
+                                            }}
+                                            hitSlop={10}
+                                        >
+                                            <Text style={styles.clearReadText}>{t('inbox.markAllRead')}</Text>
+                                        </Pressable>
+                                    )}
+                                    {feedItems.some((item) => !item.badge) && (
+                                        <Pressable
+                                            onPress={() => {
+                                                storage.getState().removeReadFeedItems();
+                                                if (credentials) {
+                                                    clearReadFeedItems(credentials).catch(console.error);
+                                                }
+                                            }}
+                                            hitSlop={10}
+                                        >
+                                            <Text style={styles.clearReadText}>{t('inbox.clearRead')}</Text>
+                                        </Pressable>
+                                    )}
+                                </View>
                             </View>
                         }>
                             {feedItems.map((item) => (

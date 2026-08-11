@@ -27,6 +27,7 @@ export const ca: TranslationStructure = {
 
     inbox: {
         clearRead: 'Clear read',
+        markAllRead: 'Marca-ho tot com a llegit',
         // Inbox screen
         emptyTitle: 'Safata buida',
         emptyDescription: 'Connecta\'t amb amics per començar a compartir sessions',
@@ -1432,6 +1433,7 @@ export const ca: TranslationStructure = {
         tabActive: 'Actius',
         tabArchived: 'Arxivats',
         tabAll: 'Tots',
+        tabEmpty: 'Encara no hi ha res en aquesta pestanya',
     },
 
     worktreeConfig: {

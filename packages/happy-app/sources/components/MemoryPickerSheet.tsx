@@ -6,7 +6,8 @@ import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
 import { useAuth } from '@/auth/AuthContext';
-import { listMemories, createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, type MemoryRow, type MemoryArchiveFilter } from '@/sync/apiMemory';
+import { createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, type MemoryRow, type MemoryArchiveFilter } from '@/sync/apiMemory';
+import { useMemories, refreshMemories, upsertMemory, removeMemory } from '@/sync/memoryCache';
 import { hapticsLight } from '@/components/haptics';
 import { showToast } from '@/components/Toast';
 import { Modal } from '@/modal';
@@ -33,38 +34,25 @@ const SheetTextInputComp: React.ComponentType<any> = Platform.OS === 'web' ? Tex
 interface ManagedList {
     memories: MemoryRow[];
     loading: boolean;
-    error: string | null;
-    setMemories: React.Dispatch<React.SetStateAction<MemoryRow[]>>;
     filter: MemoryArchiveFilter;
     setFilter: React.Dispatch<React.SetStateAction<MemoryArchiveFilter>>;
 }
 
+/**
+ * Reads the shared memory cache so the sheet paints its rows the moment it
+ * opens. Opening only triggers a background revalidation, and switching the
+ * archive tab filters the cached rows locally instead of refetching.
+ */
 const useMemoryList = (open: boolean): ManagedList => {
     const auth = useAuth();
-    const [memories, setMemories] = React.useState<MemoryRow[]>([]);
-    const [loading, setLoading] = React.useState(false);
-    const [error, setError] = React.useState<string | null>(null);
     const [filter, setFilter] = React.useState<MemoryArchiveFilter>('active');
-
-    const refresh = React.useCallback(async () => {
-        if (!auth.credentials) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const list = await listMemories(auth.credentials, { archived: filter });
-            setMemories(list);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to load memories');
-        } finally {
-            setLoading(false);
-        }
-    }, [auth.credentials, filter]);
+    const { memories, isLoading } = useMemories(auth.credentials ?? null, filter);
 
     React.useEffect(() => {
-        if (open) void refresh();
-    }, [open, refresh]);
+        if (open && auth.credentials) void refreshMemories(auth.credentials);
+    }, [open, auth.credentials]);
 
-    return { memories, loading, error, setMemories, filter, setFilter };
+    return { memories, loading: isLoading, filter, setFilter };
 };
 
 interface ContentProps {
@@ -75,7 +63,7 @@ interface ContentProps {
 }
 
 const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentProps) => {
-    const { memories, loading, error, setMemories, filter, setFilter } = list;
+    const { memories, loading, filter, setFilter } = list;
     const auth = useAuth();
     const [search, setSearch] = React.useState('');
 
@@ -98,11 +86,11 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
             const created = await createMemory(auth.credentials, { content: trimmed, source: 'manual' });
             hapticsLight();
             showToast(t('memory.saved'));
-            setMemories(prev => [created, ...prev.filter(m => m.id !== created.id)]);
+            upsertMemory(created);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.saveFailed'));
         }
-    }, [auth.credentials, setMemories]);
+    }, [auth.credentials]);
 
     const handleEdit = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
@@ -117,11 +105,11 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
             const updated = await updateMemory(auth.credentials, m.id, trimmed);
             hapticsLight();
             showToast(t('memory.saved'));
-            setMemories(prev => prev.map(x => x.id === m.id ? updated : x));
+            upsertMemory(updated);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.saveFailed'));
         }
-    }, [auth.credentials, setMemories]);
+    }, [auth.credentials]);
 
     const handleDelete = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
@@ -135,11 +123,11 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
             await deleteMemory(auth.credentials, m.id);
             hapticsLight();
             showToast(t('memory.deleted'));
-            setMemories(prev => prev.filter(x => x.id !== m.id));
+            removeMemory(m.id);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.deleteFailed'));
         }
-    }, [auth.credentials, setMemories]);
+    }, [auth.credentials]);
 
     const handleInsert = React.useCallback((m: MemoryRow) => {
         if (!onSelect) return;
@@ -150,32 +138,28 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
     const handleArchive = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
         try {
-            await archiveMemory(auth.credentials, m.id);
+            const archived = await archiveMemory(auth.credentials, m.id);
             hapticsLight();
             showToast(t('memory.archived'));
-            // Filter is per-tab: 'active' tab drops the row, 'archived' tab keeps it,
-            // 'all' tab updates archivedAt in place.
-            setMemories(prev => filter === 'active'
-                ? prev.filter(x => x.id !== m.id)
-                : prev.map(x => x.id === m.id ? { ...x, archivedAt: Date.now() } : x));
+            // The cache holds every row; the visible tab drops or keeps it based
+            // on the archivedAt the server echoed back.
+            upsertMemory(archived);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
         }
-    }, [auth.credentials, setMemories, filter]);
+    }, [auth.credentials]);
 
     const handleUnarchive = React.useCallback(async (m: MemoryRow) => {
         if (!auth.credentials) return;
         try {
-            await unarchiveMemory(auth.credentials, m.id);
+            const unarchived = await unarchiveMemory(auth.credentials, m.id);
             hapticsLight();
             showToast(t('memory.unarchived'));
-            setMemories(prev => filter === 'archived'
-                ? prev.filter(x => x.id !== m.id)
-                : prev.map(x => x.id === m.id ? { ...x, archivedAt: null } : x));
+            upsertMemory(unarchived);
         } catch (e) {
             Modal.alert(t('common.error'), e instanceof Error ? e.message : t('memory.archiveFailed'));
         }
-    }, [auth.credentials, setMemories, filter]);
+    }, [auth.credentials]);
 
     return (
         <>
@@ -265,12 +249,6 @@ const PickerContent = React.memo(({ list, theme, onSelect, Scroller }: ContentPr
                 {loading ? (
                     <View style={{ padding: 32, alignItems: 'center' }}>
                         <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-                    </View>
-                ) : error ? (
-                    <View style={{ padding: 32, alignItems: 'center' }}>
-                        <Text style={{ fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center', ...Typography.default() }}>
-                            {error}
-                        </Text>
                     </View>
                 ) : memories.length === 0 ? (
                     <View style={{ paddingHorizontal: 32, paddingVertical: 40, alignItems: 'center' }}>
