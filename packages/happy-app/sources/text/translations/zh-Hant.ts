@@ -28,7 +28,7 @@ export const zhHant: TranslationStructure = {
     },
 
     inbox: {
-        clearRead: '清空已讀',
+        clearAll: '清空所有',
         markAllRead: '全部已讀',
         // Inbox screen
         emptyTitle: '收件匣是空的',

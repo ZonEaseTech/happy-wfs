@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 16 - 2026-08-11
+
+The inbox "Clear read" button now clears everything.
+
+- Inbox: "Clear read" becomes "Clear all" and removes every update, not just the ones already seen. It also no longer hides itself when nothing has been read yet.
+
 ## Version 15 - 2026-08-11
 
 Memories open instantly, and the inbox can be cleared with one tap.

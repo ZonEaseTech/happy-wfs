@@ -26,7 +26,7 @@ export const es: TranslationStructure = {
     },
 
     inbox: {
-        clearRead: 'Clear read',
+        clearAll: 'Borrar todo',
         markAllRead: 'Marcar todo como leído',
         // Inbox screen
         emptyTitle: 'Bandeja vacía',

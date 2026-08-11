@@ -203,7 +203,7 @@ interface StorageState {
     applyFeedItems: (items: FeedItem[]) => void;
     replaceFeedItems: (items: FeedItem[]) => void;
     removeFeedItem: (itemId: string) => void;
-    removeReadFeedItems: () => void;
+    removeAllFeedItems: () => void;
     markFeedItemRead: (itemId: string) => void;
     markAllFeedItemsRead: () => void;
     clearFeed: () => void;
@@ -1784,9 +1784,13 @@ export const storage = create<StorageState>()((set, get) => {
             ...state,
             feedItems: state.feedItems.filter(item => item.id !== itemId)
         })),
-        removeReadFeedItems: () => set((state) => ({
+        // Empties the list but keeps the pagination cursors and `feedLoaded`,
+        // unlike `clearFeed` — the feed really is empty now, so refetching
+        // would only flash a loading state on the way to the same result.
+        removeAllFeedItems: () => set((state) => ({
             ...state,
-            feedItems: state.feedItems.filter(item => item.badge)
+            feedItems: [],
+            feedHasMore: false
         })),
         markFeedItemRead: (itemId: string) => set((state) => ({
             ...state,

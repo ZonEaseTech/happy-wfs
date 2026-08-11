@@ -26,7 +26,7 @@ export const ca: TranslationStructure = {
     },
 
     inbox: {
-        clearRead: 'Clear read',
+        clearAll: 'Esborra-ho tot',
         markAllRead: 'Marca-ho tot com a llegit',
         // Inbox screen
         emptyTitle: 'Safata buida',

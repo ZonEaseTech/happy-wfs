@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 16,
+      "date": "2026-08-11",
+      "summary": "The inbox \"Clear read\" button now clears everything.",
+      "changes": [
+        "Inbox: \"Clear read\" becomes \"Clear all\" and removes every update, not just the ones already seen. It also no longer hides itself when nothing has been read yet."
+      ],
+      "rawMarkdown": "## Version 16 - 2026-08-11\n\n\nThe inbox \"Clear read\" button now clears everything.\n\n- Inbox: \"Clear read\" becomes \"Clear all\" and removes every update, not just the ones already seen. It also no longer hides itself when nothing has been read yet."
+    },
+    {
       "version": 15,
       "date": "2026-08-11",
       "summary": "Memories open instantly, and the inbox can be cleared with one tap.",
@@ -188,5 +197,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 15
+  "latestVersion": 16
 }

@@ -74,6 +74,25 @@ export function feedRoutes(app: Fastify) {
         return reply.send({ ok: true });
     });
 
+    // Static segment, so it wins over the `/v1/feed/:id` route below and an
+    // item can never be named "all".
+    app.delete('/v1/feed/all', {
+        preHandler: app.authenticate,
+        schema: {
+            response: {
+                200: z.object({ ok: z.boolean(), deleted: z.number() })
+            }
+        }
+    }, async (request, reply) => {
+        const result = await db.userFeedItem.deleteMany({
+            where: { userId: request.userId }
+        });
+        return reply.send({ ok: true, deleted: result.count });
+    });
+
+    // Superseded by DELETE /v1/feed/all, which is what the inbox button now
+    // calls. Kept because the webapp is a PWA: a client still running a cached
+    // bundle would otherwise get a 404 on its clear button.
     app.delete('/v1/feed/read', {
         preHandler: app.authenticate,
         schema: {

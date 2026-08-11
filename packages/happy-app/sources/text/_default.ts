@@ -26,7 +26,7 @@ export const en = {
     },
 
     inbox: {
-        clearRead: 'Clear read',
+        clearAll: 'Clear all',
         markAllRead: 'Mark all read',
         // Inbox screen
         emptyTitle: 'Empty Inbox',

@@ -37,7 +37,7 @@ export const ru: TranslationStructure = {
     },
 
     inbox: {
-        clearRead: 'Clear read',
+        clearAll: 'Очистить все',
         markAllRead: 'Отметить все прочитанными',
         // Inbox screen
         emptyTitle: 'Входящие пусты',

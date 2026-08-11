@@ -37,7 +37,7 @@ export const pl: TranslationStructure = {
     },
 
     inbox: {
-        clearRead: 'Clear read',
+        clearAll: 'Wyczyść wszystko',
         markAllRead: 'Oznacz wszystko jako przeczytane',
         // Inbox screen
         emptyTitle: 'Pusta skrzynka',

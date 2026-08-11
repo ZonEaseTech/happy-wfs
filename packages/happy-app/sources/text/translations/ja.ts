@@ -29,7 +29,7 @@ export const ja: TranslationStructure = {
     },
 
     inbox: {
-        clearRead: 'Clear read',
+        clearAll: 'すべて削除',
         markAllRead: 'すべて既読にする',
         // Inbox screen
         emptyTitle: '受信トレイは空です',

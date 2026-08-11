@@ -19,7 +19,7 @@ import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 import { sync } from '@/sync/sync';
 import { storage } from '@/sync/storage';
 import { useAuth } from '@/auth/AuthContext';
-import { clearReadFeedItems, markAllFeedItemsRead } from '@/sync/apiFeed';
+import { clearAllFeedItems, markAllFeedItemsRead } from '@/sync/apiFeed';
 import { Platform } from 'react-native';
 
 const styles = StyleSheet.create((theme) => ({
@@ -59,7 +59,7 @@ const styles = StyleSheet.create((theme) => ({
         textTransform: 'uppercase',
         fontWeight: Platform.select({ ios: 'normal', default: '500' }),
     },
-    clearReadText: {
+    headerActionText: {
         ...Typography.default('regular'),
         color: theme.colors.textLink,
         fontSize: Platform.select({ ios: 13, default: 14 }),
@@ -236,22 +236,20 @@ export const InboxView = React.memo(({}: InboxViewProps) => {
                                             }}
                                             hitSlop={10}
                                         >
-                                            <Text style={styles.clearReadText}>{t('inbox.markAllRead')}</Text>
+                                            <Text style={styles.headerActionText}>{t('inbox.markAllRead')}</Text>
                                         </Pressable>
                                     )}
-                                    {feedItems.some((item) => !item.badge) && (
-                                        <Pressable
-                                            onPress={() => {
-                                                storage.getState().removeReadFeedItems();
-                                                if (credentials) {
-                                                    clearReadFeedItems(credentials).catch(console.error);
-                                                }
-                                            }}
-                                            hitSlop={10}
-                                        >
-                                            <Text style={styles.clearReadText}>{t('inbox.clearRead')}</Text>
-                                        </Pressable>
-                                    )}
+                                    <Pressable
+                                        onPress={() => {
+                                            storage.getState().removeAllFeedItems();
+                                            if (credentials) {
+                                                clearAllFeedItems(credentials).catch(console.error);
+                                            }
+                                        }}
+                                        hitSlop={10}
+                                    >
+                                        <Text style={styles.headerActionText}>{t('inbox.clearAll')}</Text>
+                                    </Pressable>
                                 </View>
                             </View>
                         }>
