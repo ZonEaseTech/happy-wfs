@@ -522,6 +522,20 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
     }
   } else if (subcommand === 'device') {
     const deviceSubcommand = args[1]
+    if (deviceSubcommand === 'push') {
+      const { pushToDevice } = await import('./device/push')
+      const credentials = await readCredentials()
+      if (!credentials) {
+        console.error(chalk.red('Error:'), 'Not authenticated. Run "happy auth" first.')
+        process.exit(1)
+      }
+      const [target, localPath, remotePath] = args.slice(2)
+      if (!target || !localPath || !remotePath) {
+        console.error(chalk.red('Error:'), 'Usage: happy device push <device> <local-file> <remote-path>')
+        process.exit(1)
+      }
+      process.exit(await pushToDevice(credentials, target, localPath, remotePath))
+    }
     if (deviceSubcommand === 'enroll') {
       const { enrollDevice } = await import('./device/enroll')
       const { install } = await import('./daemon/install')
@@ -549,7 +563,8 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
 ${chalk.bold('happy device')} - Device enrollment
 
 ${chalk.bold('Usage:')}
-  happy device enroll <token>   Link this machine to a Happy account and start the daemon
+  happy device enroll <token>              Link this machine to a Happy account and start the daemon
+  happy device push <device> <src> <dest>  Copy a file to a device (no tunnel needed)
 `)
     process.exit(0)
   } else if (subcommand === 'daemon') {

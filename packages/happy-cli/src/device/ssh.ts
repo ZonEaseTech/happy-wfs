@@ -75,7 +75,7 @@ export function parseSshArgs(args: string[]): SshArgs {
  * becomes this process's — so it composes with scripts and CI. Progress notes
  * go to stderr to keep stdout exactly what the command printed.
  */
-interface ResolvedDevice {
+export interface ResolvedDevice {
     device: { id: string; name: string };
     key: Uint8Array;
     variant: 'legacy' | 'dataKey';
@@ -140,6 +140,14 @@ async function resolveFromServer(credentials: Credentials, query: string): Promi
     // entry claiming it, so the next run can take the fast path.
     await pruneDeviceAliases(device.id, device.name);
     return { device, key, variant };
+}
+
+/**
+ * Cache first, server second — shared with the file push so both commands
+ * resolve a device the same way and benefit from the same skipped listing.
+ */
+export async function resolveDeviceForCommand(credentials: Credentials, query: string): Promise<ResolvedDevice | null> {
+    return await resolveFromCache(query) ?? await resolveFromServer(credentials, query);
 }
 
 export async function runOnDevice(
