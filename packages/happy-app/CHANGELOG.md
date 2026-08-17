@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 17 - 2026-08-17
+
+Long sessions load their whole history on their own.
+
+- Chat: after a session opens, the rest of its history is pulled in the background page by page, so scrolling up no longer stops at the newest hundred messages.
+- Chat: the on-device cache now keeps the backfilled history and remembers how far back it reaches, so reopening a session shows the whole conversation at once instead of pulling it again.
+- Message rail: ticks now compress to fit the window instead of being capped at 80, so a fully loaded conversation shows its whole shape.
+
 ## Version 16 - 2026-08-11
 
 The inbox "Clear read" button now clears everything.

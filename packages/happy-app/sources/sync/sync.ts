@@ -28,7 +28,7 @@ import { uploadChatImage } from './uploadChatImage';
 import { LocalImage } from '@/components/ImagePreview';
 import { applySettings, mergeSettings, Settings, settingsDefaults, settingsParse, SUPPORTED_SCHEMA_VERSION } from './settings';
 import { Profile, profileParse } from './profile';
-import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt, loadSessionMessagesCache, saveSessionMessagesCache, clearSessionMessagesCache } from './persistence';
+import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt, loadSessionMessagesCache, saveSessionMessagesCache, clearSessionMessagesCache, SESSION_MESSAGES_CACHE_MAX_BYTES } from './persistence';
 import { initializeTracking, tracking } from '@/track';
 import { parseToken } from '@/utils/parseToken';
 import { getServerUrl } from './serverConfig';
@@ -153,6 +153,19 @@ class Sync {
     private static readonly MESSAGE_LIST_DISPATCH_INTERVAL_MS = 400;
     // First load for a session should stay bounded; older history is loaded on demand.
     private static readonly INITIAL_MESSAGES_LIMIT = 100;
+    // Background history backfill: pace pages so decryption never blocks rendering,
+    // and keep a runaway guard for sessions with pathological history sizes.
+    private static readonly HISTORY_BACKFILL_START_DELAY_MS = 600;
+    private static readonly HISTORY_BACKFILL_PAUSE_MS = 250;
+    private static readonly HISTORY_BACKFILL_RETRY_MS = 2000;
+    private static readonly HISTORY_BACKFILL_MAX_PAGES = 200;
+    private static readonly HISTORY_BACKFILL_MAX_FAILURES = 3;
+    // On-device message cache: how much backfilled history is kept, and how
+    // long a save may be deferred while pages keep arriving.
+    private static readonly MESSAGE_CACHE_MAX_MESSAGES = 3000;
+    private static readonly MESSAGE_CACHE_MAX_SESSIONS_IN_MEMORY = 5;
+    private static readonly MESSAGE_CACHE_SAVE_DEBOUNCE_MS = 1500;
+    private static readonly MESSAGE_CACHE_SAVE_MAX_DELAY_MS = 10000;
 
     encryption!: Encryption;
     serverID!: string;
@@ -178,7 +191,13 @@ class Sync {
      *  session renders instantly instead of waiting on the network. */
     private cachedNormalizedMessages = new Map<string, NormalizedMessage[]>();
     private messageCacheSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private messageCacheLastSavedAt = new Map<string, number>();
+    /** Sessions whose cached range reaches the start of the conversation */
+    private completeMessageCaches = new Set<string>();
     private hydratedMessageSessions = new Set<string>();
+    /** Pagination cursor recovered from the cache, held until the bootstrap
+     *  page confirms the cached range is contiguous with it. */
+    private cachedPaginationHints = new Map<string, { oldestSeq: number; newestSeq: number; hasMore: boolean }>();
     /** Callbacks to run before applying a sent message (keyed by localId).
      *  Ensures input is cleared before message appears, regardless of whether
      *  the HTTP response or WebSocket echo arrives first. */
@@ -188,6 +207,10 @@ class Sync {
     private deliveryErrorTimers = new Map<string, ReturnType<typeof setTimeout>>();
     /** Per-session lock to serialize fetchMessagesV3 and websocket message application */
     private sessionMessageLocks = new Map<string, AsyncLock>();
+    /** Sessions whose remaining history is being pulled in the background */
+    private historyBackfillRuns = new Map<string, { cancelled: boolean }>();
+    /** In-flight older-history page per session, shared by scroll and backfill */
+    private olderMessageFetches = new Map<string, Promise<{ hasMore: boolean; loaded: number } | null>>();
     private machineDataKeys = new Map<string, Uint8Array>(); // Store machine data encryption keys internally
     /**
      * A CLI process only holds the account's content *public* key, so it can
@@ -2561,11 +2584,28 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                     ? Math.min(...apiMessages.map((m) => m.seq))
                     : null;
 
+                // A cache that reaches up to this page carries a valid older
+                // cursor, so history already pulled in a previous run is not
+                // fetched again. A gap between the two (session was open
+                // elsewhere in the meantime) invalidates it — pagination then
+                // restarts from this page and re-covers the missing range.
+                const paginationHint = this.cachedPaginationHints.get(sessionId);
+                this.cachedPaginationHints.delete(sessionId);
+                const hintIsContiguous = !!paginationHint
+                    && minSeq !== null
+                    && paginationHint.newestSeq + 1 >= minSeq;
+
                 await this.enqueueSessionMessageDispatch(sessionId, 'fetchMessagesV3:bootstrap', async () => {
                     if (normalizedMessages.length > 0) {
                         this.applyMessages(sessionId, normalizedMessages);
                     }
                     storage.getState().applyMessagesLoaded(sessionId);
+                    if (hintIsContiguous && paginationHint) {
+                        // Applied first: setSessionPagination only ever moves the
+                        // cursor backwards, so the bootstrap page below cannot
+                        // undo it.
+                        storage.getState().setSessionPagination(sessionId, paginationHint.oldestSeq, paginationHint.hasMore);
+                    }
                     storage.getState().setSessionPagination(sessionId, minSeq, hasMoreOlder);
                 });
 
@@ -2637,15 +2677,32 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         });
     }
 
-    fetchOlderMessages = async (sessionId: string) => {
+    /** Loads one page of older history. Returns null when nothing could be
+     *  loaded (already at the start, encryption not ready, request failed) so
+     *  the background backfill can tell "done" from "retry later".
+     *  Scrolling to the top and the background backfill both land here, so
+     *  concurrent calls share one request instead of fetching the same page. */
+    fetchOlderMessages = (sessionId: string): Promise<{ hasMore: boolean; loaded: number } | null> => {
+        const inFlight = this.olderMessageFetches.get(sessionId);
+        if (inFlight) {
+            return inFlight;
+        }
+        const request = this.fetchOlderMessagesPage(sessionId).finally(() => {
+            this.olderMessageFetches.delete(sessionId);
+        });
+        this.olderMessageFetches.set(sessionId, request);
+        return request;
+    }
+
+    private fetchOlderMessagesPage = async (sessionId: string): Promise<{ hasMore: boolean; loaded: number } | null> => {
         const sessionState = storage.getState().sessionMessages[sessionId];
         if (!sessionState || !sessionState.hasMore || sessionState.oldestSeq === null) {
-            return;
+            return null;
         }
 
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) {
-            return;
+            return null;
         }
 
         try {
@@ -2683,9 +2740,92 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             });
 
             log.log(`💬 fetchOlderMessages completed for session ${sessionId} - loaded ${normalizedMessages.length} older messages, hasMore=${hasMore}`);
+            return { hasMore, loaded: normalizedMessages.length };
         } catch (error) {
             console.error(`Failed to fetch older messages for session ${sessionId}:`, error);
+            return null;
         }
+    }
+
+    /**
+     * Quietly pull the rest of a session's history while its screen is open.
+     * The bootstrap load only brings the newest page, so the chat — and the
+     * message rail built from it — stays truncated until the user scrolls all
+     * the way up. Runs one page at a time so the UI keeps rendering, and is
+     * idempotent: a second call while a backfill is running is a no-op.
+     */
+    startHistoryBackfill = (sessionId: string) => {
+        const existing = this.historyBackfillRuns.get(sessionId);
+        if (existing) {
+            // Screen regained focus before the previous run noticed the cancel.
+            existing.cancelled = false;
+            return;
+        }
+        const run = { cancelled: false };
+        this.historyBackfillRuns.set(sessionId, run);
+        void this.runHistoryBackfill(sessionId, run).finally(() => {
+            if (this.historyBackfillRuns.get(sessionId) === run) {
+                this.historyBackfillRuns.delete(sessionId);
+            }
+        });
+    }
+
+    /** Stops the background backfill when the session screen goes away. */
+    stopHistoryBackfill = (sessionId: string) => {
+        const run = this.historyBackfillRuns.get(sessionId);
+        if (!run) return;
+        run.cancelled = true;
+        // Write out what the run already pulled instead of waiting on the
+        // debounce, which the app may not be around for.
+        if (this.messageCacheSaveTimers.has(sessionId)) {
+            this.persistMessagesCache(sessionId);
+        }
+    }
+
+    private runHistoryBackfill = async (sessionId: string, run: { cancelled: boolean }) => {
+        // Let the freshly opened screen render before competing for the network
+        // and the decryption thread.
+        await new Promise((resolve) => setTimeout(resolve, Sync.HISTORY_BACKFILL_START_DELAY_MS));
+        let failures = 0;
+        for (let page = 0; page < Sync.HISTORY_BACKFILL_MAX_PAGES; page++) {
+            if (run.cancelled) return;
+
+            const sessionState = storage.getState().sessionMessages[sessionId];
+            if (!sessionState || !sessionState.isLoaded) return;
+            if (!sessionState.hasMore || sessionState.oldestSeq === null) return;
+            const before = sessionState.oldestSeq;
+
+            const result = await this.fetchOlderMessages(sessionId);
+            if (run.cancelled) return;
+
+            if (!result) {
+                failures++;
+                if (failures >= Sync.HISTORY_BACKFILL_MAX_FAILURES) {
+                    log.log(`💬 history backfill giving up for ${sessionId} after ${failures} failures`);
+                    return;
+                }
+                await new Promise((resolve) => setTimeout(resolve, Sync.HISTORY_BACKFILL_RETRY_MS));
+                continue;
+            }
+            failures = 0;
+            if (!result.hasMore) {
+                // Record "history complete" on disk right away so the next open
+                // of this session skips the backfill entirely.
+                this.persistMessagesCache(sessionId);
+                return;
+            }
+
+            // Guard against a cursor that stops moving: without this the loop
+            // would keep asking the server for the same page.
+            const nextOldest = storage.getState().sessionMessages[sessionId]?.oldestSeq ?? null;
+            if (nextOldest === null || nextOldest >= before) {
+                log.log(`💬 history backfill stalled for ${sessionId} at seq ${before}`);
+                return;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, Sync.HISTORY_BACKFILL_PAUSE_MS));
+        }
+        log.log(`💬 history backfill stopped at the ${Sync.HISTORY_BACKFILL_MAX_PAGES}-page cap for ${sessionId}`);
     }
 
     private registerPushToken = async () => {
@@ -2822,9 +2962,12 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             const pendingCacheTimer = this.messageCacheSaveTimers.get(sessionId);
             if (pendingCacheTimer) clearTimeout(pendingCacheTimer);
             this.messageCacheSaveTimers.delete(sessionId);
+            this.messageCacheLastSavedAt.delete(sessionId);
             this.cachedNormalizedMessages.delete(sessionId);
             this.hydratedMessageSessions.delete(sessionId);
+            this.cachedPaginationHints.delete(sessionId);
             clearSessionMessagesCache(sessionId);
+            this.stopHistoryBackfill(sessionId);
 
             // Remove from project manager
             projectManager.removeSession(sessionId);
@@ -3870,12 +4013,13 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
     // Apply store
     //
 
-    /** Keep the newest page of decrypted messages in memory and mirror it to
-     *  disk (debounced) so the next open of this session can render instantly. */
+    /** Keep the decrypted history in memory and mirror it to disk (debounced)
+     *  so the next open of this session renders instantly and, when the whole
+     *  conversation was already backfilled, does not have to pull it again. */
     private rememberMessagesForCache(sessionId: string, messages: NormalizedMessage[]) {
         if (messages.length === 0) return;
         const byId = new Map<string, NormalizedMessage>();
-        for (const message of this.cachedNormalizedMessages.get(sessionId) ?? []) {
+        for (const message of this.loadMessageCacheBase(sessionId)) {
             byId.set(message.id, message);
         }
         for (const message of messages) {
@@ -3883,32 +4027,137 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         }
         const merged = Array.from(byId.values())
             .sort((a, b) => a.createdAt - b.createdAt || (a.seq ?? 0) - (b.seq ?? 0))
-            .slice(-Sync.INITIAL_MESSAGES_LIMIT);
+            .slice(-Sync.MESSAGE_CACHE_MAX_MESSAGES);
+        if (merged.length < byId.size) {
+            // Dropped the oldest to stay within the in-memory bound, so the
+            // cache no longer reaches the start of the conversation.
+            this.completeMessageCaches.delete(sessionId);
+        }
         this.cachedNormalizedMessages.set(sessionId, merged);
+        this.trimMessageCacheMemory(sessionId);
+
+        // A running backfill applies a page every few hundred ms, which would
+        // keep pushing the debounce out; force a save once in a while so
+        // leaving mid-backfill still keeps whatever was already pulled.
+        const now = Date.now();
+        const lastSavedAt = this.messageCacheLastSavedAt.get(sessionId);
+        if (lastSavedAt === undefined) {
+            this.messageCacheLastSavedAt.set(sessionId, now);
+        } else if (now - lastSavedAt >= Sync.MESSAGE_CACHE_SAVE_MAX_DELAY_MS) {
+            this.persistMessagesCache(sessionId);
+            return;
+        }
 
         const existingTimer = this.messageCacheSaveTimers.get(sessionId);
         if (existingTimer) clearTimeout(existingTimer);
         this.messageCacheSaveTimers.set(sessionId, setTimeout(() => {
-            this.messageCacheSaveTimers.delete(sessionId);
-            try {
-                saveSessionMessagesCache(sessionId, this.cachedNormalizedMessages.get(sessionId) ?? []);
-            } catch (error) {
-                log.log(`💬 message cache save failed for ${sessionId}: ${error}`);
-            }
-        }, 1500));
+            this.persistMessagesCache(sessionId);
+        }, Sync.MESSAGE_CACHE_SAVE_DEBOUNCE_MS));
     }
 
-    /** Render the cached page before the network bootstrap returns. The fetch
-     *  still runs and merges by message id, so stale entries self-correct. */
+    /** Merge base for a session's cache: whatever is already on disk when this
+     *  run has nothing in memory. Without it a stray live update for a session
+     *  that was never opened would rewrite its cache down to that one message. */
+    private loadMessageCacheBase(sessionId: string): NormalizedMessage[] {
+        const inMemory = this.cachedNormalizedMessages.get(sessionId);
+        if (inMemory) return inMemory;
+        const entry = loadSessionMessagesCache(sessionId);
+        const base = (entry?.messages as NormalizedMessage[] | undefined) ?? [];
+        if (entry && !entry.hasMore) {
+            this.completeMessageCaches.add(sessionId);
+        }
+        this.cachedNormalizedMessages.set(sessionId, base);
+        return base;
+    }
+
+    /** Full histories are far bigger than the single page this cache used to
+     *  hold, so only the few most recently touched sessions stay in memory. */
+    private trimMessageCacheMemory(activeSessionId: string) {
+        for (const sessionId of Array.from(this.cachedNormalizedMessages.keys())) {
+            if (this.cachedNormalizedMessages.size <= Sync.MESSAGE_CACHE_MAX_SESSIONS_IN_MEMORY) return;
+            if (sessionId === activeSessionId) continue;
+            if (this.messageCacheSaveTimers.has(sessionId)) {
+                this.persistMessagesCache(sessionId);
+            }
+            this.cachedNormalizedMessages.delete(sessionId);
+            this.completeMessageCaches.delete(sessionId);
+        }
+    }
+
+    private persistMessagesCache(sessionId: string) {
+        const existingTimer = this.messageCacheSaveTimers.get(sessionId);
+        if (existingTimer) clearTimeout(existingTimer);
+        this.messageCacheSaveTimers.delete(sessionId);
+        this.messageCacheLastSavedAt.set(sessionId, Date.now());
+
+        const cached = this.cachedNormalizedMessages.get(sessionId) ?? [];
+        if (cached.length === 0) return;
+
+        try {
+            // Trim the oldest messages so the entry fits the storage budget
+            // (tight on web, where mmkv is localStorage).
+            let kept = cached;
+            const bytes = JSON.stringify(kept).length;
+            if (bytes > SESSION_MESSAGES_CACHE_MAX_BYTES && kept.length > 1) {
+                const keepCount = Math.max(1, Math.floor(kept.length * (SESSION_MESSAGES_CACHE_MAX_BYTES / bytes) * 0.9));
+                kept = kept.slice(-keepCount);
+                this.completeMessageCaches.delete(sessionId);
+            }
+
+            const oldestSeq = kept.reduce<number | null>((min, message) => {
+                const seq = message.seq;
+                if (typeof seq !== 'number') return min;
+                return min === null || seq < min ? seq : min;
+            }, null);
+
+            // "Nothing older exists" may only be recorded when the cached range
+            // actually reaches back to the oldest message the store holds and
+            // the store itself is at the start of the conversation. Otherwise
+            // the next open has to keep backfilling from the cached edge.
+            const sessionState = storage.getState().sessionMessages[sessionId];
+            const storeOldestSeq = sessionState?.oldestSeq ?? null;
+            const reachesStoreStart = oldestSeq !== null && storeOldestSeq !== null && oldestSeq <= storeOldestSeq;
+            if (reachesStoreStart && sessionState && !sessionState.hasMore) {
+                this.completeMessageCaches.add(sessionId);
+            }
+            const hasMore = !this.completeMessageCaches.has(sessionId);
+
+            saveSessionMessagesCache(sessionId, { messages: kept, oldestSeq, hasMore });
+        } catch (error) {
+            log.log(`💬 message cache save failed for ${sessionId}: ${error}`);
+        }
+    }
+
+    /** Render the cached history before the network bootstrap returns. The
+     *  fetch still runs and merges by message id, so stale entries
+     *  self-correct. The cached pagination cursor is only handed to the store
+     *  once the bootstrap page proves the cache has no gap against it. */
     private hydrateMessagesFromCache(sessionId: string) {
         if (this.hydratedMessageSessions.has(sessionId)) return;
         this.hydratedMessageSessions.add(sessionId);
         if (storage.getState().sessionMessages[sessionId]?.messages.length) return;
-        const cached = loadSessionMessagesCache(sessionId) as NormalizedMessage[] | null;
-        if (!cached || cached.length === 0) return;
+        const entry = loadSessionMessagesCache(sessionId);
+        if (!entry || entry.messages.length === 0) return;
+        const cached = entry.messages as NormalizedMessage[];
         this.cachedNormalizedMessages.set(sessionId, cached);
+        if (!entry.hasMore) {
+            this.completeMessageCaches.add(sessionId);
+        }
         storage.getState().applyMessages(sessionId, cached);
-        log.log(`💬 hydrated ${cached.length} cached messages for session ${sessionId}`);
+
+        const newestSeq = cached.reduce<number | null>((max, message) => {
+            const seq = message.seq;
+            if (typeof seq !== 'number') return max;
+            return max === null || seq > max ? seq : max;
+        }, null);
+        if (entry.oldestSeq !== null && newestSeq !== null) {
+            this.cachedPaginationHints.set(sessionId, {
+                oldestSeq: entry.oldestSeq,
+                newestSeq,
+                hasMore: entry.hasMore,
+            });
+        }
+        log.log(`💬 hydrated ${cached.length} cached messages for session ${sessionId} (oldestSeq=${entry.oldestSeq}, hasMore=${entry.hasMore})`);
     }
 
     private applyMessages = (sessionId: string, messages: NormalizedMessage[]) => {

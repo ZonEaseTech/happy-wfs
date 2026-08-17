@@ -14,9 +14,14 @@ import { Message } from '@/sync/typesMessage';
 /** Rail gutter width. Exported so the chat list can reserve space for it
  *  when the viewport is narrower than the content max width. */
 export const RAIL_WIDTH = 32;
-const MAX_TICKS = 80;
+/** Build cap: a guard against pathological histories, not a display budget —
+ *  what actually fits on screen is decided from the measured rail height. */
+const MAX_TICKS = 400;
 const PEEK_MAX_CHARS = 260;
 const TICK_SLOT_HEIGHT = 11;
+/** Ticks shrink towards this before the rail starts dropping the oldest ones. */
+const MIN_TICK_SLOT_HEIGHT = 4;
+const RAIL_VERTICAL_PADDING = 16;
 const PEEK_CARD_WIDTH = 460;
 
 export interface RailEntry {
@@ -86,11 +91,27 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
     const { theme } = useUnistyles();
     const [railHovered, setRailHovered] = React.useState(false);
     const [hovered, setHovered] = React.useState<{ entry: RailEntry; y: number } | null>(null);
+    const [railHeight, setRailHeight] = React.useState(0);
+
+    // A fully backfilled session can hold far more messages than there are
+    // 11px slots in the viewport, so ticks compress to fit; only when even the
+    // minimum slot height runs out does the rail drop the oldest ticks.
+    const { visibleEntries, slotHeight } = React.useMemo(() => {
+        const available = Math.max(0, railHeight - RAIL_VERTICAL_PADDING * 2);
+        if (available === 0) {
+            return { visibleEntries: entries, slotHeight: TICK_SLOT_HEIGHT };
+        }
+        const capacity = Math.max(1, Math.floor(available / MIN_TICK_SLOT_HEIGHT));
+        const fitted = entries.length > capacity ? entries.slice(entries.length - capacity) : entries;
+        const slot = Math.min(TICK_SLOT_HEIGHT, Math.max(MIN_TICK_SLOT_HEIGHT, available / fitted.length));
+        return { visibleEntries: fitted, slotHeight: slot };
+    }, [entries, railHeight]);
 
     if (entries.length === 0) return null;
 
     return (
         <View
+            onLayout={(event) => setRailHeight(event.nativeEvent.layout.height)}
             // Pointer events instead of a wrapping Pressable: a parent
             // Pressable competes with the tick Pressables for the touch
             // responder and can swallow their onPress.
@@ -147,7 +168,7 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
                         )}
                     </View>
                 )}
-                {entries.map((entry, position) => {
+                {visibleEntries.map((entry, position) => {
                     const active = hovered?.entry.id === entry.id;
                     // Collapsed: uniform short ticks. Hovered rail: length maps
                     // to message length so the conversation shape shows.
@@ -157,13 +178,13 @@ export const ChatMessageRail = React.memo(({ entries, onSelect, onPreload }: {
                         <Pressable
                             key={entry.id}
                             onPress={() => onSelect(entry.index)}
-                            onPointerEnter={() => setHovered({ entry, y: position * TICK_SLOT_HEIGHT })}
+                            onPointerEnter={() => setHovered({ entry, y: position * slotHeight })}
                             hitSlop={{ top: 3, bottom: 3, left: 6, right: 10 }}
                             // Span the whole rail: sizing the hit area to the
                             // tick made short ticks (6px collapsed) almost
                             // impossible to hover.
                             style={{
-                                height: TICK_SLOT_HEIGHT,
+                                height: slotHeight,
                                 width: RAIL_WIDTH,
                                 justifyContent: 'center',
                                 alignItems: 'flex-start',

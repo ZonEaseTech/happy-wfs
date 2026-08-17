@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 17,
+      "date": "2026-08-17",
+      "summary": "Long sessions load their whole history on their own.",
+      "changes": [
+        "Chat: after a session opens, the rest of its history is pulled in the background page by page, so scrolling up no longer stops at the newest hundred messages.",
+        "Chat: the on-device cache now keeps the backfilled history and remembers how far back it reaches, so reopening a session shows the whole conversation at once instead of pulling it again.",
+        "Message rail: ticks now compress to fit the window instead of being capped at 80, so a fully loaded conversation shows its whole shape."
+      ],
+      "rawMarkdown": "## Version 17 - 2026-08-17\n\n\nLong sessions load their whole history on their own.\n\n- Chat: after a session opens, the rest of its history is pulled in the background page by page, so scrolling up no longer stops at the newest hundred messages.\n- Chat: the on-device cache now keeps the backfilled history and remembers how far back it reaches, so reopening a session shows the whole conversation at once instead of pulling it again.\n- Message rail: ticks now compress to fit the window instead of being capped at 80, so a fully loaded conversation shows its whole shape."
+    },
+    {
       "version": 16,
       "date": "2026-08-11",
       "summary": "The inbox \"Clear read\" button now clears everything.",
@@ -197,5 +208,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 16
+  "latestVersion": 17
 }

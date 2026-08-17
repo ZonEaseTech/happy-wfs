@@ -1,4 +1,5 @@
 import { MMKV } from 'react-native-mmkv';
+import { Platform } from 'react-native';
 import { Settings, settingsDefaults, settingsParse, SettingsSchema } from './settings';
 import { LocalSettings, localSettingsDefaults, localSettingsParse } from './localSettings';
 import { Profile, profileDefaults, profileParse } from './profile';
@@ -257,13 +258,29 @@ export function saveSessionGoalPins(pins: Record<string, SessionGoalPinRecord[]>
 
 /**
  * Decrypted-message cache, one mmkv entry per session so writing one session
- * never rewrites the others. Lets a session render its last page instantly on
+ * never rewrites the others. Lets a session render its history instantly on
  * open while the network bootstrap runs; the server response then merges over
  * it by message id, so a stale cache can only ever be briefly visible.
+ * The entry also carries how far back the cached range reaches, so a session
+ * whose history was already backfilled does not have to pull it again.
  */
 const SESSION_MESSAGES_CACHE_PREFIX = 'session-messages.v1.';
 const SESSION_MESSAGES_CACHE_INDEX_KEY = 'session-messages.v1.index';
 const SESSION_MESSAGES_CACHE_MAX_SESSIONS = 30;
+/**
+ * Serialized budget for one session. On web mmkv is backed by localStorage,
+ * where the whole origin shares roughly 5MB and an over-quota write throws
+ * instead of evicting, so a cached session there stays deliberately small.
+ */
+export const SESSION_MESSAGES_CACHE_MAX_BYTES = Platform.OS === 'web' ? 384 * 1024 : 4 * 1024 * 1024;
+
+export interface SessionMessagesCacheEntry {
+    messages: unknown[];
+    /** Seq of the oldest cached message; null when it cannot be determined. */
+    oldestSeq: number | null;
+    /** Whether older history exists on the server beyond the cached range. */
+    hasMore: boolean;
+}
 
 function sessionMessagesCacheKey(sessionId: string): string {
     return `${SESSION_MESSAGES_CACHE_PREFIX}${sessionId}`;
@@ -280,22 +297,48 @@ function loadSessionMessagesCacheIndex(): string[] {
     }
 }
 
-export function loadSessionMessagesCache(sessionId: string): unknown[] | null {
+export function loadSessionMessagesCache(sessionId: string): SessionMessagesCacheEntry | null {
     const raw = mmkv.getString(sessionMessagesCacheKey(sessionId));
     if (!raw) return null;
     try {
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed?.messages) ? parsed.messages : null;
+        if (!Array.isArray(parsed?.messages)) return null;
+        return {
+            messages: parsed.messages,
+            oldestSeq: typeof parsed.oldestSeq === 'number' ? parsed.oldestSeq : null,
+            // Entries written before the cache tracked its range say nothing
+            // about the rest of the conversation, so assume more exists.
+            hasMore: typeof parsed.hasMore === 'boolean' ? parsed.hasMore : true,
+        };
     } catch {
         return null;
     }
 }
 
-export function saveSessionMessagesCache(sessionId: string, messages: unknown[]) {
-    mmkv.set(sessionMessagesCacheKey(sessionId), JSON.stringify({ messages, savedAt: Date.now() }));
-
+export function saveSessionMessagesCache(sessionId: string, entry: SessionMessagesCacheEntry) {
+    const payload = JSON.stringify({ ...entry, savedAt: Date.now() });
     // Keep a bounded MRU index so old sessions cannot grow storage forever.
     const index = loadSessionMessagesCacheIndex().filter((id) => id !== sessionId);
+
+    // localStorage throws once the origin quota is full instead of evicting,
+    // so free the least recently used sessions until this one fits.
+    for (;;) {
+        try {
+            mmkv.set(sessionMessagesCacheKey(sessionId), payload);
+            break;
+        } catch {
+            const evicted = index.pop();
+            if (!evicted) {
+                // Nothing left to free: drop this session's cache rather than
+                // risk leaving a half-written entry behind.
+                mmkv.delete(sessionMessagesCacheKey(sessionId));
+                mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+                return;
+            }
+            mmkv.delete(sessionMessagesCacheKey(evicted));
+        }
+    }
+
     index.unshift(sessionId);
     for (const staleId of index.splice(SESSION_MESSAGES_CACHE_MAX_SESSIONS)) {
         mmkv.delete(sessionMessagesCacheKey(staleId));

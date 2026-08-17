@@ -29,6 +29,7 @@ import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { useArchiveSession } from '@/hooks/useArchiveSession';
 import { useResumeSession } from '@/hooks/useResumeSession';
 import { useHappyAction } from '@/hooks/useHappyAction';
+import { useSessionHistoryBackfill } from '@/hooks/useSessionHistoryBackfill';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
@@ -1597,6 +1598,10 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const handleLoadMore = React.useCallback(() => {
         return sync.fetchOlderMessages(sessionId);
     }, [sessionId]);
+
+    // Pull the rest of the history quietly in the background so scrolling up
+    // (and the message rail) never runs into a truncated conversation.
+    useSessionHistoryBackfill(sessionId, isLoaded);
 
     // Trigger refresh whenever this session screen gets focus.
     useFocusEffect(
