@@ -147,6 +147,62 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1)
     }
     return;
+  } else if (subcommand === 'cursor') {
+    const { authAndSetupMachineIfNeeded } = await import('./ui/auth');
+    const { isDaemonRunningCurrentlyInstalledHappyVersion } = await import('./daemon/controlClient');
+    const { spawnHappyCLI } = await import('./utils/spawnHappyCLI');
+
+    try {
+      const { runCursor } = await import('@/cursor/runCursor');
+
+      // `happy cursor [--model <id>] [--started-by <who>] [prompt...]`
+      let startedBy: 'daemon' | 'terminal' | undefined = undefined;
+      let model: string | null = null;
+      const promptParts: string[] = [];
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === '--started-by') {
+          startedBy = args[++i] as 'daemon' | 'terminal';
+        } else if (args[i] === '--model') {
+          model = args[++i] ?? null;
+        } else if (args[i] === '--happy-starting-mode') {
+          // The daemon always passes this. A Cursor session is remote-only
+          // (there is no local interactive surface yet), so the value is
+          // accepted and dropped — leaving it unparsed would glue
+          // "--happy-starting-mode remote" onto the prompt.
+          i++;
+        } else {
+          promptParts.push(args[i]);
+        }
+      }
+
+      const { credentials } = await authAndSetupMachineIfNeeded();
+
+      logger.debug('Ensuring Happy background service is running & matches our version...');
+      if (!(await isDaemonRunningCurrentlyInstalledHappyVersion())) {
+        logger.debug('Starting Happy background service...');
+        const daemonProcess = spawnHappyCLI(['daemon', 'start-sync'], {
+          detached: true,
+          stdio: 'ignore',
+          env: process.env
+        });
+        daemonProcess.unref();
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      await runCursor({
+        credentials,
+        startedBy,
+        model,
+        initialPrompt: promptParts.length > 0 ? promptParts.join(' ') : undefined,
+      });
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
   } else if (subcommand === 'gemini') {
     const { authAndSetupMachineIfNeeded } = await import('./ui/auth');
     const { isDaemonRunningCurrentlyInstalledHappyVersion } = await import('./daemon/controlClient');

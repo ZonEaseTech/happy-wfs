@@ -33,7 +33,7 @@ export const sessionSpawnInputSchema = {
         .min(1)
         .describe('Absolute path on the target machine where the agent should run.'),
     agent: z
-        .enum(['claude', 'gemini', 'codex'])
+        .enum(['claude', 'gemini', 'codex', 'cursor'])
         .describe('Which agent flavor to spawn.'),
     sessionTitle: z
         .string()
@@ -59,7 +59,7 @@ export const sessionSpawnInputSchema = {
 interface SessionSpawnInput {
     machineId: string;
     directory: string;
-    agent: 'claude' | 'gemini' | 'codex';
+    agent: 'claude' | 'gemini' | 'codex' | 'cursor';
     sessionTitle?: string;
     approvedNewDirectoryCreation?: boolean;
     resumeSessionId?: string;
@@ -68,7 +68,7 @@ interface SessionSpawnInput {
 interface SessionSpawnResult {
     sessionId: string;
     machineId: string;
-    agent: 'claude' | 'gemini' | 'codex';
+    agent: 'claude' | 'gemini' | 'codex' | 'cursor';
 }
 
 type DaemonSpawnReply =

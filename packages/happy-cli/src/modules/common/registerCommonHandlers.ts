@@ -283,7 +283,7 @@ export interface SpawnSessionOptions {
     sessionTitle?: string;
     skipForkSession?: boolean;
     approvedNewDirectoryCreation?: boolean;
-    agent?: 'claude' | 'codex' | 'gemini';
+    agent?: 'claude' | 'codex' | 'gemini' | 'cursor';
     token?: string;
     environmentVariables?: {
         // Anthropic Claude API configuration

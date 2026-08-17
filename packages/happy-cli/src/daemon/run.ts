@@ -102,7 +102,7 @@ export async function buildMachineMetadata(): Promise<MachineMetadata> {
 // Get environment variables for a profile, filtered for agent compatibility
 async function getProfileEnvironmentVariablesForAgent(
   profileId: string,
-  agentType: 'claude' | 'codex' | 'gemini'
+  agentType: 'claude' | 'codex' | 'gemini' | 'cursor'
 ): Promise<Record<string, string>> {
   try {
     const settings = await readSettings();
@@ -110,6 +110,14 @@ async function getProfileEnvironmentVariablesForAgent(
 
     if (!profile) {
       logger.debug(`[DAEMON RUN] Profile ${profileId} not found`);
+      return {};
+    }
+
+    // Cursor brings its own credentials and is not described by the
+    // Anthropic/OpenAI/Google profile compatibility matrix, so profiles simply
+    // do not apply to it.
+    if (agentType === 'cursor') {
+      logger.debug('[DAEMON RUN] Cursor sessions do not use AI backend profiles');
       return {};
     }
 
@@ -826,7 +834,10 @@ export async function startDaemon(): Promise<void> {
           // Construct command for the CLI
           const cliPath = join(projectPath(), 'dist', 'index.mjs');
           // Determine agent command - support claude, codex, and gemini
-          const agent = options.agent === 'gemini' ? 'gemini' : (options.agent === 'codex' ? 'codex' : 'claude');
+          const agent = options.agent === 'gemini' ? 'gemini'
+            : options.agent === 'codex' ? 'codex'
+              : options.agent === 'cursor' ? 'cursor'
+                : 'claude';
           const forkFlag = skipForkSession ? '' : ' --fork-session';
           const resumeArgs = resumeSessionId && isClaudeAgent ? ` --resume ${resumeSessionId}${forkFlag}` : '';
           const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agent} --happy-starting-mode remote --started-by daemon${resumeArgs}`;
@@ -927,6 +938,9 @@ export async function startDaemon(): Promise<void> {
               break;
             case 'gemini':
               agentCommand = 'gemini';
+              break;
+            case 'cursor':
+              agentCommand = 'cursor';
               break;
             default:
               return {

@@ -15,6 +15,9 @@ import {
     parseClaudeModelMode,
     parseCodexModelMode,
     resolveModelSelectionForFlavor,
+    CURSOR_MODEL_MODES,
+    CURSOR_MODEL_OPTIONS,
+    getValidModelModesForAgent,
 } from './modelCatalog';
 
 describe('modelCatalog', () => {
@@ -192,5 +195,45 @@ describe('modelCatalog', () => {
         // No actualModel falls back to agent default
         expect(getMaxContextSize('default', 'claude')).toBe(200_000);
         expect(getMaxContextSize('default', 'gemini')).toBe(1_000_000);
+    });
+});
+
+describe('cursor flavor', () => {
+    it('accepts only its own curated modes', () => {
+        expect(isModelModeForAgent('cursor', 'composer-2.5')).toBe(true);
+        expect(isModelModeForAgent('cursor', 'auto')).toBe(true);
+        expect(isModelModeForAgent('cursor', 'gpt-5.6-sol-high')).toBe(true);
+        // A valid Claude Code mode is not a valid Cursor mode.
+        expect(isModelModeForAgent('cursor', 'claude-opus-5[1m]-max')).toBe(false);
+        expect(isModelModeForAgent('cursor', 'not-a-model')).toBe(false);
+    });
+
+    it('offers the curated list, not all 161 Cursor ids', () => {
+        expect(getValidModelModesForAgent('cursor')).toBe(CURSOR_MODEL_MODES);
+        expect(CURSOR_MODEL_MODES.length).toBeLessThan(20);
+        // Every picker option must be a mode the validator accepts.
+        for (const option of CURSOR_MODEL_OPTIONS) {
+            expect(isModelModeForAgent('cursor', option.value)).toBe(true);
+        }
+    });
+
+    it('passes the id straight through, since Cursor ids already carry effort', () => {
+        expect(resolveModelSelectionForFlavor('cursor', 'composer-2.5')).toEqual({
+            model: 'composer-2.5',
+            reasoningEffort: null,
+        });
+        expect(resolveModelSelectionForFlavor('cursor', 'claude-opus-5-thinking-high')).toEqual({
+            model: 'claude-opus-5-thinking-high',
+            reasoningEffort: null,
+        });
+        expect(resolveModelSelectionForFlavor('cursor', 'default')).toEqual({
+            model: null,
+            reasoningEffort: null,
+        });
+    });
+
+    it('uses the conservative context floor, since the routed model is unknown', () => {
+        expect(getMaxContextSize('default', 'cursor')).toBe(200_000);
+        expect(getMaxContextSize('auto', 'cursor')).toBe(200_000);
     });
 });

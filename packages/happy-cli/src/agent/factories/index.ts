@@ -23,6 +23,14 @@ export {
   type CodexBackendResult,
 } from './codex';
 
+// Cursor factory
+export {
+  createCursorBackend,
+  registerCursorAgent,
+  type CursorBackendOptions,
+  type CursorBackendResult,
+} from './cursor';
+
 // Future factories:
 // export { createClaudeBackend, registerClaudeAgent, type ClaudeBackendOptions } from './claude';
 // export { createOpenCodeBackend, registerOpenCodeAgent, type OpenCodeBackendOptions } from './opencode';

@@ -1,4 +1,4 @@
-export type AgentFlavor = 'claude' | 'codex' | 'gemini';
+export type AgentFlavor = 'claude' | 'codex' | 'gemini' | 'cursor';
 
 export const MODEL_MODE_DEFAULT = 'default' as const;
 
@@ -132,6 +132,17 @@ export const MODEL_MODES = [
     'gemini-3-pro-preview',
     'gemini-3-flash-preview',
     'gemini-2.5-pro',
+    // Cursor resells models from every vendor — `cursor-agent --list-models`
+    // returned 161 ids. Only a curated set lives here: the ids below are the
+    // ones the picker offers. Anything else Cursor supports is still reachable
+    // by passing --model to `happy cursor`, which does not go through this list.
+    'auto',
+    'composer-2.5',
+    'composer-2.5-fast',
+    'cursor-grok-4.6-high',
+    'gemini-3.7-flash-high',
+    'claude-opus-5-thinking-high',
+    'claude-sonnet-5-high',
 ] as const;
 
 export type ModelMode = typeof MODEL_MODES[number];
@@ -205,6 +216,25 @@ export const GEMINI_MODEL_MODES = [
     'gemini-2.5-pro',
 ] as const satisfies readonly ModelMode[];
 
+/**
+ * Cursor's own picker list. Deliberately short: Cursor exposes 161 model ids
+ * (it fronts Anthropic, OpenAI, Google, xAI, Moonshot and Zhipu), so a full
+ * mirror would be unusable in a picker and stale within weeks. These are the
+ * flagship rungs — Cursor's own Composer, Auto (which routes for you), plus one
+ * strong option per vendor.
+ */
+export const CURSOR_MODEL_MODES = [
+    MODEL_MODE_DEFAULT,
+    'auto',
+    'composer-2.5',
+    'composer-2.5-fast',
+    'claude-opus-5-thinking-high',
+    'claude-sonnet-5-high',
+    'gpt-5.6-sol-high',
+    'cursor-grok-4.6-high',
+    'gemini-3.7-flash-high',
+] as const satisfies readonly ModelMode[];
+
 export const CODEX_MODEL_MODES = [
     MODEL_MODE_DEFAULT,
     'gpt-5.6-sol-low',
@@ -252,6 +282,7 @@ const MODEL_MODE_SET = new Set<ModelMode>(MODEL_MODES);
 const CLAUDE_MODEL_MODE_SET = new Set<ModelMode>(CLAUDE_MODEL_MODES);
 const GEMINI_MODEL_MODE_SET = new Set<ModelMode>(GEMINI_MODEL_MODES);
 const CODEX_MODEL_MODE_SET = new Set<ModelMode>(CODEX_MODEL_MODES);
+const CURSOR_MODEL_MODE_SET = new Set<ModelMode>(CURSOR_MODEL_MODES);
 
 export function isModelMode(value: string): value is ModelMode {
     return MODEL_MODE_SET.has(value as ModelMode);
@@ -261,12 +292,14 @@ export function isModelModeForAgent(agent: AgentFlavor, mode: string): mode is M
     if (!isModelMode(mode)) return false;
     if (agent === 'claude') return CLAUDE_MODEL_MODE_SET.has(mode);
     if (agent === 'gemini') return GEMINI_MODEL_MODE_SET.has(mode);
+    if (agent === 'cursor') return CURSOR_MODEL_MODE_SET.has(mode);
     return CODEX_MODEL_MODE_SET.has(mode);
 }
 
 export function getValidModelModesForAgent(agent: AgentFlavor): readonly ModelMode[] {
     if (agent === 'claude') return CLAUDE_MODEL_MODES;
     if (agent === 'gemini') return GEMINI_MODEL_MODES;
+    if (agent === 'cursor') return CURSOR_MODEL_MODES;
     return CODEX_MODEL_MODES;
 }
 
@@ -345,6 +378,18 @@ export const GEMINI_MODEL_OPTIONS = [
     { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Preview)', shortLabel: '3 Pro', description: 'Most capable' },
     { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Preview)', shortLabel: '3 Flash', description: 'Fast and efficient' },
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', shortLabel: '2.5 Pro', description: 'Most capable' },
+] as const;
+
+export const CURSOR_MODEL_OPTIONS = [
+    { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
+    { value: 'auto', label: 'Auto (Cursor Router)', shortLabel: 'Auto', description: 'Cursor picks the model per request' },
+    { value: 'composer-2.5', label: 'Composer 2.5', shortLabel: 'Composer', description: "Cursor's own model" },
+    { value: 'composer-2.5-fast', label: 'Composer 2.5 Fast', shortLabel: 'Composer F', description: 'Faster, lower latency' },
+    { value: 'claude-opus-5-thinking-high', label: 'Claude Opus 5 Thinking', shortLabel: 'Opus 5', description: 'Strongest for execution' },
+    { value: 'claude-sonnet-5-high', label: 'Claude Sonnet 5', shortLabel: 'Sonnet 5', description: 'Balanced' },
+    { value: 'gpt-5.6-sol-high', label: 'GPT-5.6 Sol', shortLabel: 'Sol', description: 'Strong at planning' },
+    { value: 'cursor-grok-4.6-high', label: 'Grok 4.6', shortLabel: 'Grok', description: 'Fast on routine work' },
+    { value: 'gemini-3.7-flash-high', label: 'Gemini 3.7 Flash', shortLabel: '3.7 Flash', description: 'Fast and cheap' },
 ] as const;
 
 export const CODEX_MODEL_FAMILY_OPTIONS = [
@@ -542,7 +587,7 @@ export function resolveModelSelectionForFlavor(flavor: string | null | undefined
         if (parsed.family === MODEL_MODE_DEFAULT) return { model: modelMode, reasoningEffort: null };
         return { model: parsed.family, reasoningEffort: parsed.effort };
     }
-    if (flavor === 'gemini') return { model: modelMode, reasoningEffort: null };
+    if (flavor === 'gemini' || flavor === 'cursor') return { model: modelMode, reasoningEffort: null };
     return { model: null, reasoningEffort: null };
 }
 
@@ -610,6 +655,10 @@ const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     claude: 200_000,
     codex: 258_400,
     gemini: 1_000_000,
+    // Cursor fronts other vendors' models, so the window depends on which one a
+    // request lands on — and under Auto that is not known ahead of time. Take
+    // the conservative floor rather than overstate the budget.
+    cursor: 200_000,
 };
 
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
