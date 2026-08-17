@@ -73,6 +73,8 @@ Running `happy` prints a QR code for device pairing.
 - 🧰 **Multi-repo workspaces** - Worktree-based multi-repo flows with branch selection and PR creation
 - 📁 **Code browser & git management** - Browse files, view diffs, stage/commit/discard from your phone
 - 📨 **Pending message queue** - Messages queued and auto-dispatched when CLI is ready
+- 🖥️ **Device fleet** - Enroll machines with one command, then run commands, open terminals, and let the AI reach them
+- 🐞 **Bug boards** - File, discuss, and track feedback with screenshots, shared across your company
 
 ## How does it work?
 
@@ -100,8 +102,8 @@ Happy AI is a major evolution of the original Happy. Here are the highlights:
 - Per-agent model selection, cost tracking, and context window display
 - ACP and App-Server (JSON-RPC) backends for Codex, Codex v0.121.0 with fast mode
 - AI backend profiles with presets for DeepSeek, Z.AI, OpenAI, Azure, and Google AI
-- Claude Opus 4.7 support with empty thinking block filtering for clean 4.x rendering
-- GPT-5.5 support for Codex with low/medium/high/xhigh reasoning levels
+- Claude Opus 5 as the default Claude model, with empty thinking block filtering for clean rendering
+- GPT-5.6 for Codex with low/medium/high/xhigh reasoning levels; copied Codex sessions default to GPT-5.6
 
 ### Voice Assistant (Happy Voice)
 - LiveKit-based voice gateway with pluggable STT/LLM/TTS providers
@@ -123,6 +125,32 @@ Happy AI is a major evolution of the original Happy. Here are the highlights:
 - Git changes page: stage, unstage, commit, discard
 - Per-file diff stats (+N/-N) for Claude, Codex, and Gemini
 - Image preview with sharing support
+
+### Device Fleet
+- One-line enrollment: a server token, an installer, and a single CLI command per machine
+- `happy ssh` with an interactive device picker, single-command runs that return the remote exit code, and streamed output
+- Device terminals kept mounted across routes, with tabs named after the device
+- Per-device notes that are surfaced to the AI, so it knows what each machine is for
+- Copy files to a device without a tunnel, and manage devices (rename, remove, key approvals) from the app
+- `device_exec` MCP tool: sessions reach every enrolled device by default, or target a chosen set
+- Share devices over a hosted MCP endpoint — one token can cover several devices, with grants you can view, extend, and revoke
+
+### Bug Boards & Feedback
+- File bugs from any session, with a notes-style rich editor and screenshot comments (paste straight into the comment box)
+- Shared feedback board with company-wide visibility and account attribution
+- Pending bugs sorted first, auto-refreshing list and badge count, refresh beside the search box
+- Unsent bug drafts survive a browser reload
+- Feishu webhook notifications on new bugs and comments, with real @ pings
+
+### Company & Collaboration
+- Company management with member directory and mention sharing
+- Mention people into a session — collaborators can mention participants, edit collaborators can mention their own friends
+- Chat in public shared sessions
+
+### Notifications & Inbox
+- Prominent unread dot plus browser notifications for mentions, with the session title in the notification
+- Clear read items or the whole feed, 7-day auto expiry
+- Memories cached on device so the list renders instantly
 
 ### Session Sharing
 - Share sessions with friends via direct invite or public link
@@ -158,6 +186,10 @@ Happy AI is a major evolution of the original Happy. Here are the highlights:
 - Fixes for cursor skip, outbox race, message duplication/loss
 
 ### Chat & Session UX
+- Whole session history loads in the background after a session opens, and is cached on device so reopening shows it all at once
+- Message navigator rail on desktop: hover to peek at any of your own messages, click to jump back to it
+- Pin messages as session goals — several per session, synced through the server, styled as accent cards
+- Quick commands on phones, with status and output shown inline
 - Image attachment and clipboard paste (web), image support in drafts, high-quality pass-through up to 1568px preserving text sharpness in code/UI screenshots
 - Session titles seeded from the first user message for new sessions (until an AI summary takes over)
 - Slash command results surface even when the agent emits no assistant message (e.g. unknown commands no longer blank out)
@@ -168,8 +200,9 @@ Happy AI is a major evolution of the original Happy. Here are the highlights:
 - Options click-to-send / long-press-to-fill, scroll-to-bottom button
 - Pull-to-refresh, inset dividers, Agent tool display with robot icon
 - Tool input/output formatted as key-value pairs instead of raw JSON
-- `preview_html` tool for full-page HTML preview, colon-separated MCP tool naming
+- `preview_html` tool for full-page HTML preview with short links for public preview shares, colon-separated MCP tool naming
 - CLI hot-upgrade support mid-session
+- Sidebar project groups split by machine, compact session view and merged worktree groups on by default
 
 ### CLI
 - `happy update` self-upgrade, `happy --version` with all agent versions
