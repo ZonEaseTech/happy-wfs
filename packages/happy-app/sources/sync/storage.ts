@@ -63,7 +63,7 @@ function isSessionActive(session: { active: boolean; activeAt: number }): boolea
 }
 
 function resolveSessionModeAgentType(flavor: string | null | undefined): SessionModeAgentType {
-    if (flavor === 'codex' || flavor === 'gemini') {
+    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'cursor') {
         return flavor;
     }
     return 'claude';

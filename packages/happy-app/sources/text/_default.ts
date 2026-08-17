@@ -1103,6 +1103,7 @@ export const en = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            cursor: 'Cursor',
         },
         quickActions: {
             title: 'AI Shortcuts',
@@ -2079,6 +2080,8 @@ export const en = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
+        installCursor: 'Install cursor-agent CLI if available',
+        viewCursorDocs: 'View Cursor Docs →',
 
         // Profile actions
         add: 'Add',

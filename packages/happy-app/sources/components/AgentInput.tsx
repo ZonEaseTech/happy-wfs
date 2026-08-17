@@ -52,6 +52,7 @@ import {
     formatReasoningEffortLabel,
     FAST_MODE_ICON_COLOR,
     GEMINI_MODEL_OPTIONS,
+    CURSOR_MODEL_OPTIONS,
     getClaudeReasoningOptions,
     getCodexReasoningOptions,
     getMaxContextSize,
@@ -131,7 +132,7 @@ interface AgentInputProps {
     };
     alwaysShowContextSize?: boolean;
     onFileViewerPress?: () => void;
-    agentType?: 'claude' | 'codex' | 'gemini';
+    agentType?: 'claude' | 'codex' | 'gemini' | 'cursor';
     onAgentClick?: () => void;
     machineName?: string | null;
     onMachineClick?: () => void;
@@ -448,9 +449,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // agent from other stable hints before falling back to Claude; otherwise a
     // Codex session whose modelMode is gpt-* renders the Claude model list with
     // no selected radio item.
-    const effectiveAgentType = React.useMemo<'claude' | 'codex' | 'gemini'>(() => {
+    const effectiveAgentType = React.useMemo<'claude' | 'codex' | 'gemini' | 'cursor'>(() => {
         const flavor = props.metadata?.flavor;
-        if (flavor === 'codex' || flavor === 'gemini' || flavor === 'claude') {
+        if (flavor === 'codex' || flavor === 'gemini' || flavor === 'claude' || flavor === 'cursor') {
             return flavor;
         }
         if (props.agentType) {
@@ -500,6 +501,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isCodex = effectiveAgentType === 'codex';
     const isGemini = effectiveAgentType === 'gemini';
     const isClaude = effectiveAgentType === 'claude';
+    const isCursor = effectiveAgentType === 'cursor';
     const codexSelection = React.useMemo<{ family: CodexModelFamily; effort: CodexReasoningEffort }>(() => {
         return parseCodexModelMode(selectedModelMode);
     }, [selectedModelMode]);
@@ -546,8 +548,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     }, [claudeSelection.family, props.onModelModeChange]);
     const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string }>>(() => {
         if (isGemini) return [...GEMINI_MODEL_OPTIONS];
+        if (isCursor) return [...CURSOR_MODEL_OPTIONS];
         return [{ value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' }];
-    }, [isGemini]);
+    }, [isGemini, isCursor]);
 
     const currentModelLabel = React.useMemo(() => {
         if (isCodex) {
@@ -2019,6 +2022,18 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         })}
                                     >
                                         {(() => {
+                                            // Cursor ships no brand asset here; a glyph is honest,
+                                            // whereas falling back to Claude's mark would label a
+                                            // Cursor session with a competitor's logo.
+                                            if (effectiveAgentType === 'cursor') {
+                                                return (
+                                                    <Ionicons
+                                                        name="code-slash"
+                                                        size={16}
+                                                        color={theme.colors.button.secondary.tint}
+                                                    />
+                                                );
+                                            }
                                             const isCodex = props.agentType === 'codex';
                                             const iconSize = isCodex ? 15 : 18;
                                             const iconStyle = {
@@ -2042,7 +2057,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             fontWeight: '600',
                                             ...Typography.default('semiBold'),
                                         }}>
-                                            {props.agentType === 'claude' ? t('agentInput.agent.claude') : props.agentType === 'codex' ? t('agentInput.agent.codex') : t('agentInput.agent.gemini')}
+                                            {effectiveAgentType === 'claude' ? t('agentInput.agent.claude') : effectiveAgentType === 'codex' ? t('agentInput.agent.codex') : effectiveAgentType === 'cursor' ? t('agentInput.agent.cursor') : t('agentInput.agent.gemini')}
                                         </Text>
                                     </Pressable>
                                 )}

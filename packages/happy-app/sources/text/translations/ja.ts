@@ -1121,6 +1121,7 @@ export const ja: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            cursor: 'Cursor',
         },
         quickActions: {
             title: 'AI Shortcuts',
@@ -2057,6 +2058,8 @@ export const ja: TranslationStructure = {
         installGemini: 'Gemini CLI をインストール（利用可能な場合）',
         viewInstallGuide: 'インストールガイドを見る →',
         viewGeminiDocs: 'Gemini ドキュメントを見る →',
+        installCursor: 'cursor-agent CLI をインストール（利用可能な場合）',
+        viewCursorDocs: 'Cursor ドキュメントを見る →',
         add: '追加',
         duplicate: '複製',
         delete: '削除',

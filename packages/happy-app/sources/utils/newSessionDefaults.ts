@@ -2,9 +2,12 @@ import { isModelModeForAgent, MODEL_MODE_DEFAULT } from 'happy-wire';
 import type { ModelMode } from 'happy-wire';
 import { CODEX_COPY_SESSION_MODEL_MODE } from './copySessionDefaults';
 
-export type NewSessionAgentType = 'claude' | 'codex' | 'gemini';
+export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'cursor';
 export type NewSessionProfileAgentCompatibility = Partial<Record<NewSessionAgentType, boolean>>;
 
+// Used only to infer an agent from a profile's exclusive compatibility. Cursor
+// is absent on purpose: profiles configure Anthropic/OpenAI/Google endpoints and
+// Cursor authenticates itself, so no profile can ever point at it.
 const NEW_SESSION_AGENT_TYPES = ['claude', 'codex', 'gemini'] as const;
 
 export const CLAUDE_NEW_SESSION_DEFAULT_MODEL = 'claude-opus-5[1m]' satisfies ModelMode;

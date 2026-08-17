@@ -411,7 +411,7 @@ export interface SpawnSessionOptions {
     directory: string;
     approvedNewDirectoryCreation?: boolean;
     token?: string;
-    agent?: 'codex' | 'claude' | 'gemini';
+    agent?: 'codex' | 'claude' | 'gemini' | 'cursor';
     resumeSessionId?: string;
     /**
      * Caller-declared spawn intent. Required for the daemon (>=0.3.3) to honor

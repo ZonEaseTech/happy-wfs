@@ -5,6 +5,8 @@ interface CLIAvailability {
     claude: boolean | null; // null = unknown/loading, true = installed, false = not installed
     codex: boolean | null;
     gemini: boolean | null;
+    // The Cursor binary is `cursor-agent`, not `cursor`.
+    cursor: boolean | null;
     isDetecting: boolean; // Explicit loading state
     timestamp: number; // When detection completed
     error?: string; // Detection error message (for debugging)
@@ -13,16 +15,17 @@ interface CLIAvailability {
 const CLI_DETECTION_COMMAND =
     '(command -v claude >/dev/null 2>&1 && echo "claude:true" || echo "claude:false") && ' +
     '(command -v codex >/dev/null 2>&1 && echo "codex:true" || echo "codex:false") && ' +
-    '(command -v gemini >/dev/null 2>&1 && echo "gemini:true" || echo "gemini:false")';
+    '(command -v gemini >/dev/null 2>&1 && echo "gemini:true" || echo "gemini:false") && ' +
+    '(command -v cursor-agent >/dev/null 2>&1 && echo "cursor:true" || echo "cursor:false")';
 
 function parseCLIOutput(stdout: string): CLIAvailability {
     const lines = stdout.trim().split('\n');
-    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean } = {};
+    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean; cursor?: boolean } = {};
 
     lines.forEach(line => {
         const [cli, status] = line.split(':');
         if (cli && status) {
-            cliStatus[cli.trim() as 'claude' | 'codex' | 'gemini'] = status.trim() === 'true';
+            cliStatus[cli.trim() as 'claude' | 'codex' | 'gemini' | 'cursor'] = status.trim() === 'true';
         }
     });
 
@@ -30,6 +33,7 @@ function parseCLIOutput(stdout: string): CLIAvailability {
         claude: cliStatus.claude ?? null,
         codex: cliStatus.codex ?? null,
         gemini: cliStatus.gemini ?? null,
+        cursor: cliStatus.cursor ?? null,
         isDetecting: false,
         timestamp: Date.now(),
     };
@@ -62,13 +66,14 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
         claude: null,
         codex: null,
         gemini: null,
+        cursor: null,
         isDetecting: false,
         timestamp: 0,
     });
 
     useEffect(() => {
         if (!machineId) {
-            setAvailability({ claude: null, codex: null, gemini: null, isDetecting: false, timestamp: 0 });
+            setAvailability({ claude: null, codex: null, gemini: null, cursor: null, isDetecting: false, timestamp: 0 });
             return;
         }
 
@@ -90,7 +95,7 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
                 } else {
                     console.log('[useCLIDetection] Detection failed (success=false or exitCode!=0):', result);
                     setAvailability({
-                        claude: null, codex: null, gemini: null,
+                        claude: null, codex: null, gemini: null, cursor: null,
                         isDetecting: false, timestamp: 0,
                         error: `Detection failed: ${result.stderr || 'Unknown error'}`,
                     });
@@ -99,7 +104,7 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
                 if (cancelled) return;
                 console.log('[useCLIDetection] Network/RPC error:', error);
                 setAvailability({
-                    claude: null, codex: null, gemini: null,
+                    claude: null, codex: null, gemini: null, cursor: null,
                     isDetecting: false, timestamp: 0,
                     error: error instanceof Error ? error.message : 'Detection error',
                 });
@@ -142,7 +147,7 @@ export function useCLIDetectionBatch(machineIds: string[]): Record<string, CLIAv
         // Mark all as detecting synchronously
         const detecting: Record<string, CLIAvailability> = {};
         for (const id of ids) {
-            detecting[id] = { claude: null, codex: null, gemini: null, isDetecting: true, timestamp: 0 };
+            detecting[id] = { claude: null, codex: null, gemini: null, cursor: null, isDetecting: true, timestamp: 0 };
         }
         setAvailabilityMap(detecting);
 
@@ -155,14 +160,14 @@ export function useCLIDetectionBatch(machineIds: string[]): Record<string, CLIAv
                 } else {
                     setAvailabilityMap(prev => ({
                         ...prev,
-                        [machineId]: { claude: null, codex: null, gemini: null, isDetecting: false, timestamp: 0 },
+                        [machineId]: { claude: null, codex: null, gemini: null, cursor: null, isDetecting: false, timestamp: 0 },
                     }));
                 }
             }).catch(() => {
                 if (cancelled) return;
                 setAvailabilityMap(prev => ({
                     ...prev,
-                    [machineId]: { claude: null, codex: null, gemini: null, isDetecting: false, timestamp: 0 },
+                    [machineId]: { claude: null, codex: null, gemini: null, cursor: null, isDetecting: false, timestamp: 0 },
                 }));
             });
         }

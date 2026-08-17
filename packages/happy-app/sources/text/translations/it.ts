@@ -1119,6 +1119,7 @@ export const it: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            cursor: 'Cursor',
         },
         quickActions: {
             title: 'AI Shortcuts',
@@ -2055,6 +2056,8 @@ export const it: TranslationStructure = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
+        installCursor: 'Installa la CLI cursor-agent se disponibile',
+        viewCursorDocs: 'Vedi la documentazione di Cursor →',
         add: 'Add',
         duplicate: 'Duplicate',
         delete: 'Delete',

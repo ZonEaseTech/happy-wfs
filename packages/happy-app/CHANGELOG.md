@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 18 - 2026-08-17
+
+Cursor joins Claude, Codex and Gemini as an agent you can drive from your phone.
+
+- Cursor: run `happy cursor` on your machine to start a session backed by the Cursor CLI — its thinking, tool calls, file edits and token usage stream to the app like any other agent.
+- Cursor: start one straight from the new-session screen — Cursor joins the agent picker, and the app checks whether `cursor-agent` is installed on the target machine before you commit to it.
+- Cursor: sessions are labelled Cursor rather than falling back to Claude, and the model picker offers Cursor's own line-up (Auto, Composer 2.5, plus a flagship from each vendor it fronts).
+- Note: tool approval is not wired for Cursor yet, so those sessions run with the permissions your local Cursor install grants.
+
 ## Version 17 - 2026-08-17
 
 Long sessions load their whole history on their own.
