@@ -23,7 +23,7 @@ import type {
     StartSessionResult,
 } from '@/agent/core/AgentBackend';
 import type { AgentMessage } from '@/agent/core/AgentMessage';
-import { drainJsonLines, mapCursorStreamEvent, parseCursorSessionInit } from './cursorStreamEvents';
+import { createCursorStreamState, drainJsonLines, mapCursorStreamEvent, parseCursorSessionInit, type CursorStreamState } from './cursorStreamEvents';
 
 export interface CursorCliBackendOptions {
     /** Working directory for the agent */
@@ -36,10 +36,21 @@ export interface CursorCliBackendOptions {
     command?: string;
     /** Extra CLI flags, escape hatch while the integration settles */
     extraArgs?: string[];
+    /** Chat id to continue instead of starting a fresh one */
+    resumeChatId?: string | null;
 }
 
 /** How long to wait for the child to exit on its own before killing it. */
 const CANCEL_GRACE_MS = 2000;
+/**
+ * Reasoning arrives a few words at a time, and the app renders every thinking
+ * message as its own block — forwarding each delta produces a column of
+ * fragments. Buffering until the thought completes fixes the layout but leaves
+ * the screen blank for as long as the model thinks, so the buffer is flushed on
+ * this interval instead: a short thought still arrives as one block, a long one
+ * shows progress within this much time.
+ */
+const THINKING_FLUSH_MS = 800;
 
 export class CursorCliBackend implements AgentBackend {
     private readonly options: CursorCliBackendOptions;
@@ -48,13 +59,33 @@ export class CursorCliBackend implements AgentBackend {
     private child: ChildProcessByStdio<null, Readable, Readable> | null = null;
     /** Cursor's own chat id, used to resume on the next turn. */
     private chatId: string | null = null;
+    /** Current model id; null leaves the choice to Cursor. */
+    private model: string | null = null;
     private stdoutBuffer = '';
+    private streamState: CursorStreamState = createCursorStreamState();
+    private thinkingFlushTimer: ReturnType<typeof setTimeout> | null = null;
     private turnComplete: Promise<void> = Promise.resolve();
     private resolveTurn: (() => void) | null = null;
     private disposed = false;
 
     constructor(options: CursorCliBackendOptions) {
         this.options = options;
+        this.chatId = options.resumeChatId ?? null;
+        this.model = options.model ?? null;
+    }
+
+    /**
+     * The app sends the chosen model with every message, so it can change
+     * between turns. Each turn spawns its own process, which is where the new
+     * value takes effect.
+     */
+    setModel(model: string | null): void {
+        this.model = model;
+    }
+
+    /** Cursor's own chat id, once it is known. */
+    getChatId(): string | null {
+        return this.chatId;
     }
 
     onMessage(handler: AgentMessageHandler): void {
@@ -109,16 +140,28 @@ export class CursorCliBackend implements AgentBackend {
         // answer, so the run exits 1 before emitting a single event. Note this
         // is not --force/--yolo: it authorises the directory, it does not waive
         // per-tool permission.
-        const args = ['-p', prompt, '--output-format', 'stream-json', '--trust'];
-        if (this.options.model) args.push('--model', this.options.model);
+        // --force is what lets non-readonly commands run at all. Without it,
+        // print mode has no interactive prompt to fall back on and Cursor
+        // rejects every such command outright — `git status`, even `echo hello`,
+        // come back as {"rejected": ..., "isReadonly": false}.
+        //
+        // It does not surrender control: the preToolUse hook still runs and its
+        // deny still wins over --force (measured — a denied Write stayed
+        // unwritten, and the agent's attempt to reach the same end through Shell
+        // was blocked too). Permission therefore lives in Happy's approval
+        // layer, which is where the other agents keep it as well.
+        const args = ['-p', prompt, '--output-format', 'stream-json', '--trust', '--force'];
+        if (this.model) args.push('--model', this.model);
         if (this.chatId) args.push('--resume', this.chatId);
         if (this.options.extraArgs?.length) args.push(...this.options.extraArgs);
 
         const command = this.options.command ?? 'cursor-agent';
-        logger.debug(`[cursor] spawn ${command} ${this.chatId ? `(resume ${this.chatId})` : '(new chat)'}`);
+        logger.debug(`[cursor] spawn ${command} model=${this.model ?? '(Cursor default)'} ${this.chatId ? `(resume ${this.chatId})` : '(new chat)'}`);
 
         this.emit({ type: 'status', status: 'starting' });
         this.stdoutBuffer = '';
+        this.flushThinking();
+        this.streamState = createCursorStreamState();
         this.turnComplete = new Promise<void>((resolve) => { this.resolveTurn = resolve; });
 
         const child = spawn(command, args, {
@@ -150,6 +193,7 @@ export class CursorCliBackend implements AgentBackend {
         child.on('close', (code) => {
             // Flush whatever was left without a trailing newline.
             this.consumeStdout('\n');
+            this.flushThinking();
             if (code !== 0) {
                 const reason = lastStderr.length > 0 ? `: ${lastStderr}` : '';
                 this.emit({ type: 'status', status: 'error', detail: `cursor-agent exited with code ${code}${reason}` });
@@ -159,6 +203,18 @@ export class CursorCliBackend implements AgentBackend {
         });
 
         await this.turnComplete;
+    }
+
+    /** Emits whatever reasoning has accumulated, if any. */
+    private flushThinking(): void {
+        if (this.thinkingFlushTimer) {
+            clearTimeout(this.thinkingFlushTimer);
+            this.thinkingFlushTimer = null;
+        }
+        const text = this.streamState.thinkingBuffer;
+        if (!text) return;
+        this.streamState.thinkingBuffer = '';
+        this.emit({ type: 'event', name: 'thinking', payload: { textDelta: text } });
     }
 
     private consumeStdout(chunk: string): void {
@@ -171,8 +227,20 @@ export class CursorCliBackend implements AgentBackend {
                 this.chatId = init.sessionId;
                 logger.debug(`[cursor] chat id ${init.sessionId} model ${init.model ?? '(default)'}`);
             }
-            for (const message of mapCursorStreamEvent(event)) {
+            for (const message of mapCursorStreamEvent(event, this.streamState)) {
+                // A completed thought arrives whole; drop any pending flush so
+                // the same text is not sent twice.
+                if (message.type === 'event' && message.name === 'thinking' && this.thinkingFlushTimer) {
+                    clearTimeout(this.thinkingFlushTimer);
+                    this.thinkingFlushTimer = null;
+                }
                 this.emit(message);
+            }
+            if (this.streamState.thinkingBuffer && !this.thinkingFlushTimer) {
+                this.thinkingFlushTimer = setTimeout(() => {
+                    this.thinkingFlushTimer = null;
+                    this.flushThinking();
+                }, THINKING_FLUSH_MS);
             }
         }
     }

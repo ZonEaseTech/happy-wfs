@@ -1811,6 +1811,33 @@ export async function machineDuplicateCodexSession(
 /**
  * Fork a Codex session without truncation (resume)
  */
+export async function machineForkCursorSession(
+    machineId: string,
+    cursorSessionId: string,
+    options?: { timeoutMs?: number }
+): Promise<{ success: boolean; newChatId?: string; errorMessage?: string }> {
+    const timeoutMs = options?.timeoutMs ?? 90000;
+
+    try {
+        const rpcPromise = apiSocket.machineRPC<any, { cursorSessionId: string }>(
+            machineId,
+            'cursor-fork-session',
+            { cursorSessionId }
+        );
+        const result = await Promise.race([
+            rpcPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Fork timed out')), timeoutMs)),
+        ]) as { success?: boolean; newChatId?: string; errorMessage?: string };
+
+        if (!result?.success || !result.newChatId) {
+            return { success: false, errorMessage: result?.errorMessage || 'Failed to fork Cursor chat' };
+        }
+        return { success: true, newChatId: result.newChatId };
+    } catch (error) {
+        return { success: false, errorMessage: error instanceof Error ? error.message : 'Failed to fork Cursor chat' };
+    }
+}
+
 export async function machineForkCodexSession(
     machineId: string,
     codexSessionId: string,

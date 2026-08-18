@@ -98,7 +98,7 @@ describe('GeminiPermissionHandler', () => {
       mode: 'bypassPermissions',
     });
 
-    await expect(pending).resolves.toEqual({ decision: 'approved_for_session' });
+    await expect(pending).resolves.toEqual({ decision: 'approved_for_session', mode: 'bypassPermissions' });
     expect(agentState.completedRequests?.['tool-3']).toMatchObject({
       tool: 'Bash',
       arguments: { command: 'whoami' },
@@ -126,7 +126,7 @@ describe('GeminiPermissionHandler', () => {
       mode: 'bypassPermissions',
     });
 
-    await expect(firstPending).resolves.toEqual({ decision: 'approved_for_session' });
+    await expect(firstPending).resolves.toEqual({ decision: 'approved_for_session', mode: 'bypassPermissions' });
     await expect(secondPending).resolves.toEqual({ decision: 'approved_for_session' });
     expect(agentState.requests?.['tool-4']).toBeUndefined();
     expect(agentState.requests?.['tool-5']).toBeUndefined();

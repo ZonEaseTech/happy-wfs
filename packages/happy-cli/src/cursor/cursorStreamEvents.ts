@@ -11,6 +11,7 @@
  */
 
 import type { AgentMessage } from '@/agent/core/AgentMessage';
+import { normalizeCursorTool } from './cursorToolNames';
 
 /** Top-level event types cursor-agent emits on the stream. */
 export type CursorStreamEventType = 'system' | 'user' | 'thinking' | 'tool_call' | 'assistant' | 'result';
@@ -20,6 +21,19 @@ export interface CursorStreamEvent {
     subtype?: string;
     session_id?: string;
     [key: string]: unknown;
+}
+
+/**
+ * Carried across events within a turn. Cursor streams reasoning a few words at
+ * a time; forwarding each delta separately turns one thought into a column of
+ * disconnected blocks in the app, so they are joined and sent once.
+ */
+export interface CursorStreamState {
+    thinkingBuffer: string;
+}
+
+export function createCursorStreamState(): CursorStreamState {
+    return { thinkingBuffer: '' };
 }
 
 /** Session facts carried by the `system/init` event. */
@@ -55,9 +69,12 @@ function unwrapToolCall(toolCall: unknown): { toolName: string; args: Record<str
     for (const [key, value] of Object.entries(toolCall as Record<string, unknown>)) {
         if (!key.endsWith('ToolCall') || !value || typeof value !== 'object') continue;
         const inner = value as { args?: unknown; result?: unknown };
+        // `grepToolCall` → Grep, and its `path` also becomes `file_path`: the
+        // app keys its cards off Claude's names and argument spellings.
+        const normalized = normalizeCursorTool(key.replace(/ToolCall$/, ''), inner.args);
         return {
-            toolName: key.replace(/ToolCall$/, ''),
-            args: (inner.args && typeof inner.args === 'object' ? inner.args : {}) as Record<string, unknown>,
+            toolName: normalized.name,
+            args: normalized.input,
             result: inner.result ?? null,
         };
     }
@@ -94,7 +111,7 @@ export function parseCursorSessionInit(event: CursorStreamEvent): CursorSessionI
  * a completed edit yields both a tool-result and an fs-edit, and an unknown
  * event yields nothing rather than a guess.
  */
-export function mapCursorStreamEvent(event: CursorStreamEvent): AgentMessage[] {
+export function mapCursorStreamEvent(event: CursorStreamEvent, state?: CursorStreamState): AgentMessage[] {
     switch (event.type) {
         case 'system': {
             if (event.subtype !== 'init') return [];
@@ -112,10 +129,21 @@ export function mapCursorStreamEvent(event: CursorStreamEvent): AgentMessage[] {
             return [];
 
         case 'thinking': {
-            if (event.subtype !== 'delta') return [];
-            const text = typeof event.text === 'string' ? event.text : null;
-            if (!text) return [];
-            return [{ type: 'event', name: 'thinking', payload: { textDelta: text } }];
+            const text = typeof event.text === 'string' ? event.text : '';
+            if (event.subtype === 'delta') {
+                if (!text) return [];
+                // Without somewhere to accumulate, fall back to forwarding the
+                // delta so a stateless caller still sees the reasoning.
+                if (!state) return [{ type: 'event', name: 'thinking', payload: { textDelta: text } }];
+                state.thinkingBuffer += text;
+                return [];
+            }
+            if (event.subtype === 'completed' && state?.thinkingBuffer) {
+                const full = state.thinkingBuffer;
+                state.thinkingBuffer = '';
+                return [{ type: 'event', name: 'thinking', payload: { textDelta: full } }];
+            }
+            return [];
         }
 
         case 'assistant': {

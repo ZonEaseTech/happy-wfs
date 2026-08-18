@@ -399,9 +399,20 @@ export const getBuiltInProfile = (id: string): AIBackendProfile | null => {
  * These provide quick-start configurations for popular AI providers.
  */
 export const DEFAULT_PROFILES = [
+    // Order is deliberate: the three most-used backends first, the rest after.
     {
         id: 'anthropic',
         name: 'Anthropic (Default)',
+        isBuiltIn: true,
+    },
+    {
+        id: 'openai',
+        name: 'OpenAI (GPT-5.5)',
+        isBuiltIn: true,
+    },
+    {
+        id: 'cursor',
+        name: 'Cursor',
         isBuiltIn: true,
     },
     {
@@ -415,11 +426,6 @@ export const DEFAULT_PROFILES = [
         isBuiltIn: true,
     },
     {
-        id: 'openai',
-        name: 'OpenAI (GPT-5.5)',
-        isBuiltIn: true,
-    },
-    {
         id: 'azure-openai',
         name: 'Azure OpenAI',
         isBuiltIn: true,
@@ -427,11 +433,6 @@ export const DEFAULT_PROFILES = [
     {
         id: 'google-ai',
         name: 'Google AI (Gemini)',
-        isBuiltIn: true,
-    },
-    {
-        id: 'cursor',
-        name: 'Cursor',
         isBuiltIn: true,
     }
 ];

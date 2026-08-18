@@ -19,6 +19,7 @@ import { readGeminiSessionLog, listGeminiSessions, getGeminiSessionPreview, save
 import { forkGeminiSession, forkAndTruncateGeminiSession } from '@/gemini/utils/sessionFork';
 import { readCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
 import { forkCodexSession, forkAndTruncateCodexSession } from '@/codex/utils/codexSessionFork';
+import { forkCursorSession } from '@/cursor/cursorSessionFork';
 import { SessionCache, matchFields, type SessionCacheRuntimeStats } from '@/cache/SessionCache';
 import { encodeBase64, decodeBase64, encrypt, decrypt } from './encryption';
 import { backoff } from '@/utils/time';
@@ -642,6 +643,15 @@ export class ApiMachineClient {
                 throw new Error('codexSessionId is required');
             }
             return await forkCodexSession(codexSessionId);
+        });
+
+        // Fork a Cursor chat so the copy and the original diverge
+        this.rpcHandlerManager.registerHandler('cursor-fork-session', async (params: any) => {
+            const { cursorSessionId } = params || {};
+            if (!cursorSessionId || typeof cursorSessionId !== 'string') {
+                throw new Error('cursorSessionId is required');
+            }
+            return await forkCursorSession(cursorSessionId);
         });
 
         // --- Gemini session listing & preview ---

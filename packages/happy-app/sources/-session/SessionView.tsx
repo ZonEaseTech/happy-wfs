@@ -149,10 +149,12 @@ function buildLinkedHappyBug(session: Session | null | undefined): { id: string;
     };
 }
 
-type CopyTargetAgent = 'claude' | 'codex';
+type CopyTargetAgent = 'claude' | 'codex' | 'cursor';
 
 function formatCopyTargetAgent(agent: CopyTargetAgent): string {
-    return agent === 'codex' ? 'Codex' : 'Claude';
+    if (agent === 'codex') return 'Codex';
+    if (agent === 'cursor') return 'Cursor';
+    return 'Claude';
 }
 
 function mapPermissionModeForCopyTarget(
@@ -160,6 +162,11 @@ function mapPermissionModeForCopyTarget(
     targetAgent: CopyTargetAgent,
 ): NonNullable<Session['permissionMode']> {
     const mode = permissionMode || 'default';
+    if (targetAgent === 'cursor') {
+        // Cursor approves per tool call through its hook; the graded Claude
+        // modes have no counterpart, so only the unattended ones carry over.
+        return (mode === 'yolo' || mode === 'safe-yolo' || mode === 'default') ? mode : 'default';
+    }
     if (targetAgent === 'codex') {
         return (mode === 'read-only' || mode === 'safe-yolo' || mode === 'yolo' || mode === 'default')
             ? mode
@@ -1150,7 +1157,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     // session is active). Gate on the same forkable metadata the hook requires
     // so the model-panel "copy session" row never renders as a dead tap target.
     const canCopySession = !!(
-        (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId)
+        (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.cursorSessionId)
         && session.metadata?.path
         && session.metadata?.machineId
     );
@@ -1234,6 +1241,10 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         await copySessionToAgent('claude');
     }, { timeoutMs: 120_000 });
 
+    const [isCopyingToCursorSession, performCopyToCursorSession] = useHappyAction(async () => {
+        await copySessionToAgent('cursor');
+    }, { timeoutMs: 120_000 });
+
     const handleCopyToCodexSession = React.useCallback(async () => {
         if (session.metadata?.flavor === 'codex' || session.metadata?.codexSessionId) return;
         const confirmed = await Modal.confirm(
@@ -1255,6 +1266,17 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         if (!confirmed) return;
         performCopyToClaudeSession();
     }, [performCopyToClaudeSession, session.metadata?.claudeSessionId, session.metadata?.flavor]);
+
+    const handleCopyToCursorSession = React.useCallback(async () => {
+        if (session.metadata?.flavor === 'cursor') return;
+        const confirmed = await Modal.confirm(
+            t('sessionHistory.copyConfirmTitle'),
+            t('sessionHistory.copyConfirmMessage', { provider: 'Cursor' }),
+            { confirmText: t('common.continue'), cancelText: t('common.cancel') },
+        );
+        if (!confirmed) return;
+        performCopyToCursorSession();
+    }, [performCopyToCursorSession, session.metadata?.flavor]);
 
     // Handler for filling the input from option selection
     const handleFillInput = React.useCallback(async (text: string, allOptions?: string[]) => {
@@ -1734,6 +1756,8 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             isCopyingToCodexSession={isCopyingToCodexSession}
             onCopyToClaudeSession={session.metadata?.flavor !== 'claude' && !session.metadata?.claudeSessionId ? handleCopyToClaudeSession : undefined}
             isCopyingToClaudeSession={isCopyingToClaudeSession}
+            onCopyToCursorSession={session.metadata?.flavor !== 'cursor' ? handleCopyToCursorSession : undefined}
+            isCopyingToCursorSession={isCopyingToCursorSession}
             onCopySession={session.active && canCopySession ? handleResume : undefined}
             isCopyingSession={isResuming}
             connectionStatus={inputConnectionStatus}

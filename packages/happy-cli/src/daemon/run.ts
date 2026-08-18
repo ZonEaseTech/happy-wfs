@@ -950,6 +950,9 @@ export async function startDaemon(): Promise<void> {
             if (!skipForkSession) {
               args.push('--fork-session');
             }
+          } else if (resumeSessionId && options.agent === 'cursor') {
+            // The caller already forked the chat; this id is the copy.
+            args.push('--resume', resumeSessionId);
           }
 
           // TODO: In future, sessionId could be used with --resume to continue existing sessions

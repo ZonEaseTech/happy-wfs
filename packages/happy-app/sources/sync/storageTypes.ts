@@ -87,6 +87,7 @@ export const MetadataSchema = z.object({
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
     codexSessionId: z.string().optional(), // Codex CLI conversation ID
+    cursorSessionId: z.string().optional(), // Cursor CLI chat ID
     tools: z.array(z.string()).optional(),
     slashCommands: z.array(z.string()).optional(),
     skills: z.array(z.object({

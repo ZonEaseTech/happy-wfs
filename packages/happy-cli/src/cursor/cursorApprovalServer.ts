@@ -21,13 +21,27 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile, rm, readFile, rename, readdir, rmdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { logger } from '@/ui/logger';
 import type { CursorPermissionHandler } from './cursorPermissionHandler';
+import { normalizeCursorTool } from './cursorToolNames';
 
-/** Written next to hooks.json so the hook can find (and authenticate to) us. */
+/**
+ * Endpoints live in one registry keyed by Cursor's chat id, not next to
+ * hooks.json. Several sessions can share a working directory — the app happily
+ * starts a second one in the same folder — and a per-directory endpoint file
+ * meant the newest session silently captured every other session's approvals.
+ */
+export function approvalRegistryDir(): string {
+    return join(homedir(), '.happy', 'cursor-approvals');
+}
+
+/** Legacy per-directory endpoint file; still cleaned up if one is lying around. */
 export const APPROVAL_ENDPOINT_FILE = '.happy-approval.json';
 const HOOKS_FILE = 'hooks.json';
 const HOOKS_BACKUP_FILE = 'hooks.json.happy-backup';
+const MCP_FILE = 'mcp.json';
+const MCP_BACKUP_FILE = 'mcp.json.happy-backup';
 
 /**
  * How long the hook is allowed to block, in seconds. Generous on purpose:
@@ -40,6 +54,17 @@ export interface CursorApprovalBridgeOptions {
     /** Session working directory — where .cursor/ lives */
     cwd: string;
     handler: CursorPermissionHandler;
+    /**
+     * Command and args for Happy's MCP stdio bridge, including this session's
+     * --url. Passing it through the environment would have been better —
+     * mcp.json is per-directory while a process environment is per-session —
+     * but Cursor starts MCP servers with a scrubbed environment, so the URL has
+     * to live in the file. Consequence: when two sessions share a directory the
+     * later one owns the MCP config, and the earlier one's agent would reach
+     * the wrong session's tools. Approvals are unaffected; those are routed by
+     * chat id through the registry.
+     */
+    mcpBridge?: { command: string; args: string[] } | null;
 }
 
 interface HookRequestBody {
@@ -56,13 +81,18 @@ export class CursorApprovalBridge {
     private server: Server | null = null;
     private port = 0;
     private hadExistingHooks = false;
+    private hadExistingMcp = false;
+    private readonly mcpBridge: { command: string; args: string[] } | null;
     /** True when .cursor/ did not exist before this session created it. */
     private createdCursorDir = false;
     private started = false;
+    /** Chat ids this session has registered, so they can be cleaned up. */
+    private readonly registeredChatIds = new Set<string>();
 
     constructor(options: CursorApprovalBridgeOptions) {
         this.cwd = options.cwd;
         this.handler = options.handler;
+        this.mcpBridge = options.mcpBridge ?? null;
     }
 
     private get cursorDir(): string {
@@ -74,6 +104,24 @@ export class CursorApprovalBridge {
         await this.installHooks();
         this.started = true;
         logger.debug(`[cursor] approval bridge listening on 127.0.0.1:${this.port}`);
+    }
+
+    /**
+     * Claims a chat id for this session. Called as soon as cursor-agent reveals
+     * it, which is what lets the hook route an approval back to the session
+     * that actually made the call.
+     */
+    async registerChat(chatId: string): Promise<void> {
+        if (!this.started || this.registeredChatIds.has(chatId)) return;
+        const dir = approvalRegistryDir();
+        await mkdir(dir, { recursive: true });
+        await writeFile(join(dir, `${chatId}.json`), JSON.stringify({
+            port: this.port,
+            token: this.token,
+            pid: process.pid,
+        }), 'utf8');
+        this.registeredChatIds.add(chatId);
+        logger.debug(`[cursor] chat ${chatId} routed to this session's bridge`);
     }
 
     private listen(): Promise<void> {
@@ -125,15 +173,18 @@ export class CursorApprovalBridge {
             logger.debug('[cursor] rejecting approval request with a bad token');
             return false;
         }
-        const toolName = typeof parsed.tool_name === 'string' && parsed.tool_name.length > 0
-            ? parsed.tool_name
-            : 'unknown tool';
+        // Same normalisation as the stream path, so the approval card and the
+        // tool card that follows it describe the call the same way.
+        const { name: toolName, input: toolInput } = normalizeCursorTool(
+            typeof parsed.tool_name === 'string' && parsed.tool_name.length > 0 ? parsed.tool_name : 'unknown',
+            parsed.tool_input,
+        );
         // Cursor omits tool_use_id on some events; a synthetic id keeps
         // concurrent requests from colliding in the pending map.
         const toolCallId = typeof parsed.tool_use_id === 'string' && parsed.tool_use_id.length > 0
             ? parsed.tool_use_id
             : `cursor-${randomUUID()}`;
-        return this.handler.requestApproval(toolCallId, toolName, parsed.tool_input ?? {});
+        return this.handler.requestApproval(toolCallId, toolName, toolInput);
     }
 
     /**
@@ -152,12 +203,6 @@ export class CursorApprovalBridge {
             logger.debug('[cursor] existing hooks.json moved aside for the session');
         }
 
-        await writeFile(join(this.cursorDir, APPROVAL_ENDPOINT_FILE), JSON.stringify({
-            port: this.port,
-            token: this.token,
-            pid: process.pid,
-        }), 'utf8');
-
         const hookCommand = `${process.execPath} ${process.argv[1]} cursor-approval-hook`;
         await writeFile(hooksPath, JSON.stringify({
             version: 1,
@@ -171,7 +216,24 @@ export class CursorApprovalBridge {
             },
         }, null, 2), 'utf8');
 
+        await this.installMcpConfig();
         await this.excludeFromGit();
+    }
+
+    /** Points Cursor at Happy's tools (change_title, preview_html, devices…). */
+    private async installMcpConfig(): Promise<void> {
+        if (!this.mcpBridge) return;
+        const mcpPath = join(this.cursorDir, MCP_FILE);
+        if (existsSync(mcpPath)) {
+            await rename(mcpPath, join(this.cursorDir, MCP_BACKUP_FILE));
+            this.hadExistingMcp = true;
+            logger.debug('[cursor] existing mcp.json moved aside for the session');
+        }
+        await writeFile(mcpPath, JSON.stringify({
+            mcpServers: {
+                happy: { command: this.mcpBridge.command, args: this.mcpBridge.args },
+            },
+        }, null, 2), 'utf8');
     }
 
     /** Keep the session's scaffolding out of `git status`. */
@@ -183,7 +245,7 @@ export class CursorApprovalBridge {
             if (current.includes('.cursor/.happy-approval.json')) return;
             await writeFile(
                 excludePath,
-                `${current}${current.endsWith('\n') ? '' : '\n'}# added by happy cursor session\n.cursor/hooks.json\n.cursor/.happy-approval.json\n`,
+                `${current}${current.endsWith('\n') ? '' : '\n'}# added by happy cursor session\n.cursor/hooks.json\n.cursor/mcp.json\n.cursor/.happy-approval.json\n`,
                 'utf8',
             );
         } catch (error) {
@@ -196,6 +258,10 @@ export class CursorApprovalBridge {
         this.started = false;
 
         try {
+            for (const chatId of this.registeredChatIds) {
+                await rm(join(approvalRegistryDir(), `${chatId}.json`), { force: true });
+            }
+            this.registeredChatIds.clear();
             await rm(join(this.cursorDir, APPROVAL_ENDPOINT_FILE), { force: true });
             const hooksPath = join(this.cursorDir, HOOKS_FILE);
             const backupPath = join(this.cursorDir, HOOKS_BACKUP_FILE);
@@ -203,6 +269,14 @@ export class CursorApprovalBridge {
                 await rename(backupPath, hooksPath);
             } else {
                 await rm(hooksPath, { force: true });
+            }
+
+            const mcpPath = join(this.cursorDir, MCP_FILE);
+            const mcpBackup = join(this.cursorDir, MCP_BACKUP_FILE);
+            if (this.hadExistingMcp && existsSync(mcpBackup)) {
+                await rename(mcpBackup, mcpPath);
+            } else if (this.mcpBridge) {
+                await rm(mcpPath, { force: true });
             }
             // Leaving an empty .cursor/ behind in someone's repo is still
             // litter, so remove the directory when we made it and nothing

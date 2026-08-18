@@ -38,6 +38,10 @@ export interface PendingRequest {
  */
 export interface PermissionResult {
     decision: 'approved' | 'approved_for_session' | 'denied' | 'abort';
+    /** Tools the user chose to stop being asked about. */
+    allowTools?: string[];
+    /** Permission mode the user switched to while answering. */
+    mode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
 }
 
 /**
@@ -103,6 +107,8 @@ export abstract class BasePermissionHandler {
                 const result: PermissionResult = response.approved
                     ? { decision: response.decision === 'approved_for_session' ? 'approved_for_session' : 'approved' }
                     : { decision: response.decision === 'denied' ? 'denied' : 'abort' };
+                if (response.allowTools?.length) result.allowTools = response.allowTools;
+                if (response.mode) result.mode = response.mode;
 
                 pending.resolve(result);
 

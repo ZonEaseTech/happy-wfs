@@ -98,6 +98,8 @@ interface AgentInputProps {
     isCopyingToCodexSession?: boolean;
     /** Optional cross-provider copy trigger for non-Claude sessions. */
     onCopyToClaudeSession?: () => void;
+    onCopyToCursorSession?: () => void;
+    isCopyingToCursorSession?: boolean;
     isCopyingToClaudeSession?: boolean;
     /** Optional same-agent copy trigger — forks the current session keeping its
      *  agent. Mirrors the standalone "copy session" action on the session info
@@ -1340,6 +1342,51 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                         ...Typography.default(),
                                                     }}>
                                                         {t('sessionHistory.copyConfirmMessage', { provider: 'Codex' })}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                            <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
+                                        </>
+                                    )}
+                                    {!isCursor && props.onCopyToCursorSession && (
+                                        <>
+                                            <Pressable
+                                                onPress={() => {
+                                                    if (props.isCopyingToCursorSession) return;
+                                                    hapticsLight();
+                                                    props.onCopyToCursorSession?.();
+                                                }}
+                                                disabled={props.isCopyingToCursorSession}
+                                                style={({ pressed }) => ({
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 16,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                    opacity: props.isCopyingToCursorSession ? 0.6 : 1,
+                                                    backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent',
+                                                })}
+                                            >
+                                                {props.isCopyingToCursorSession ? (
+                                                    <ActivityIndicator size="small" color={theme.colors.button.secondary.tint} />
+                                                ) : (
+                                                    <Ionicons name="code-slash" size={18} color={theme.colors.button.secondary.tint} />
+                                                )}
+                                                <View style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text style={{
+                                                        fontSize: 14,
+                                                        color: theme.colors.text,
+                                                        ...Typography.default('semiBold'),
+                                                    }}>
+                                                        {t('sessionInfo.copySession')} · Cursor
+                                                    </Text>
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: theme.colors.textSecondary,
+                                                        marginTop: 2,
+                                                        ...Typography.default(),
+                                                    }}>
+                                                        {t('sessionHistory.copyConfirmMessage', { provider: 'Cursor' })}
                                                     </Text>
                                                 </View>
                                             </Pressable>

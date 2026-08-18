@@ -365,6 +365,7 @@ export type Metadata = {
   targetDevices?: Array<{ id: string, name: string, key: string | null }> | null,
   machineId?: string,
   claudeSessionId?: string, // Claude Code session ID
+  cursorSessionId?: string, // Cursor CLI chat ID, used to fork on duplicate
   tools?: string[],
   slashCommands?: string[],
   skills?: Array<{

@@ -1,5 +1,17 @@
 # Changelog
 
+## Version 20 - 2026-08-18
+
+Cursor sessions behave like the other agents now.
+
+- Cursor: stop and archive actually work — the stop button had nothing listening, and archiving left the session heart-beating so it reappeared on the next refresh.
+- Cursor: duplicate a session like any other; the copy gets its own branch of the conversation and the original is untouched.
+- Cursor: it can use Happy's own tools (change title, preview HTML) the way Claude and Codex do.
+- Cursor: the model you pick is the model that runs — the choice was being dropped, so every session quietly used Cursor's default.
+- Cursor: commands like `git status` run again; they were being refused before reaching your approval.
+- Cursor: tool cards show what the tool actually did instead of an empty label, reasoning no longer arrives as a column of fragments, and token usage is reported.
+- Cursor: answering "don't ask about this tool again" is remembered, and a session in YOLO mode stops asking, matching its own badge.
+
 ## Version 19 - 2026-08-18
 
 Cursor tool calls now ask before they run, and Cursor is picked the same way as every other agent.

@@ -164,10 +164,13 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       // `happy cursor [--model <id>] [--started-by <who>] [prompt...]`
       let startedBy: 'daemon' | 'terminal' | undefined = undefined;
       let model: string | null = null;
+      let resumeChatId: string | null = null;
       const promptParts: string[] = [];
       for (let i = 1; i < args.length; i++) {
         if (args[i] === '--started-by') {
           startedBy = args[++i] as 'daemon' | 'terminal';
+        } else if (args[i] === '--resume') {
+          resumeChatId = args[++i] ?? null;
         } else if (args[i] === '--model') {
           model = args[++i] ?? null;
         } else if (args[i] === '--happy-starting-mode') {
@@ -199,6 +202,7 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
         credentials,
         startedBy,
         model,
+        resumeChatId,
         initialPrompt: promptParts.length > 0 ? promptParts.join(' ') : undefined,
       });
     } catch (error) {

@@ -1,7 +1,7 @@
 import { MODEL_MODE_DEFAULT } from 'happy-wire';
 import type { ModelMode } from 'happy-wire';
 
-export type CopyTargetAgent = 'claude' | 'codex' | 'gemini';
+export type CopyTargetAgent = 'claude' | 'codex' | 'gemini' | 'cursor';
 
 export const CODEX_COPY_SESSION_MODEL_MODE = 'gpt-5.6-terra-high' satisfies ModelMode;
 

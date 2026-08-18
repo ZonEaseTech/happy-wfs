@@ -18,7 +18,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { APPROVAL_ENDPOINT_FILE } from './cursorApprovalServer';
+import { APPROVAL_ENDPOINT_FILE, approvalRegistryDir } from './cursorApprovalServer';
 
 interface HookPayload {
     tool_name?: unknown;
@@ -26,6 +26,9 @@ interface HookPayload {
     tool_use_id?: unknown;
     cwd?: unknown;
     workspace_roots?: unknown;
+    /** Cursor's chat id — the key that identifies which session owns this call. */
+    session_id?: unknown;
+    conversation_id?: unknown;
 }
 
 function readStdin(): Promise<string> {
@@ -47,8 +50,46 @@ function emit(permission: 'allow' | 'deny', userMessage?: string): void {
     process.stdout.write(`${JSON.stringify(payload)}\n`);
 }
 
-/** Where the running session left its endpoint file, if there is one. */
+/** True when the process that wrote an endpoint is gone. */
+function isStale(pid: unknown): boolean {
+    if (typeof pid !== 'number') return false;
+    try {
+        // Signal 0 checks for existence without touching the process.
+        process.kill(pid, 0);
+        return false;
+    } catch {
+        return true;
+    }
+}
+
+function readEndpoint(file: string): { port: number; token: string } | null {
+    if (!existsSync(file)) return null;
+    try {
+        const parsed = JSON.parse(readFileSync(file, 'utf8'));
+        if (typeof parsed?.port !== 'number' || typeof parsed?.token !== 'string') return null;
+        // A session that died without cleaning up must not keep denying tools;
+        // its leftover entry would otherwise block the user's own Cursor use.
+        if (isStale(parsed.pid)) return null;
+        return { port: parsed.port, token: parsed.token };
+    } catch {
+        // Malformed endpoint file: treat as absent.
+    }
+    return null;
+}
+
+/**
+ * Finds the session that owns this call. The chat id is authoritative — several
+ * sessions can run in one directory, and matching on directory alone would send
+ * approvals to whichever started last.
+ */
 function findEndpoint(payload: HookPayload): { port: number; token: string } | null {
+    for (const key of [payload.session_id, payload.conversation_id]) {
+        if (typeof key !== 'string' || key.length === 0) continue;
+        const found = readEndpoint(join(approvalRegistryDir(), `${key}.json`));
+        if (found) return found;
+    }
+
+    // Fall back to the directory-scoped file written by older sessions.
     const candidates: string[] = [];
     if (typeof payload.cwd === 'string') candidates.push(payload.cwd);
     if (Array.isArray(payload.workspace_roots)) {
@@ -60,16 +101,8 @@ function findEndpoint(payload: HookPayload): { port: number; token: string } | n
     candidates.push(process.cwd());
 
     for (const dir of candidates) {
-        const file = join(dir, '.cursor', APPROVAL_ENDPOINT_FILE);
-        if (!existsSync(file)) continue;
-        try {
-            const parsed = JSON.parse(readFileSync(file, 'utf8'));
-            if (typeof parsed?.port === 'number' && typeof parsed?.token === 'string') {
-                return { port: parsed.port, token: parsed.token };
-            }
-        } catch {
-            // Malformed endpoint file: treat as absent and keep looking.
-        }
+        const found = readEndpoint(join(dir, '.cursor', APPROVAL_ENDPOINT_FILE));
+        if (found) return found;
     }
     return null;
 }

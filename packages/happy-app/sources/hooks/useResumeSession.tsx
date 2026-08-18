@@ -6,6 +6,7 @@ import {
     machineForkClaudeSession,
     machineForkGeminiSession,
     machineForkCodexSession,
+    machineForkCursorSession,
     machineSpawnNewSession,
 } from '@/sync/ops';
 import { sync } from '@/sync/sync';
@@ -44,14 +45,15 @@ export function useResumeSession(session: Session): UseResumeSessionResult {
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
+        const cursorSessionId = session.metadata?.cursorSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
 
-        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId;
+        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId || cursorSessionId;
         if (!hasForkableId || !directory || !machineId) return;
 
         const isOnline = session.active;
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
+        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : flavor === 'cursor' ? 'Cursor' : 'Claude';
         const confirmTitle = isOnline ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
         const confirmMessage = isOnline ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
         const confirmed = await Modal.confirm(confirmTitle, confirmMessage, {
@@ -66,9 +68,19 @@ export function useResumeSession(session: Session): UseResumeSessionResult {
             const sessionTitle = isOnline ? generateCopyTitle(originalTitle) : originalTitle;
 
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'cursor' = 'claude';
 
-            if (flavor === 'gemini') {
+            if (flavor === 'cursor' && cursorSessionId) {
+                // Cursor keeps each chat in its own directory; the fork copies
+                // it so the duplicate and the original diverge from here.
+                const forkResult = await machineForkCursorSession(machineId, cursorSessionId);
+                if (!forkResult.success || !forkResult.newChatId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newChatId;
+                agent = 'cursor';
+            } else if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
                 if (!forkResult.success || !forkResult.newSessionId) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));

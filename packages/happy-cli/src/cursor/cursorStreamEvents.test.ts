@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { drainJsonLines, mapCursorStreamEvent, parseCursorSessionInit } from './cursorStreamEvents';
+import { createCursorStreamState, drainJsonLines, mapCursorStreamEvent, parseCursorSessionInit } from './cursorStreamEvents';
 
 const INIT = '{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/tmp/cursor-hook-probe","session_id":"cef99571-cc75-4512-a73f-b953212d6493","model":"Composer 2.5","permissionMode":"default"}';
 const THINKING_DELTA = '{"type":"thinking","subtype":"delta","text":"正在当前目录创建 hello.txt","session_id":"s1","timestamp_ms":1786956076436}';
@@ -68,8 +68,15 @@ describe('mapCursorStreamEvent', () => {
         expect(mapLine(TOOL_STARTED)).toEqual([
             {
                 type: 'tool-call',
-                toolName: 'edit',
-                args: { path: '/tmp/x/hello.txt', streamContent: 'hi\n' },
+                toolName: 'Edit',
+                // path/streamContent are Cursor's spellings; file_path/content
+                // are what the app's Edit card reads.
+                args: {
+                    path: '/tmp/x/hello.txt',
+                    file_path: '/tmp/x/hello.txt',
+                    streamContent: 'hi\n',
+                    content: 'hi\n',
+                },
                 callId: 'tool_34e8',
             },
         ]);
@@ -78,7 +85,7 @@ describe('mapCursorStreamEvent', () => {
     it('emits both a tool result and an fs-edit when a completed edit carries a diff', () => {
         const messages = mapLine(TOOL_COMPLETED);
         expect(messages).toHaveLength(2);
-        expect(messages[0]).toMatchObject({ type: 'tool-result', toolName: 'edit', callId: 'tool_34e8' });
+        expect(messages[0]).toMatchObject({ type: 'tool-result', toolName: 'Edit', callId: 'tool_34e8' });
         expect(messages[1]).toEqual({
             type: 'fs-edit',
             description: 'Edited /tmp/x/hello.txt',
@@ -131,5 +138,75 @@ describe('drainJsonLines', () => {
         const { events, rest } = drainJsonLines([INIT, THINKING_DELTA, ASSISTANT].join('\n') + '\n');
         expect(events.map(e => e.type)).toEqual(['system', 'thinking', 'assistant']);
         expect(rest).toBe('');
+    });
+});
+
+describe('tool normalisation', () => {
+    it('renames Cursor tools to the ones the app renders', () => {
+        const read = mapLine('{"type":"tool_call","subtype":"started","call_id":"c1","tool_call":{"readToolCall":{"args":{"path":"/tmp/a.txt"}}}}');
+        expect(read[0]).toMatchObject({ type: 'tool-call', toolName: 'Read' });
+        // The app's Read card reads file_path; Cursor only sends path.
+        expect((read[0] as { args: Record<string, unknown> }).args).toMatchObject({
+            path: '/tmp/a.txt',
+            file_path: '/tmp/a.txt',
+        });
+    });
+
+    it('maps shell to Bash and keeps its directory under both names', () => {
+        const shell = mapLine('{"type":"tool_call","subtype":"started","call_id":"c2","tool_call":{"shellToolCall":{"args":{"command":"ls","workingDirectory":"/tmp"}}}}');
+        expect(shell[0]).toMatchObject({ type: 'tool-call', toolName: 'Bash' });
+        expect((shell[0] as { args: Record<string, unknown> }).args).toMatchObject({
+            command: 'ls',
+            workingDirectory: '/tmp',
+            cwd: '/tmp',
+        });
+    });
+
+    it('keeps grep searchable by pattern', () => {
+        const grep = mapLine('{"type":"tool_call","subtype":"started","call_id":"c3","tool_call":{"grepToolCall":{"args":{"pattern":"needle","path":"/tmp/sub"}}}}');
+        expect(grep[0]).toMatchObject({ type: 'tool-call', toolName: 'Grep' });
+        expect((grep[0] as { args: Record<string, unknown> }).args).toMatchObject({ pattern: 'needle', path: '/tmp/sub' });
+    });
+
+    it('capitalises an unknown tool rather than inventing a name', () => {
+        const other = mapLine('{"type":"tool_call","subtype":"started","call_id":"c4","tool_call":{"somethingNewToolCall":{"args":{}}}}');
+        expect(other[0]).toMatchObject({ toolName: 'SomethingNew' });
+    });
+});
+
+describe('thinking accumulation', () => {
+    it('joins the deltas and sends one thought when it completes', () => {
+        const state = createCursorStreamState();
+        const feed = (line: string) => {
+            const { events } = drainJsonLines(line + '\n');
+            return mapCursorStreamEvent(events[0], state);
+        };
+
+        // Cursor streams reasoning a few words at a time; each delta on its own
+        // would render as a separate block in the app.
+        expect(feed('{"type":"thinking","subtype":"delta","text":"先看目录，"}')).toEqual([]);
+        expect(feed('{"type":"thinking","subtype":"delta","text":"再写文件。"}')).toEqual([]);
+        expect(feed('{"type":"thinking","subtype":"completed"}')).toEqual([
+            { type: 'event', name: 'thinking', payload: { textDelta: '先看目录，再写文件。' } },
+        ]);
+    });
+
+    it('starts empty for the next thought', () => {
+        const state = createCursorStreamState();
+        const feed = (line: string) => {
+            const { events } = drainJsonLines(line + '\n');
+            return mapCursorStreamEvent(events[0], state);
+        };
+        feed('{"type":"thinking","subtype":"delta","text":"one"}');
+        feed('{"type":"thinking","subtype":"completed"}');
+        // A completion with nothing buffered must not re-emit the last thought.
+        expect(feed('{"type":"thinking","subtype":"completed"}')).toEqual([]);
+    });
+
+    it('still forwards a delta when no state is supplied', () => {
+        const { events } = drainJsonLines('{"type":"thinking","subtype":"delta","text":"solo"}\n');
+        expect(mapCursorStreamEvent(events[0])).toEqual([
+            { type: 'event', name: 'thinking', payload: { textDelta: 'solo' } },
+        ]);
     });
 });
