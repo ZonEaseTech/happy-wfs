@@ -2080,8 +2080,6 @@ export const ru: TranslationStructure = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
-        installCursor: 'Установите CLI cursor-agent, если доступно',
-        viewCursorDocs: 'Документация Cursor →',
         add: 'Add',
         duplicate: 'Duplicate',
         delete: 'Delete',

@@ -2057,8 +2057,6 @@ export const zhHans: TranslationStructure = {
         installGemini: '安装 Gemini CLI（如可用）',
         viewInstallGuide: '查看安装指南 →',
         viewGeminiDocs: '查看 Gemini 文档 →',
-        installCursor: '安装 cursor-agent CLI（如可用）',
-        viewCursorDocs: '查看 Cursor 文档 →',
         add: '添加',
         duplicate: '复制',
         delete: '删除',

@@ -2057,8 +2057,6 @@ export const es: TranslationStructure = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
-        installCursor: 'Instala la CLI cursor-agent si está disponible',
-        viewCursorDocs: 'Ver documentación de Cursor →',
         add: 'Add',
         duplicate: 'Duplicate',
         delete: 'Delete',

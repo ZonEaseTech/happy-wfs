@@ -820,10 +820,10 @@ function NewSessionWizard() {
     const { variables: daemonEnv } = useEnvironmentVariables(selectedMachineId, envVarRefs);
 
     // Temporary banner dismissal (X button) - resets when component unmounts or machine changes
-    const [hiddenBanners, setHiddenBanners] = React.useState<{ claude: boolean; codex: boolean; gemini: boolean; cursor: boolean }>({ claude: false, codex: false, gemini: false, cursor: false });
+    const [hiddenBanners, setHiddenBanners] = React.useState<{ claude: boolean; codex: boolean; gemini: boolean }>({ claude: false, codex: false, gemini: false });
 
     // Helper to check if CLI warning has been dismissed (checks both global and per-machine)
-    const isWarningDismissed = React.useCallback((cli: 'claude' | 'codex' | 'gemini' | 'cursor'): boolean => {
+    const isWarningDismissed = React.useCallback((cli: 'claude' | 'codex' | 'gemini'): boolean => {
         // Check global dismissal first
         if (dismissedCLIWarnings.global?.[cli] === true) return true;
         // Check per-machine dismissal
@@ -832,7 +832,7 @@ function NewSessionWizard() {
     }, [selectedMachineId, dismissedCLIWarnings]);
 
     // Unified dismiss handler for all three button types (easy to use correctly, hard to use incorrectly)
-    const handleCLIBannerDismiss = React.useCallback((cli: 'claude' | 'codex' | 'gemini' | 'cursor', type: 'temporary' | 'machine' | 'global') => {
+    const handleCLIBannerDismiss = React.useCallback((cli: 'claude' | 'codex' | 'gemini', type: 'temporary' | 'machine' | 'global') => {
         if (type === 'temporary') {
             // X button: Hide for current session only (not persisted)
             setHiddenBanners(prev => ({ ...prev, [cli]: true }));
@@ -1261,7 +1261,10 @@ function NewSessionWizard() {
         // Add warning only if CLI not detected
         if (!availability.available && availability.reason?.startsWith('cli-not-detected:')) {
             const cli = availability.reason.split(':')[1];
-            const cliName = cli === 'claude' ? 'Claude' : cli === 'codex' ? 'Codex' : 'Gemini';
+            const cliName = cli === 'claude' ? 'Claude'
+                : cli === 'codex' ? 'Codex'
+                    : cli === 'cursor' ? 'Cursor'
+                        : 'Gemini';
             parts.push(`⚠️ ${cliName} CLI not detected`);
         }
 
@@ -2187,78 +2190,6 @@ function NewSessionWizard() {
                                         }}>
                                             <Text style={{ fontSize: 11, color: theme.colors.textLink, ...Typography.default() }}>
                                                 {t('wizard.viewGeminiDocs')}
-                                            </Text>
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            )}
-
-                            {selectedMachineId && cliAvailability.cursor === false && !isWarningDismissed('cursor') && !hiddenBanners.cursor && (
-                                <View style={{
-                                    backgroundColor: theme.colors.box.warning.background,
-                                    borderRadius: 10,
-                                    padding: 12,
-                                    marginBottom: 12,
-                                    borderWidth: 1,
-                                    borderColor: theme.colors.box.warning.border,
-                                }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginRight: 16 }}>
-                                            <Ionicons name="warning" size={16} color={theme.colors.warning} />
-                                            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.text, ...Typography.default('semiBold') }}>
-                                                {t('wizard.cliNotDetected', { name: 'Cursor' })}
-                                            </Text>
-                                            <View style={{ flex: 1, minWidth: 20 }} />
-                                            <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                {t('wizard.dontShowFor')}
-                                            </Text>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('cursor', 'machine')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.thisMachine')}
-                                                </Text>
-                                            </Pressable>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('cursor', 'global')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.anyMachine')}
-                                                </Text>
-                                            </Pressable>
-                                        </View>
-                                        <Pressable
-                                            onPress={() => handleCLIBannerDismiss('cursor', 'temporary')}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        >
-                                            <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
-                                        </Pressable>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-                                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {t('wizard.installCursor')} •
-                                        </Text>
-                                        <Pressable onPress={() => {
-                                            if (Platform.OS === 'web') {
-                                                window.open('https://cursor.com/docs/cli/overview', '_blank');
-                                            }
-                                        }}>
-                                            <Text style={{ fontSize: 11, color: theme.colors.textLink, ...Typography.default() }}>
-                                                {t('wizard.viewCursorDocs')}
                                             </Text>
                                         </Pressable>
                                     </View>

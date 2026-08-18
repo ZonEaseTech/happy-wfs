@@ -2058,8 +2058,6 @@ export const zhHant: TranslationStructure = {
         installGemini: '安裝 Gemini CLI（如可用）',
         viewInstallGuide: '檢視安裝指南 →',
         viewGeminiDocs: '檢視 Gemini 文件 →',
-        installCursor: '安裝 cursor-agent CLI（如可用）',
-        viewCursorDocs: '查看 Cursor 文件 →',
         add: '新增',
         duplicate: '複製',
         delete: '刪除',
