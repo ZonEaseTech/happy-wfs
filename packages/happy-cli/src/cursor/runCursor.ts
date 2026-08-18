@@ -5,9 +5,9 @@
  * messages from the app become Cursor turns, and Cursor's stream becomes ACP
  * messages the app already knows how to render.
  *
- * Not yet here: tool approval. Cursor gates tools through file-based hooks
- * rather than a callback, so a session started this way runs with whatever the
- * local Cursor install permits. Treat it as read-mostly until that lands.
+ * Tool approval runs through CursorApprovalBridge: Cursor offers no callback,
+ * so the session writes a .cursor/hooks.json pointing back at this CLI and
+ * every tool call waits on the phone before it runs.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -21,6 +21,8 @@ import { setupOfflineReconnection } from '@/utils/setupOfflineReconnection';
 import { logger } from '@/ui/logger';
 import { CursorCliBackend } from './CursorCliBackend';
 import { agentMessageToAcp } from './cursorAcpMessages';
+import { CursorPermissionHandler } from './cursorPermissionHandler';
+import { CursorApprovalBridge } from './cursorApprovalServer';
 
 export interface RunCursorOptions {
     credentials: Credentials;
@@ -33,6 +35,12 @@ export interface RunCursorOptions {
 
 /** Matches the cadence the other backends use to hold the session open. */
 const KEEP_ALIVE_INTERVAL_MS = 2000;
+/**
+ * Ceiling on graceful shutdown. Flushing the session can block on a server
+ * that is slow or gone, and a session that refuses to die keeps its hooks
+ * pointing at a bridge that no longer answers.
+ */
+const SHUTDOWN_TIMEOUT_MS = 5000;
 
 export async function runCursor(opts: RunCursorOptions): Promise<void> {
     const api = await ApiClient.create(opts.credentials);
@@ -65,6 +73,18 @@ export async function runCursor(opts: RunCursorOptions): Promise<void> {
         onSessionSwap: (newSession) => { session = newSession; },
     });
     session = initialSession;
+
+    // Tool approval: Cursor has no callback for it, so a local bridge plus a
+    // generated .cursor/hooks.json carries each tool call to the phone.
+    const permissionHandler = new CursorPermissionHandler(session, api.push());
+    const approvalBridge = new CursorApprovalBridge({ cwd: process.cwd(), handler: permissionHandler });
+    let approvalReady = false;
+    try {
+        await approvalBridge.start();
+        approvalReady = true;
+    } catch (error) {
+        logger.debug(`[cursor] approval bridge failed to start: ${error}`);
+    }
 
     const backend = new CursorCliBackend({
         cwd: process.cwd(),
@@ -130,7 +150,11 @@ export async function runCursor(opts: RunCursorOptions): Promise<void> {
     }
     console.log(chalk.gray(`  cwd    ${process.cwd()}`));
     console.log(chalk.gray(`  model  ${opts.model ?? '(Cursor default)'}`));
-    console.log(chalk.yellow('  note   tool approval is not wired for Cursor yet — it runs with local Cursor permissions.'));
+    if (approvalReady) {
+        console.log(chalk.gray('  approval  tool calls are sent to your phone before they run'));
+    } else {
+        console.log(chalk.yellow('  approval  UNAVAILABLE — the bridge did not start, so tools run unchecked'));
+    }
 
     if (opts.initialPrompt) {
         queue.push(opts.initialPrompt);
@@ -145,6 +169,7 @@ export async function runCursor(opts: RunCursorOptions): Promise<void> {
         logger.debug('[cursor] shutting down');
         try {
             await backend.dispose();
+            await approvalBridge.stop();
         } finally {
             session.sendSessionDeath();
             await session.flush();
@@ -152,8 +177,14 @@ export async function runCursor(opts: RunCursorOptions): Promise<void> {
         }
     };
 
-    process.on('SIGINT', () => { void shutdown().then(() => process.exit(0)); });
-    process.on('SIGTERM', () => { void shutdown().then(() => process.exit(0)); });
+    const shutdownAndExit = () => {
+        void Promise.race([
+            shutdown(),
+            new Promise<void>((resolve) => setTimeout(resolve, SHUTDOWN_TIMEOUT_MS)),
+        ]).finally(() => process.exit(0));
+    };
+    process.on('SIGINT', shutdownAndExit);
+    process.on('SIGTERM', shutdownAndExit);
 
     // Hold the process open for app-driven turns; shutdown happens on signal.
     await new Promise<void>(() => { });

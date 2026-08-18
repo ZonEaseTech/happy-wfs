@@ -136,6 +136,9 @@ const ProfileCompatibilitySchema = z.object({
     claude: z.boolean().default(true),
     codex: z.boolean().default(true),
     gemini: z.boolean().default(true),
+    // Defaults to false: profiles written before Cursor existed describe
+    // Anthropic-style endpoints and must not silently claim to support it.
+    cursor: z.boolean().default(false),
 });
 
 export const AIBackendProfileSchema = z.object({
@@ -170,7 +173,7 @@ export const AIBackendProfileSchema = z.object({
     defaultModelMode: z.string().optional(),
 
     // Compatibility metadata
-    compatibility: ProfileCompatibilitySchema.default({ claude: true, codex: true, gemini: true }),
+    compatibility: ProfileCompatibilitySchema.default({ claude: true, codex: true, gemini: true, cursor: false }),
 
     // Built-in profile indicator
     isBuiltIn: z.boolean().default(false),
@@ -185,10 +188,7 @@ export type AIBackendProfile = z.infer<typeof AIBackendProfileSchema>;
 
 // Helper functions for profile validation and compatibility
 export function validateProfileForAgent(profile: AIBackendProfile, agent: 'claude' | 'codex' | 'gemini' | 'cursor'): boolean {
-    // Cursor authenticates itself and takes no endpoint configuration, so the
-    // compatibility matrix has no entry for it — no profile applies.
-    if (agent === 'cursor') return false;
-    return profile.compatibility[agent];
+    return profile.compatibility[agent] ?? false;
 }
 
 /**

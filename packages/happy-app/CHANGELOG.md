@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 19 - 2026-08-18
+
+Cursor tool calls now ask before they run, and Cursor is picked the same way as every other agent.
+
+- Cursor: every tool call — reading, writing, running a command — waits for your approval on the phone before it happens. Denying one also blocks the agent's attempts to route around it.
+- Cursor: pick it from the AI backend list on the new-session screen, exactly like Claude, Codex and Gemini, instead of hunting for a separate control.
+
 ## Version 18 - 2026-08-17
 
 Cursor joins Claude, Codex and Gemini as an agent you can drive from your phone.

@@ -212,6 +212,23 @@ export AZURE_OPENAI_API_KEY="YOUR_AZURE_API_KEY"
 export AZURE_OPENAI_API_VERSION="2024-02-15-preview"
 export AZURE_OPENAI_DEPLOYMENT_NAME="gpt-5.5-codex"`,
             };
+        case 'cursor':
+            return {
+                setupGuideUrl: 'https://cursor.com/docs/cli/overview',
+                description: 'Cursor CLI — sign in once with `cursor-agent login` on the machine; no endpoint or key to configure here',
+                environmentVariables: [
+                    {
+                        name: 'CURSOR_API_KEY',
+                        expectedValue: 'key_...',
+                        description: 'Only needed for unattended machines; `cursor-agent login` covers the normal case',
+                        isSecret: true,
+                    },
+                ],
+                shellConfigExample: `# Interactive machines just need a one-time login:
+#   cursor-agent login
+# Headless machines can use a key instead:
+export CURSOR_API_KEY="key_..."`,
+            };
         default:
             return null;
     }
@@ -245,7 +262,7 @@ export const getBuiltInProfile = (id: string): AIBackendProfile | null => {
                 anthropicConfig: {},
                 environmentVariables: [],
                 defaultPermissionMode: 'default',
-                compatibility: { claude: true, codex: false, gemini: false },
+                compatibility: { claude: true, codex: false, gemini: false, cursor: false },
                 isBuiltIn: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -270,7 +287,7 @@ export const getBuiltInProfile = (id: string): AIBackendProfile | null => {
                     { name: 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC', value: '${DEEPSEEK_CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}' },
                 ],
                 defaultPermissionMode: 'default',
-                compatibility: { claude: true, codex: false, gemini: false },
+                compatibility: { claude: true, codex: false, gemini: false, cursor: false },
                 isBuiltIn: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -297,7 +314,7 @@ export const getBuiltInProfile = (id: string): AIBackendProfile | null => {
                     { name: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', value: '${Z_AI_HAIKU_MODEL:-GLM-4.5-Air}' },
                 ],
                 defaultPermissionMode: 'default',
-                compatibility: { claude: true, codex: false, gemini: false },
+                compatibility: { claude: true, codex: false, gemini: false, cursor: false },
                 isBuiltIn: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -316,7 +333,7 @@ export const getBuiltInProfile = (id: string): AIBackendProfile | null => {
                     { name: 'API_TIMEOUT_MS', value: '600000' },
                     { name: 'CODEX_SMALL_FAST_MODEL', value: 'gpt-5.5-codex-low' },
                 ],
-                compatibility: { claude: false, codex: true, gemini: false },
+                compatibility: { claude: false, codex: true, gemini: false, cursor: false },
                 isBuiltIn: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -333,7 +350,7 @@ export const getBuiltInProfile = (id: string): AIBackendProfile | null => {
                     { name: 'OPENAI_API_TIMEOUT_MS', value: '600000' },
                     { name: 'API_TIMEOUT_MS', value: '600000' },
                 ],
-                compatibility: { claude: false, codex: true, gemini: false },
+                compatibility: { claude: false, codex: true, gemini: false, cursor: false },
                 isBuiltIn: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -350,7 +367,23 @@ export const getBuiltInProfile = (id: string): AIBackendProfile | null => {
                     { name: 'GEMINI_MODEL', value: '${GEMINI_MODEL:-gemini-3-pro-preview}' },
                 ],
                 defaultPermissionMode: 'default',
-                compatibility: { claude: false, codex: false, gemini: true },
+                compatibility: { claude: false, codex: false, gemini: true, cursor: false },
+                isBuiltIn: true,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                version: '1.0.0',
+            };
+        case 'cursor':
+            // Cursor signs in through `cursor-agent login` (or CURSOR_API_KEY on
+            // headless machines), so unlike every other entry here it configures
+            // no endpoint. It is listed anyway so that choosing an agent works
+            // the same way for all four.
+            return {
+                id: 'cursor',
+                name: 'Cursor',
+                environmentVariables: [],
+                defaultPermissionMode: 'default',
+                compatibility: { claude: false, codex: false, gemini: false, cursor: true },
                 isBuiltIn: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -394,6 +427,11 @@ export const DEFAULT_PROFILES = [
     {
         id: 'google-ai',
         name: 'Google AI (Gemini)',
+        isBuiltIn: true,
+    },
+    {
+        id: 'cursor',
+        name: 'Cursor',
         isBuiltIn: true,
     }
 ];

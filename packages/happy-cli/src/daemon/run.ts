@@ -113,14 +113,6 @@ async function getProfileEnvironmentVariablesForAgent(
       return {};
     }
 
-    // Cursor brings its own credentials and is not described by the
-    // Anthropic/OpenAI/Google profile compatibility matrix, so profiles simply
-    // do not apply to it.
-    if (agentType === 'cursor') {
-      logger.debug('[DAEMON RUN] Cursor sessions do not use AI backend profiles');
-      return {};
-    }
-
     // Check if profile is compatible with the agent
     if (!validateProfileForAgent(profile, agentType)) {
       logger.debug(`[DAEMON RUN] Profile ${profileId} not compatible with agent ${agentType}`);

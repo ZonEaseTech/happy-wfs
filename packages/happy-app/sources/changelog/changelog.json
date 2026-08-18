@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 19,
+      "date": "2026-08-18",
+      "summary": "Cursor tool calls now ask before they run, and Cursor is picked the same way as every other agent.",
+      "changes": [
+        "Cursor: every tool call — reading, writing, running a command — waits for your approval on the phone before it happens. Denying one also blocks the agent's attempts to route around it.",
+        "Cursor: pick it from the AI backend list on the new-session screen, exactly like Claude, Codex and Gemini, instead of hunting for a separate control."
+      ],
+      "rawMarkdown": "## Version 19 - 2026-08-18\n\n\nCursor tool calls now ask before they run, and Cursor is picked the same way as every other agent.\n\n- Cursor: every tool call — reading, writing, running a command — waits for your approval on the phone before it happens. Denying one also blocks the agent's attempts to route around it.\n- Cursor: pick it from the AI backend list on the new-session screen, exactly like Claude, Codex and Gemini, instead of hunting for a separate control."
+    },
+    {
       "version": 18,
       "date": "2026-08-17",
       "summary": "Cursor joins Claude, Codex and Gemini as an agent you can drive from your phone.",
@@ -220,5 +230,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 18
+  "latestVersion": 19
 }

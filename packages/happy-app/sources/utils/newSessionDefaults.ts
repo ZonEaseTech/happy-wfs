@@ -5,10 +5,9 @@ import { CODEX_COPY_SESSION_MODEL_MODE } from './copySessionDefaults';
 export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'cursor';
 export type NewSessionProfileAgentCompatibility = Partial<Record<NewSessionAgentType, boolean>>;
 
-// Used only to infer an agent from a profile's exclusive compatibility. Cursor
-// is absent on purpose: profiles configure Anthropic/OpenAI/Google endpoints and
-// Cursor authenticates itself, so no profile can ever point at it.
-const NEW_SESSION_AGENT_TYPES = ['claude', 'codex', 'gemini'] as const;
+// Used to infer an agent from a profile's exclusive compatibility: picking the
+// Cursor entry in the profile list is what switches the session to Cursor.
+const NEW_SESSION_AGENT_TYPES = ['claude', 'codex', 'gemini', 'cursor'] as const;
 
 export const CLAUDE_NEW_SESSION_DEFAULT_MODEL = 'claude-opus-5[1m]' satisfies ModelMode;
 

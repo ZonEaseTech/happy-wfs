@@ -59,6 +59,9 @@ const ProfileCompatibilitySchema = z.object({
     claude: z.boolean().default(true),
     codex: z.boolean().default(true),
     gemini: z.boolean().default(true),
+    // Defaults to false: profiles written before Cursor existed describe
+    // Anthropic-style endpoints and must not silently claim to support it.
+    cursor: z.boolean().default(false),
 });
 
 // AIBackendProfile schema - EXACT MATCH with GUI schema
@@ -92,7 +95,7 @@ export const AIBackendProfileSchema = z.object({
     defaultModelMode: z.string().optional(),
 
     // Compatibility metadata
-    compatibility: ProfileCompatibilitySchema.default({ claude: true, codex: true, gemini: true }),
+    compatibility: ProfileCompatibilitySchema.default({ claude: true, codex: true, gemini: true, cursor: false }),
 
     // Built-in profile indicator
     isBuiltIn: z.boolean().default(false),
@@ -106,8 +109,8 @@ export const AIBackendProfileSchema = z.object({
 export type AIBackendProfile = z.infer<typeof AIBackendProfileSchema>;
 
 // Helper functions matching the happy app exactly
-export function validateProfileForAgent(profile: AIBackendProfile, agent: 'claude' | 'codex' | 'gemini'): boolean {
-  return profile.compatibility[agent];
+export function validateProfileForAgent(profile: AIBackendProfile, agent: 'claude' | 'codex' | 'gemini' | 'cursor'): boolean {
+  return profile.compatibility[agent] ?? false;
 }
 
 export function getProfileEnvironmentVariables(profile: AIBackendProfile): Record<string, string> {

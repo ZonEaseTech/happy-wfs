@@ -147,6 +147,12 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1)
     }
     return;
+  } else if (subcommand === 'cursor-approval-hook') {
+    // Invoked by Cursor itself via .cursor/hooks.json, not by people. Reads the
+    // hook payload on stdin and prints the allow/deny verdict on stdout.
+    const { runCursorApprovalHook } = await import('@/cursor/cursorApprovalHook');
+    await runCursorApprovalHook();
+    return;
   } else if (subcommand === 'cursor') {
     const { authAndSetupMachineIfNeeded } = await import('./ui/auth');
     const { isDaemonRunningCurrentlyInstalledHappyVersion } = await import('./daemon/controlClient');
