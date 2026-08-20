@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { copyFile, readFile, writeFile, unlink as unlinkAsync } from 'node:fs/promises';
+import { readFile, writeFile, unlink as unlinkAsync } from 'node:fs/promises';
 import { dirname, join, basename } from 'node:path';
 import { logger } from '@/ui/logger';
 import { findCodexSessionFile, generateStableUuid, extractUserText, isSystemMessage } from './codexSessionReader';
@@ -19,6 +19,27 @@ export interface CodexForkResult {
   /** Absolute path to the new forked JSONL file */
   newFilePath?: string;
   errorMessage?: string;
+}
+
+/**
+ * Rewrite the thread id carried by the first line of a rollout file.
+ *
+ * Codex stores the thread id inside the file (`session_meta.payload.session_id` / `.id`),
+ * not in the filename. A copy that keeps the original id makes Codex reject
+ * `thread/resume` with `thread <id> already has an active writer` whenever the source
+ * session is still running — which is exactly the "duplicate an active session" case.
+ * Aligning the id with the new filename gives the copy its own thread-store entry.
+ */
+function rewriteSessionMetaId(line: string, newId: string): string {
+  try {
+    const parsed = JSON.parse(line);
+    if (parsed.type !== 'session_meta' || !parsed.payload) return line;
+    parsed.payload.session_id = newId;
+    parsed.payload.id = newId;
+    return JSON.stringify(parsed);
+  } catch {
+    return line;
+  }
 }
 
 /**
@@ -53,8 +74,11 @@ export async function forkAndTruncateCodexSession(
 
   try {
     if (!truncateBeforeUuid) {
-      // Simple copy — no truncation
-      await copyFile(originalPath, newPath);
+      // Simple copy — no truncation, only the session_meta id is rewritten
+      const content = await readFile(originalPath, 'utf-8');
+      const lines = content.split('\n');
+      const outputLines = lines.map((line, index) => index === 0 ? rewriteSessionMetaId(line, newUUID) : line);
+      await writeFile(newPath, outputLines.join('\n'), 'utf-8');
     } else {
       // Copy with truncation: keep lines before the user message matching the UUID
       const content = await readFile(originalPath, 'utf-8');
@@ -86,7 +110,7 @@ export async function forkAndTruncateCodexSession(
         } catch { /* keep line anyway */ }
 
         if (!foundTruncationPoint) {
-          outputLines.push(line);
+          outputLines.push(outputLines.length === 0 ? rewriteSessionMetaId(line, newUUID) : line);
         }
       }
 
