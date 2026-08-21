@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 21 - 2026-08-21
+
+Attach twice as many images to a message.
+
+- Chat: a single message now takes up to 20 images instead of 10 — the picker keeps going past the old cutoff, and the limit notice reads 20.
+
 ## Version 20 - 2026-08-18
 
 Cursor sessions behave like the other agents now.

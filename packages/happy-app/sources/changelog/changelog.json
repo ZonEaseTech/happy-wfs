@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 21,
+      "date": "2026-08-21",
+      "summary": "Attach twice as many images to a message.",
+      "changes": [
+        "Chat: a single message now takes up to 20 images instead of 10 — the picker keeps going past the old cutoff, and the limit notice reads 20."
+      ],
+      "rawMarkdown": "## Version 21 - 2026-08-21\n\n\nAttach twice as many images to a message.\n\n- Chat: a single message now takes up to 20 images instead of 10 — the picker keeps going past the old cutoff, and the limit notice reads 20."
+    },
+    {
       "version": 20,
       "date": "2026-08-18",
       "summary": "Cursor sessions behave like the other agents now.",
@@ -245,5 +254,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 20
+  "latestVersion": 21
 }
