@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 23,
+      "date": "2026-08-24",
+      "summary": "Bugs filed from a session can carry screenshots, and can be fixed up or dropped without leaving the chat.",
+      "changes": [
+        "Bugs: attach screenshots when filing — point the agent at images on the machine and they land on the bug. JPEG and PNG, up to 10 per bug. If one image can't be read the bug is still filed, and the agent tells you which one was left out.",
+        "Bugs: say \"fix the description on BUG-236\" and the agent rewrites it; say \"delete BUG-236\" and it goes off the board. Refer to a bug however you normally would — \"BUG-236\", \"#236\" or just the number.",
+        "Bugs: deleting asks for your approval first, and the report is hidden rather than destroyed."
+      ],
+      "rawMarkdown": "## Version 23 - 2026-08-24\n\n\nBugs filed from a session can carry screenshots, and can be fixed up or dropped without leaving the chat.\n\n- Bugs: attach screenshots when filing — point the agent at images on the machine and they land on the bug. JPEG and PNG, up to 10 per bug. If one image can't be read the bug is still filed, and the agent tells you which one was left out.\n- Bugs: say \"fix the description on BUG-236\" and the agent rewrites it; say \"delete BUG-236\" and it goes off the board. Refer to a bug however you normally would — \"BUG-236\", \"#236\" or just the number.\n- Bugs: deleting asks for your approval first, and the report is hidden rather than destroyed."
+    },
+    {
       "version": 22,
       "date": "2026-08-24",
       "summary": "Ask the agent to file a bug and it files one.",
@@ -264,5 +275,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 22
+  "latestVersion": 23
 }

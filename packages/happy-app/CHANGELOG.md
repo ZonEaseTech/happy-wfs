@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 23 - 2026-08-24
+
+Bugs filed from a session can carry screenshots, and can be fixed up or dropped without leaving the chat.
+
+- Bugs: attach screenshots when filing — point the agent at images on the machine and they land on the bug. JPEG and PNG, up to 10 per bug. If one image can't be read the bug is still filed, and the agent tells you which one was left out.
+- Bugs: say "fix the description on BUG-236" and the agent rewrites it; say "delete BUG-236" and it goes off the board. Refer to a bug however you normally would — "BUG-236", "#236" or just the number.
+- Bugs: deleting asks for your approval first, and the report is hidden rather than destroyed.
+
 ## Version 22 - 2026-08-24
 
 Ask the agent to file a bug and it files one.
