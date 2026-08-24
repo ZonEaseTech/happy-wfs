@@ -24,7 +24,7 @@ import {
 export type { PermissionResult, PendingRequest };
 
 /** Tools that would deadlock or annoy if they needed a tap every time. */
-const ALWAYS_ALLOWED_TOOLS = ['change_title', 'happy__change_title', 'preview_html', 'happy__preview_html', 'list_bugs', 'happy__list_bugs'];
+const ALWAYS_ALLOWED_TOOLS = ['change_title', 'happy__change_title', 'preview_html', 'happy__preview_html', 'list_bugs', 'happy__list_bugs', 'get_bug', 'happy__get_bug'];
 
 /** Modes in which the user has said they do not want to be asked at all. */
 const UNATTENDED_MODES: readonly string[] = ['yolo', 'safe-yolo', 'bypassPermissions'];

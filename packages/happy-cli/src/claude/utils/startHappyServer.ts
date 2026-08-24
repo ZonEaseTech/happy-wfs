@@ -16,7 +16,7 @@ import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { readCredentials } from "@/persistence";
 import { deviceExec, listDevices } from "@/device/deviceExec";
-import { deleteBug, editBug, listBugs, submitBug } from "@/bugs/bugs";
+import { deleteBug, editBug, getBug, listBugs, submitBug, type BugDetail } from "@/bugs/bugs";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
 import { applyDefaultWorkingDirectory } from '@/orchestrator/common';
@@ -56,6 +56,42 @@ function toToolError(message: string, details?: unknown) {
         ],
         isError: true,
     };
+}
+
+const asDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/**
+ * Render a bug the way someone reading the board would want it: the report
+ * first, then what people said about it, then how it moved between states.
+ * Comment bodies are left whole — the point of asking for one bug is to see all
+ * of it.
+ */
+function formatBugDetail(bug: BugDetail): string {
+    const sections = [
+        `${bug.displayId}  [${bug.status}]  ${bug.visibility}`,
+        `${bug.title}`,
+        `filed by ${bug.createdByNickname ?? 'unknown'}${bug.lastActivityAt ? `, last activity ${asDate(bug.lastActivityAt)}` : ''}`,
+        `\n--- description ---\n${bug.description}`,
+    ];
+    if (bug.attachments.length) {
+        sections.push(`\n--- attachments (${bug.attachments.length}) ---\n${bug.attachments
+            .map((a) => `${a.mimeType}  ${a.width ?? '?'}x${a.height ?? '?'}  ${a.url}`)
+            .join('\n')}`);
+    }
+    if (bug.comments.length) {
+        sections.push(`\n--- comments (${bug.comments.length}) ---\n${bug.comments
+            .map((c) => [
+                `[${asDate(c.createdAt)}] ${c.authorNickname ?? 'unknown'}: ${c.body}`,
+                ...c.attachments.map((a) => `    + ${a.mimeType}  ${a.url}`),
+            ].join('\n'))
+            .join('\n')}`);
+    }
+    if (bug.statusHistory.length) {
+        sections.push(`\n--- history (${bug.statusHistory.length}) ---\n${bug.statusHistory
+            .map((h) => `${asDate(h.createdAt)}  ${h.fromStatus ? `${h.fromStatus} → ${h.toStatus}` : h.action}  by ${h.actorNickname ?? 'unknown'}${h.note ? `  (${h.note})` : ''}`)
+            .join('\n')}`);
+    }
+    return sections.join('\n');
 }
 
 // Factory function to create MCP server with tools
@@ -249,13 +285,32 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         }
     });
 
+    mcp.registerTool('get_bug', {
+        description: 'Read one bug in full from the user\'s Happy bug board: its description, screenshots, every comment and how it moved between states. '
+            + 'Use when the user asks about a specific bug, or before editing one so the rewrite keeps what is still true.',
+        title: 'Get Bug',
+        inputSchema: {
+            bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return toToolError('No Happy credentials on this machine.');
+        }
+        try {
+            return { content: [{ type: 'text', text: formatBugDetail(await getBug(credentials, args.bug)) }] };
+        } catch (error) {
+            return toToolError(`Failed to read bug: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
     mcp.registerTool('edit_bug', {
         description: 'Change a bug already on the user\'s Happy bug board: rewrite its description, add screenshots to it, or both. '
             + 'Use when the user wants to correct, expand or illustrate an existing bug.',
         title: 'Edit Bug',
         inputSchema: {
             bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
-            description: z.string().optional().describe('The full replacement description. It replaces the old one outright, so carry over anything still true. Omit to leave the description alone.'),
+            description: z.string().optional().describe('The full replacement description. It replaces the old one outright, so carry over anything still true — including any [[bug-image:N]] markers, which is where the Nth screenshot appears inline. Drop a marker and that image moves to the end. Omit this field to leave the description alone.'),
             images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine, added to any already on the bug. JPEG and PNG only, 10 per bug in total, 20MB each.'),
         },
     }, async (args) => {
@@ -454,8 +509,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'submit_bug', 'edit_bug', 'delete_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'submit_bug', 'edit_bug', 'delete_bug'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;

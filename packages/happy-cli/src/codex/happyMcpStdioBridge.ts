@@ -133,13 +133,22 @@ async function main() {
     },
   });
 
+  registerForwardedTool('get_bug', {
+    description: 'Read one bug in full from the user\'s Happy bug board: its description, screenshots, every comment and how it moved between states. '
+      + 'Use when the user asks about a specific bug, or before editing one so the rewrite keeps what is still true.',
+    title: 'Get Bug',
+    inputSchema: {
+      bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+    },
+  });
+
   registerForwardedTool('edit_bug', {
     description: 'Change a bug already on the user\'s Happy bug board: rewrite its description, add screenshots to it, or both. '
       + 'Use when the user wants to correct, expand or illustrate an existing bug.',
     title: 'Edit Bug',
     inputSchema: {
       bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
-      description: z.string().optional().describe('The full replacement description. It replaces the old one outright, so carry over anything still true. Omit to leave the description alone.'),
+      description: z.string().optional().describe('The full replacement description. It replaces the old one outright, so carry over anything still true — including any [[bug-image:N]] markers, which is where the Nth screenshot appears inline. Drop a marker and that image moves to the end. Omit this field to leave the description alone.'),
       images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine, added to any already on the bug. JPEG and PNG only, 10 per bug in total, 20MB each.'),
     },
   });

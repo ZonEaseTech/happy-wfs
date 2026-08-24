@@ -63,6 +63,7 @@ export class CodexTransport implements TransportHandler {
     this.createTool('change_title'),
     this.createTool('preview_html'),
     this.createTool('list_bugs'),
+    this.createTool('get_bug'),
     this.createTool('submit_bug'),
     this.createTool('edit_bug'),
     this.createTool('delete_bug'),

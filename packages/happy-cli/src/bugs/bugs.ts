@@ -71,6 +71,38 @@ export interface ListBugsInput {
     limit?: number;
 }
 
+export interface BugAttachment {
+    url: string;
+    mimeType: string;
+    width: number | null;
+    height: number | null;
+    createdAt: number;
+}
+
+export interface BugComment {
+    body: string;
+    authorNickname: string | null;
+    createdAt: number;
+    attachments: BugAttachment[];
+}
+
+export interface BugHistoryEntry {
+    action: string;
+    fromStatus: string | null;
+    toStatus: string;
+    actorNickname: string | null;
+    note: string | null;
+    createdAt: number;
+}
+
+export interface BugDetail extends SubmittedBug {
+    description: string;
+    sessionId: string | null;
+    attachments: BugAttachment[];
+    comments: BugComment[];
+    statusHistory: BugHistoryEntry[];
+}
+
 function authHeaders(credentials: Credentials) {
     return { headers: { Authorization: `Bearer ${credentials.token}` }, timeout: 15000 };
 }
@@ -99,6 +131,15 @@ export async function listBugs(
         },
     );
     return response.data;
+}
+
+export async function getBug(credentials: Credentials, reference: string): Promise<BugDetail> {
+    const bugId = await resolveBugId(credentials, reference);
+    const response = await axios.get<{ bug: BugDetail }>(
+        `${configuration.serverUrl}/v1/bugs/${bugId}`,
+        authHeaders(credentials),
+    );
+    return response.data.bug;
 }
 
 export async function resolveBugId(credentials: Credentials, reference: string): Promise<string> {

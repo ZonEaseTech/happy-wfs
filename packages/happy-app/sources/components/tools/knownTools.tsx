@@ -680,6 +680,21 @@ export const knownTools = {
         }).partial().passthrough(),
         result: z.object({}).partial().passthrough()
     },
+    'get_bug': {
+        title: 'Get Bug',
+        icon: ICON_BUG,
+        minimal: true,
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            if (opts.tool.input?.bug && typeof opts.tool.input.bug === 'string') {
+                return opts.tool.input.bug;
+            }
+            return null;
+        },
+        input: z.object({
+            bug: z.string().optional().describe('Bug reference')
+        }).partial().passthrough(),
+        result: z.object({}).partial().passthrough()
+    },
     'submit_bug': {
         title: 'Submit Bug',
         icon: ICON_BUG,
