@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 26,
+      "date": "2026-08-24",
+      "summary": "Read a whole bug — comments and all — without leaving the chat.",
+      "changes": [
+        "Bugs: ask \"what's the story on BUG-236?\" and the agent reads it back in full: the report, its screenshots, every comment, and how it moved from pending to closed and who moved it.",
+        "Bugs: reading a bug doesn't ask for approval either. Only filing, editing and deleting do.",
+        "Bugs: when the agent rewrites a description it now keeps the screenshots where you put them, instead of pushing them to the bottom."
+      ],
+      "rawMarkdown": "## Version 26 - 2026-08-24\n\n\nRead a whole bug — comments and all — without leaving the chat.\n\n- Bugs: ask \"what's the story on BUG-236?\" and the agent reads it back in full: the report, its screenshots, every comment, and how it moved from pending to closed and who moved it.\n- Bugs: reading a bug doesn't ask for approval either. Only filing, editing and deleting do.\n- Bugs: when the agent rewrites a description it now keeps the screenshots where you put them, instead of pushing them to the bottom."
+    },
+    {
       "version": 25,
       "date": "2026-08-24",
       "summary": "Ask what's on the bug board without leaving the chat.",
@@ -295,5 +306,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 25
+  "latestVersion": 26
 }

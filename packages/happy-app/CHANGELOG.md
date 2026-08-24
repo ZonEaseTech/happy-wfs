@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 26 - 2026-08-24
+
+Read a whole bug — comments and all — without leaving the chat.
+
+- Bugs: ask "what's the story on BUG-236?" and the agent reads it back in full: the report, its screenshots, every comment, and how it moved from pending to closed and who moved it.
+- Bugs: reading a bug doesn't ask for approval either. Only filing, editing and deleting do.
+- Bugs: when the agent rewrites a description it now keeps the screenshots where you put them, instead of pushing them to the bottom.
+
 ## Version 25 - 2026-08-24
 
 Ask what's on the bug board without leaving the chat.
