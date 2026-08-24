@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 24 - 2026-08-24
+
+Screenshots can be added to a bug after it was filed.
+
+- Bugs: say "add this screenshot to BUG-236" and the agent attaches it without touching the description. Editing the text and adding images can also happen in one go.
+- Bugs: added images join the ones already on the bug rather than replacing them, and the ten-image limit counts everything already there.
+
 ## Version 23 - 2026-08-24
 
 Bugs filed from a session can carry screenshots, and can be fixed up or dropped without leaving the chat.
