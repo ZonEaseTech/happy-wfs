@@ -16,7 +16,7 @@ import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { readCredentials } from "@/persistence";
 import { deviceExec, listDevices } from "@/device/deviceExec";
-import { submitBug } from "@/bugs/submitBug";
+import { deleteBug, editBug, submitBug } from "@/bugs/bugs";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
 import { applyDefaultWorkingDirectory } from '@/orchestrator/common';
@@ -203,6 +203,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         inputSchema: {
             description: z.string().describe('What went wrong, what was expected, and how to reproduce it. The title is derived from the first line.'),
             visibility: z.enum(['shared', 'private']).optional().describe('shared (default) puts it on the shared board; private keeps it to the owner'),
+            images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine. JPEG and PNG only, up to 10 images, 20MB each.'),
         },
     }, async (args) => {
         const credentials = await readCredentials();
@@ -215,6 +216,48 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
             return toToolSuccess({ ok: true, ...bug });
         } catch (error) {
             return toToolError(`Failed to submit bug: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    mcp.registerTool('edit_bug', {
+        description: 'Rewrite the description of a bug already on the user\'s Happy bug board. '
+            + 'Use when the user wants to correct or expand an existing bug. The description replaces the old one outright, so carry over anything still true.',
+        title: 'Edit Bug',
+        inputSchema: {
+            bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+            description: z.string().describe('The full replacement description — what went wrong, what was expected, and how to reproduce it.'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return toToolError('No Happy credentials on this machine.');
+        }
+        try {
+            const bug = await editBug(credentials, args);
+            logger.debug('[happyMCP] Edited bug:', bug.displayId);
+            return toToolSuccess({ ok: true, ...bug });
+        } catch (error) {
+            return toToolError(`Failed to edit bug: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    mcp.registerTool('delete_bug', {
+        description: 'Remove a bug from the user\'s Happy bug board. The server keeps the row and hides it, so this can be undone by an admin, but it disappears from the board immediately.',
+        title: 'Delete Bug',
+        inputSchema: {
+            bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return toToolError('No Happy credentials on this machine.');
+        }
+        try {
+            const deleted = await deleteBug(credentials, args.bug);
+            logger.debug('[happyMCP] Deleted bug:', args.bug);
+            return toToolSuccess({ ok: true, ...deleted });
+        } catch (error) {
+            return toToolError(`Failed to delete bug: ${error instanceof Error ? error.message : String(error)}`);
         }
     });
 
@@ -380,8 +423,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug', 'edit_bug', 'delete_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug', 'edit_bug', 'delete_bug'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;

@@ -672,7 +672,39 @@ export const knownTools = {
         },
         input: z.object({
             description: z.string().optional().describe('What went wrong'),
-            visibility: z.string().optional().describe('shared or private')
+            visibility: z.string().optional().describe('shared or private'),
+            images: z.array(z.string()).optional().describe('Screenshot paths')
+        }).partial().passthrough(),
+        result: z.object({}).partial().passthrough()
+    },
+    'edit_bug': {
+        title: 'Edit Bug',
+        icon: ICON_BUG,
+        minimal: true,
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            if (opts.tool.input?.bug && typeof opts.tool.input.bug === 'string') {
+                return opts.tool.input.bug;
+            }
+            return null;
+        },
+        input: z.object({
+            bug: z.string().optional().describe('Bug reference'),
+            description: z.string().optional().describe('Replacement description')
+        }).partial().passthrough(),
+        result: z.object({}).partial().passthrough()
+    },
+    'delete_bug': {
+        title: 'Delete Bug',
+        icon: ICON_BUG,
+        minimal: true,
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            if (opts.tool.input?.bug && typeof opts.tool.input.bug === 'string') {
+                return opts.tool.input.bug;
+            }
+            return null;
+        },
+        input: z.object({
+            bug: z.string().optional().describe('Bug reference')
         }).partial().passthrough(),
         result: z.object({}).partial().passthrough()
     },

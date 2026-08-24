@@ -119,6 +119,25 @@ async function main() {
     inputSchema: {
       description: z.string().describe('What went wrong, what was expected, and how to reproduce it. The title is derived from the first line.'),
       visibility: z.enum(['shared', 'private']).optional().describe('shared (default) puts it on the shared board; private keeps it to the owner'),
+      images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine. JPEG and PNG only, up to 10 images, 20MB each.'),
+    },
+  });
+
+  registerForwardedTool('edit_bug', {
+    description: 'Rewrite the description of a bug already on the user\'s Happy bug board. '
+      + 'Use when the user wants to correct or expand an existing bug. The description replaces the old one outright, so carry over anything still true.',
+    title: 'Edit Bug',
+    inputSchema: {
+      bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+      description: z.string().describe('The full replacement description — what went wrong, what was expected, and how to reproduce it.'),
+    },
+  });
+
+  registerForwardedTool('delete_bug', {
+    description: 'Remove a bug from the user\'s Happy bug board. The server keeps the row and hides it, so this can be undone by an admin, but it disappears from the board immediately.',
+    title: 'Delete Bug',
+    inputSchema: {
+      bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
     },
   });
 
