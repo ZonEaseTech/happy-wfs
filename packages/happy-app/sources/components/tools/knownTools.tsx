@@ -660,6 +660,26 @@ export const knownTools = {
         }).partial().passthrough(),
         result: z.object({}).partial().passthrough()
     },
+    'list_bugs': {
+        title: 'List Bugs',
+        icon: ICON_BUG,
+        minimal: true,
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            if (opts.tool.input?.query && typeof opts.tool.input.query === 'string') {
+                return opts.tool.input.query;
+            }
+            if (opts.tool.input?.status && typeof opts.tool.input.status === 'string') {
+                return opts.tool.input.status;
+            }
+            return null;
+        },
+        input: z.object({
+            status: z.string().optional().describe('Bug status filter'),
+            query: z.string().optional().describe('Search text'),
+            limit: z.number().optional().describe('How many to return')
+        }).partial().passthrough(),
+        result: z.object({}).partial().passthrough()
+    },
     'submit_bug': {
         title: 'Submit Bug',
         icon: ICON_BUG,

@@ -82,6 +82,11 @@ const GEMINI_TOOL_PATTERNS: ExtendedToolPattern[] = [
     inputFields: ['html'],
   }),
   createTool({
+    name: 'list_bugs',
+    inputFields: ['query', 'status'],
+    emptyInputDefault: true,
+  }),
+  createTool({
     name: 'submit_bug',
     inputFields: ['description', 'images'],
   }),

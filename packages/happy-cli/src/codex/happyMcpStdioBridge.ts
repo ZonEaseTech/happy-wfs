@@ -123,6 +123,16 @@ async function main() {
     },
   });
 
+  registerForwardedTool('list_bugs', {
+    description: 'List bugs on the user\'s Happy bug board. Use to answer what is open, to find a bug the user is describing, or to get its number before editing or deleting it.',
+    title: 'List Bugs',
+    inputSchema: {
+      status: z.enum(['pending', 'in_progress', 'verify', 'closed']).optional().describe('Only bugs in this state'),
+      query: z.string().optional().describe('Free text matched against number, title, description, author and status'),
+      limit: z.number().int().min(1).max(200).optional().describe('How many to return, 50 by default'),
+    },
+  });
+
   registerForwardedTool('edit_bug', {
     description: 'Change a bug already on the user\'s Happy bug board: rewrite its description, add screenshots to it, or both. '
       + 'Use when the user wants to correct, expand or illustrate an existing bug.',

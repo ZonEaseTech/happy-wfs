@@ -42,8 +42,8 @@ export class CodexPermissionHandler extends BasePermissionHandler {
     }
 
     private shouldAutoApprove(toolName: string, toolCallId: string): boolean {
-        const alwaysAutoApproveNames = ['change_title', 'happy__change_title', 'preview_html', 'happy__preview_html', 'CodexReasoning', 'think', 'save_memory'];
-        const alwaysAutoApproveIds = ['change_title', 'preview_html', 'save_memory'];
+        const alwaysAutoApproveNames = ['change_title', 'happy__change_title', 'preview_html', 'happy__preview_html', 'list_bugs', 'happy__list_bugs', 'CodexReasoning', 'think', 'save_memory'];
+        const alwaysAutoApproveIds = ['change_title', 'preview_html', 'list_bugs', 'save_memory'];
 
         if (alwaysAutoApproveNames.some(name => toolName.toLowerCase().includes(name.toLowerCase()))) {
             return true;

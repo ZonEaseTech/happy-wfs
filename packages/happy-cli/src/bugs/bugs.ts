@@ -58,6 +58,17 @@ export interface SubmittedBug {
     status: string;
     visibility: string;
     attachmentCount?: number;
+    commentCount?: number;
+    createdByNickname?: string | null;
+    lastActivityAt?: number;
+}
+
+export type BugStatus = 'pending' | 'in_progress' | 'verify' | 'closed';
+
+export interface ListBugsInput {
+    status?: BugStatus;
+    query?: string;
+    limit?: number;
 }
 
 function authHeaders(credentials: Credentials) {
@@ -72,6 +83,24 @@ function authHeaders(credentials: Credentials) {
  * over titles and descriptions too, so the display id is compared exactly here
  * — otherwise a bug that merely mentions "BUG-236" could win.
  */
+export async function listBugs(
+    credentials: Credentials,
+    input: ListBugsInput = {},
+): Promise<{ bugs: SubmittedBug[]; pendingCount: number }> {
+    const response = await axios.get<{ bugs: SubmittedBug[]; pendingCount: number }>(
+        `${configuration.serverUrl}/v1/bugs`,
+        {
+            params: {
+                ...(input.status ? { status: input.status } : {}),
+                ...(input.query ? { query: input.query } : {}),
+                limit: input.limit ?? 50,
+            },
+            ...authHeaders(credentials),
+        },
+    );
+    return response.data;
+}
+
 export async function resolveBugId(credentials: Credentials, reference: string): Promise<string> {
     const trimmed = reference.trim();
     const displayNumber = trimmed.replace(/^#/, '').match(/^(?:bug-)?(\d+)$/i)?.[1];

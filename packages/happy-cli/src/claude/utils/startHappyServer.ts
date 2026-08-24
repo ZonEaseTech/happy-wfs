@@ -16,7 +16,7 @@ import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { readCredentials } from "@/persistence";
 import { deviceExec, listDevices } from "@/device/deviceExec";
-import { deleteBug, editBug, submitBug } from "@/bugs/bugs";
+import { deleteBug, editBug, listBugs, submitBug } from "@/bugs/bugs";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
 import { applyDefaultWorkingDirectory } from '@/orchestrator/common';
@@ -216,6 +216,36 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
             return toToolSuccess({ ok: true, ...bug });
         } catch (error) {
             return toToolError(`Failed to submit bug: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    mcp.registerTool('list_bugs', {
+        description: 'List bugs on the user\'s Happy bug board. Use to answer what is open, to find a bug the user is describing, or to get its number before editing or deleting it.',
+        title: 'List Bugs',
+        inputSchema: {
+            status: z.enum(['pending', 'in_progress', 'verify', 'closed']).optional().describe('Only bugs in this state'),
+            query: z.string().describe('Free text matched against number, title, description, author and status').optional(),
+            limit: z.number().int().min(1).max(200).optional().describe('How many to return, 50 by default'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return toToolError('No Happy credentials on this machine.');
+        }
+        try {
+            const { bugs, pendingCount } = await listBugs(credentials, args);
+            const lines = bugs.map((bug) => {
+                const counts = [
+                    bug.attachmentCount ? `${bug.attachmentCount} images` : '',
+                    bug.commentCount ? `${bug.commentCount} comments` : '',
+                ].filter(Boolean).join(', ');
+                const activity = bug.lastActivityAt ? new Date(bug.lastActivityAt).toISOString().slice(0, 10) : '';
+                return `${bug.displayId}  [${bug.status}]  ${bug.title}${bug.createdByNickname ? `  — ${bug.createdByNickname}` : ''}${counts ? `  (${counts})` : ''}${activity ? `  ${activity}` : ''}`;
+            });
+            const header = `${bugs.length} bugs shown, ${pendingCount} pending on the board`;
+            return { content: [{ type: 'text', text: lines.length ? `${header}\n${lines.join('\n')}` : header }] };
+        } catch (error) {
+            return toToolError(`Failed to list bugs: ${error instanceof Error ? error.message : String(error)}`);
         }
     });
 
@@ -424,8 +454,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug', 'edit_bug', 'delete_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug', 'edit_bug', 'delete_bug'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'submit_bug', 'edit_bug', 'delete_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'submit_bug', 'edit_bug', 'delete_bug'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;
