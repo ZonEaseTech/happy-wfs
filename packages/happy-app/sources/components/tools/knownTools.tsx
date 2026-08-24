@@ -19,6 +19,7 @@ const ICON_REASONING = (size: number = 24, color: string = '#000') => <Octicons 
 const ICON_QUESTION = (size: number = 24, color: string = '#000') => <Ionicons name="help-circle-outline" size={size} color={color} />;
 const ICON_SKILL = (size: number = 24, color: string = '#000') => <Ionicons name="construct-outline" size={size} color={color} />;
 const ICON_ROBOT = (size: number = 24, color: string = '#000') => <MaterialCommunityIcons name="robot-outline" size={size} color={color} />;
+const ICON_BUG = (size: number = 24, color: string = '#000') => <Octicons name="bug" size={size} color={color} />;
 
 export const knownTools = {
     'Task': {
@@ -656,6 +657,22 @@ export const knownTools = {
         noStatus: true,
         input: z.object({
             title: z.string().optional().describe('New session title')
+        }).partial().passthrough(),
+        result: z.object({}).partial().passthrough()
+    },
+    'submit_bug': {
+        title: 'Submit Bug',
+        icon: ICON_BUG,
+        minimal: true,
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            if (opts.tool.input?.description && typeof opts.tool.input.description === 'string') {
+                return opts.tool.input.description.split('\n')[0];
+            }
+            return null;
+        },
+        input: z.object({
+            description: z.string().optional().describe('What went wrong'),
+            visibility: z.string().optional().describe('shared or private')
         }).partial().passthrough(),
         result: z.object({}).partial().passthrough()
     },

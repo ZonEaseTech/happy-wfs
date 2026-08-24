@@ -16,6 +16,7 @@ import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { readCredentials } from "@/persistence";
 import { deviceExec, listDevices } from "@/device/deviceExec";
+import { submitBug } from "@/bugs/submitBug";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
 import { applyDefaultWorkingDirectory } from '@/orchestrator/common';
@@ -195,6 +196,28 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         };
     });
 
+    mcp.registerTool('submit_bug', {
+        description: 'File a bug report on the user\'s Happy bug board. Use when the user asks to report or file a bug. '
+            + 'Write the description yourself from the conversation: what went wrong, what was expected, and the steps to reproduce it.',
+        title: 'Submit Bug',
+        inputSchema: {
+            description: z.string().describe('What went wrong, what was expected, and how to reproduce it. The title is derived from the first line.'),
+            visibility: z.enum(['shared', 'private']).optional().describe('shared (default) puts it on the shared board; private keeps it to the owner'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return toToolError('No Happy credentials on this machine.');
+        }
+        try {
+            const bug = await submitBug(credentials, args);
+            logger.debug('[happyMCP] Submitted bug:', bug.displayId);
+            return toToolSuccess({ ok: true, ...bug });
+        } catch (error) {
+            return toToolError(`Failed to submit bug: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
     if (options.enableOrchestratorTools) {
         mcp.registerTool('orchestrator_get_context', ORCHESTRATOR_GET_CONTEXT_TOOL_SCHEMA, async () => {
             try {
@@ -357,8 +380,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html', 'device_list', 'device_exec'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'submit_bug'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;

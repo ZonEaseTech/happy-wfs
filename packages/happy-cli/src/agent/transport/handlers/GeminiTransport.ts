@@ -81,6 +81,10 @@ const GEMINI_TOOL_PATTERNS: ExtendedToolPattern[] = [
     name: 'preview_html',
     inputFields: ['html'],
   }),
+  createTool({
+    name: 'submit_bug',
+    inputFields: ['description'],
+  }),
 
   // Gemini built-in
   createTool({

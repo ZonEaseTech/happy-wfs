@@ -112,6 +112,16 @@ async function main() {
     },
   });
 
+  registerForwardedTool('submit_bug', {
+    description: 'File a bug report on the user\'s Happy bug board. Use when the user asks to report or file a bug. '
+      + 'Write the description yourself from the conversation: what went wrong, what was expected, and the steps to reproduce it.',
+    title: 'Submit Bug',
+    inputSchema: {
+      description: z.string().describe('What went wrong, what was expected, and how to reproduce it. The title is derived from the first line.'),
+      visibility: z.enum(['shared', 'private']).optional().describe('shared (default) puts it on the shared board; private keeps it to the owner'),
+    },
+  });
+
   if (enableOrchestratorTools) {
     registerForwardedTool('orchestrator_get_context', ORCHESTRATOR_GET_CONTEXT_TOOL_SCHEMA);
     registerForwardedTool('orchestrator_submit', ORCHESTRATOR_SUBMIT_TOOL_SCHEMA);

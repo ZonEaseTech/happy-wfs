@@ -62,6 +62,7 @@ export class CodexTransport implements TransportHandler {
   return [
     this.createTool('change_title'),
     this.createTool('preview_html'),
+    this.createTool('submit_bug'),
 
     this.createTool('bash', ['bash', 'shell', 'terminal', 'exec']),
     this.createTool('edit', ['edit', 'write', 'patch', 'apply_patch']),
