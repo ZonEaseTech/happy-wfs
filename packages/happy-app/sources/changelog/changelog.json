@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 22,
+      "date": "2026-08-24",
+      "summary": "Ask the agent to file a bug and it files one.",
+      "changes": [
+        "Bugs: say \"file a bug about this\" in any session and the agent writes it up from the conversation — what broke, what you expected, how to reproduce — and files it to your bug board. It lands as a normal pending bug, so comments, status and sharing all work as usual.",
+        "Bugs: works in Claude, Codex, Gemini and Cursor sessions. Filing asks for your approval first, since it writes to your account."
+      ],
+      "rawMarkdown": "## Version 22 - 2026-08-24\n\n\nAsk the agent to file a bug and it files one.\n\n- Bugs: say \"file a bug about this\" in any session and the agent writes it up from the conversation — what broke, what you expected, how to reproduce — and files it to your bug board. It lands as a normal pending bug, so comments, status and sharing all work as usual.\n- Bugs: works in Claude, Codex, Gemini and Cursor sessions. Filing asks for your approval first, since it writes to your account."
+    },
+    {
       "version": 21,
       "date": "2026-08-21",
       "summary": "Attach twice as many images to a message.",
@@ -254,5 +264,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 21
+  "latestVersion": 22
 }

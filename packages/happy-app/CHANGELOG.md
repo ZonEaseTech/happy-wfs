@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 22 - 2026-08-24
+
+Ask the agent to file a bug and it files one.
+
+- Bugs: say "file a bug about this" in any session and the agent writes it up from the conversation — what broke, what you expected, how to reproduce — and files it to your bug board. It lands as a normal pending bug, so comments, status and sharing all work as usual.
+- Bugs: works in Claude, Codex, Gemini and Cursor sessions. Filing asks for your approval first, since it writes to your account.
+
 ## Version 21 - 2026-08-21
 
 Attach twice as many images to a message.
