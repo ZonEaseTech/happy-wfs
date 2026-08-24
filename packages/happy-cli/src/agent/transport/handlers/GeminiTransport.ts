@@ -87,7 +87,7 @@ const GEMINI_TOOL_PATTERNS: ExtendedToolPattern[] = [
   }),
   createTool({
     name: 'edit_bug',
-    inputFields: ['bug', 'description'],
+    inputFields: ['bug', 'description', 'images'],
   }),
   createTool({
     name: 'delete_bug',

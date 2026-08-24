@@ -47,7 +47,8 @@ export interface AttachmentOutcome {
 
 export interface EditBugInput {
     bug: string;
-    description: string;
+    description?: string;
+    images?: string[];
 }
 
 export interface SubmittedBug {
@@ -56,6 +57,7 @@ export interface SubmittedBug {
     title: string;
     status: string;
     visibility: string;
+    attachmentCount?: number;
 }
 
 function authHeaders(credentials: Credentials) {
@@ -108,6 +110,32 @@ export async function attachBugImage(credentials: Credentials, bugId: string, fi
     await axios.post(`${configuration.serverUrl}/v1/bugs/${bugId}/attachments`, form, authHeaders(credentials));
 }
 
+/**
+ * Attach a batch of images, reporting per file instead of throwing.
+ *
+ * The bug is already on the board by the time this runs, so a bad image is
+ * reported rather than thrown — losing the whole report over one unreadable
+ * screenshot would be worse than filing it without that screenshot.
+ */
+async function attachImages(
+    credentials: Credentials,
+    bugId: string,
+    images: string[],
+    alreadyAttached: number,
+): Promise<AttachmentOutcome[]> {
+    const room = Math.max(MAX_BUG_IMAGES - alreadyAttached, 0);
+    const attachments: AttachmentOutcome[] = [];
+    for (const file of images.slice(0, room)) {
+        await attachBugImage(credentials, bugId, file)
+            .then(() => attachments.push({ file, ok: true }))
+            .catch((error) => attachments.push({ file, ok: false, error: error instanceof Error ? error.message : String(error) }));
+    }
+    for (const file of images.slice(room)) {
+        attachments.push({ file, ok: false, error: `skipped — a bug takes at most ${MAX_BUG_IMAGES} images` });
+    }
+    return attachments;
+}
+
 export async function submitBug(
     credentials: Credentials,
     input: SubmitBugInput,
@@ -125,29 +153,38 @@ export async function submitBug(
     if (!images.length) {
         return bug;
     }
-    // The bug itself is already filed, so a bad image is reported rather than
-    // thrown — losing the whole report over one unreadable screenshot would be
-    // worse than filing it without that screenshot.
-    const attachments: AttachmentOutcome[] = [];
-    for (const file of images.slice(0, MAX_BUG_IMAGES)) {
-        await attachBugImage(credentials, bug.id, file)
-            .then(() => attachments.push({ file, ok: true }))
-            .catch((error) => attachments.push({ file, ok: false, error: error instanceof Error ? error.message : String(error) }));
-    }
-    for (const file of images.slice(MAX_BUG_IMAGES)) {
-        attachments.push({ file, ok: false, error: `skipped — a bug takes at most ${MAX_BUG_IMAGES} images` });
-    }
-    return { ...bug, attachments };
+    return { ...bug, attachments: await attachImages(credentials, bug.id, images, 0) };
 }
 
-export async function editBug(credentials: Credentials, input: EditBugInput): Promise<SubmittedBug> {
+/**
+ * Rewrite a bug's description, add screenshots to it, or both.
+ *
+ * Images add to what is already there rather than replacing it, so the existing
+ * count has to be read back before deciding how many more will fit.
+ */
+export async function editBug(
+    credentials: Credentials,
+    input: EditBugInput,
+): Promise<SubmittedBug & { attachments?: AttachmentOutcome[] }> {
+    const images = input.images ?? [];
+    if (!input.description && !images.length) {
+        throw new Error('nothing to change — pass a description, images, or both');
+    }
     const bugId = await resolveBugId(credentials, input.bug);
-    const response = await axios.patch<{ bug: SubmittedBug }>(
-        `${configuration.serverUrl}/v1/bugs/${bugId}/content`,
-        { description: input.description },
-        authHeaders(credentials),
-    );
-    return response.data.bug;
+    const bug = input.description
+        ? (await axios.patch<{ bug: SubmittedBug }>(
+            `${configuration.serverUrl}/v1/bugs/${bugId}/content`,
+            { description: input.description },
+            authHeaders(credentials),
+        )).data.bug
+        : (await axios.get<{ bug: SubmittedBug }>(
+            `${configuration.serverUrl}/v1/bugs/${bugId}`,
+            authHeaders(credentials),
+        )).data.bug;
+    if (!images.length) {
+        return bug;
+    }
+    return { ...bug, attachments: await attachImages(credentials, bugId, images, bug.attachmentCount ?? 0) };
 }
 
 export async function deleteBug(credentials: Credentials, reference: string): Promise<{ id: string }> {

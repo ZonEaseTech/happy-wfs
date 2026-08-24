@@ -124,12 +124,13 @@ async function main() {
   });
 
   registerForwardedTool('edit_bug', {
-    description: 'Rewrite the description of a bug already on the user\'s Happy bug board. '
-      + 'Use when the user wants to correct or expand an existing bug. The description replaces the old one outright, so carry over anything still true.',
+    description: 'Change a bug already on the user\'s Happy bug board: rewrite its description, add screenshots to it, or both. '
+      + 'Use when the user wants to correct, expand or illustrate an existing bug.',
     title: 'Edit Bug',
     inputSchema: {
       bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
-      description: z.string().describe('The full replacement description — what went wrong, what was expected, and how to reproduce it.'),
+      description: z.string().optional().describe('The full replacement description. It replaces the old one outright, so carry over anything still true. Omit to leave the description alone.'),
+      images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine, added to any already on the bug. JPEG and PNG only, 10 per bug in total, 20MB each.'),
     },
   });
 

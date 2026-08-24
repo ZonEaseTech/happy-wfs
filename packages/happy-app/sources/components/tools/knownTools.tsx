@@ -689,7 +689,8 @@ export const knownTools = {
         },
         input: z.object({
             bug: z.string().optional().describe('Bug reference'),
-            description: z.string().optional().describe('Replacement description')
+            description: z.string().optional().describe('Replacement description'),
+            images: z.array(z.string()).optional().describe('Screenshot paths')
         }).partial().passthrough(),
         result: z.object({}).partial().passthrough()
     },
