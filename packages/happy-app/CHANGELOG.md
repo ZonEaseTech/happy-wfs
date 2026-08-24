@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 25 - 2026-08-24
+
+Ask what's on the bug board without leaving the chat.
+
+- Bugs: ask "what bugs are open?" or "find the one about stock counts" and the agent reads the board back to you — number, status, title, who filed it and how many screenshots it has. Filter by status, or search by number, title, description, author or state.
+- Bugs: reading the board doesn't ask for approval, since it only looks. Filing, editing and deleting still do.
+
 ## Version 24 - 2026-08-24
 
 Screenshots can be added to a bug after it was filed.
