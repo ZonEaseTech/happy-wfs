@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 27 - 2026-09-02
+
+Claude Fable 5.1 lands in the model picker.
+
+- Models: the Claude picker now offers Claude Fable 5.1 and Claude Fable 5.1 (1M) as the latest Fable, taking the top spots that Fable 5 held. All reasoning levels (low through max) and fast mode work the same as before.
+- Models: sessions already set to Claude Fable 5 keep working unchanged — the option just no longer shows in the picker.
+
 ## Version 26 - 2026-08-24
 
 Read a whole bug — comments and all — without leaving the chat.
