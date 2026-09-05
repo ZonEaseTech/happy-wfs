@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 28 - 2026-09-05
+
+GPT-6 Astra joins the Codex model picker.
+
+- Models: the Codex picker now leads with GPT-6 Astra, OpenAI's most capable model, with a 1M-token context window and all five reasoning levels from low through max.
+- Models: GPT-5.5 no longer shows in the picker. Sessions already set to it keep working unchanged.
+
 ## Version 27 - 2026-09-02
 
 Claude Fable 5.1 lands in the model picker.

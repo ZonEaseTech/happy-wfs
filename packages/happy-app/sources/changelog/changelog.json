@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 28,
+      "date": "2026-09-05",
+      "summary": "GPT-6 Astra joins the Codex model picker.",
+      "changes": [
+        "Models: the Codex picker now leads with GPT-6 Astra, OpenAI's most capable model, with a 1M-token context window and all five reasoning levels from low through max.",
+        "Models: GPT-5.5 no longer shows in the picker. Sessions already set to it keep working unchanged."
+      ],
+      "rawMarkdown": "## Version 28 - 2026-09-05\n\n\nGPT-6 Astra joins the Codex model picker.\n\n- Models: the Codex picker now leads with GPT-6 Astra, OpenAI's most capable model, with a 1M-token context window and all five reasoning levels from low through max.\n- Models: GPT-5.5 no longer shows in the picker. Sessions already set to it keep working unchanged."
+    },
+    {
       "version": 27,
       "date": "2026-09-02",
       "summary": "Claude Fable 5.1 lands in the model picker.",
@@ -316,5 +326,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 27
+  "latestVersion": 28
 }
