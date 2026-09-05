@@ -6,6 +6,8 @@ import {
     CLAUDE_MODEL_OPTIONS,
     CLAUDE_MODEL_FAMILY_OPTIONS,
     CODEX_MODEL_MODES,
+    CODEX_MODEL_OPTIONS,
+    formatModelDisplay,
     getClaudeReasoningOptions,
     getCodexReasoningOptions,
     getMaxContextSize,
@@ -151,11 +153,35 @@ describe('modelCatalog', () => {
 
     it('hides older Codex families from the picker while preserving mode compatibility', () => {
         const values = CODEX_MODEL_FAMILY_OPTIONS.map(option => option.value);
-        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5']);
+        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']);
+        expect(isModelModeForAgent('codex', 'gpt-5.5-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.4-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.3-codex-xhigh')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.2-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.1-codex-mini-high')).toBe(true);
+    });
+
+    it('supports GPT-6 Astra end to end and keeps GPT-5.5 modes valid after dropping it from the pickers', () => {
+        // Astra 是新旗舰，排在 CLI default 之后的第一位。
+        expect(CODEX_MODEL_FAMILY_OPTIONS[1].value).toBe('gpt-6-astra');
+        expect(CODEX_MODEL_FAMILY_OPTIONS[1].label).toBe('GPT-6 Astra');
+        expect(isModelModeForAgent('codex', 'gpt-6-astra-max')).toBe(true);
+        expect(parseCodexModelMode('gpt-6-astra-max')).toEqual({ family: 'gpt-6-astra', effort: 'max' });
+        expect(buildCodexModelMode('gpt-6-astra', 'max')).toBe('gpt-6-astra-max');
+        expect(getCodexReasoningOptions('gpt-6-astra')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+        expect(resolveModelSelectionForFlavor('codex', 'gpt-6-astra-xhigh')).toEqual({
+            model: 'gpt-6-astra',
+            reasoningEffort: 'xhigh',
+        });
+        expect(getMaxContextSize('gpt-6-astra-high', 'codex')).toBe(1_050_000);
+        expect(formatModelDisplay('gpt-6-astra', 'max')).toBe('GPT-6 Astra (Max)');
+
+        // GPT-5.5 只从两个 picker 列表移除，已固定该模型的会话仍然可用。
+        const familyValues = CODEX_MODEL_FAMILY_OPTIONS.map(option => option.value);
+        expect(familyValues).not.toContain('gpt-5.5');
+        expect(CODEX_MODEL_OPTIONS.map(option => option.value)).not.toContain('gpt-5.5-high');
+        expect(isModelMode('gpt-5.5-xhigh')).toBe(true);
+        expect(parseCodexModelMode('gpt-5.5-xhigh')).toEqual({ family: 'gpt-5.5', effort: 'xhigh' });
     });
 
     it('supports the gpt-5.6 sol/terra/luna families end to end', () => {

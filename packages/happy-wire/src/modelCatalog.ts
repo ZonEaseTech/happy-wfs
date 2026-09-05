@@ -5,6 +5,7 @@ export const MODEL_MODE_DEFAULT = 'default' as const;
 export type CodexReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type CodexModelFamily =
     | typeof MODEL_MODE_DEFAULT
+    | 'gpt-6-astra'
     | 'gpt-5.6-sol'
     | 'gpt-5.6-terra'
     | 'gpt-5.6-luna'
@@ -104,6 +105,11 @@ export const MODEL_MODES = [
     'claude-haiku-4-5-low',
     'claude-haiku-4-5-medium',
     'claude-haiku-4-5-high',
+    'gpt-6-astra-low',
+    'gpt-6-astra-medium',
+    'gpt-6-astra-high',
+    'gpt-6-astra-xhigh',
+    'gpt-6-astra-max',
     'gpt-5.6-sol-low',
     'gpt-5.6-sol-medium',
     'gpt-5.6-sol-high',
@@ -263,6 +269,11 @@ export const CURSOR_MODEL_MODES = [
 
 export const CODEX_MODEL_MODES = [
     MODEL_MODE_DEFAULT,
+    'gpt-6-astra-low',
+    'gpt-6-astra-medium',
+    'gpt-6-astra-high',
+    'gpt-6-astra-xhigh',
+    'gpt-6-astra-max',
     'gpt-5.6-sol-low',
     'gpt-5.6-sol-medium',
     'gpt-5.6-sol-high',
@@ -430,14 +441,19 @@ export const CURSOR_MODEL_OPTIONS = [
 
 export const CODEX_MODEL_FAMILY_OPTIONS = [
     { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
+    { value: 'gpt-6-astra', label: 'GPT-6 Astra', shortLabel: 'Astra', description: 'Most capable, 1M context' },
     { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', shortLabel: 'Sol', description: 'Flagship, supports max reasoning' },
     { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', shortLabel: 'Terra', description: 'Balanced quality and cost' },
     { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', shortLabel: 'Luna', description: 'Fast and cost-efficient' },
-    { value: 'gpt-5.5', label: 'GPT-5.5', shortLabel: '5.5', description: 'Previous flagship' },
 ] as const satisfies readonly { value: CodexModelFamily; label: string; shortLabel: string; description: string }[];
 
 export const CODEX_MODEL_OPTIONS = [
     { value: MODEL_MODE_DEFAULT, label: 'Default', description: 'Use CLI default model' },
+    { value: 'gpt-6-astra-low', label: 'GPT-6 Astra (Low)', description: 'Fast responses' },
+    { value: 'gpt-6-astra-medium', label: 'GPT-6 Astra (Medium)', description: 'Balanced responses' },
+    { value: 'gpt-6-astra-high', label: 'GPT-6 Astra (High)', description: 'Strong quality' },
+    { value: 'gpt-6-astra-xhigh', label: 'GPT-6 Astra (XHigh)', description: 'Best quality' },
+    { value: 'gpt-6-astra-max', label: 'GPT-6 Astra (Max)', description: 'Deepest reasoning' },
     { value: 'gpt-5.6-sol-low', label: 'GPT-5.6 Sol (Low)', description: 'Fast responses' },
     { value: 'gpt-5.6-sol-medium', label: 'GPT-5.6 Sol (Medium)', description: 'Balanced responses' },
     { value: 'gpt-5.6-sol-high', label: 'GPT-5.6 Sol (High)', description: 'Strong quality' },
@@ -451,10 +467,6 @@ export const CODEX_MODEL_OPTIONS = [
     { value: 'gpt-5.6-luna-medium', label: 'GPT-5.6 Luna (Medium)', description: 'Balanced responses' },
     { value: 'gpt-5.6-luna-high', label: 'GPT-5.6 Luna (High)', description: 'Strong quality' },
     { value: 'gpt-5.6-luna-xhigh', label: 'GPT-5.6 Luna (XHigh)', description: 'Best quality' },
-    { value: 'gpt-5.5-low', label: 'GPT-5.5 (Low)', description: 'Fast responses' },
-    { value: 'gpt-5.5-medium', label: 'GPT-5.5 (Medium)', description: 'Balanced responses' },
-    { value: 'gpt-5.5-high', label: 'GPT-5.5 (High)', description: 'Strong quality' },
-    { value: 'gpt-5.5-xhigh', label: 'GPT-5.5 (XHigh)', description: 'Best quality' },
     { value: 'gpt-5.3-codex-low', label: 'GPT-5.3-Codex (Low)', description: 'Fastest coding responses' },
     { value: 'gpt-5.3-codex-medium', label: 'GPT-5.3-Codex (Medium)', description: 'Balanced coding quality' },
     { value: 'gpt-5.3-codex-high', label: 'GPT-5.3-Codex (High)', description: 'Strong coding quality' },
@@ -476,6 +488,11 @@ export const CODEX_MODEL_OPTIONS = [
 ] as const satisfies readonly { value: ModelMode; label: string; description: string }[];
 
 const CODEX_MODE_TO_SELECTION: Partial<Record<ModelMode, { family: CodexModelFamily; effort: CodexReasoningEffort }>> = {
+    'gpt-6-astra-low': { family: 'gpt-6-astra', effort: 'low' },
+    'gpt-6-astra-medium': { family: 'gpt-6-astra', effort: 'medium' },
+    'gpt-6-astra-high': { family: 'gpt-6-astra', effort: 'high' },
+    'gpt-6-astra-xhigh': { family: 'gpt-6-astra', effort: 'xhigh' },
+    'gpt-6-astra-max': { family: 'gpt-6-astra', effort: 'max' },
     'gpt-5.6-sol-low': { family: 'gpt-5.6-sol', effort: 'low' },
     'gpt-5.6-sol-medium': { family: 'gpt-5.6-sol', effort: 'medium' },
     'gpt-5.6-sol-high': { family: 'gpt-5.6-sol', effort: 'high' },
@@ -555,8 +572,8 @@ export function parseCodexModelMode(mode: ModelMode): { family: CodexModelFamily
 }
 
 export function getCodexReasoningOptions(family: CodexModelFamily): readonly CodexReasoningEffort[] {
-    // Only Sol unlocks the max reasoning effort introduced with GPT-5.6.
-    if (family === 'gpt-5.6-sol') return ['max', 'xhigh', 'high', 'medium', 'low'];
+    // Astra and Sol are the only families that unlock the max reasoning effort.
+    if (family === 'gpt-6-astra' || family === 'gpt-5.6-sol') return ['max', 'xhigh', 'high', 'medium', 'low'];
     if (family === 'gpt-5.1-codex-mini') return ['high', 'medium'];
     if (family === MODEL_MODE_DEFAULT) return ['high', 'medium', 'low'];
     return ['xhigh', 'high', 'medium', 'low'];
@@ -571,7 +588,7 @@ export function buildCodexModelMode(
         const miniEffort = effort === 'high' ? 'high' : 'medium';
         return `gpt-5.1-codex-mini-${miniEffort}` as ModelMode;
     }
-    if (effort === 'max' && family !== 'gpt-5.6-sol') {
+    if (effort === 'max' && family !== 'gpt-6-astra' && family !== 'gpt-5.6-sol') {
         return `${family}-xhigh` as ModelMode;
     }
     return `${family}-${effort}` as ModelMode;
@@ -583,6 +600,7 @@ export type ModelSelection = {
 };
 
 const MODEL_NAME_LABELS: Record<string, string> = {
+    'gpt-6-astra': 'GPT-6 Astra',
     'gpt-5.6-sol': 'GPT-5.6 Sol',
     'gpt-5.6-terra': 'GPT-5.6 Terra',
     'gpt-5.6-luna': 'GPT-5.6 Luna',
@@ -716,6 +734,7 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
     'claude-sonnet-4-6[1m]': 1_000_000,
     'claude-haiku-4-5': 200_000,
     // Codex models (fallback; actual value comes from CLI via context_window_size)
+    'gpt-6-astra': 1_050_000,
     'gpt-5.6-sol': 1_500_000,
     'gpt-5.6-terra': 1_500_000,
     'gpt-5.6-luna': 1_500_000,
