@@ -151,15 +151,10 @@ class Sync {
     // Spawned agents (especially in spawn mode) can take noticeable time to connect.
     // Per-session pacing for all message-list updates to avoid autoscroll races across websocket and fetch paths.
     private static readonly MESSAGE_LIST_DISPATCH_INTERVAL_MS = 400;
-    // First load for a session should stay bounded; older history is loaded on demand.
-    private static readonly INITIAL_MESSAGES_LIMIT = 100;
-    // Background history backfill: pace pages so decryption never blocks rendering,
-    // and keep a runaway guard for sessions with pathological history sizes.
-    private static readonly HISTORY_BACKFILL_START_DELAY_MS = 600;
-    private static readonly HISTORY_BACKFILL_PAUSE_MS = 250;
-    private static readonly HISTORY_BACKFILL_RETRY_MS = 2000;
-    private static readonly HISTORY_BACKFILL_MAX_PAGES = 200;
-    private static readonly HISTORY_BACKFILL_MAX_FAILURES = 3;
+    // Page size for both the first load and each "scroll up for more" page.
+    // Older history is only fetched on demand — nothing pulls it in the
+    // background, so opening a long session stays cheap.
+    private static readonly INITIAL_MESSAGES_LIMIT = 50;
     // On-device message cache: how much backfilled history is kept, and how
     // long a save may be deferred while pages keep arriving.
     private static readonly MESSAGE_CACHE_MAX_MESSAGES = 3000;
@@ -207,9 +202,7 @@ class Sync {
     private deliveryErrorTimers = new Map<string, ReturnType<typeof setTimeout>>();
     /** Per-session lock to serialize fetchMessagesV3 and websocket message application */
     private sessionMessageLocks = new Map<string, AsyncLock>();
-    /** Sessions whose remaining history is being pulled in the background */
-    private historyBackfillRuns = new Map<string, { cancelled: boolean }>();
-    /** In-flight older-history page per session, shared by scroll and backfill */
+    /** In-flight older-history page per session, so scrolling can't double-fetch */
     private olderMessageFetches = new Map<string, Promise<{ hasMore: boolean; loaded: number } | null>>();
     private machineDataKeys = new Map<string, Uint8Array>(); // Store machine data encryption keys internally
     /**
@@ -2747,86 +2740,6 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         }
     }
 
-    /**
-     * Quietly pull the rest of a session's history while its screen is open.
-     * The bootstrap load only brings the newest page, so the chat — and the
-     * message rail built from it — stays truncated until the user scrolls all
-     * the way up. Runs one page at a time so the UI keeps rendering, and is
-     * idempotent: a second call while a backfill is running is a no-op.
-     */
-    startHistoryBackfill = (sessionId: string) => {
-        const existing = this.historyBackfillRuns.get(sessionId);
-        if (existing) {
-            // Screen regained focus before the previous run noticed the cancel.
-            existing.cancelled = false;
-            return;
-        }
-        const run = { cancelled: false };
-        this.historyBackfillRuns.set(sessionId, run);
-        void this.runHistoryBackfill(sessionId, run).finally(() => {
-            if (this.historyBackfillRuns.get(sessionId) === run) {
-                this.historyBackfillRuns.delete(sessionId);
-            }
-        });
-    }
-
-    /** Stops the background backfill when the session screen goes away. */
-    stopHistoryBackfill = (sessionId: string) => {
-        const run = this.historyBackfillRuns.get(sessionId);
-        if (!run) return;
-        run.cancelled = true;
-        // Write out what the run already pulled instead of waiting on the
-        // debounce, which the app may not be around for.
-        if (this.messageCacheSaveTimers.has(sessionId)) {
-            this.persistMessagesCache(sessionId);
-        }
-    }
-
-    private runHistoryBackfill = async (sessionId: string, run: { cancelled: boolean }) => {
-        // Let the freshly opened screen render before competing for the network
-        // and the decryption thread.
-        await new Promise((resolve) => setTimeout(resolve, Sync.HISTORY_BACKFILL_START_DELAY_MS));
-        let failures = 0;
-        for (let page = 0; page < Sync.HISTORY_BACKFILL_MAX_PAGES; page++) {
-            if (run.cancelled) return;
-
-            const sessionState = storage.getState().sessionMessages[sessionId];
-            if (!sessionState || !sessionState.isLoaded) return;
-            if (!sessionState.hasMore || sessionState.oldestSeq === null) return;
-            const before = sessionState.oldestSeq;
-
-            const result = await this.fetchOlderMessages(sessionId);
-            if (run.cancelled) return;
-
-            if (!result) {
-                failures++;
-                if (failures >= Sync.HISTORY_BACKFILL_MAX_FAILURES) {
-                    log.log(`💬 history backfill giving up for ${sessionId} after ${failures} failures`);
-                    return;
-                }
-                await new Promise((resolve) => setTimeout(resolve, Sync.HISTORY_BACKFILL_RETRY_MS));
-                continue;
-            }
-            failures = 0;
-            if (!result.hasMore) {
-                // Record "history complete" on disk right away so the next open
-                // of this session skips the backfill entirely.
-                this.persistMessagesCache(sessionId);
-                return;
-            }
-
-            // Guard against a cursor that stops moving: without this the loop
-            // would keep asking the server for the same page.
-            const nextOldest = storage.getState().sessionMessages[sessionId]?.oldestSeq ?? null;
-            if (nextOldest === null || nextOldest >= before) {
-                log.log(`💬 history backfill stalled for ${sessionId} at seq ${before}`);
-                return;
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, Sync.HISTORY_BACKFILL_PAUSE_MS));
-        }
-        log.log(`💬 history backfill stopped at the ${Sync.HISTORY_BACKFILL_MAX_PAGES}-page cap for ${sessionId}`);
-    }
 
     private registerPushToken = async () => {
         log.log('registerPushToken');
@@ -2967,7 +2880,6 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             this.hydratedMessageSessions.delete(sessionId);
             this.cachedPaginationHints.delete(sessionId);
             clearSessionMessagesCache(sessionId);
-            this.stopHistoryBackfill(sessionId);
 
             // Remove from project manager
             projectManager.removeSession(sessionId);
