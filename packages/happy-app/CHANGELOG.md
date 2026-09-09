@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 29 - 2026-09-09
+
+Creating a worktree no longer fails with "branch already exists".
+
+- Worktrees: generated branch names now carry a short random suffix (`wise-forest-k3f9` instead of `wise-forest`), so they stop colliding once you have a few dozen worktrees. Multi-repo workspaces were hit hardest — one collision rolled back the whole workspace.
+
 ## Version 28 - 2026-09-05
 
 GPT-6 Astra joins the Codex model picker.

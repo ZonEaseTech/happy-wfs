@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 29,
+      "date": "2026-09-09",
+      "summary": "Creating a worktree no longer fails with \"branch already exists\".",
+      "changes": [
+        "Worktrees: generated branch names now carry a short random suffix (`wise-forest-k3f9` instead of `wise-forest`), so they stop colliding once you have a few dozen worktrees. Multi-repo workspaces were hit hardest — one collision rolled back the whole workspace."
+      ],
+      "rawMarkdown": "## Version 29 - 2026-09-09\n\n\nCreating a worktree no longer fails with \"branch already exists\".\n\n- Worktrees: generated branch names now carry a short random suffix (`wise-forest-k3f9` instead of `wise-forest`), so they stop colliding once you have a few dozen worktrees. Multi-repo workspaces were hit hardest — one collision rolled back the whole workspace."
+    },
+    {
       "version": 28,
       "date": "2026-09-05",
       "summary": "GPT-6 Astra joins the Codex model picker.",
@@ -326,5 +335,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 28
+  "latestVersion": 29
 }
