@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 30 - 2026-09-09
+
+Long sessions open fast instead of quietly downloading their whole history.
+
+- Sessions: opening a chat now loads the newest 50 messages and stops there. Scroll to the top and it fetches the next 50. Previously it pulled the entire conversation in the background, which made long sessions slow to settle.
+- Sessions: the message navigator on the right now covers what's loaded and grows as you scroll up, rather than mapping the whole conversation from the start.
+
 ## Version 29 - 2026-09-09
 
 Creating a worktree no longer fails with "branch already exists".

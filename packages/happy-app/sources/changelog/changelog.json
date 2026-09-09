@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 30,
+      "date": "2026-09-09",
+      "summary": "Long sessions open fast instead of quietly downloading their whole history.",
+      "changes": [
+        "Sessions: opening a chat now loads the newest 50 messages and stops there. Scroll to the top and it fetches the next 50. Previously it pulled the entire conversation in the background, which made long sessions slow to settle.",
+        "Sessions: the message navigator on the right now covers what's loaded and grows as you scroll up, rather than mapping the whole conversation from the start."
+      ],
+      "rawMarkdown": "## Version 30 - 2026-09-09\n\n\nLong sessions open fast instead of quietly downloading their whole history.\n\n- Sessions: opening a chat now loads the newest 50 messages and stops there. Scroll to the top and it fetches the next 50. Previously it pulled the entire conversation in the background, which made long sessions slow to settle.\n- Sessions: the message navigator on the right now covers what's loaded and grows as you scroll up, rather than mapping the whole conversation from the start."
+    },
+    {
       "version": 29,
       "date": "2026-09-09",
       "summary": "Creating a worktree no longer fails with \"branch already exists\".",
@@ -335,5 +345,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 29
+  "latestVersion": 30
 }
