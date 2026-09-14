@@ -9,6 +9,29 @@ import type { SessionDraft } from './storageTypes';
 const mmkv = new MMKV();
 const NEW_SESSION_DRAFT_KEY = 'new-session-draft-v1';
 
+/**
+ * On web mmkv is backed by localStorage, which throws once the origin's ~5MB
+ * quota is full instead of evicting anything. Every write therefore has to be
+ * treated as fallible: an unguarded `mmkv.set` surfaced to the user as a
+ * "Failed to execute 'setItem' on 'Storage'" error dialog, and on the settings
+ * path it also aborted the sync that was supposed to follow.
+ *
+ * The message cache is by far the biggest consumer and the only thing worth
+ * sacrificing, so a failed write drops cached sessions (least recently used
+ * first) and retries. Returns false when the value still would not fit, which
+ * lets callers carry on with in-memory state instead of throwing.
+ */
+function setPersisted(key: string, value: string): boolean {
+    for (;;) {
+        try {
+            mmkv.set(key, value);
+            return true;
+        } catch {
+            if (!evictOldestSessionMessagesCache()) return false;
+        }
+    }
+}
+
 export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'cursor';
 export type NewSessionSessionType = 'simple' | 'worktree';
 
@@ -38,7 +61,7 @@ export function loadSettings(): { settings: Settings, version: number | null } {
 }
 
 export function saveSettings(settings: Settings, version: number) {
-    mmkv.set('settings', JSON.stringify({ settings, version }));
+    setPersisted('settings', JSON.stringify({ settings, version }));
 }
 
 export function loadPendingSettings(): Partial<Settings> {
@@ -56,7 +79,7 @@ export function loadPendingSettings(): Partial<Settings> {
 }
 
 export function savePendingSettings(settings: Partial<Settings>) {
-    mmkv.set('pending-settings', JSON.stringify(settings));
+    setPersisted('pending-settings', JSON.stringify(settings));
 }
 
 export function loadLocalSettings(): LocalSettings {
@@ -74,7 +97,7 @@ export function loadLocalSettings(): LocalSettings {
 }
 
 export function saveLocalSettings(settings: LocalSettings) {
-    mmkv.set('local-settings', JSON.stringify(settings));
+    setPersisted('local-settings', JSON.stringify(settings));
 }
 
 export function loadThemePreference(): 'light' | 'dark' | 'adaptive' {
@@ -115,7 +138,7 @@ export function loadSessionDrafts(): Record<string, SessionDraft> {
 }
 
 export function saveSessionDrafts(drafts: Record<string, SessionDraft>) {
-    mmkv.set('session-drafts', JSON.stringify(drafts));
+    setPersisted('session-drafts', JSON.stringify(drafts));
 }
 
 export function loadNewSessionDraft(): NewSessionDraft | null {
@@ -162,7 +185,7 @@ export function loadNewSessionDraft(): NewSessionDraft | null {
 }
 
 export function saveNewSessionDraft(draft: NewSessionDraft) {
-    mmkv.set(NEW_SESSION_DRAFT_KEY, JSON.stringify(draft));
+    setPersisted(NEW_SESSION_DRAFT_KEY, JSON.stringify(draft));
 }
 
 export function clearNewSessionDraft() {
@@ -184,13 +207,13 @@ export function loadProfile(): Profile {
 }
 
 export function saveProfile(profile: Profile) {
-    mmkv.set('profile', JSON.stringify(profile));
+    setPersisted('profile', JSON.stringify(profile));
 }
 
 // Simple temporary text storage for passing large strings between screens
 export function storeTempText(content: string): string {
     const id = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    mmkv.set(`temp_text_${id}`, content);
+    setPersisted(`temp_text_${id}`, content);
     return id;
 }
 
@@ -221,7 +244,7 @@ export function loadSessionLastViewedAt(): Map<string, number> {
 }
 
 export function saveSessionLastViewedAt(map: Map<string, number>) {
-    mmkv.set(SESSION_LAST_VIEWED_KEY, JSON.stringify(Object.fromEntries(map)));
+    setPersisted(SESSION_LAST_VIEWED_KEY, JSON.stringify(Object.fromEntries(map)));
 }
 
 const SESSION_GOAL_PINS_KEY = 'session-goal-pins.v2';
@@ -253,7 +276,7 @@ export function loadSessionGoalPins(): Record<string, SessionGoalPinRecord[]> {
 }
 
 export function saveSessionGoalPins(pins: Record<string, SessionGoalPinRecord[]>) {
-    mmkv.set(SESSION_GOAL_PINS_KEY, JSON.stringify(pins));
+    setPersisted(SESSION_GOAL_PINS_KEY, JSON.stringify(pins));
 }
 
 /**
@@ -266,7 +289,14 @@ export function saveSessionGoalPins(pins: Record<string, SessionGoalPinRecord[]>
  */
 const SESSION_MESSAGES_CACHE_PREFIX = 'session-messages.v1.';
 const SESSION_MESSAGES_CACHE_INDEX_KEY = 'session-messages.v1.index';
-const SESSION_MESSAGES_CACHE_MAX_SESSIONS = 30;
+/**
+ * How many sessions keep a cached copy. Kept low on web because the per-session
+ * budget below times this count is the worst case for the whole origin: 30 x
+ * 384KB is ~11.5MB against a ~5MB localStorage quota, so the cache alone could
+ * fill storage and make every *other* write (settings, drafts) throw.
+ * 6 x 384KB is ~2.3MB, which leaves the rest of the app room to breathe.
+ */
+const SESSION_MESSAGES_CACHE_MAX_SESSIONS = Platform.OS === 'web' ? 6 : 30;
 /**
  * Serialized budget for one session. On web mmkv is backed by localStorage,
  * where the whole origin shares roughly 5MB and an over-quota write throws
@@ -284,6 +314,26 @@ export interface SessionMessagesCacheEntry {
 
 function sessionMessagesCacheKey(sessionId: string): string {
     return `${SESSION_MESSAGES_CACHE_PREFIX}${sessionId}`;
+}
+
+/**
+ * Drops the least recently used cached session to free storage. Returns false
+ * when there is nothing left to give back, which is the signal to stop
+ * retrying a write. Index bookkeeping uses the raw setter: the index is tiny,
+ * and routing it through setPersisted would recurse back into eviction.
+ */
+function evictOldestSessionMessagesCache(): boolean {
+    const index = loadSessionMessagesCacheIndex();
+    const evicted = index.pop();
+    if (!evicted) return false;
+    mmkv.delete(sessionMessagesCacheKey(evicted));
+    try {
+        mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+    } catch {
+        // The delete above already freed space; a stale index only costs one
+        // extra eviction attempt next time.
+    }
+    return true;
 }
 
 function loadSessionMessagesCacheIndex(): string[] {
@@ -317,39 +367,38 @@ export function loadSessionMessagesCache(sessionId: string): SessionMessagesCach
 
 export function saveSessionMessagesCache(sessionId: string, entry: SessionMessagesCacheEntry) {
     const payload = JSON.stringify({ ...entry, savedAt: Date.now() });
-    // Keep a bounded MRU index so old sessions cannot grow storage forever.
-    const index = loadSessionMessagesCacheIndex().filter((id) => id !== sessionId);
 
-    // localStorage throws once the origin quota is full instead of evicting,
-    // so free the least recently used sessions until this one fits.
-    for (;;) {
-        try {
-            mmkv.set(sessionMessagesCacheKey(sessionId), payload);
-            break;
-        } catch {
-            const evicted = index.pop();
-            if (!evicted) {
-                // Nothing left to free: drop this session's cache rather than
-                // risk leaving a half-written entry behind.
-                mmkv.delete(sessionMessagesCacheKey(sessionId));
-                mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
-                return;
-            }
-            mmkv.delete(sessionMessagesCacheKey(evicted));
-        }
-    }
-
-    index.unshift(sessionId);
+    // Publish the MRU index before the payload: eviction reads the index back
+    // from storage, and this session sitting at the front makes it the last
+    // candidate to be dropped while older ones are shed to make room.
+    const index = [sessionId, ...loadSessionMessagesCacheIndex().filter((id) => id !== sessionId)];
     for (const staleId of index.splice(SESSION_MESSAGES_CACHE_MAX_SESSIONS)) {
         mmkv.delete(sessionMessagesCacheKey(staleId));
     }
-    mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+    try {
+        mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+    } catch {
+        // The index is tiny; if even it will not fit, the payload write below
+        // frees space and a stale index only costs one extra eviction later.
+    }
+
+    if (!setPersisted(sessionMessagesCacheKey(sessionId), payload)) {
+        // Nothing left to free: drop this session's cache rather than leave a
+        // half-written entry behind.
+        clearSessionMessagesCache(sessionId);
+    }
 }
 
 export function clearSessionMessagesCache(sessionId: string) {
     mmkv.delete(sessionMessagesCacheKey(sessionId));
     const index = loadSessionMessagesCacheIndex().filter((id) => id !== sessionId);
-    mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+    try {
+        mmkv.set(SESSION_MESSAGES_CACHE_INDEX_KEY, JSON.stringify(index));
+    } catch {
+        // Reached from the out-of-storage path in saveSessionMessagesCache, so
+        // it has to stay non-throwing. The entry above is already gone; a stale
+        // index only costs one extra eviction attempt later.
+    }
 }
 
 export function loadBrowserLastPaths(): Record<string, string> {
@@ -376,7 +425,7 @@ export function saveBrowserLastPath(rootPath: string, path: string): void {
     if (!rootPath || !path) return;
     const map = loadBrowserLastPaths();
     map[rootPath] = path;
-    mmkv.set(BROWSER_LAST_PATHS_KEY, JSON.stringify(map));
+    setPersisted(BROWSER_LAST_PATHS_KEY, JSON.stringify(map));
 }
 
 export function loadRegisteredReposLocal(): { repos: Record<string, any[]>; versions: Record<string, number> } {
@@ -391,7 +440,7 @@ export function loadRegisteredReposLocal(): { repos: Record<string, any[]>; vers
 }
 
 export function saveRegisteredReposLocal(repos: Record<string, any[]>, versions: Record<string, number>): void {
-    mmkv.set('registered-repos', JSON.stringify({ repos, versions }));
+    setPersisted('registered-repos', JSON.stringify({ repos, versions }));
 }
 
 export function loadSharedByMeCache(userId: string): any[] {
@@ -406,7 +455,7 @@ export function loadSharedByMeCache(userId: string): any[] {
 }
 
 export function saveSharedByMeCache(userId: string, data: any[]): void {
-    mmkv.set(`shared-by-me-${userId}`, JSON.stringify(data));
+    setPersisted(`shared-by-me-${userId}`, JSON.stringify(data));
 }
 
 // Per-session list of memory IDs the user has muted locally for this session.
@@ -432,7 +481,7 @@ export function saveMutedMemoryIds(sessionId: string, ids: string[]): void {
         mmkv.delete(MUTED_MEMORY_IDS_KEY_PREFIX + sessionId);
         return;
     }
-    mmkv.set(MUTED_MEMORY_IDS_KEY_PREFIX + sessionId, JSON.stringify(ids));
+    setPersisted(MUTED_MEMORY_IDS_KEY_PREFIX + sessionId, JSON.stringify(ids));
 }
 
 // Cached copy of the user's full memory list (both active and archived rows),
@@ -460,7 +509,7 @@ export function loadMemoryCache(): MemoryCacheEntry | null {
 }
 
 export function saveMemoryCache(entry: MemoryCacheEntry): void {
-    mmkv.set(MEMORY_CACHE_KEY, JSON.stringify(entry));
+    setPersisted(MEMORY_CACHE_KEY, JSON.stringify(entry));
 }
 
 export function clearMemoryCache(): void {
