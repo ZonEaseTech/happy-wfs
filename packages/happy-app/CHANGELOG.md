@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 31 - 2026-09-14
+
+No more "exceeded the quota" errors on the web app.
+
+- Storage: changing a setting or picking a directory could fail with a "Failed to execute 'setItem' on 'Storage'" error once the browser's storage filled up, and the setting you changed could be lost without reaching the server. Writes now make room by dropping the oldest cached conversations and carry on.
+- Storage: the web app also keeps fewer conversations cached, so it stops filling browser storage in the first place. Conversations that get dropped simply reload when you open them.
+
 ## Version 30 - 2026-09-09
 
 Long sessions open fast instead of quietly downloading their whole history.
