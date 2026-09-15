@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 32 - 2026-09-15
+
+Write your own first message for bug fix sessions.
+
+- Bugs: Settings → Features has a new Bug section where you can edit the message sent when you start fixing a bug. Use variables for the bug number, title, reporter, description, screenshots and comments. Leave it blank to keep the default, which is unchanged.
+- Bugs: the template syncs with your account, so every device starts fixes the same way.
+
 ## Version 31 - 2026-09-14
 
 No more "exceeded the quota" errors on the web app.
