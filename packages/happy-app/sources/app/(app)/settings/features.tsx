@@ -77,6 +77,19 @@ export default function FeaturesSettingsScreen() {
                 />
             </ItemGroup>
 
+            {/* Bug Features */}
+            <ItemGroup
+                title={t('settingsFeatures.bugFeatures')}
+                footer={t('settingsFeatures.bugReportStartPromptTemplateFooter')}
+            >
+                <Item
+                    title={t('settingsFeatures.bugReportStartPromptTemplate')}
+                    subtitle={t('settingsFeatures.bugReportStartPromptTemplateSubtitle')}
+                    icon={<Ionicons name="bug-outline" size={29} color="#DC2626" />}
+                    onPress={() => openDesktop('/settings/bug-start-template', { title: t('settingsFeatures.bugReportStartPromptTemplate') })}
+                />
+            </ItemGroup>
+
             {/* Input Features */}
             <ItemGroup
                 title={t('settingsFeatures.inputFeatures')}

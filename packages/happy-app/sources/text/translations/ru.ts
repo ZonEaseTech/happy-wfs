@@ -558,6 +558,11 @@ export const ru: TranslationStructure = {
         githubIssueStartPromptTemplateSubtitle: 'Customize the first message sent when starting from an issue',
         githubIssueStartPromptTemplateFooter: 'Supports variables: {repo}, {issueNumber}, {issueTitle}, {issueUrl}. Blank templates fall back to the default.',
         githubIssueStartPromptTemplateVariables: 'Available variables:',
+        bugFeatures: 'Баги',
+        bugReportStartPromptTemplate: 'Шаблон запуска исправления бага',
+        bugReportStartPromptTemplateSubtitle: 'Настройте первое сообщение при запуске исправления бага',
+        bugReportStartPromptTemplateFooter: 'Поддерживаемые переменные: {bugId}, {bugTitle}, {bugAuthor}, {bugDescription}, {bugAttachments}, {bugComments}. Пустой шаблон заменяется шаблоном по умолчанию.',
+        bugReportStartPromptTemplateVariables: 'Доступные переменные:',
         restoreDefaultTemplate: 'Restore default',
     },
 

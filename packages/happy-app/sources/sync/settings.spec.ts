@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { settingsParse, applySettings, mergeSettings, mergeTerminalQuickCommands, settingsDefaults, type Settings, type TerminalQuickCommand, AIBackendProfileSchema, autoReviewGuardSettingsDefaults, defaultGitHubIssueStartPromptTemplate } from './settings';
+import { settingsParse, applySettings, mergeSettings, mergeTerminalQuickCommands, settingsDefaults, type Settings, type TerminalQuickCommand, AIBackendProfileSchema, autoReviewGuardSettingsDefaults, defaultGitHubIssueStartPromptTemplate, defaultBugReportStartPromptTemplate } from './settings';
 import { getBuiltInProfile } from './profileUtils';
 
 describe('settings', () => {
@@ -35,6 +35,14 @@ describe('settings', () => {
             expect(parsed.githubIssueStartPromptTemplate).toContain('{issueNumber}');
             expect(parsed.githubIssueStartPromptTemplate).toContain('{issueTitle}');
             expect(parsed.githubIssueStartPromptTemplate).toContain('{issueUrl}');
+        });
+
+        it('should default the Bug fix start prompt template', () => {
+            const parsed = settingsParse({});
+            expect(parsed.bugReportStartPromptTemplate).toBe(defaultBugReportStartPromptTemplate);
+            for (const token of ['{bugId}', '{bugTitle}', '{bugAuthor}', '{bugDescription}', '{bugAttachments}', '{bugComments}']) {
+                expect(parsed.bugReportStartPromptTemplate).toContain(token);
+            }
         });
 
         it('should ignore invalid field types and use defaults', () => {
@@ -149,6 +157,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
+                bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -192,6 +201,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
+                bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -235,6 +245,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
+                bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -280,6 +291,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
+                bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -330,6 +342,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
+                bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -389,6 +402,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
+                bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,
@@ -458,6 +472,7 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 customQuickActions: [],
                 githubIssueStartPromptTemplate: defaultGitHubIssueStartPromptTemplate,
+                bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate,
                 terminalQuickCommands: [],
                 terminalTheme: 'dark',
                 autoReviewGuardDefaults: autoReviewGuardSettingsDefaults,

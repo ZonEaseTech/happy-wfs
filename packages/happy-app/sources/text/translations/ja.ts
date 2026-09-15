@@ -625,6 +625,11 @@ export const ja: TranslationStructure = {
         githubIssueStartPromptTemplateSubtitle: 'Customize the first message sent when starting from an issue',
         githubIssueStartPromptTemplateFooter: 'Supports variables: {repo}, {issueNumber}, {issueTitle}, {issueUrl}. Blank templates fall back to the default.',
         githubIssueStartPromptTemplateVariables: 'Available variables:',
+        bugFeatures: 'バグ',
+        bugReportStartPromptTemplate: 'バグ修正開始テンプレート',
+        bugReportStartPromptTemplateSubtitle: 'バグから修正を開始するときに送信する最初のメッセージをカスタマイズ',
+        bugReportStartPromptTemplateFooter: '使用可能な変数：{bugId}、{bugTitle}、{bugAuthor}、{bugDescription}、{bugAttachments}、{bugComments}。空の場合はデフォルトの文面を使用します。',
+        bugReportStartPromptTemplateVariables: '使用可能な変数：',
         restoreDefaultTemplate: 'Restore default',
     },
 

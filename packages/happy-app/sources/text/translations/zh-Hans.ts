@@ -595,6 +595,11 @@ export const zhHans: TranslationStructure = {
         githubIssueStartPromptTemplateSubtitle: '自定义从 Issue 开始任务时发送的第一条消息',
         githubIssueStartPromptTemplateFooter: '支持变量：{repo}、{issueNumber}、{issueTitle}、{issueUrl}。模板为空时使用默认文案。',
         githubIssueStartPromptTemplateVariables: '可用变量：',
+        bugFeatures: 'Bug',
+        bugReportStartPromptTemplate: 'Bug 开始修复模板',
+        bugReportStartPromptTemplateSubtitle: '自定义从 Bug 开始修复时发送的第一条消息',
+        bugReportStartPromptTemplateFooter: '支持变量：{bugId}、{bugTitle}、{bugAuthor}、{bugDescription}、{bugAttachments}、{bugComments}。模板为空时使用默认文案。',
+        bugReportStartPromptTemplateVariables: '可用变量：',
         restoreDefaultTemplate: '恢复默认',
     },
 

@@ -272,6 +272,40 @@ describe('desktop layout adjustments', () => {
         expect(editor).toContain("t('settingsFeatures.restoreDefaultTemplate')");
     });
 
+    it('exposes a synced configurable Bug fix start prompt template', () => {
+        const promptTemplate = read('utils/bugReportStartPromptTemplate.ts');
+        expect(promptTemplate).toContain('applyBugReportStartPromptTemplate');
+        for (const token of ['{bugId}', '{bugTitle}', '{bugAuthor}', '{bugDescription}', '{bugAttachments}', '{bugComments}']) {
+            expect(promptTemplate).toContain(token);
+        }
+
+        const settings = read('sync/settings.ts');
+        expect(settings).toContain('bugReportStartPromptTemplate: z.string()');
+        expect(settings).toContain('bugReportStartPromptTemplate: defaultBugReportStartPromptTemplate');
+
+        const sessions = read('components/SessionsList.tsx');
+        expect(sessions).toContain("useSetting('bugReportStartPromptTemplate')");
+        expect(sessions).toContain('buildBugReportStartPrompt(bug, bugReportStartPromptTemplate)');
+        // Without this dependency the callback keeps the template from first render.
+        expect(sessions).toContain('}, [bugReportStartPromptTemplate, router]);');
+
+        const routes = read('components/desktopRoutes/registrations.ts');
+        expect(routes).toContain("'/settings/bug-start-template'");
+
+        const appLayout = read('app/(app)/_layout.tsx');
+        expect(appLayout).toContain('settings/bug-start-template');
+
+        const features = read('app/(app)/settings/features.tsx');
+        expect(features).toContain("openDesktop('/settings/bug-start-template'");
+        expect(features).toContain("t('settingsFeatures.bugReportStartPromptTemplate')");
+
+        const editor = read('app/(app)/settings/bug-start-template.tsx');
+        expect(editor).toContain("useSettingMutable('bugReportStartPromptTemplate')");
+        expect(editor).toContain('defaultBugReportStartPromptTemplate');
+        expect(editor).toContain('TextInput');
+        expect(editor).toContain("t('settingsFeatures.restoreDefaultTemplate')");
+    });
+
     it('does not create a wide blank strip between the permanent sidebar and main content', () => {
         const source = read('components/SidebarNavigator.tsx');
         expect(source).toContain('borderRightWidth: 1');

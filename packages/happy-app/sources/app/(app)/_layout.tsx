@@ -224,6 +224,12 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="settings/bug-start-template"
+                options={{
+                    headerTitle: t('settingsFeatures.bugReportStartPromptTemplate'),
+                }}
+            />
+            <Stack.Screen
                 name="settings/notifications"
                 options={{
                     headerTitle: t('settingsNotifications.title'),

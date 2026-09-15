@@ -919,6 +919,7 @@ export function SessionsList() {
     const navigateToSession = useNavigateToSession();
     const compactSessionView = useSetting('compactSessionView');
     const githubIssueStartPromptTemplate = useSetting('githubIssueStartPromptTemplate');
+    const bugReportStartPromptTemplate = useSetting('bugReportStartPromptTemplate');
     const router = useRouter();
     const { theme } = useUnistyles();
     const [refreshing, setRefreshing] = React.useState(false);
@@ -1435,7 +1436,7 @@ export function SessionsList() {
     }, [auth.credentials, updatePendingBug]);
 
     const handleStartBug = React.useCallback((bug: BugReportDetail) => {
-        const prompt = buildBugReportStartPrompt(bug);
+        const prompt = buildBugReportStartPrompt(bug, bugReportStartPromptTemplate);
         const dataId = storeTempData({
             prompt,
             agentType: 'codex',
@@ -1460,7 +1461,7 @@ export function SessionsList() {
             onCreatedContext: { type: 'happy-bug', bugId: bug.id },
         });
         router.push(`/new?dataId=${encodeURIComponent(dataId)}`);
-    }, [router]);
+    }, [bugReportStartPromptTemplate, router]);
 
     const handleOpenBugDetails = React.useCallback(async (bug: BugReportSummary | BugReportDetail) => {
         if (!auth.credentials) return;

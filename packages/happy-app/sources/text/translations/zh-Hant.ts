@@ -595,6 +595,11 @@ export const zhHant: TranslationStructure = {
         githubIssueStartPromptTemplateSubtitle: '自訂從 Issue 開始任務時送出的第一則訊息',
         githubIssueStartPromptTemplateFooter: '支援變數：{repo}、{issueNumber}、{issueTitle}、{issueUrl}。範本為空時使用預設文案。',
         githubIssueStartPromptTemplateVariables: '可用變數：',
+        bugFeatures: 'Bug',
+        bugReportStartPromptTemplate: 'Bug 開始修復範本',
+        bugReportStartPromptTemplateSubtitle: '自訂從 Bug 開始修復時傳送的第一則訊息',
+        bugReportStartPromptTemplateFooter: '支援變數：{bugId}、{bugTitle}、{bugAuthor}、{bugDescription}、{bugAttachments}、{bugComments}。範本為空時使用預設文案。',
+        bugReportStartPromptTemplateVariables: '可用變數：',
         restoreDefaultTemplate: '恢復預設',
     },
 

@@ -593,6 +593,11 @@ export const es: TranslationStructure = {
         githubIssueStartPromptTemplateSubtitle: 'Customize the first message sent when starting from an issue',
         githubIssueStartPromptTemplateFooter: 'Supports variables: {repo}, {issueNumber}, {issueTitle}, {issueUrl}. Blank templates fall back to the default.',
         githubIssueStartPromptTemplateVariables: 'Available variables:',
+        bugFeatures: 'Errores',
+        bugReportStartPromptTemplate: 'Plantilla para empezar a corregir un error',
+        bugReportStartPromptTemplateSubtitle: 'Personaliza el primer mensaje enviado al empezar a corregir un error',
+        bugReportStartPromptTemplateFooter: 'Variables admitidas: {bugId}, {bugTitle}, {bugAuthor}, {bugDescription}, {bugAttachments}, {bugComments}. Si la plantilla está vacía se usa la predeterminada.',
+        bugReportStartPromptTemplateVariables: 'Variables disponibles:',
         restoreDefaultTemplate: 'Restore default',
     },
 

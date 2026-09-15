@@ -603,6 +603,11 @@ export const en = {
         githubIssueStartPromptTemplateSubtitle: 'Customize the first message sent when starting from an issue',
         githubIssueStartPromptTemplateFooter: 'Supports variables: {repo}, {issueNumber}, {issueTitle}, {issueUrl}. Blank templates fall back to the default.',
         githubIssueStartPromptTemplateVariables: 'Available variables:',
+        bugFeatures: 'Bugs',
+        bugReportStartPromptTemplate: 'Bug Fix Start Prompt Template',
+        bugReportStartPromptTemplateSubtitle: 'Customize the first message sent when starting a fix from a bug',
+        bugReportStartPromptTemplateFooter: 'Supports variables: {bugId}, {bugTitle}, {bugAuthor}, {bugDescription}, {bugAttachments}, {bugComments}. Blank templates fall back to the default.',
+        bugReportStartPromptTemplateVariables: 'Available variables:',
         restoreDefaultTemplate: 'Restore default',
     },
 
