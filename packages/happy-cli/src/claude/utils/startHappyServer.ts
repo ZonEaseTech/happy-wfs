@@ -16,7 +16,7 @@ import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { readCredentials } from "@/persistence";
 import { deviceExec, listDevices } from "@/device/deviceExec";
-import { deleteBug, editBug, getBug, listBugs, submitBug, type BugDetail } from "@/bugs/bugs";
+import { deleteBug, editBug, getBug, listBugs, setBugStatus, submitBug, type BugDetail } from "@/bugs/bugs";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
 import { applyDefaultWorkingDirectory } from '@/orchestrator/common';
@@ -327,6 +327,29 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         }
     });
 
+    mcp.registerTool('set_bug_status', {
+        description: 'Move a bug on the user\'s Happy bug board to another status: close it once a fix is verified, put it back in progress, send it to verification, or return it to pending. '
+            + 'Use whenever the user says a bug is fixed, verified, closed, reopened, or should go back to someone.',
+        title: 'Set Bug Status',
+        inputSchema: {
+            bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+            status: z.enum(['pending', 'in_progress', 'verify', 'closed']).describe('The column to move it to: pending, in_progress, verify, closed.'),
+            returnToPending: z.boolean().optional().describe('Set together with status "pending" when the bug failed verification, so the board records it as a return rather than a plain status change.'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return toToolError('No Happy credentials on this machine.');
+        }
+        try {
+            const bug = await setBugStatus(credentials, args);
+            logger.debug('[happyMCP] Set bug status:', bug.displayId, '->', args.status);
+            return toToolSuccess({ ok: true, ...bug });
+        } catch (error) {
+            return toToolError(`Failed to change bug status: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
     mcp.registerTool('delete_bug', {
         description: 'Remove a bug from the user\'s Happy bug board. The server keeps the row and hides it, so this can be undone by an admin, but it disappears from the board immediately.',
         title: 'Delete Bug',
@@ -509,8 +532,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;

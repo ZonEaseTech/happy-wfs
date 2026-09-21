@@ -153,6 +153,17 @@ async function main() {
     },
   });
 
+  registerForwardedTool('set_bug_status', {
+    description: 'Move a bug on the user\'s Happy bug board to another status: close it once a fix is verified, put it back in progress, send it to verification, or return it to pending. '
+      + 'Use whenever the user says a bug is fixed, verified, closed, reopened, or should go back to someone.',
+    title: 'Set Bug Status',
+    inputSchema: {
+      bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+      status: z.enum(['pending', 'in_progress', 'verify', 'closed']).describe('The column to move it to: pending, in_progress, verify, closed.'),
+      returnToPending: z.boolean().optional().describe('Set together with status "pending" when the bug failed verification, so the board records it as a return rather than a plain status change.'),
+    },
+  });
+
   registerForwardedTool('delete_bug', {
     description: 'Remove a bug from the user\'s Happy bug board. The server keeps the row and hides it, so this can be undone by an admin, but it disappears from the board immediately.',
     title: 'Delete Bug',

@@ -65,6 +65,12 @@ export interface SubmittedBug {
 
 export type BugStatus = 'pending' | 'in_progress' | 'verify' | 'closed';
 
+export interface SetBugStatusInput {
+    bug: string;
+    status: BugStatus;
+    returnToPending?: boolean;
+}
+
 export interface ListBugsInput {
     status?: BugStatus;
     query?: string;
@@ -255,6 +261,27 @@ export async function editBug(
         return bug;
     }
     return { ...bug, attachments: await attachImages(credentials, bugId, images, bug.attachmentCount ?? 0) };
+}
+
+/**
+ * Move a bug to another column on the board. `returnToPending` records the
+ * change as a return rather than a plain status change, which is what the board
+ * shows when a bug fails verification and goes back to the fixer.
+ */
+export async function setBugStatus(
+    credentials: Credentials,
+    input: SetBugStatusInput,
+): Promise<SubmittedBug> {
+    const bugId = await resolveBugId(credentials, input.bug);
+    const response = await axios.patch<{ bug: SubmittedBug }>(
+        `${configuration.serverUrl}/v1/bugs/${bugId}/status`,
+        {
+            status: input.status,
+            ...(input.returnToPending ? { action: 'return_to_pending' } : {}),
+        },
+        authHeaders(credentials),
+    );
+    return response.data.bug;
 }
 
 export async function deleteBug(credentials: Credentials, reference: string): Promise<{ id: string }> {
