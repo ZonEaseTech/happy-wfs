@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 33 - 2026-09-22
+
+Worktree sessions stop failing with "branch already exists".
+
+- Worktrees: picking the same repository twice — once from your saved repositories and once through "Add directory…" — used to put it in the list twice, and creating the workspace then failed outright because both copies wanted the same branch. The picker now recognises it as one repository either way, and creating a workspace ignores any duplicate that slips through.
+
 ## Version 32 - 2026-09-15
 
 Write your own first message for bug fix sessions.

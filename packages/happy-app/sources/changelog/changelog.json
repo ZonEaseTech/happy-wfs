@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 33,
+      "date": "2026-09-22",
+      "summary": "Worktree sessions stop failing with \"branch already exists\".",
+      "changes": [
+        "Worktrees: picking the same repository twice — once from your saved repositories and once through \"Add directory…\" — used to put it in the list twice, and creating the workspace then failed outright because both copies wanted the same branch. The picker now recognises it as one repository either way, and creating a workspace ignores any duplicate that slips through."
+      ],
+      "rawMarkdown": "## Version 33 - 2026-09-22\n\n\nWorktree sessions stop failing with \"branch already exists\".\n\n- Worktrees: picking the same repository twice — once from your saved repositories and once through \"Add directory…\" — used to put it in the list twice, and creating the workspace then failed outright because both copies wanted the same branch. The picker now recognises it as one repository either way, and creating a workspace ignores any duplicate that slips through."
+    },
+    {
       "version": 32,
       "date": "2026-09-15",
       "summary": "Write your own first message for bug fix sessions.",
@@ -365,5 +374,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 32
+  "latestVersion": 33
 }
