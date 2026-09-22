@@ -1009,10 +1009,10 @@ function NewSessionWizard() {
                 setAddDirBranchMenu({ visible: true, items });
             });
             const finalBranch = selectedBranch ?? currentBranch;
-            setSelectedRepos(prev => [...prev, { repo: repoToSelect, targetBranch: finalBranch }]);
+            setSelectedRepos(prev => addRepoOnce(prev, { repo: repoToSelect, targetBranch: finalBranch }));
             if (finalBranch) persistDefaultBranch(selectedMachineId, repoToSelect.id, finalBranch);
         } else {
-            setSelectedRepos(prev => [...prev, { repo: repoToSelect, targetBranch: currentBranch }]);
+            setSelectedRepos(prev => addRepoOnce(prev, { repo: repoToSelect, targetBranch: currentBranch }));
             if (currentBranch) persistDefaultBranch(selectedMachineId, repoToSelect.id, currentBranch);
         }
     }, [selectedMachineId, persistDefaultBranch]);
@@ -2486,6 +2486,20 @@ function NewSessionWizard() {
             </Animated.View>
         </View>
     );
+}
+
+/**
+ * Add a repo to the selection, or update the branch on the entry that is
+ * already there. Keyed on path: the same checkout can arrive both as a
+ * registered repo and through "Add directory…", and letting both sit in the
+ * selection made the workspace create one branch twice in the same repo.
+ */
+function addRepoOnce(current: SelectedRepo[], next: SelectedRepo): SelectedRepo[] {
+    const existing = current.findIndex(item => item.repo.path === next.repo.path);
+    if (existing === -1) return [...current, next];
+    const merged = [...current];
+    merged[existing] = { ...merged[existing], targetBranch: next.targetBranch ?? merged[existing].targetBranch };
+    return merged;
 }
 
 export default React.memo(NewSessionWizard);

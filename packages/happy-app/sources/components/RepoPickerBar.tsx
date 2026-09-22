@@ -29,9 +29,15 @@ interface RepoPickerBarProps {
 
 // --- Helpers ---
 
-/** Stable identity key for a repo (registered repos have `id`, ad-hoc ones use `path`). */
-const repoKey = (repo: SelectedRepo['repo']): string =>
-    'id' in repo && repo.id ? repo.id : repo.path;
+/**
+ * Stable identity key for a repo. Keyed on `path`, not on the registered repo's
+ * `id`: the same checkout can reach the picker both ways — as a registered repo
+ * and through "Add directory…" — and keying those differently let both land in
+ * the selection at once. Everything downstream works off `path`, so the
+ * workspace then tried to create one branch twice in the same repo and failed
+ * with "a branch named … already exists".
+ */
+const repoKey = (repo: SelectedRepo['repo']): string => repo.path;
 
 /** Get the base path for a repo (registered uses `.path`, ad-hoc uses `.path` directly). */
 const repoBasePath = (repo: SelectedRepo['repo']): string => repo.path;

@@ -77,7 +77,19 @@ export async function createWorkspace(
 
     const createdRepos: WorkspaceRepo[] = [];
 
-    for (const input of repoInputs) {
+    // Every repo in a workspace shares one branch name, so the same checkout
+    // appearing twice makes the second `git worktree add -b` fail with "a
+    // branch named … already exists" and rolls the whole workspace back. The
+    // picker keys on path now, but de-duplicate here too: this is the only
+    // place that knows the constraint.
+    const seenPaths = new Set<string>();
+    const uniqueInputs = repoInputs.filter((input) => {
+        if (seenPaths.has(input.repo.path)) return false;
+        seenPaths.add(input.repo.path);
+        return true;
+    });
+
+    for (const input of uniqueInputs) {
         const { repo, targetBranch } = input;
 
         // Validate displayName as a safe path component
