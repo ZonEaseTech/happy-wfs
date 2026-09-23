@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 34 - 2026-09-23
+
+Two new Claude models in the picker.
+
+- Models: Claude Opus 5.5 replaces Claude Opus 5 at the top of the Claude picker, and Claude Sonnet 5 replaces Claude Opus 4.8. Both offer all five reasoning levels, from low through max.
+- Models: new Claude sessions now start on Claude Opus 5.5 (1M) by default.
+- Models: sessions already pinned to Claude Opus 5 or Claude Opus 4.8 keep working unchanged — those options just no longer show in the picker.
+
 ## Version 33 - 2026-09-22
 
 Worktree sessions stop failing with "branch already exists".

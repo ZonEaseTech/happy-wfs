@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 34,
+      "date": "2026-09-23",
+      "summary": "Two new Claude models in the picker.",
+      "changes": [
+        "Models: Claude Opus 5.5 replaces Claude Opus 5 at the top of the Claude picker, and Claude Sonnet 5 replaces Claude Opus 4.8. Both offer all five reasoning levels, from low through max.",
+        "Models: new Claude sessions now start on Claude Opus 5.5 (1M) by default.",
+        "Models: sessions already pinned to Claude Opus 5 or Claude Opus 4.8 keep working unchanged — those options just no longer show in the picker."
+      ],
+      "rawMarkdown": "## Version 34 - 2026-09-23\n\n\nTwo new Claude models in the picker.\n\n- Models: Claude Opus 5.5 replaces Claude Opus 5 at the top of the Claude picker, and Claude Sonnet 5 replaces Claude Opus 4.8. Both offer all five reasoning levels, from low through max.\n- Models: new Claude sessions now start on Claude Opus 5.5 (1M) by default.\n- Models: sessions already pinned to Claude Opus 5 or Claude Opus 4.8 keep working unchanged — those options just no longer show in the picker."
+    },
+    {
       "version": 33,
       "date": "2026-09-22",
       "summary": "Worktree sessions stop failing with \"branch already exists\".",
@@ -374,5 +385,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 33
+  "latestVersion": 34
 }
