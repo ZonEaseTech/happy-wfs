@@ -49,7 +49,7 @@ describe('modelCatalog', () => {
     it('supports Claude Opus 4.8 1M model modes', () => {
         expect(isModelMode('claude-opus-4-8[1m]-max')).toBe(true);
         expect(isModelModeForAgent('claude', 'claude-opus-4-8[1m]-max')).toBe(true);
-        expect(CLAUDE_MODEL_FAMILY_OPTIONS.find(option => option.value === 'claude-opus-4-8[1m]')?.label).toBe('Claude Opus 4.8 (1M)');
+        expect(getValidModelModesForAgent('claude')).toContain('claude-opus-4-8[1m]');
         expect(parseClaudeModelMode('claude-opus-4-8[1m]-max')).toEqual({
             family: 'claude-opus-4-8[1m]',
             effort: 'max',
@@ -103,6 +103,84 @@ describe('modelCatalog', () => {
             effort: 'max',
         });
         expect(getMaxContextSize('claude-fable-5[1m]-high', 'claude')).toBe(1_000_000);
+    });
+
+    it('supports Claude Opus 5.5 and keeps Opus 5 modes valid after dropping it from the pickers', () => {
+        // 5.5 接替 Opus 5 在选择器里的位置(紧随两条 Fable 5.1 之后)。
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value).slice(3, 5)).toEqual([
+            'claude-opus-5-5',
+            'claude-opus-5-5[1m]',
+        ]);
+        expect(CLAUDE_MODEL_OPTIONS.map(option => option.value).slice(3, 5)).toEqual([
+            'claude-opus-5-5[1m]',
+            'claude-opus-5-5',
+        ]);
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.find(o => o.value === 'claude-opus-5-5')?.label).toBe('Claude Opus 5.5');
+        expect(isModelModeForAgent('claude', 'claude-opus-5-5[1m]-max')).toBe(true);
+        expect(parseClaudeModelMode('claude-opus-5-5[1m]-max')).toEqual({
+            family: 'claude-opus-5-5[1m]',
+            effort: 'max',
+        });
+        expect(buildClaudeModelMode('claude-opus-5-5', 'xhigh')).toBe('claude-opus-5-5-xhigh');
+        expect(getClaudeReasoningOptions('claude-opus-5-5')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+        expect(resolveModelSelectionForFlavor('claude', 'claude-opus-5-5-high')).toEqual({
+            model: 'claude-opus-5-5',
+            reasoningEffort: 'high',
+        });
+        expect(getMaxContextSize('claude-opus-5-5[1m]-high', 'claude')).toBe(1_000_000);
+        expect(formatModelDisplay('claude-opus-5-5', 'max')).toBe('Claude Opus 5.5 (Max)');
+
+        // Opus 5 只从两个 picker 列表移除, 已固定该模型的会话仍然可用。
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(o => o.value)).not.toContain('claude-opus-5');
+        expect(CLAUDE_MODEL_OPTIONS.map(o => o.value)).not.toContain('claude-opus-5[1m]');
+        expect(isModelMode('claude-opus-5-max')).toBe(true);
+        expect(parseClaudeModelMode('claude-opus-5[1m]-max')).toEqual({
+            family: 'claude-opus-5[1m]',
+            effort: 'max',
+        });
+    });
+
+    it('supports Claude Sonnet 5 and keeps Opus 4.8 modes valid after dropping it from the pickers', () => {
+        // Sonnet 5 接替 Opus 4.8 在选择器里的位置(Fable 5.1 x2、Opus 5.5 x2 之后)。
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(option => option.value).slice(5, 7)).toEqual([
+            'claude-sonnet-5',
+            'claude-sonnet-5[1m]',
+        ]);
+        expect(CLAUDE_MODEL_OPTIONS.map(option => option.value).slice(5, 7)).toEqual([
+            'claude-sonnet-5[1m]',
+            'claude-sonnet-5',
+        ]);
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.find(o => o.value === 'claude-sonnet-5')?.label).toBe('Claude Sonnet 5');
+        // 官方 effort 文档确认 Sonnet 5 五档全支持(含 max 与 xhigh)。
+        expect(getClaudeReasoningOptions('claude-sonnet-5')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+        expect(isModelModeForAgent('claude', 'claude-sonnet-5[1m]-max')).toBe(true);
+        expect(parseClaudeModelMode('claude-sonnet-5[1m]-xhigh')).toEqual({
+            family: 'claude-sonnet-5[1m]',
+            effort: 'xhigh',
+        });
+        expect(buildClaudeModelMode('claude-sonnet-5', 'max')).toBe('claude-sonnet-5-max');
+        expect(resolveModelSelectionForFlavor('claude', 'claude-sonnet-5-medium')).toEqual({
+            model: 'claude-sonnet-5',
+            reasoningEffort: 'medium',
+        });
+        expect(getMaxContextSize('claude-sonnet-5[1m]-high', 'claude')).toBe(1_000_000);
+        expect(formatModelDisplay('claude-sonnet-5', 'high')).toBe('Claude Sonnet 5 (High)');
+
+        // Opus 4.8 只从两个 picker 列表移除, 已固定该模型的会话仍然可用。
+        expect(CLAUDE_MODEL_FAMILY_OPTIONS.map(o => o.value)).not.toContain('claude-opus-4-8');
+        expect(CLAUDE_MODEL_OPTIONS.map(o => o.value)).not.toContain('claude-opus-4-8[1m]');
+        expect(isModelMode('claude-opus-4-8[1m]-max')).toBe(true);
+        expect(parseClaudeModelMode('claude-opus-4-8-xhigh')).toEqual({
+            family: 'claude-opus-4-8',
+            effort: 'xhigh',
+        });
+
+        // 'claude-sonnet-5-high' 同时是 Cursor 的一个模型 id, 两边按 flavor 各自解析, 互不干扰。
+        expect(isModelModeForAgent('cursor', 'claude-sonnet-5-high')).toBe(true);
+        expect(resolveModelSelectionForFlavor('cursor', 'claude-sonnet-5-high')).toEqual({
+            model: 'claude-sonnet-5-high',
+            reasoningEffort: null,
+        });
     });
 
     it('parses codex model mode into family and effort', () => {

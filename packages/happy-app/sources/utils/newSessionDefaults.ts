@@ -9,7 +9,7 @@ export type NewSessionProfileAgentCompatibility = Partial<Record<NewSessionAgent
 // Cursor entry in the profile list is what switches the session to Cursor.
 const NEW_SESSION_AGENT_TYPES = ['claude', 'codex', 'gemini', 'cursor'] as const;
 
-export const CLAUDE_NEW_SESSION_DEFAULT_MODEL = 'claude-opus-5[1m]' satisfies ModelMode;
+export const CLAUDE_NEW_SESSION_DEFAULT_MODEL = 'claude-opus-5-5[1m]' satisfies ModelMode;
 
 export function getInitialNewSessionAgentType(
     selectedProfile: { compatibility?: NewSessionProfileAgentCompatibility } | null | undefined,
