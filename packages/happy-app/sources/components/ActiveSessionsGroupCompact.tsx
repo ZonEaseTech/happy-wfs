@@ -114,13 +114,6 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         borderLeftColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.10)',
     },
-    /** Awaiting closure: the user has verified the agent's output and is
-     *  keeping the session pinned to the top until they explicitly close it.
-     *  Purple to distinguish from review (green) and unread (blue). */
-    sessionRowClosure: {
-        borderLeftColor: '#8B5CF6',
-        backgroundColor: 'rgba(139, 92, 246, 0.10)',
-    },
     sessionDivider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: theme.colors.divider,
@@ -594,12 +587,13 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 styles.sessionRow,
                 selected && styles.sessionRowSelected,
                 // Style priority (last wins): permission_required (urgent) >
-                // awaiting closure (purple) > review (green) > unread (blue).
-                // Awaiting-closure outranks review because it's the later
-                // lifecycle stage (verified → pending close-out).
+                // review (green) > unread (blue). Awaiting closure has no row
+                // tint: marked sessions only ever render in the 待归档 tab
+                // (the Active tab filters them out), where every row is marked,
+                // so a tint there carried no information and masked the
+                // unread/review colours underneath.
                 sessionStatus.hasUnreadCompletion && styles.sessionRowUnread,
                 isPendingReview && styles.sessionRowReview,
-                isAwaitingClosure && styles.sessionRowClosure,
                 sessionStatus.state === 'permission_required' && styles.sessionRowAttention,
             ]}
             onPressIn={() => {
