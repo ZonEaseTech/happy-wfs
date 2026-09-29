@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 35 - 2026-09-29
+
+The awaiting-closure tab looks like the rest of your sessions again.
+
+- Sessions: rows in the awaiting-closure tab no longer sit on a purple background. Every session in that tab is marked, so the tint said nothing — and it hid the blue "unread" and green "pending review" colours underneath. Those now show through, so you can spot which marked session has a fresh result waiting.
+
 ## Version 34 - 2026-09-23
 
 Two new Claude models in the picker.

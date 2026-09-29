@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 35,
+      "date": "2026-09-29",
+      "summary": "The awaiting-closure tab looks like the rest of your sessions again.",
+      "changes": [
+        "Sessions: rows in the awaiting-closure tab no longer sit on a purple background. Every session in that tab is marked, so the tint said nothing — and it hid the blue \"unread\" and green \"pending review\" colours underneath. Those now show through, so you can spot which marked session has a fresh result waiting."
+      ],
+      "rawMarkdown": "## Version 35 - 2026-09-29\n\n\nThe awaiting-closure tab looks like the rest of your sessions again.\n\n- Sessions: rows in the awaiting-closure tab no longer sit on a purple background. Every session in that tab is marked, so the tint said nothing — and it hid the blue \"unread\" and green \"pending review\" colours underneath. Those now show through, so you can spot which marked session has a fresh result waiting."
+    },
+    {
       "version": 34,
       "date": "2026-09-23",
       "summary": "Two new Claude models in the picker.",
@@ -385,5 +394,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 34
+  "latestVersion": 35
 }
