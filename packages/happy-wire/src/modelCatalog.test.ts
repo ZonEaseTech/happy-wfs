@@ -183,6 +183,29 @@ describe('modelCatalog', () => {
         });
     });
 
+    it('supports GPT-6.1 Sol and keeps GPT-5.6 Sol modes valid after dropping it from the pickers', () => {
+        // 6.1 Sol 接替 5.6 Sol 的位置, 排在 Astra 之后。
+        expect(CODEX_MODEL_FAMILY_OPTIONS[2].value).toBe('gpt-6.1-sol');
+        expect(CODEX_MODEL_FAMILY_OPTIONS[2].label).toBe('GPT-6.1 Sol');
+        // 官方文档: low / medium(默认) / high / xhigh / max 五档, 不支持 none 与 minimal。
+        expect(getCodexReasoningOptions('gpt-6.1-sol')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+        expect(buildCodexModelMode('gpt-6.1-sol', 'max')).toBe('gpt-6.1-sol-max');
+        expect(isModelModeForAgent('codex', 'gpt-6.1-sol-max')).toBe(true);
+        expect(parseCodexModelMode('gpt-6.1-sol-xhigh')).toEqual({ family: 'gpt-6.1-sol', effort: 'xhigh' });
+        expect(resolveModelSelectionForFlavor('codex', 'gpt-6.1-sol-medium')).toEqual({
+            model: 'gpt-6.1-sol',
+            reasoningEffort: 'medium',
+        });
+        expect(getMaxContextSize('gpt-6.1-sol-high', 'codex')).toBe(1_050_000);
+        expect(formatModelDisplay('gpt-6.1-sol', 'max')).toBe('GPT-6.1 Sol (Max)');
+
+        // 5.6 Sol 只从两个 picker 列表移除, 已固定该模型的会话仍然可用。
+        expect(CODEX_MODEL_FAMILY_OPTIONS.map(o => o.value)).not.toContain('gpt-5.6-sol');
+        expect(CODEX_MODEL_OPTIONS.map(o => o.value)).not.toContain('gpt-5.6-sol-high');
+        expect(isModelModeForAgent('codex', 'gpt-5.6-sol-max')).toBe(true);
+        expect(buildCodexModelMode('gpt-5.6-sol', 'max')).toBe('gpt-5.6-sol-max');
+    });
+
     it('parses codex model mode into family and effort', () => {
         expect(parseCodexModelMode('gpt-5.2-medium')).toEqual({
             family: 'gpt-5.2',
@@ -231,7 +254,7 @@ describe('modelCatalog', () => {
 
     it('hides older Codex families from the picker while preserving mode compatibility', () => {
         const values = CODEX_MODEL_FAMILY_OPTIONS.map(option => option.value);
-        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']);
+        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']);
         expect(isModelModeForAgent('codex', 'gpt-5.5-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.4-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.3-codex-xhigh')).toBe(true);
