@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 36 - 2026-09-30
+
+GPT-6.1 Sol joins the Codex model picker.
+
+- Models: GPT-6.1 Sol replaces GPT-5.6 Sol in the Codex picker, right after GPT-6 Astra. OpenAI says it comes close to Astra on coding and agentic work at a fifth of the price, with a 1M-token context window and all five reasoning levels from low through max.
+- Models: sessions already set to GPT-5.6 Sol keep working unchanged — the option just no longer shows in the picker.
+
 ## Version 35 - 2026-09-29
 
 The awaiting-closure tab looks like the rest of your sessions again.
