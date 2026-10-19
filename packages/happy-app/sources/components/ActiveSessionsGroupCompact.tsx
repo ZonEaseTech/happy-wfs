@@ -27,6 +27,9 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { useIsReviewPending, toggleReviewPending } from '@/sync/reviewPending';
 import { useAwaitingClosureMarks, useIsAwaitingClosure, toggleAwaitingClosure } from '@/sync/awaitingClosure';
+import { saveSidebarOrder, useSidebarOrderOverrides } from '@/sync/sidebarOrder';
+import { compareSidebarOrder } from '@/utils/sidebarOrder';
+import { SortableSessionRows, useSortableRowPressGuard } from './SortableSessionRows';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -221,6 +224,8 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     // group. Read the whole marks map so the sort can reorder live whenever
     // the user toggles a session.
     const awaitingClosureMarks = useAwaitingClosureMarks();
+    // Orders a drag just chose, shown until their save comes back.
+    const sidebarOrderOverrides = useSidebarOrderOverrides();
 
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
@@ -310,20 +315,21 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
         // Sort sessions within each machine group:
         //   1. Awaiting-closure marks float to the top (most-recently-marked
         //      first — recency of *marking*, not of createdAt).
-        //   2. Plain rows fall back to createdAt descending (newest first).
+        //   2. Plain rows follow the order the user dragged them into, with
+        //      never-dragged rows by createdAt (newest first).
         groups.forEach(projectGroup => {
             projectGroup.machines.forEach(machineGroup => {
                 machineGroup.sessions.sort((a, b) => {
                     const aMark = awaitingClosureMarks[a.id] ?? 0;
                     const bMark = awaitingClosureMarks[b.id] ?? 0;
                     if (aMark !== bMark) return bMark - aMark;
-                    return b.createdAt - a.createdAt;
+                    return compareSidebarOrder(a, b, sidebarOrderOverrides);
                 });
             });
         });
 
         return groups;
-    }, [sessions, machinesMap, mergeWorktreeGroups, awaitingClosureMarks]);
+    }, [sessions, machinesMap, mergeWorktreeGroups, awaitingClosureMarks, sidebarOrderOverrides]);
 
     // Sort project groups by display path
     const sortedProjectGroups = React.useMemo(() => {
@@ -381,15 +387,25 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
                                 .sort(([, machineA], [, machineB]) => machineA.machineName.localeCompare(machineB.machineName))
                                 .map(([machineId, machineGroup]) => (
                                     <View key={`${projectPath}-${machineId}`}>
-                                        {machineGroup.sessions.map((session, index) => (
-                                            <CompactSessionRow
-                                                key={session.id}
-                                                session={session}
-                                                selected={selectedSessionId === session.id}
-                                                showBorder={index < machineGroup.sessions.length - 1 ||
-                                                    Array.from(projectGroup.machines.keys()).indexOf(machineId) < projectGroup.machines.size - 1}
-                                            />
-                                        ))}
+                                        <SortableSessionRows
+                                            sessions={machineGroup.sessions}
+                                            // Marked rows sort by when they were marked (the
+                                            // 待归档 tab), so a drag there would snap back.
+                                            enabled={machineGroup.sessions.length > 1 &&
+                                                !machineGroup.sessions.some((session) => awaitingClosureMarks[session.id])}
+                                            onReorder={(orderedIds, movedId) => {
+                                                const byId = new Map(machineGroup.sessions.map((session) => [session.id, session]));
+                                                void saveSidebarOrder(orderedIds.flatMap((id) => byId.get(id) ?? []), movedId);
+                                            }}
+                                            renderRow={(session, index) => (
+                                                <CompactSessionRow
+                                                    session={session}
+                                                    selected={selectedSessionId === session.id}
+                                                    showBorder={index < machineGroup.sessions.length - 1 ||
+                                                        Array.from(projectGroup.machines.keys()).indexOf(machineId) < projectGroup.machines.size - 1}
+                                                />
+                                            )}
+                                        />
                                     </View>
                                 ))}
                         </View>
@@ -408,6 +424,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const sessionName = getSessionName(session);
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
+    const dragJustMovedRow = useSortableRowPressGuard();
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
     const [archivingSession, performArchive] = useHappyAction(async () => {
@@ -602,7 +619,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 }
             }}
             onPress={() => {
-                if (!isTablet) {
+                if (!isTablet && !dragJustMovedRow()) {
                     navigateToSession(session.id);
                 }
             }}

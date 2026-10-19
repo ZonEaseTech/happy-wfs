@@ -25,6 +25,8 @@ import { HappyError } from '@/utils/errors';
 import { getWorktreeInfo, cleanupWorktree } from '@/utils/worktreeOps';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
+import { useSidebarOrderOverrides } from '@/sync/sidebarOrder';
+import { compareSidebarOrder } from '@/utils/sidebarOrder';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -221,6 +223,7 @@ interface ActiveSessionsGroupProps {
 export function ActiveSessionsGroup({ sessions, selectedSessionId }: ActiveSessionsGroupProps) {
     const styles = stylesheet;
     const machines = useAllMachines();
+    const sidebarOrderOverrides = useSidebarOrderOverrides();
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
         machines.forEach(machine => {
@@ -284,15 +287,16 @@ export function ActiveSessionsGroup({ sessions, selectedSessionId }: ActiveSessi
             machineGroup.sessions.push(session);
         });
 
-        // Sort sessions within each machine group by creation time (newest first)
+        // Sort sessions within each machine group in the order dragged in the
+        // compact view; never-dragged rows by creation time (newest first)
         groups.forEach(projectGroup => {
             projectGroup.machines.forEach(machineGroup => {
-                machineGroup.sessions.sort((a, b) => b.createdAt - a.createdAt);
+                machineGroup.sessions.sort((a, b) => compareSidebarOrder(a, b, sidebarOrderOverrides));
             });
         });
 
         return groups;
-    }, [sessions, machinesMap]);
+    }, [sessions, machinesMap, sidebarOrderOverrides]);
 
     // Sort project groups by display path
     const sortedProjectGroups = React.useMemo(() => {

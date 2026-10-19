@@ -69,6 +69,10 @@ export const MetadataSchema = z.object({
     reviewPending: z.object({
         markedAt: z.number(),
     }).optional(),
+    // Position the user dragged this session to inside its sidebar group;
+    // larger sorts first. Unset means never dragged, which falls back to
+    // createdAt — see utils/sidebarOrder.ts. Same sync path as the marks above.
+    sidebarOrder: z.number().optional(),
     autoReviewGuard: z.object({
         enabled: z.boolean(),
         status: z.enum(['idle', 'waiting', 'reviewing', 'needs_follow_up', 'passed', 'uncertain']).optional(),

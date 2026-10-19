@@ -44,6 +44,7 @@ import { BugReportItem } from './BugReportItem';
 import { BugShareSettingsModal } from './BugShareSettingsModal';
 import { buildBugInitialImages, buildBugReportStartPrompt } from './bugReportStartPrompt';
 import { buildGitHubIssueStartPrompt } from './githubIssueStartPrompt';
+import { SessionListScrollLockContext } from './SortableSessionRows';
 import { GITHUB_PROJECT_RECONNECT_MESSAGE, GITHUB_PROJECT_RECONNECT_TITLE, isGitHubProjectPermissionError } from '@/utils/githubProjectPermission';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -923,6 +924,8 @@ export function SessionsList() {
     const router = useRouter();
     const { theme } = useUnistyles();
     const [refreshing, setRefreshing] = React.useState(false);
+    // Held while a session row is dragged, so the finger moves the row and not the list.
+    const [scrollLocked, setScrollLocked] = React.useState(false);
     const pendingIssueServerQuery = React.useMemo(() => buildGitHubIssueSearchQuery(pendingIssueSearchText), [pendingIssueSearchText]);
     const pendingIssueCacheKey = React.useMemo(() => buildGitHubIssueInboxCacheKey({
         token: auth.credentials?.token ?? '',
@@ -1721,22 +1724,25 @@ export function SessionsList() {
     return (
         <View style={styles.container}>
             <View style={styles.contentContainer}>
-                <FlatList
-                    data={dataWithSelected}
-                    renderItem={renderItem}
-                    keyExtractor={keyExtractor}
-                    contentContainerStyle={{ paddingBottom: safeArea.bottom + 128, maxWidth: layout.maxWidth }}
-                    ListHeaderComponent={headerElement}
-                    ListEmptyComponent={EmptyComponent}
-                    removeClippedSubviews={true}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            tintColor={theme.colors.textSecondary}
-                        />
-                    }
-                />
+                <SessionListScrollLockContext.Provider value={setScrollLocked}>
+                    <FlatList
+                        data={dataWithSelected}
+                        renderItem={renderItem}
+                        keyExtractor={keyExtractor}
+                        contentContainerStyle={{ paddingBottom: safeArea.bottom + 128, maxWidth: layout.maxWidth }}
+                        ListHeaderComponent={headerElement}
+                        ListEmptyComponent={EmptyComponent}
+                        removeClippedSubviews={true}
+                        scrollEnabled={!scrollLocked}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={theme.colors.textSecondary}
+                            />
+                        }
+                    />
+                </SessionListScrollLockContext.Provider>
             </View>
         </View>
     );
