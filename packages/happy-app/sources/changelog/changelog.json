@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 37,
+      "date": "2026-10-19",
+      "summary": "Put the sessions in each group in the order you want.",
+      "changes": [
+        "Sessions: long-press a session on your phone and drag it up or down to move it within its group; on a computer, just drag it with the mouse. The new order is saved with the session, so your other devices show it too.",
+        "Sessions: new sessions still appear at the top of their group, and sessions you never moved stay sorted newest first.",
+        "Sessions: the awaiting-closure tab keeps listing sessions by when they were marked, so rows there can't be dragged."
+      ],
+      "rawMarkdown": "## Version 37 - 2026-10-19\n\n\nPut the sessions in each group in the order you want.\n\n- Sessions: long-press a session on your phone and drag it up or down to move it within its group; on a computer, just drag it with the mouse. The new order is saved with the session, so your other devices show it too.\n- Sessions: new sessions still appear at the top of their group, and sessions you never moved stay sorted newest first.\n- Sessions: the awaiting-closure tab keeps listing sessions by when they were marked, so rows there can't be dragged."
+    },
+    {
       "version": 36,
       "date": "2026-09-30",
       "summary": "GPT-6.1 Sol joins the Codex model picker.",
@@ -404,5 +415,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 36
+  "latestVersion": 37
 }

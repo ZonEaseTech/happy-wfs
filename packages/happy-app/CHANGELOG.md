@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 37 - 2026-10-19
+
+Put the sessions in each group in the order you want.
+
+- Sessions: long-press a session on your phone and drag it up or down to move it within its group; on a computer, just drag it with the mouse. The new order is saved with the session, so your other devices show it too.
+- Sessions: new sessions still appear at the top of their group, and sessions you never moved stay sorted newest first.
+- Sessions: the awaiting-closure tab keeps listing sessions by when they were marked, so rows there can't be dragged.
+
 ## Version 36 - 2026-09-30
 
 GPT-6.1 Sol joins the Codex model picker.
