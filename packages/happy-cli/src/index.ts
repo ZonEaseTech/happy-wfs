@@ -576,7 +576,12 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
           console.error(chalk.red('Error:'), 'Which device? Usage: happy ssh <device> -- <command>')
           process.exit(1)
         }
-        process.exit(await runOnDevice(credentials, target, command, { timeoutMs, stream }))
+        const exitCode = await runOnDevice(credentials, target, command, { timeoutMs, stream })
+        // process.exit drops whatever a pipe has not taken yet — `$(happy ssh …)`
+        // kept only the first 8 KB. An empty write calls back once everything
+        // queued ahead of it is out.
+        await Promise.all([process.stdout, process.stderr].map((out) => new Promise((resolve) => out.write('', resolve))))
+        process.exit(exitCode)
       }
       if (!target) {
         process.exit(await sshPickAndConnect(credentials))

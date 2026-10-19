@@ -231,6 +231,38 @@ async function streamOnResolved(
     });
 
     const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+
+    // Listen before asking. A quick command's frames can overtake the pty-start
+    // answer — the server relays them as they come, while the answer travels
+    // back through the RPC path — and a frame nobody listens for is gone: the
+    // command had long finished, yet this waited out the whole timeout. Frames
+    // are held until the answer says which run is ours.
+    let execId: string | null = null;
+    const held: Array<[event: 'pty-output' | 'pty-exit', envelope: any]> = [];
+    let settle: (exitCode: number) => void = () => { };
+    const exited = new Promise<number>((resolve) => { settle = resolve; });
+    const deliver = (event: 'pty-output' | 'pty-exit', envelope: any) => {
+        if (envelope?.ptyId !== execId) return;
+        if (event === 'pty-exit') {
+            settle(typeof envelope.exitCode === 'number' ? envelope.exitCode : 1);
+            return;
+        }
+        try {
+            const frame = decrypt(key, variant, decodeBase64(envelope.data)) as { stream?: string; chunk?: string };
+            if (typeof frame?.chunk !== 'string') return;
+            const target = frame.stream === 'stderr' ? process.stderr : process.stdout;
+            target.write(Buffer.from(frame.chunk, 'base64'));
+        } catch { /* drop an undecryptable frame rather than abort */ }
+    };
+    for (const event of ['pty-output', 'pty-exit'] as const) {
+        socket.on(event, (envelope: any) => {
+            if (envelope?.sessionId !== device.id) return;
+            if (execId === null) held.push([event, envelope]);
+            else deliver(event, envelope);
+        });
+    }
+    socket.on('disconnect', () => settle(1));
+
     try {
         const answer: any = await socket.timeout(30000).emitWithAck('rpc-call', {
             method: `${device.id}:pty-start`,
@@ -245,28 +277,15 @@ async function streamOnResolved(
         if (!started?.ok || !started.ptyId) {
             throw new Error(started?.error ?? 'Device refused to start the command');
         }
+        execId = started.ptyId;
+        for (const [event, envelope] of held.splice(0)) deliver(event, envelope);
 
-        return await new Promise<number>((resolve) => {
-            const execId = started.ptyId!;
-            // The device kills the child on its own budget; this only covers a
-            // device that goes away mid-command, which produces no exit frame.
-            const guard = setTimeout(() => resolve(1), timeoutMs + 30_000);
-            socket.on('pty-output', (envelope: any) => {
-                if (envelope?.sessionId !== device.id || envelope?.ptyId !== execId) return;
-                try {
-                    const frame = decrypt(key, variant, decodeBase64(envelope.data)) as { stream?: string; chunk?: string };
-                    if (typeof frame?.chunk !== 'string') return;
-                    const target = frame.stream === 'stderr' ? process.stderr : process.stdout;
-                    target.write(Buffer.from(frame.chunk, 'base64'));
-                } catch { /* drop an undecryptable frame rather than abort */ }
-            });
-            socket.on('pty-exit', (envelope: any) => {
-                if (envelope?.sessionId !== device.id || envelope?.ptyId !== execId) return;
-                clearTimeout(guard);
-                resolve(typeof envelope.exitCode === 'number' ? envelope.exitCode : 1);
-            });
-            socket.on('disconnect', () => { clearTimeout(guard); resolve(1); });
-        });
+        // The device kills the child on its own budget; this only covers a
+        // device that goes away mid-command, which produces no exit frame.
+        const guard = setTimeout(() => settle(1), timeoutMs + 30_000);
+        const exitCode = await exited;
+        clearTimeout(guard);
+        return exitCode;
     } finally {
         socket.close();
     }

@@ -11,7 +11,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { configuration } from '@/configuration';
 
-async function daemonPost(path: string, body?: any): Promise<{ error?: string } | any> {
+async function daemonPost(path: string, body?: any, timeoutMs?: number): Promise<{ error?: string } | any> {
   const state = await readDaemonState();
   if (!state?.httpPort) {
     const errorMessage = 'No daemon running, no state file found';
@@ -32,7 +32,7 @@ async function daemonPost(path: string, body?: any): Promise<{ error?: string } 
   }
 
   try {
-    const timeout = process.env.HAPPY_DAEMON_HTTP_TIMEOUT ? parseInt(process.env.HAPPY_DAEMON_HTTP_TIMEOUT) : 10_000;
+    const timeout = timeoutMs ?? (process.env.HAPPY_DAEMON_HTTP_TIMEOUT ? parseInt(process.env.HAPPY_DAEMON_HTTP_TIMEOUT) : 10_000);
     const response = await fetch(`http://127.0.0.1:${state.httpPort}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -81,7 +81,10 @@ export async function execOnDeviceViaDaemon(
   command: string,
   timeoutMs: number,
 ): Promise<any | null> {
-  const response = await daemonPost('/device-exec', { deviceId, command, timeoutMs });
+  // Wait as long as the command may run. Giving up at the 10s default sent the
+  // caller to its own socket, which ran the command a second time while the
+  // first was still going.
+  const response = await daemonPost('/device-exec', { deviceId, command, timeoutMs }, timeoutMs + 30_000);
   if (!response || response.error || response.ok !== true) {
     logger.debug(`[CONTROL CLIENT] Device exec via daemon unavailable: ${response?.error ?? 'no daemon'}`);
     return null;

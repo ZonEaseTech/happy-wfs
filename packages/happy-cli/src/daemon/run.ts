@@ -1142,7 +1142,10 @@ export async function startDaemon(): Promise<void> {
       requestShutdown: () => requestShutdown('happy-cli'),
       onHappySessionWebhook,
       execOnDevice: async (deviceId, command, timeoutMs) => {
-        if (!connectedMachine) {
+        // Throwing sends the caller to its own socket, which is only safe before
+        // the command has gone out. After that a failure is reported instead:
+        // the device may still be running it, and a retry would run it twice.
+        if (!connectedMachine?.rpcSocket.connected) {
           throw new Error('Daemon is not connected yet');
         }
         // Same cache the CLI reads, so the key never crosses the local socket.
@@ -1155,7 +1158,13 @@ export async function startDaemon(): Promise<void> {
           deviceKeyVariant: material.variant,
           timeout: timeoutMs,
           skipMachineLookup: true
-        });
+        }).catch((error) => ({
+          success: false,
+          stdout: '',
+          stderr: '',
+          exitCode: 1,
+          error: error instanceof Error ? error.message : String(error)
+        }));
       }
     });
 
