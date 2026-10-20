@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 40 - 2026-10-20
+
+The order you drag sessions into now stays, even after you open them.
+
+- Sessions: a session you dragged to a new place no longer jumps back when you open it, rename it, or mark it — anything that saved the session used to quietly drop its new position.
+- Sessions: Cursor sessions keep their link to the Cursor conversation when the app saves them; it used to be lost the same way.
+- Reload Happy on your other devices and browser tabs, so an older copy left open there can't undo the new order.
+
 ## Version 39 - 2026-10-20
 
 A dragged session stays where you put it once the new order is saved.

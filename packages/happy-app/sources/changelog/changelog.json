@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 40,
+      "date": "2026-10-20",
+      "summary": "The order you drag sessions into now stays, even after you open them.",
+      "changes": [
+        "Sessions: a session you dragged to a new place no longer jumps back when you open it, rename it, or mark it — anything that saved the session used to quietly drop its new position.",
+        "Sessions: Cursor sessions keep their link to the Cursor conversation when the app saves them; it used to be lost the same way.",
+        "Reload Happy on your other devices and browser tabs, so an older copy left open there can't undo the new order."
+      ],
+      "rawMarkdown": "## Version 40 - 2026-10-20\n\n\nThe order you drag sessions into now stays, even after you open them.\n\n- Sessions: a session you dragged to a new place no longer jumps back when you open it, rename it, or mark it — anything that saved the session used to quietly drop its new position.\n- Sessions: Cursor sessions keep their link to the Cursor conversation when the app saves them; it used to be lost the same way.\n- Reload Happy on your other devices and browser tabs, so an older copy left open there can't undo the new order."
+    },
+    {
       "version": 39,
       "date": "2026-10-20",
       "summary": "A dragged session stays where you put it once the new order is saved.",
@@ -434,5 +445,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 39
+  "latestVersion": 40
 }
