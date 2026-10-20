@@ -11,19 +11,15 @@ import { planSidebarOrder, sidebarOrderKey } from '@/utils/sidebarOrder';
  * instead of snapping back. It is dropped once the session's own metadata
  * carries it, or as soon as the save fails — the list then reverts.
  */
-const useOverrides = create<Record<string, number>>(() => ({}));
-
-export function useSidebarOrderOverrides(): Record<string, number> {
-    return useOverrides();
-}
+export const useSidebarOrderOverrides = create<Record<string, number>>(() => ({}));
 
 export async function saveSidebarOrder(ordered: Session[], movedId: string): Promise<void> {
-    const overrides = useOverrides.getState();
+    const overrides = useSidebarOrderOverrides.getState();
     const updates = planSidebarOrder(
         ordered.map((session) => ({ id: session.id, key: sidebarOrderKey(session, overrides) })),
         movedId,
     );
-    useOverrides.setState(updates);
+    useSidebarOrderOverrides.setState(updates);
     await Promise.all(Object.entries(updates).map(async ([sessionId, key]) => {
         try {
             const session = getSession(sessionId);
@@ -37,8 +33,8 @@ export async function saveSidebarOrder(ordered: Session[], movedId: string): Pro
             console.warn('[sidebarOrder] save failed:', err);
         }
         // A newer drag of the same row may have replaced the value meanwhile.
-        if (useOverrides.getState()[sessionId] === key) {
-            useOverrides.setState(({ [sessionId]: _dropped, ...rest }) => rest, true);
+        if (useSidebarOrderOverrides.getState()[sessionId] === key) {
+            useSidebarOrderOverrides.setState(({ [sessionId]: _dropped, ...rest }) => rest, true);
         }
     }));
 }

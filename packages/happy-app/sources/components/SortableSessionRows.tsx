@@ -7,9 +7,9 @@ import * as Haptics from 'expo-haptics';
 import { Session } from '@/sync/storageTypes';
 
 /**
- * Lets the list around the rows stop scrolling while one is dragged — on a
- * touch screen the scroll view would otherwise move along with the finger.
- * SessionsList provides it; anywhere else it is a no-op.
+ * Lets the list around the rows stop scrolling while one is dragged in the
+ * native app — the scroll view would otherwise move along with the finger.
+ * SessionsList provides it; anywhere else it is a no-op. Not used on web.
  */
 export const SessionListScrollLockContext = React.createContext<(locked: boolean) => void>(() => { });
 
@@ -141,8 +141,11 @@ export function SortableSessionRows({ sessions, enabled, onReorder, renderRow }:
 
     const onDragStart = React.useCallback(() => {
         draggingRef.current = true;
-        setScrollLocked(true);
+        // Native only. A web list already stops scrolling through the touchmove
+        // guard above, and disabling it means switching its overflow to hidden
+        // mid-touch — iOS Safari then cancels the touch, ending the drag.
         if (Platform.OS !== 'web') {
+            setScrollLocked(true);
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
     }, [setScrollLocked]);
@@ -150,7 +153,7 @@ export function SortableSessionRows({ sessions, enabled, onReorder, renderRow }:
     const onDragEnd = React.useCallback((finalOrder: string[], movedId: string, changed: boolean) => {
         draggingRef.current = false;
         dragEndedAt.current = Date.now();
-        setScrollLocked(false);
+        if (Platform.OS !== 'web') setScrollLocked(false);
         if (changed) {
             onReorderRef.current(finalOrder, movedId);
         } else {
@@ -199,9 +202,8 @@ function SortableRow({ id, enabled, drag, onLayout, onDragStart, onDragEnd, chil
     const { order, heights, dragging, dragY, startY, startOrder } = drag;
 
     const gesture = React.useMemo(() => {
-        const settle = (commit: boolean) => {
+        const settle = () => {
             'worklet';
-            if (!commit) order.value = startOrder.value;
             dragY.value = withTiming(offsetOf(order.value, heights.value, id), { duration: 120 }, () => {
                 const changed = order.value.join('\n') !== startOrder.value.join('\n');
                 dragging.value = null;
@@ -232,8 +234,11 @@ function SortableRow({ id, enabled, drag, onLayout, onDragStart, onDragEnd, chil
                     order.value = next;
                 }
             })
-            .onEnd((_event, success) => {
-                if (dragging.value === id) settle(success);
+            // Ended or cancelled alike: when the system takes the touch away
+            // mid-drag, the row stays where it had got to rather than
+            // snapping back.
+            .onEnd(() => {
+                if (dragging.value === id) settle();
             });
         return dragWithMouse
             ? pan.mouseButton(MouseButton.LEFT).activeOffsetY([-4, 4])

@@ -924,7 +924,7 @@ export function SessionsList() {
     const router = useRouter();
     const { theme } = useUnistyles();
     const [refreshing, setRefreshing] = React.useState(false);
-    // Held while a session row is dragged, so the finger moves the row and not the list.
+    // Held while a session row is dragged in the native app, so the finger moves the row and not the list.
     const [scrollLocked, setScrollLocked] = React.useState(false);
     const pendingIssueServerQuery = React.useMemo(() => buildGitHubIssueSearchQuery(pendingIssueSearchText), [pendingIssueSearchText]);
     const pendingIssueCacheKey = React.useMemo(() => buildGitHubIssueInboxCacheKey({
