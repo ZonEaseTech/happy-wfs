@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 38,
+      "date": "2026-10-20",
+      "summary": "Dragged sessions stay where you drop them on iPhone.",
+      "changes": [
+        "Sessions: on iPhone, a session you long-press and drag to a new spot no longer jumps back to where it started when you let go.",
+        "Sessions: if a drag gets interrupted partway, the session now stays where it had got to instead of snapping back."
+      ],
+      "rawMarkdown": "## Version 38 - 2026-10-20\n\n\nDragged sessions stay where you drop them on iPhone.\n\n- Sessions: on iPhone, a session you long-press and drag to a new spot no longer jumps back to where it started when you let go.\n- Sessions: if a drag gets interrupted partway, the session now stays where it had got to instead of snapping back."
+    },
+    {
       "version": 37,
       "date": "2026-10-19",
       "summary": "Put the sessions in each group in the order you want.",
@@ -415,5 +425,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 37
+  "latestVersion": 38
 }

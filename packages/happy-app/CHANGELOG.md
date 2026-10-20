@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 38 - 2026-10-20
+
+Dragged sessions stay where you drop them on iPhone.
+
+- Sessions: on iPhone, a session you long-press and drag to a new spot no longer jumps back to where it started when you let go.
+- Sessions: if a drag gets interrupted partway, the session now stays where it had got to instead of snapping back.
+
 ## Version 37 - 2026-10-19
 
 Put the sessions in each group in the order you want.
