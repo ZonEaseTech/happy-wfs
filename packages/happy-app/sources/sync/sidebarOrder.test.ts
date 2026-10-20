@@ -7,7 +7,12 @@ import { saveSidebarOrder, useSidebarOrderOverrides } from './sidebarOrder';
 
 vi.mock('@/sync/storage', async () => {
     const { create } = await import('zustand');
-    const storage = create<{ sessions: Record<string, Session>; sharedSessions: Record<string, Session> }>(() => ({ sessions: {}, sharedSessions: {} }));
+    type State = { sessions: Record<string, Session>; sharedSessions: Record<string, Session>; applySessions: (list: Session[]) => void };
+    const storage = create<State>((set) => ({
+        sessions: {},
+        sharedSessions: {},
+        applySessions: (list) => set((state) => ({ sessions: { ...state.sessions, ...Object.fromEntries(list.map((s) => [s.id, s])) } })),
+    }));
     return { storage, getSession: (id: string) => storage.getState().sessions[id] };
 });
 vi.mock('@/sync/ops', () => ({ sessionUpdateMetadataFields: vi.fn() }));
@@ -37,16 +42,29 @@ function echo(id: string, sidebarOrder: number) {
     store.setState({ sessions: { ...sessions, [id]: { ...sessions[id], metadata: { ...sessions[id].metadata!, sidebarOrder }, metadataVersion: 2 } } });
 }
 
+const saveSucceeds = () => vi.mocked(sessionUpdateMetadataFields).mockImplementation(async (_id, metadata, updates) => (
+    { version: 2, metadata: { ...metadata, ...updates } }
+));
+
 describe('saveSidebarOrder', () => {
     it('shows the dropped order at once and keeps it after the server echo lands', async () => {
         const s = seed();
-        vi.mocked(sessionUpdateMetadataFields).mockImplementation(async (id, _metadata, updates) => {
+        saveSucceeds();
+        vi.mocked(sessionUpdateMetadataFields).mockImplementationOnce(async (id, metadata, updates) => {
             setTimeout(() => echo(id, updates.sidebarOrder!), 50);
-            return { version: 2 };
+            return { version: 2, metadata: { ...metadata, ...updates } };
         });
         const saving = saveSidebarOrder([s.b, s.c, s.a], 'a');
         expect(shown()).toEqual(['b', 'c', 'a']);
         await saving;
+        expect(useSidebarOrderOverrides.getState()).toEqual({});
+        expect(shown()).toEqual(['b', 'c', 'a']);
+    });
+
+    it('keeps the dropped order even when the broadcast never comes back', async () => {
+        const s = seed();
+        saveSucceeds();
+        await saveSidebarOrder([s.b, s.c, s.a], 'a');
         expect(useSidebarOrderOverrides.getState()).toEqual({});
         expect(shown()).toEqual(['b', 'c', 'a']);
     });

@@ -1070,7 +1070,7 @@ export async function sessionUpdateMetadataFields(
     updates: Partial<Metadata>,
     expectedVersion: number,
     maxRetries: number = 3
-): Promise<{ version: number }> {
+): Promise<{ version: number; metadata: Metadata }> {
     let currentVersion = expectedVersion;
 
     const sessionEncryption = sync.encryption.getSessionEncryption(sessionId);
@@ -1119,7 +1119,9 @@ export async function sessionUpdateMetadataFields(
         });
 
         if (result.result === 'success') {
-            return { version: result.version! };
+            // What the server now holds at this version, for callers that
+            // can't wait for the broadcast to bring it back.
+            return { version: result.version!, metadata: metadataToSend };
         } else if (result.result === 'version-mismatch') {
             currentVersion = result.version!;
             const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata | null;

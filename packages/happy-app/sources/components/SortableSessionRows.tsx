@@ -5,6 +5,7 @@ import Animated, { SharedValue, useAnimatedStyle, useSharedValue, withTiming } f
 import { runOnJS } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
 import { Session } from '@/sync/storageTypes';
+import { log } from '@/log';
 
 /**
  * Lets the list around the rows stop scrolling while one is dragged in the
@@ -139,7 +140,8 @@ export function SortableSessionRows({ sessions, enabled, onReorder, renderRow }:
         setHeights(heightsRef.current);
     }, [sharedHeights]);
 
-    const onDragStart = React.useCallback(() => {
+    const onDragStart = React.useCallback((id: string) => {
+        log.log(`[sidebarOrder] drag start ${id}`);
         draggingRef.current = true;
         // Native only. A web list already stops scrolling through the touchmove
         // guard above, and disabling it means switching its overflow to hidden
@@ -151,6 +153,7 @@ export function SortableSessionRows({ sessions, enabled, onReorder, renderRow }:
     }, [setScrollLocked]);
 
     const onDragEnd = React.useCallback((finalOrder: string[], movedId: string, changed: boolean) => {
+        log.log(`[sidebarOrder] drag end ${movedId} changed=${changed}`);
         draggingRef.current = false;
         dragEndedAt.current = Date.now();
         if (Platform.OS !== 'web') setScrollLocked(false);
@@ -195,7 +198,7 @@ function SortableRow({ id, enabled, drag, onLayout, onDragStart, onDragEnd, chil
     enabled: boolean;
     drag: DragState;
     onLayout: (id: string, height: number) => void;
-    onDragStart: () => void;
+    onDragStart: (id: string) => void;
     onDragEnd: (finalOrder: string[], movedId: string, changed: boolean) => void;
     children: React.ReactNode;
 }) {
@@ -217,7 +220,7 @@ function SortableRow({ id, enabled, drag, onLayout, onDragStart, onDragEnd, chil
                 startY.value = offsetOf(order.value, heights.value, id);
                 dragY.value = startY.value;
                 dragging.value = id;
-                runOnJS(onDragStart)();
+                runOnJS(onDragStart)(id);
             })
             .onUpdate((event) => {
                 if (dragging.value !== id) return;
