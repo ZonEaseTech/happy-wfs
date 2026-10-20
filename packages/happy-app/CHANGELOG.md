@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 39 - 2026-10-20
+
+A dragged session stays where you put it once the new order is saved.
+
+- Sessions: after you drag a session to a new place, the order now sticks as soon as the save goes through, instead of slipping back to where it was.
+
 ## Version 38 - 2026-10-20
 
 Dragged sessions stay where you drop them on iPhone.
