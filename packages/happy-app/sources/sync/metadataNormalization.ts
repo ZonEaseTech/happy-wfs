@@ -1,5 +1,8 @@
 import { MetadataSchema, type Metadata } from './storageTypes';
 
+// Every write rebuilds metadata from this list, so a field missing here is
+// wiped by the next unrelated write from this app (marking a session viewed,
+// a rename, ...). New MetadataSchema fields must be added — the test checks.
 export const SESSION_METADATA_WRITE_KEYS = [
     'path',
     'host',
@@ -18,10 +21,12 @@ export const SESSION_METADATA_WRITE_KEYS = [
     'summaryPinned',
     'awaitingClosure',
     'reviewPending',
+    'sidebarOrder',
     'autoReviewGuard',
     'machineId',
     'claudeSessionId',
     'codexSessionId',
+    'cursorSessionId',
     'tools',
     'slashCommands',
     'skills',

@@ -164,6 +164,7 @@ function buildEmergencySessionMetadataBase(source: Record<string, unknown>): Rec
         'machineId',
         'claudeSessionId',
         'codexSessionId',
+        'cursorSessionId',
         'flavor',
         'homeDir',
         'happyHomeDir',
@@ -179,6 +180,8 @@ function buildEmergencySessionMetadataBase(source: Record<string, unknown>): Rec
     if (hostPid !== undefined) base.hostPid = hostPid;
     const completionDismissedAt = readNumber('completionDismissedAt');
     if (completionDismissedAt !== undefined) base.completionDismissedAt = completionDismissedAt;
+    const sidebarOrder = readNumber('sidebarOrder');
+    if (sidebarOrder !== undefined) base.sidebarOrder = sidebarOrder;
     const isWorktree = readBoolean('isWorktree');
     if (isWorktree !== undefined) base.isWorktree = isWorktree;
 
