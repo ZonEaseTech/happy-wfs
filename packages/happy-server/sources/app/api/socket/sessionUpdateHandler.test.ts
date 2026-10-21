@@ -61,7 +61,8 @@ const {
 
     const dbMock = {
         session: {
-            findUnique: sessionFindUnique
+            findUnique: sessionFindUnique,
+            update: vi.fn(async () => ({}))
         },
         sessionMessage: {
             findFirst: sessionMessageFindFirst
@@ -283,6 +284,30 @@ describe("sessionUpdateHandler session-alive auto-dispatch", () => {
         userId: "user-1",
         sessionId: "session-1",
         supportsMessageReceipt: true
+    });
+
+    // Archiving kills the CLI, which sends session-end and then exits. A
+    // heartbeat it still gets out in between used to mark the archived session
+    // active again, so it popped back into the list.
+    it("ignores a heartbeat that arrives on the same connection after session-end", async () => {
+        state.sessions.push({ id: "session-1", accountId: "user-1" });
+
+        const dying = createSocket();
+        sessionUpdateHandler("user-1", dying.socket, createConnection(dying.socket));
+
+        const baseTime = Date.now();
+        await dying.trigger("session-alive", { sid: "session-1", time: baseTime, thinking: false });
+        await dying.trigger("session-end", { sid: "session-1", time: baseTime + 1 });
+        emitEphemeralToSessionSubscribersMock.mockClear();
+
+        await dying.trigger("session-alive", { sid: "session-1", time: baseTime + 2, thinking: false });
+        expect(emitEphemeralToSessionSubscribersMock).not.toHaveBeenCalled();
+
+        // Resuming the session is a new process on a new connection.
+        const resumed = createSocket();
+        sessionUpdateHandler("user-1", resumed.socket, createConnection(resumed.socket));
+        await resumed.trigger("session-alive", { sid: "session-1", time: baseTime + 3, thinking: false });
+        expect(emitEphemeralToSessionSubscribersMock).toHaveBeenCalledTimes(1);
     });
 
     it("dispatches once on thinking true->false and ignores repeated idle heartbeats", async () => {

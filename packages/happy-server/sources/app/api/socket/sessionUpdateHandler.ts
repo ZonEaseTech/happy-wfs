@@ -44,6 +44,11 @@ async function waitForCliConnection(userId: string, sessionId: string, maxWaitMs
 }
 
 export function sessionUpdateHandler(userId: string, socket: Socket, connection: ClientConnection) {
+    // Sessions this connection has ended. The CLI closes and exits right after
+    // session-end, so any heartbeat that still arrives on this socket is a
+    // straggler from a dying process; a resumed session comes back on a new one.
+    const endedSessions = new Set<string>();
+
     socket.on('update-metadata', async (data: any, callback: (response: any) => void) => {
         try {
             const { sid, metadata, expectedVersion } = data;
@@ -207,6 +212,9 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
             }
 
             const { sid, thinking } = data;
+            if (endedSessions.has(sid)) {
+                return;
+            }
 
             // Check session validity using cache
             const isValid = await activityCache.isSessionValid(sid, userId);
@@ -586,6 +594,7 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
             if (t < Date.now() - 1000 * 60 * 10) { // Ignore if time is in the past 10 minutes
                 return;
             }
+            endedSessions.add(sid);
 
             // Resolve session
             const session = await db.session.findUnique({

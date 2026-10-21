@@ -186,9 +186,13 @@ class ActivityCache {
         // Batch update sessions
         if (sessionUpdates.length > 0) {
             try {
+                // Only move forward in time. session-end writes active: false
+                // with its own timestamp; a heartbeat queued before it (or a
+                // flush already in flight) is older and must not bring the
+                // archived session back as active.
                 await Promise.all(sessionUpdates.map(update =>
-                    db.session.update({
-                        where: { id: update.id },
+                    db.session.updateMany({
+                        where: { id: update.id, lastActiveAt: { lt: new Date(update.timestamp) } },
                         data: { lastActiveAt: new Date(update.timestamp), active: true }
                     })
                 ));
