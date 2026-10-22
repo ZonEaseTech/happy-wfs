@@ -43,6 +43,14 @@ interface CreateWorkspaceResult {
  * directory (~/.happy/workspaces/<name>). On failure, rolls back all
  * previously created worktrees and removes the workspace directory.
  */
+// `git worktree add` checks out the whole repo (ttpos-flutter is ~10.7k
+// files) and the daemon kills a bash command at the request timeout, which
+// defaults to 30s. On a busy disk that checkout takes 30-60s, so the default
+// cut it off mid-way ("Updating files: 53%") and the workspace was rolled
+// back every time. Tearing down a half-checked-out worktree is slow too.
+const WORKTREE_ADD_TIMEOUT_MS = 10 * 60 * 1000;
+const WORKTREE_CLEANUP_TIMEOUT_MS = 5 * 60 * 1000;
+
 export async function createWorkspace(
     machineId: string,
     repoInputs: WorkspaceRepoInput[],
@@ -125,7 +133,7 @@ export async function createWorkspace(
             worktreePath,
             targetBranch,
         });
-        const result = await machineBash(machineId, { command: cmd, cwd: repo.path });
+        const result = await machineBash(machineId, { command: cmd, cwd: repo.path, timeout: WORKTREE_ADD_TIMEOUT_MS });
 
         if (!result.success) {
             await rollbackCreatedRepos(machineId, createdRepos, branchName, absoluteWorkspacePath, workspaceName, mode === 'new');
@@ -236,7 +244,8 @@ async function rollbackCreatedRepos(
         await machineBash(machineId, {
             command: `git worktree remove --force ${shellEscape(created.path)} 2>/dev/null${deleteBranchCommand}`,
             cwd: created.basePath,
+            timeout: WORKTREE_CLEANUP_TIMEOUT_MS,
         });
     }
-    await machineBash(machineId, { command: `rm -rf ${shellEscape(absoluteWorkspacePath)}`, cwd: '/' });
+    await machineBash(machineId, { command: `rm -rf ${shellEscape(absoluteWorkspacePath)}`, cwd: '/', timeout: WORKTREE_CLEANUP_TIMEOUT_MS });
 }
