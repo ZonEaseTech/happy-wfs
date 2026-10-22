@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { configuration } from '@/configuration';
 import { RpcHandlerManager } from '../../api/rpc/RpcHandlerManager';
@@ -33,17 +33,19 @@ function createRpcHandlerManager(): RpcHandlerManager {
 }
 
 describe('toolOutputStore', () => {
-    beforeEach(() => {
-        const filePath = join(outputsDir, `${testSessionId}.json`);
-        if (existsSync(filePath)) rmSync(filePath);
-    });
+    const filePath = join(outputsDir, `${testSessionId}.jsonl`);
+    const legacyFilePath = join(outputsDir, `${testSessionId}.json`);
 
-    afterEach(() => {
-        const filePath = join(outputsDir, `${testSessionId}.json`);
-        if (existsSync(filePath)) rmSync(filePath);
-    });
+    function removeFiles() {
+        for (const path of [filePath, legacyFilePath]) {
+            if (existsSync(path)) rmSync(path);
+        }
+    }
 
-    it('saves and retrieves a record', () => {
+    beforeEach(removeFiles);
+    afterEach(removeFiles);
+
+    it('saves and retrieves a record', async () => {
         const record: ToolOutputRecord = {
             callId: 'call-1',
             toolName: 'Read',
@@ -53,7 +55,7 @@ describe('toolOutputStore', () => {
         };
 
         saveToolOutputRecord(testSessionId, record);
-        const retrieved = getToolOutputRecord(testSessionId, 'call-1');
+        const retrieved = await getToolOutputRecord(testSessionId, 'call-1');
 
         expect(retrieved).not.toBeNull();
         expect(retrieved!.callId).toBe('call-1');
@@ -62,15 +64,15 @@ describe('toolOutputStore', () => {
         expect((retrieved!.result as any).file.content).toBe('hello world');
     });
 
-    it('returns null for missing record', () => {
-        expect(getToolOutputRecord(testSessionId, 'missing-call')).toBeNull();
+    it('returns null for missing record', async () => {
+        expect(await getToolOutputRecord(testSessionId, 'missing-call')).toBeNull();
     });
 
-    it('returns null for missing session', () => {
-        expect(getToolOutputRecord('missing-session', 'call-1')).toBeNull();
+    it('returns null for missing session', async () => {
+        expect(await getToolOutputRecord('missing-session', 'call-1')).toBeNull();
     });
 
-    it('appends multiple records for one session file', () => {
+    it('appends one line per record instead of rewriting the file', async () => {
         saveToolOutputRecord(testSessionId, {
             callId: 'call-1',
             toolName: 'Read',
@@ -86,11 +88,66 @@ describe('toolOutputStore', () => {
             timestamp: Date.now(),
         });
 
-        expect(getToolOutputRecord(testSessionId, 'call-1')).not.toBeNull();
-        expect(getToolOutputRecord(testSessionId, 'call-2')).not.toBeNull();
+        expect(await getToolOutputRecord(testSessionId, 'call-1')).not.toBeNull();
+        expect(await getToolOutputRecord(testSessionId, 'call-2')).not.toBeNull();
 
-        const raw = JSON.parse(readFileSync(join(outputsDir, `${testSessionId}.json`), 'utf-8'));
-        expect(raw).toHaveLength(2);
+        const lines = readFileSync(filePath, 'utf-8').split('\n').filter(Boolean);
+        expect(lines.map((line) => JSON.parse(line).callId)).toEqual(['call-1', 'call-2']);
+        expect(existsSync(legacyFilePath)).toBe(false);
+    });
+
+    it('still reads records that older versions wrote as a JSON array', async () => {
+        mkdirSync(outputsDir, { recursive: true });
+        writeFileSync(legacyFilePath, JSON.stringify([
+            { callId: 'old-call', toolName: 'Read', agent: 'claude', result: { data: 'old' }, timestamp: 1 },
+        ]));
+        saveToolOutputRecord(testSessionId, {
+            callId: 'new-call',
+            toolName: 'Read',
+            agent: 'claude',
+            result: { data: 'new' },
+            timestamp: 2,
+        });
+
+        expect((await getToolOutputRecord(testSessionId, 'old-call'))?.result).toEqual({ data: 'old' });
+        expect((await getToolOutputRecord(testSessionId, 'new-call'))?.result).toEqual({ data: 'new' });
+    });
+
+    it('skips a line cut short by a crash mid-append', async () => {
+        mkdirSync(outputsDir, { recursive: true });
+        writeFileSync(filePath, '{"callId":"call-1","toolName":"Read","result":{"data":"cut\n');
+        saveToolOutputRecord(testSessionId, {
+            callId: 'call-1',
+            toolName: 'Read',
+            agent: 'claude',
+            result: { data: 'whole' },
+            timestamp: Date.now(),
+        });
+
+        expect((await getToolOutputRecord(testSessionId, 'call-1'))?.result).toEqual({ data: 'whole' });
+    });
+
+    it('keeps large records intact when saves overlap', async () => {
+        const big = (fill: string) => fill.repeat(2 * 1024 * 1024);
+        saveToolOutputRecord(testSessionId, {
+            callId: 'call-a',
+            toolName: 'CodexBash',
+            agent: 'codex',
+            result: { stdout: big('a') },
+            timestamp: Date.now(),
+        });
+        saveToolOutputRecord(testSessionId, {
+            callId: 'call-b',
+            toolName: 'CodexBash',
+            agent: 'codex',
+            result: { stdout: big('b') },
+            timestamp: Date.now(),
+        });
+
+        expect(((await getToolOutputRecord(testSessionId, 'call-b'))?.result as any).stdout).toBe(big('b'));
+
+        const lines = readFileSync(filePath, 'utf-8').split('\n').filter(Boolean);
+        expect(lines.map((line) => JSON.parse(line).result.stdout)).toEqual([big('a'), big('b')]);
     });
 });
 

@@ -1013,7 +1013,7 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         >('getDiffDetail', async (data) => {
             logger.debug('getDiffDetail request:', data.callId, data.filePath);
 
-            const result = getDiffDetail(sessionId, data.callId, data.filePath);
+            const result = await getDiffDetail(sessionId, data.callId, data.filePath);
             if (!result) {
                 return { success: false, error: 'not_found' };
             }
@@ -1032,7 +1032,7 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
         >('getToolOutput', async (data) => {
             logger.debug('getToolOutput request:', data.callId);
 
-            const record = getToolOutputRecord(sessionId, data.callId);
+            const record = await getToolOutputRecord(sessionId, data.callId);
             if (!record) {
                 return { success: false, error: 'not_found' };
             }
