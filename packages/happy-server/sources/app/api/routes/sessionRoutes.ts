@@ -7,6 +7,7 @@ import { log } from "@/utils/log";
 import { randomKeyNaked } from "@/utils/randomKeyNaked";
 import { allocateUserSeq } from "@/storage/seq";
 import { sessionDelete } from "@/app/session/sessionDelete";
+import { sessionArchive } from "@/app/session/sessionArchive";
 import { invokeUserRpc } from "@/app/api/socket/rpcRegistry";
 
 export function sessionRoutes(app: Fastify) {
@@ -329,6 +330,21 @@ export function sessionRoutes(app: Fastify) {
                 error: message,
             });
         }
+    });
+
+    // Mark a session inactive when its CLI is already gone. A live CLI ends
+    // its own session over the socket; this is for the ones that vanished.
+    app.post('/v1/sessions/:sessionId/archive', {
+        schema: {
+            params: z.object({ sessionId: z.string() }),
+        },
+        preHandler: app.authenticate,
+    }, async (request, reply) => {
+        const result = await sessionArchive({ uid: request.userId }, request.params.sessionId);
+        if (result === 'not_found') {
+            return reply.code(404).send({ success: false, error: 'Session not found' });
+        }
+        return reply.send({ success: true, archived: result === 'archived' });
     });
 
     // Create or load session by tag
