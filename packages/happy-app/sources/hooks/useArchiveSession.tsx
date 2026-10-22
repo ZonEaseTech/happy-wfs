@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Session } from '@/sync/storageTypes';
 import { storage } from '@/sync/storage';
-import { sessionKill } from '@/sync/ops';
+import { sessionArchiveOnServer, sessionKill } from '@/sync/ops';
 import { clearAwaitingClosure } from '@/sync/awaitingClosure';
 import { cleanupWorktree, cleanupWorkspace } from '@/utils/worktreeOps';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
@@ -58,8 +58,14 @@ export function useArchiveSession(session: Session, options: UseArchiveSessionOp
         const result = await sessionKill(session.id);
         const errorMessage = result.message || t('sessionInfo.failedToArchiveSession');
 
-        // Idempotent: if the agent process is gone, the session is effectively archived already.
+        // The agent process is gone, so nobody will send session-end for it;
+        // tell the server directly, or it stays active until the sweep runs.
         if (!result.success && /RPC method not available/i.test(errorMessage)) {
+            const archived = await sessionArchiveOnServer(session.id);
+            if (!archived.success) {
+                storage.getState().updateSessionActivity(session.id, previousActive);
+                throw new HappyError(archived.message || t('sessionInfo.failedToArchiveSession'), false);
+            }
             void clearAwaitingClosure(session.id);
             navigateAfterArchive();
             return;

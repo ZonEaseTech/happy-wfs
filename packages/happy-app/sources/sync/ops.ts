@@ -1465,6 +1465,29 @@ export async function sessionKill(sessionId: string): Promise<SessionKillRespons
 }
 
 /**
+ * Mark a session inactive on the server when its CLI process is already gone.
+ * A live CLI ends its own session; a dead one never will, and until the
+ * server's own sweep catches it (hours) it keeps coming back as active.
+ */
+export async function sessionArchiveOnServer(sessionId: string): Promise<{ success: boolean; message?: string }> {
+    try {
+        const response = await apiSocket.request(`/v1/sessions/${sessionId}/archive`, {
+            method: 'POST'
+        });
+        if (response.ok) {
+            return { success: true };
+        }
+        const error = await response.text();
+        return { success: false, message: error || 'Failed to archive session' };
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+/**
  * Permanently delete a session from the server
  * This will remove the session and all its associated data (messages, usage reports, access keys)
  * The session should be inactive/archived before deletion
