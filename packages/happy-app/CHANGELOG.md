@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 42 - 2026-10-22
+
+Creating a worktree for a large repository no longer fails half-way through.
+
+- Workspaces: creating a worktree used to give `git worktree add` 30 seconds before the machine cut it off, which a repository with ten thousand files could not meet on a busy disk, so the workspace was rolled back with "Updating files: 53%" in the error. The checkout now gets up to ten minutes, and cleaning up a failed one gets five.
+
 ## Version 41 - 2026-10-22
 
 Sessions no longer drop into the archived tab just because a machine went quiet for a while.

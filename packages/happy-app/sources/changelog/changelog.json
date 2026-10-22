@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 42,
+      "date": "2026-10-22",
+      "summary": "Creating a worktree for a large repository no longer fails half-way through.",
+      "changes": [
+        "Workspaces: creating a worktree used to give `git worktree add` 30 seconds before the machine cut it off, which a repository with ten thousand files could not meet on a busy disk, so the workspace was rolled back with \"Updating files: 53%\" in the error. The checkout now gets up to ten minutes, and cleaning up a failed one gets five."
+      ],
+      "rawMarkdown": "## Version 42 - 2026-10-22\n\n\nCreating a worktree for a large repository no longer fails half-way through.\n\n- Workspaces: creating a worktree used to give `git worktree add` 30 seconds before the machine cut it off, which a repository with ten thousand files could not meet on a busy disk, so the workspace was rolled back with \"Updating files: 53%\" in the error. The checkout now gets up to ten minutes, and cleaning up a failed one gets five."
+    },
+    {
       "version": 41,
       "date": "2026-10-22",
       "summary": "Sessions no longer drop into the archived tab just because a machine went quiet for a while.",
@@ -456,5 +465,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 41
+  "latestVersion": 42
 }
