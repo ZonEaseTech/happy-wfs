@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 41 - 2026-10-22
+
+Sessions no longer drop into the archived tab just because a machine went quiet for a while.
+
+- Sessions: a session whose machine lost its connection, or stalled under load, now stays in the active tab for up to three hours instead of ten minutes, and comes back on its own once the machine reconnects. Sessions you end yourself still archive right away.
+- Sessions: archiving a session whose process is already gone now tells the server, so it stays archived instead of reappearing a moment later.
+- Sessions: after the daemon on a machine restarts, sessions whose process died with it are resumed automatically into a new session with the same title; the old one is archived. Sessions still running are picked up as they are.
+
 ## Version 40 - 2026-10-20
 
 The order you drag sessions into now stays, even after you open them.

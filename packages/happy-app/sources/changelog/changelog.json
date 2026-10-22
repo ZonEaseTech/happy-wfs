@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 41,
+      "date": "2026-10-22",
+      "summary": "Sessions no longer drop into the archived tab just because a machine went quiet for a while.",
+      "changes": [
+        "Sessions: a session whose machine lost its connection, or stalled under load, now stays in the active tab for up to three hours instead of ten minutes, and comes back on its own once the machine reconnects. Sessions you end yourself still archive right away.",
+        "Sessions: archiving a session whose process is already gone now tells the server, so it stays archived instead of reappearing a moment later.",
+        "Sessions: after the daemon on a machine restarts, sessions whose process died with it are resumed automatically into a new session with the same title; the old one is archived. Sessions still running are picked up as they are."
+      ],
+      "rawMarkdown": "## Version 41 - 2026-10-22\n\n\nSessions no longer drop into the archived tab just because a machine went quiet for a while.\n\n- Sessions: a session whose machine lost its connection, or stalled under load, now stays in the active tab for up to three hours instead of ten minutes, and comes back on its own once the machine reconnects. Sessions you end yourself still archive right away.\n- Sessions: archiving a session whose process is already gone now tells the server, so it stays archived instead of reappearing a moment later.\n- Sessions: after the daemon on a machine restarts, sessions whose process died with it are resumed automatically into a new session with the same title; the old one is archived. Sessions still running are picked up as they are."
+    },
+    {
       "version": 40,
       "date": "2026-10-20",
       "summary": "The order you drag sessions into now stays, even after you open them.",
@@ -445,5 +456,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 40
+  "latestVersion": 41
 }
