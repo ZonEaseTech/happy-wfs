@@ -423,6 +423,43 @@ export class ApiClient {
   }
 
   /**
+   * Sessions whose row changed since `sinceMs`, newest change last (server
+   * caps at 500). Rows come back encrypted; see decryptSessionRow.
+   */
+  async listSessionsUpdatedSince(sinceMs: number): Promise<any[]> {
+    const response = await axios.get(
+      `${configuration.serverUrl}/v1/sessions`,
+      {
+        params: { since: sinceMs },
+        headers: { 'Authorization': `Bearer ${this.credential.token}` },
+        timeout: 20000,
+      },
+    );
+    return Array.isArray(response.data?.sessions) ? response.data.sessions : [];
+  }
+
+  /**
+   * Mark a session inactive on the server. For sessions whose process is
+   * gone and so will never send session-end itself.
+   */
+  async archiveSession(sessionId: string): Promise<boolean> {
+    try {
+      const response = await axios.post(
+        `${configuration.serverUrl}/v1/sessions/${sessionId}/archive`,
+        {},
+        {
+          headers: { 'Authorization': `Bearer ${this.credential.token}` },
+          timeout: 10000,
+        },
+      );
+      return response.status === 200 && response.data?.success === true;
+    } catch (err) {
+      logger.debug('[API] archiveSession failed:', err);
+      return false;
+    }
+  }
+
+  /**
    * Get vendor API token from the server
    * Returns the token if it exists, null otherwise
    */

@@ -4,6 +4,14 @@ import * as tmp from 'tmp';
 
 import { ApiClient } from '@/api/api';
 import { TrackedSession } from './types';
+import { adoptSessionsFromPreviousRun } from './sessionAdoption';
+import { findAllHappyProcesses } from './doctor';
+import { decryptSessionRow } from '@/mcp/sessionDecrypt';
+import { findClaudeProjectId } from '@/claude/utils/claudeSessionIndex';
+import { forkSession } from '@/claude/utils/claudeSessionFork';
+import { forkCodexSession } from '@/codex/utils/codexSessionFork';
+import { forkGeminiSession } from '@/gemini/utils/sessionFork';
+import { forkCursorSession } from '@/cursor/cursorSessionFork';
 import { MachineMetadata, DaemonState, Metadata } from '@/api/types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
 import { logger } from '@/ui/logger';
@@ -1214,6 +1222,71 @@ export async function startDaemon(): Promise<void> {
     // Connect to server
     apiMachine.connect();
     connectedMachine = apiMachine;
+
+    // Pick up what the previous daemon left behind: track sessions whose
+    // process is still running, resume the ones whose process is gone.
+    // Delayed so the machine connection settles before we spawn anything.
+    const adoptionTimer = setTimeout(() => {
+      adoptSessionsFromPreviousRun({
+        machineId,
+        listActiveSessions: async () => {
+          const rows = await api.listSessionsUpdatedSince(Date.now() - 4 * 60 * 60 * 1000);
+          return rows.map((row: any) => ({
+            id: row.id,
+            active: !!row.active,
+            activeAt: typeof row.activeAt === 'number' ? row.activeAt : 0,
+            metadata: decryptSessionRow(credentials, row)?.metadata ?? null,
+          }));
+        },
+        listAliveSessionPids: async () => {
+          const processes = await findAllHappyProcesses();
+          return new Set(processes
+            .filter((p) => p.type === 'daemon-spawned-session' || p.type === 'user-session' || p.type === 'dev-daemon-spawned' || p.type === 'dev-session')
+            .map((p) => p.pid));
+        },
+        fork: async (agent, source) => {
+          switch (agent) {
+            case 'claude': {
+              const projectId = await findClaudeProjectId(source);
+              if (!projectId) return { success: false, errorMessage: `Claude session ${source} not found on disk` };
+              const r = await forkSession(projectId, source);
+              return { success: r.success, resumeSessionId: r.newSessionId, errorMessage: r.errorMessage };
+            }
+            case 'codex': {
+              const r = await forkCodexSession(source);
+              return { success: r.success, resumeSessionId: r.newFilePath, errorMessage: r.errorMessage };
+            }
+            case 'gemini': {
+              const r = await forkGeminiSession(source);
+              return { success: r.success, resumeSessionId: r.newSessionId, errorMessage: r.errorMessage };
+            }
+            case 'cursor': {
+              const r = await forkCursorSession(source);
+              return { success: r.success, resumeSessionId: r.newChatId, errorMessage: r.errorMessage };
+            }
+          }
+        },
+        spawnSession,
+        archiveSession: (sessionId) => api.archiveSession(sessionId),
+        track: ({ id, pid, metadata }) => {
+          if (pidToTrackedSession.has(pid)) return;
+          pidToTrackedSession.set(pid, {
+            startedBy: 'adopted after daemon restart',
+            happySessionId: id,
+            happySessionMetadataFromLocalWebhook: metadata as Metadata,
+            pid,
+          });
+        },
+      }).then((report) => {
+        logger.info(`[DAEMON ADOPT] tracked ${report.tracked} running session(s), resumed ${report.resumed.length}, failed ${report.failed.length}, skipped ${report.skipped.length}`);
+        for (const r of report.resumed) logger.info(`[DAEMON ADOPT] resumed ${r.from} as ${r.to}`);
+        for (const f of report.failed) logger.warn(`[DAEMON ADOPT] could not resume ${f.id}: ${f.reason}`);
+        for (const s of report.skipped) logger.debug(`[DAEMON ADOPT] skipped ${s.id}: ${s.reason}`);
+      }).catch((error) => {
+        logger.warn('[DAEMON ADOPT] failed to adopt previous sessions', error);
+      });
+    }, 5_000);
+    adoptionTimer.unref();
 
     // Update machine metadata on server (ensures version is current after daemon restart)
     // Merge with current metadata to preserve fields set by the app (e.g. displayName)
