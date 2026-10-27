@@ -530,3 +530,94 @@ describe('adoptServerSessionMetadata', () => {
         expect(adoptServerSessionMetadata(null, current)).toBe(current);
     });
 });
+
+describe('ApiSessionClient stays on its own session', () => {
+    let mockSocket: any;
+    const session = () => ({
+        id: 'my-session',
+        seq: 0,
+        metadata: { path: '/tmp', host: 'localhost', homeDir: '/h', happyHomeDir: '/h/.happy', happyLibDir: '/h/.happy/lib', happyToolsDir: '/h/.happy/tools' },
+        metadataVersion: 5,
+        agentState: null,
+        agentStateVersion: 3,
+        encryptionKey: new Uint8Array(32),
+        encryptionVariant: 'legacy' as const
+    });
+
+    beforeEach(() => {
+        mockSocket = {
+            connect: vi.fn(),
+            on: vi.fn(),
+            off: vi.fn(),
+            close: vi.fn(),
+            disconnect: vi.fn(),
+            emit: vi.fn(),
+            emitWithAck: vi.fn(),
+            connected: true
+        };
+        mockIo.mockReturnValue(mockSocket);
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    function updateHandler() {
+        return mockSocket.on.mock.calls.find((args: any[]) => args[0] === 'update')[1];
+    }
+
+    it("ignores another session's update-session instead of taking its version", () => {
+        const client: any = new ApiSessionClient('t', session());
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1]));
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({ path: '/elsewhere', host: 'other' } as any);
+
+        updateHandler()({
+            body: { t: 'update-session', id: 'someone-elses-session', metadata: { value: 'x', version: 2383 }, agentState: { value: 'y', version: 181 } }
+        });
+
+        expect(client.metadataVersion).toBe(5);
+        expect(client.agentStateVersion).toBe(3);
+        expect(client.metadata.path).toBe('/tmp');
+    });
+
+    it("still applies an update-session for itself", () => {
+        const client: any = new ApiSessionClient('t', session());
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1]));
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({ path: '/tmp', host: 'localhost', name: 'renamed' } as any);
+
+        updateHandler()({ body: { t: 'update-session', id: 'my-session', metadata: { value: 'x', version: 6 } } });
+
+        expect(client.metadataVersion).toBe(6);
+        expect(client.metadata.name).toBe('renamed');
+    });
+
+    it("does not ack a message that belongs to another session", () => {
+        new ApiSessionClient('t', session());
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1]));
+        vi.spyOn(encryptionModule, 'decrypt').mockImplementation(() => { throw new Error('wrong key'); });
+
+        updateHandler()({
+            body: { t: 'new-message', sid: 'someone-elses-session', message: { id: 'm1', localId: 'l1', content: { t: 'encrypted', c: 'abc' } } }
+        });
+
+        expect(mockSocket.emit).not.toHaveBeenCalledWith('message-receipt', expect.anything());
+    });
+
+    it('takes the server version on a mismatch even when it is lower, so the retry succeeds', async () => {
+        const client: any = new ApiSessionClient('t', { ...session(), metadataVersion: 2383 });
+        vi.spyOn(encryptionModule, 'encodeBase64').mockReturnValue('enc');
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1]));
+        vi.spyOn(encryptionModule, 'encrypt').mockReturnValue(new Uint8Array([2]) as Uint8Array);
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({ path: '/tmp', host: 'localhost' } as any);
+        mockSocket.emitWithAck
+            .mockResolvedValueOnce({ result: 'version-mismatch', version: 348, metadata: 'server-copy' })
+            .mockResolvedValueOnce({ result: 'success', version: 349, metadata: 'saved' });
+
+        client.updateMetadata((m: any) => ({ ...m, name: 'x' }));
+        await vi.waitFor(() => expect(mockSocket.emitWithAck).toHaveBeenCalledTimes(2), { timeout: 3000 });
+
+        expect(mockSocket.emitWithAck.mock.calls[0][1].expectedVersion).toBe(2383);
+        expect(mockSocket.emitWithAck.mock.calls[1][1].expectedVersion).toBe(348);
+        await vi.waitFor(() => expect(client.metadataVersion).toBe(349));
+    });
+});

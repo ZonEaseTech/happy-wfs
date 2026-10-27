@@ -337,6 +337,16 @@ export class ApiSessionClient extends EventEmitter {
                     return;
                 }
 
+                // This socket is scoped to one session, but a server that fans out
+                // another session's update to it (it used to, for shared sessions)
+                // must not have this process adopt that session's version,
+                // metadata or messages, nor ack a message it does not own.
+                if ((data.body.t === 'new-message' && data.body.sid !== this.sessionId)
+                    || (data.body.t === 'update-session' && data.body.id !== this.sessionId)) {
+                    logger.debug(`[SOCKET] Ignoring ${data.body.t} for another session`);
+                    return;
+                }
+
                 if (data.body.t === 'new-message' && data.body.message.content.t === 'encrypted') {
                     const body = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(data.body.message.content.c));
 
@@ -1259,11 +1269,12 @@ export class ApiSessionClient extends EventEmitter {
                     this.metadataVersion = answer.version;
                     this.syncedModel = this.metadata?.model?.trim() || null;
                 } else if (answer.result === 'version-mismatch') {
-                    if (answer.version > this.metadataVersion) {
-                        this.metadataVersion = answer.version;
-                        this.metadata = adoptServerSessionMetadata(this.metadata, decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata)));
-                        this.syncedModel = this.metadata?.model?.trim() || null;
-                    }
+                    // The server's version is the only one the next write can
+                    // succeed against, even when it is lower than ours: a version
+                    // taken from somewhere else would otherwise retry forever.
+                    this.metadataVersion = answer.version;
+                    this.metadata = adoptServerSessionMetadata(this.metadata, decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata)));
+                    this.syncedModel = this.metadata?.model?.trim() || null;
                     throw new Error('Metadata version mismatch');
                 } else if (answer.result === 'error') {
                     // Hard error - ignore
@@ -1287,10 +1298,9 @@ export class ApiSessionClient extends EventEmitter {
                     this.agentStateVersion = answer.version;
                     logger.debug('Agent state updated', this.agentState);
                 } else if (answer.result === 'version-mismatch') {
-                    if (answer.version > this.agentStateVersion) {
-                        this.agentStateVersion = answer.version;
-                        this.agentState = answer.agentState ? decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.agentState)) : null;
-                    }
+                    // Same as metadata: always take the server's version.
+                    this.agentStateVersion = answer.version;
+                    this.agentState = answer.agentState ? decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.agentState)) : null;
                     throw new Error('Agent state version mismatch');
                 } else if (answer.result === 'error') {
                     // console.error('Agent state update error', answer);
