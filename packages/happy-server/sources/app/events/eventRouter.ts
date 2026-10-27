@@ -385,12 +385,18 @@ class EventRouter {
         recipientFilter?: RecipientFilter;
         skipSenderConnection?: ClientConnection;
     }): Promise<{ ownerDelivery: DeliveryStats }> {
+        // Every recipient gets the same filter. Without one, emitUpdate sends to
+        // all of a user's connections, and a shared user's CLI sockets for their
+        // own, unrelated sessions would take this session's version and
+        // messages as theirs.
+        const recipientFilter = params.recipientFilter ?? { type: 'all-interested-in-session', sessionId: params.sessionId };
+
         // 1. Emit to owner
         const ownerSeq = await allocateUserSeq(params.ownerId);
         const ownerDelivery = this.emitUpdate({
             userId: params.ownerId,
             payload: params.buildPayload(params.ownerId, ownerSeq),
-            recipientFilter: params.recipientFilter,
+            recipientFilter,
             skipSenderConnection: params.skipSenderConnection
         });
 
@@ -403,7 +409,8 @@ class EventRouter {
             const seq = await allocateUserSeq(share.sharedWithUserId);
             this.emitUpdate({
                 userId: share.sharedWithUserId,
-                payload: params.buildPayload(share.sharedWithUserId, seq)
+                payload: params.buildPayload(share.sharedWithUserId, seq),
+                recipientFilter
             });
         }
 
