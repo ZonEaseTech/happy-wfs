@@ -6,9 +6,21 @@ const serverConfigStorage = new MMKV({ id: 'server-config' });
 const SERVER_KEY = 'custom-server-url';
 const DEFAULT_SERVER_URL = 'https://api-happy.zonease.org';
 
+// The same server through a relay in Hong Kong on a mainland-friendly line;
+// from mainland China Cloudflare routes via Amsterdam. The web app opened at
+// the relay's web host talks to the API through the relay too.
+const RELAY_WEB_HOST = 'cn-happy.weifashi.cn';
+const RELAY_SERVER_URL = 'https://cn-api-happy.weifashi.cn';
+
+function relayServerUrl(): string | undefined {
+    if (typeof window === 'undefined') return undefined;
+    return window.location?.hostname === RELAY_WEB_HOST ? RELAY_SERVER_URL : undefined;
+}
+
 export function getServerUrl(): string {
     const configured =
         serverConfigStorage.getString(SERVER_KEY) ||
+        relayServerUrl() ||
         process.env.EXPO_PUBLIC_HAPPY_SERVER_URL ||
         DEFAULT_SERVER_URL;
     return configured;
@@ -23,7 +35,8 @@ export function setServerUrl(url: string | null): void {
 }
 
 export function isUsingCustomServer(): boolean {
-    return getServerUrl() !== DEFAULT_SERVER_URL;
+    const url = getServerUrl();
+    return url !== DEFAULT_SERVER_URL && url !== RELAY_SERVER_URL;
 }
 
 export function getServerInfo(): { hostname: string; port?: number; isCustom: boolean } {
