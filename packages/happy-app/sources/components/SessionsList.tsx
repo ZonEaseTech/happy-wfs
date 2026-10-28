@@ -1276,13 +1276,6 @@ export function SessionsList() {
         }
     }, [data && data.length > 0]);
 
-    // Early return if no data yet
-    if (!data) {
-        return (
-            <View style={styles.container} />
-        );
-    }
-
     const keyExtractor = React.useCallback((item: SessionListViewItem & { selected?: boolean }, index: number) => {
         switch (item.type) {
             case 'header': return `header-${item.title}-${index}`;
@@ -1716,6 +1709,21 @@ export function SessionsList() {
                             />
                         }
                     />
+                </View>
+            </View>
+        );
+    }
+
+    // Session tabs wait for the session list; the pending tab above does not,
+    // so bugs and issues show while sessions are still loading.
+    if (!tabData) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.contentContainer}>
+                    {headerElement}
+                    <View style={styles.emptyContainer}>
+                        <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                    </View>
                 </View>
             </View>
         );
