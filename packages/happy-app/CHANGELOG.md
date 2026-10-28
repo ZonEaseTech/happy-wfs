@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 49 - 2026-10-28
+
+Busy sessions no longer keep the app asking the server for nothing.
+
+- Sessions: each burst of output from a running session used to make the app ask the server again for that session's messages and queued messages — hundreds of requests a minute with several agents running, nearly all of them empty. Messages still arrive live, a missed one is still fetched, and queued messages still update as they are sent.
+
 ## Version 48 - 2026-10-28
 
 Happy in the browser sends about half as many requests while you work.

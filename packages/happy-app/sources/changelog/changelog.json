@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 49,
+      "date": "2026-10-28",
+      "summary": "Busy sessions no longer keep the app asking the server for nothing.",
+      "changes": [
+        "Sessions: each burst of output from a running session used to make the app ask the server again for that session's messages and queued messages — hundreds of requests a minute with several agents running, nearly all of them empty. Messages still arrive live, a missed one is still fetched, and queued messages still update as they are sent."
+      ],
+      "rawMarkdown": "## Version 49 - 2026-10-28\n\n\nBusy sessions no longer keep the app asking the server for nothing.\n\n- Sessions: each burst of output from a running session used to make the app ask the server again for that session's messages and queued messages — hundreds of requests a minute with several agents running, nearly all of them empty. Messages still arrive live, a missed one is still fetched, and queued messages still update as they are sent."
+    },
+    {
       "version": 48,
       "date": "2026-10-28",
       "summary": "Happy in the browser sends about half as many requests while you work.",
@@ -526,5 +535,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 48
+  "latestVersion": 49
 }
