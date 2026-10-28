@@ -190,12 +190,28 @@ class ActivityCache {
                 // with its own timestamp; a heartbeat queued before it (or a
                 // flush already in flight) is older and must not bring the
                 // archived session back as active.
-                await Promise.all(sessionUpdates.map(update =>
-                    db.session.updateMany({
-                        where: { id: update.id, lastActiveAt: { lt: new Date(update.timestamp) } },
-                        data: { lastActiveAt: new Date(update.timestamp), active: true }
-                    })
-                ));
+                //
+                // A heartbeat is not a change to the session, so it leaves
+                // updatedAt alone (Prisma would bump it on any update, hence
+                // raw SQL). Otherwise every live session counts as changed every
+                // 30 seconds and each ?since= fetch of the session list resends
+                // all of them with their metadata — over a megabyte per fetch.
+                // Coming back from inactive is a change clients must see, so
+                // that one still moves updatedAt; live clients learn the rest
+                // from the activity ephemerals.
+                //
+                // The columns hold UTC wall time (as Prisma writes them) while a
+                // raw Date parameter arrives as an instant, so convert explicitly
+                // instead of relying on the database's session time zone.
+                await Promise.all(sessionUpdates.map(update => {
+                    const at = new Date(update.timestamp);
+                    return db.$executeRaw`
+                        UPDATE "Session"
+                        SET "lastActiveAt" = (${at}::timestamptz AT TIME ZONE 'UTC'),
+                            "updatedAt" = CASE WHEN "active" THEN "updatedAt" ELSE (${new Date()}::timestamptz AT TIME ZONE 'UTC') END,
+                            "active" = true
+                        WHERE "id" = ${update.id} AND "lastActiveAt" < (${at}::timestamptz AT TIME ZONE 'UTC')`;
+                }));
                 
                 log({ module: 'session-cache' }, `Flushed ${sessionUpdates.length} session updates`);
             } catch (error) {
