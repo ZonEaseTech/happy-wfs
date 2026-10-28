@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 43 - 2026-10-28
+
+Bug comments can carry screenshots in the text, and Claude can post them.
+
+- Bugs: the comment box on the web is now the same editor as the bug description — paste or drop a screenshot and it sits in the comment where you put it, instead of as a thumbnail under the text.
+- Bugs: comments with screenshots show them in place on every device, the same way the description does.
+- Bugs: Claude, Codex and Gemini sessions can comment on a bug, with screenshots — a retest result goes in the comments instead of being appended to the description, so everyone following the bug is notified.
+- Bugs: Feishu comment notifications list a link to each screenshot in the comment, and no longer show the raw image placeholders.
+
 ## Version 42 - 2026-10-22
 
 Creating a worktree for a large repository no longer fails half-way through.
