@@ -22,7 +22,8 @@ export type BugTiptapEditorProps = {
     initialContentKey?: string;
     attachmentImageUrls?: string[];
     onImageDoubleClick?: (src: string) => void;
-    variant?: 'create' | 'detail';
+    /** comment: a compact box that starts at one line and grows with its content */
+    variant?: 'create' | 'detail' | 'comment';
     contentInset?: 'padded' | 'none';
     /** Defaults to the bug description prompt */
     placeholder?: string;

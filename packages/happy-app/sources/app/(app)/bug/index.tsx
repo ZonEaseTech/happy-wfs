@@ -1135,6 +1135,7 @@ function PublicBugDetailPane({
                     onChange={setCommentSnapshot}
                     onImageDoubleClick={openBugEditorImagePreview}
                     placeholder={t("bug.addComment")}
+                    variant="comment"
                   />
                 </View>
               ) : (
@@ -1661,7 +1662,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     marginTop: 6,
   },
   commentEditor: {
-    minHeight: 86,
     borderWidth: 1,
     borderColor: "#E3E0DA",
     borderRadius: 18,

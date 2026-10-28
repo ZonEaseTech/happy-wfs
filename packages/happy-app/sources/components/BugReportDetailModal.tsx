@@ -402,6 +402,7 @@ export function BugReportDetailModal({
                             onChange={setCommentSnapshot}
                             onImageDoubleClick={openBugEditorImagePreview}
                             placeholder={t('bug.addComment')}
+                            variant="comment"
                         />
                     </View>
                 ) : (
@@ -552,7 +553,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     comment: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 12, padding: 12, marginBottom: 8 },
     commentAuthor: { color: theme.colors.textSecondary, fontSize: 12, ...Typography.default('semiBold') },
     commentContent: { marginTop: 6 },
-    commentEditor: { minHeight: 76, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 12, backgroundColor: theme.colors.input.background, overflow: 'hidden' },
+    commentEditor: { borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 12, backgroundColor: theme.colors.input.background, overflow: 'hidden' },
     commentInput: { minHeight: 76, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 12, padding: 10, color: theme.colors.text, backgroundColor: theme.colors.input.background, ...Typography.default() },
     actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     secondaryButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceHigh },

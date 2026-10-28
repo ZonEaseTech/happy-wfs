@@ -46,6 +46,16 @@ function injectTiptapStyles() {
 .happy-bug-tiptap-editor.detail.no-inset .tiptap {
     padding: 0;
 }
+.happy-bug-tiptap-editor.comment .tiptap {
+    min-height: 0;
+    padding: 10px 14px;
+    font-size: 15px;
+    line-height: 22px;
+    box-sizing: border-box;
+}
+.happy-bug-tiptap-editor.comment .tiptap img {
+    max-height: 240px;
+}
 .happy-bug-tiptap-editor .ProseMirror,
 .happy-bug-tiptap-editor .ProseMirror-focused {
     outline: none !important;
@@ -294,6 +304,7 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
         <div className={[
             'happy-bug-tiptap-editor',
             variant === 'detail' ? 'detail' : '',
+            variant === 'comment' ? 'comment' : '',
             variant === 'detail' && contentInset === 'none' ? 'no-inset' : '',
         ].filter(Boolean).join(' ')}>
             <EditorContent editor={editor} />
