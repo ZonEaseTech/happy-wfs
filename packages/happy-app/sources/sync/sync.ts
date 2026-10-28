@@ -63,6 +63,7 @@ import { getOrchestratorActivity, getOrchestratorActivityBatch } from './apiOrch
 import { sessionUpdateMetadataFields } from './ops';
 import { shouldInvalidateGitStatusOnActivityTransition } from './gitStatusRefreshPolicy';
 import { kvGet, kvMutate } from './apiKv';
+import { sessionListCache, type CachedSessionRow } from './sessionListCache';
 import {
     SESSION_MODE_CONFIG_KV_KEY,
     applySessionModeConfigPatches,
@@ -252,6 +253,8 @@ class Sync {
     private recalculationLockCount = 0;
     private lastRecalculationTime = 0;
     private lastSessionsCursorMs = 0;
+    // Session ids restored from the kept list, until checked against the server
+    private sessionsRestoredFromCache: Set<string> | null = null;
 
     constructor() {
         this.sessionsSync = new InvalidateSync(this.fetchSessions);
@@ -367,6 +370,7 @@ class Sync {
         // Invalidate sync
         log.log('🔄 #init: Invalidating all syncs');
         this.lastSessionsCursorMs = 0;
+        await this.restoreSessionsFromCache();
         this.sessionsSync.invalidate();
         this.settingsSync.invalidate();
         this.sessionModeConfigSync.invalidate();
@@ -1194,30 +1198,35 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         }
 
         const data = await response.json();
-        const sessions = data.sessions as Array<{
-            id: string;
-            seq: number;
-            metadata: string;
-            metadataVersion: number;
-            agentState: string | null;
-            agentStateVersion: number;
-            dataEncryptionKey: string | null;
-            active: boolean;
-            activeAt: number;
-            createdAt: number;
-            updatedAt: number;
-            lastMessage: ApiMessage | null;
-            isShared?: boolean;
-        }>;
+        const sessions = data.sessions as CachedSessionRow[];
 
         if (sessions.length === 0) {
             // Keep orchestrator activity fresh even when no session rows changed —
             // this batch is not keyed to the session list.
             this.fetchOrchestratorActivityBatch();
+            await this.pruneSessionsRestoredFromCache();
             log.log(`📥 fetchSessions: no changes since cursor=${cursor}`);
             return;
         }
 
+        const maxUpdatedAt = await this.applySessionRows(sessions, cursor);
+
+        // Advance cursor to max updatedAt observed. Note: applySessions merges,
+        // so sessions not in this response are preserved in local storage.
+        this.lastSessionsCursorMs = maxUpdatedAt;
+        void sessionListCache.save(this.serverID, sessions, maxUpdatedAt);
+
+        this.fetchOrchestratorActivityBatch();
+        await this.pruneSessionsRestoredFromCache();
+        log.log(`📥 fetchSessions completed - processed ${sessions.length} sessions, cursor=${maxUpdatedAt}`);
+    }
+
+    /**
+     * Decrypt session rows as GET /v1/sessions returns them and merge them
+     * into storage. Shared by a fetch and by restoring the list kept from the
+     * last visit. Returns the highest updatedAt seen, at least `cursor`.
+     */
+    private applySessionRows = async (sessions: CachedSessionRow[], cursor: number): Promise<number> => {
         // Initialize all session encryptions first
         const sessionKeys = new Map<string, Uint8Array | null>();
         for (const session of sessions) {
@@ -1253,6 +1262,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             // Keep local thinking state during refresh to avoid online<->thinking flicker.
             const processedSession = {
                 ...session,
+                lastMessage: (session.lastMessage ?? null) as ApiMessage | null,
                 thinking: existingSession?.thinking ?? false,
                 thinkingAt: existingSession?.thinkingAt ?? 0,
                 metadata,
@@ -1265,13 +1275,94 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             }
         }
 
-        // Advance cursor to max updatedAt observed. Note: applySessions merges,
-        // so sessions not in this response are preserved in local storage.
-        this.lastSessionsCursorMs = maxUpdatedAt;
-
         this.applySessions(decryptedSessions);
-        this.fetchOrchestratorActivityBatch();
-        log.log(`📥 fetchSessions completed - processed ${decryptedSessions.length} sessions, cursor=${maxUpdatedAt}`);
+        return maxUpdatedAt;
+    }
+
+    /**
+     * Show the session list kept from the last visit before the network
+     * answers, and start the next fetch from its cursor so only changes come
+     * down. Returns false when nothing was kept.
+     */
+    private restoreSessionsFromCache = async (): Promise<boolean> => {
+        const cached = await sessionListCache.load(this.serverID);
+        if (!cached) return false;
+        try {
+            const cursor = await this.applySessionRows(cached.rows, 0);
+            this.lastSessionsCursorMs = Math.min(cursor, cached.cursor);
+            this.sessionsRestoredFromCache = new Set(cached.rows.map(row => row.id));
+            log.log(`📦 Restored ${cached.rows.length} sessions from cache, cursor=${this.lastSessionsCursorMs}`);
+            return true;
+        } catch (error) {
+            console.warn('Failed to restore sessions from cache', error);
+            this.lastSessionsCursorMs = 0;
+            return false;
+        }
+    }
+
+    /**
+     * ?since= only returns rows that changed, so a session deleted while the
+     * app was closed (the server removes long-archived ones) would linger from
+     * the cache. Once per restore, drop the restored ones the server no longer
+     * lists. Shared sessions are not in the cache, so they are never touched.
+     */
+    private pruneSessionsRestoredFromCache = async () => {
+        const restored = this.sessionsRestoredFromCache;
+        if (!restored || !this.credentials) return;
+        this.sessionsRestoredFromCache = null;
+        try {
+            const response = await fetch(`${getServerUrl()}/v1/sessions/ids`, {
+                headers: { 'Authorization': `Bearer ${this.credentials.token}` }
+            });
+            if (!response.ok) return;
+            const data = await response.json() as { sessions: Array<{ id: string }> };
+            const existing = new Set(data.sessions.map(session => session.id));
+            const gone = [...restored].filter(id => !existing.has(id));
+            for (const sessionId of gone) {
+                this.forgetSession(sessionId);
+            }
+            if (gone.length > 0) {
+                void sessionListCache.remove(this.serverID, gone);
+                log.log(`🗑️ Dropped ${gone.length} cached sessions the server no longer has`);
+            }
+        } catch (error) {
+            console.warn('Failed to prune cached sessions', error);
+        }
+    }
+
+    /** Drop everything this client holds for a session that no longer exists */
+    private forgetSession(sessionId: string) {
+        // Remove session from storage
+        storage.getState().deleteSession(sessionId);
+
+        // Remove encryption keys from memory
+        this.encryption.removeSessionEncryption(sessionId);
+        this.sessionDataKeys.delete(sessionId);
+
+        // Drop the plaintext message cache for the deleted session
+        const pendingCacheTimer = this.messageCacheSaveTimers.get(sessionId);
+        if (pendingCacheTimer) clearTimeout(pendingCacheTimer);
+        this.messageCacheSaveTimers.delete(sessionId);
+        this.messageCacheLastSavedAt.delete(sessionId);
+        this.cachedNormalizedMessages.delete(sessionId);
+        this.hydratedMessageSessions.delete(sessionId);
+        this.cachedPaginationHints.delete(sessionId);
+        clearSessionMessagesCache(sessionId);
+
+        // Remove from project manager
+        projectManager.removeSession(sessionId);
+
+        // Clear any cached git status
+        gitStatusSync.clearForSession(sessionId);
+
+        // Clear message sync state
+        this.messagesSync.delete(sessionId);
+        this.pendingMessagesSync.delete(sessionId);
+        this.sessionLastSeq.delete(sessionId);
+        this.sessionMessageLocks.delete(sessionId);
+        this.sessionMessageUpdateQueues.delete(sessionId);
+        this.sessionMessageQueueRunning.delete(sessionId);
+        this.resetSessionMessageDispatch(sessionId);
     }
 
     private fetchSharedSessions = async () => {
@@ -2863,39 +2954,8 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         } else if (updateData.body.t === 'delete-session') {
             log.log('🗑️ Delete session update received');
             const sessionId = updateData.body.sid;
-
-            // Remove session from storage
-            storage.getState().deleteSession(sessionId);
-
-            // Remove encryption keys from memory
-            this.encryption.removeSessionEncryption(sessionId);
-            this.sessionDataKeys.delete(sessionId);
-
-            // Drop the plaintext message cache for the deleted session
-            const pendingCacheTimer = this.messageCacheSaveTimers.get(sessionId);
-            if (pendingCacheTimer) clearTimeout(pendingCacheTimer);
-            this.messageCacheSaveTimers.delete(sessionId);
-            this.messageCacheLastSavedAt.delete(sessionId);
-            this.cachedNormalizedMessages.delete(sessionId);
-            this.hydratedMessageSessions.delete(sessionId);
-            this.cachedPaginationHints.delete(sessionId);
-            clearSessionMessagesCache(sessionId);
-
-            // Remove from project manager
-            projectManager.removeSession(sessionId);
-
-            // Clear any cached git status
-            gitStatusSync.clearForSession(sessionId);
-
-            // Clear message sync state
-            this.messagesSync.delete(sessionId);
-            this.pendingMessagesSync.delete(sessionId);
-            this.sessionLastSeq.delete(sessionId);
-            this.sessionMessageLocks.delete(sessionId);
-            this.sessionMessageUpdateQueues.delete(sessionId);
-            this.sessionMessageQueueRunning.delete(sessionId);
-            this.resetSessionMessageDispatch(sessionId);
-
+            this.forgetSession(sessionId);
+            void sessionListCache.remove(this.serverID, [sessionId]);
             log.log(`🗑️ Session ${sessionId} deleted from local storage`);
         } else if (updateData.body.t === 'update-session') {
             const sessionId = updateData.body.id;
