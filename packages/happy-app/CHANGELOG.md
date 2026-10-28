@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 48 - 2026-10-28
+
+Happy in the browser sends about half as many requests while you work.
+
+- Sessions: a session someone shared with you no longer makes Happy refetch your session list for every batch of messages it receives — those fetches never contained it and came back empty, several times a second while it was busy.
+- Web: the browser now remembers for two hours that it may call the server, instead of asking again before every request.
+
 ## Version 47 - 2026-10-28
 
 Reloading Happy, or coming back to it, downloads far less.
