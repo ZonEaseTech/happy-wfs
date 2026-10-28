@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 47 - 2026-10-28
+
+Reloading Happy, or coming back to it, downloads far less.
+
+- Sessions: opening or reloading the web app no longer downloads the whole session list again after showing the one it kept — it only fetches what changed, which is usually nothing.
+- Sessions: sessions that are simply running no longer count as changed every half minute, so the list's refresh when you switch back to Happy stays small instead of resending every live session.
+- Sessions: reconnecting no longer asks the server about queued messages for every session in the list, only for the ones you have open — a page load sends a few dozen requests instead of several hundred.
+
 ## Version 46 - 2026-10-28
 
 Happy has a faster address for use from mainland China.

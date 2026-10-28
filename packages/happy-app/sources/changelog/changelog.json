@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 47,
+      "date": "2026-10-28",
+      "summary": "Reloading Happy, or coming back to it, downloads far less.",
+      "changes": [
+        "Sessions: opening or reloading the web app no longer downloads the whole session list again after showing the one it kept — it only fetches what changed, which is usually nothing.",
+        "Sessions: sessions that are simply running no longer count as changed every half minute, so the list's refresh when you switch back to Happy stays small instead of resending every live session.",
+        "Sessions: reconnecting no longer asks the server about queued messages for every session in the list, only for the ones you have open — a page load sends a few dozen requests instead of several hundred."
+      ],
+      "rawMarkdown": "## Version 47 - 2026-10-28\n\n\nReloading Happy, or coming back to it, downloads far less.\n\n- Sessions: opening or reloading the web app no longer downloads the whole session list again after showing the one it kept — it only fetches what changed, which is usually nothing.\n- Sessions: sessions that are simply running no longer count as changed every half minute, so the list's refresh when you switch back to Happy stays small instead of resending every live session.\n- Sessions: reconnecting no longer asks the server about queued messages for every session in the list, only for the ones you have open — a page load sends a few dozen requests instead of several hundred."
+    },
+    {
       "version": 46,
       "date": "2026-10-28",
       "summary": "Happy has a faster address for use from mainland China.",
@@ -505,5 +516,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 46
+  "latestVersion": 47
 }
