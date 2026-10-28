@@ -1480,9 +1480,9 @@ export function SessionsList() {
                         return detail;
                     },
                     onBugUpdated: updatePendingBug,
-                    onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[]) => {
+                    onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[], contentJson: BugTiptapDoc | null) => {
                         if (!auth.credentials) throw new Error('Missing credentials');
-                        const result = await addBugComment(auth.credentials, current.id, body);
+                        const result = await addBugComment(auth.credentials, current.id, body, contentJson);
                         let updated = result.bug;
                         if (images.length > 0) {
                             updated = await uploadBugImages(current.id, images, result.commentId);

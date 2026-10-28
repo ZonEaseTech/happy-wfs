@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": 43,
+      "date": "2026-10-28",
+      "summary": "Bug comments can carry screenshots in the text, and Claude can post them.",
+      "changes": [
+        "Bugs: the comment box on the web is now the same editor as the bug description — paste or drop a screenshot and it sits in the comment where you put it, instead of as a thumbnail under the text.",
+        "Bugs: comments with screenshots show them in place on every device, the same way the description does.",
+        "Bugs: Claude, Codex and Gemini sessions can comment on a bug, with screenshots — a retest result goes in the comments instead of being appended to the description, so everyone following the bug is notified.",
+        "Bugs: Feishu comment notifications list a link to each screenshot in the comment, and no longer show the raw image placeholders."
+      ],
+      "rawMarkdown": "## Version 43 - 2026-10-28\n\n\nBug comments can carry screenshots in the text, and Claude can post them.\n\n- Bugs: the comment box on the web is now the same editor as the bug description — paste or drop a screenshot and it sits in the comment where you put it, instead of as a thumbnail under the text.\n- Bugs: comments with screenshots show them in place on every device, the same way the description does.\n- Bugs: Claude, Codex and Gemini sessions can comment on a bug, with screenshots — a retest result goes in the comments instead of being appended to the description, so everyone following the bug is notified.\n- Bugs: Feishu comment notifications list a link to each screenshot in the comment, and no longer show the raw image placeholders."
+    },
+    {
       "version": 42,
       "date": "2026-10-22",
       "summary": "Creating a worktree for a large repository no longer fails half-way through.",
@@ -465,5 +477,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 42
+  "latestVersion": 43
 }

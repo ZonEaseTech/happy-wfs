@@ -729,6 +729,22 @@ export const knownTools = {
         }).partial().passthrough(),
         result: z.object({}).partial().passthrough()
     },
+    'comment_bug': {
+        title: 'Comment on Bug',
+        icon: ICON_BUG,
+        minimal: true,
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            const bug = typeof opts.tool.input?.bug === 'string' ? opts.tool.input.bug : '';
+            const body = typeof opts.tool.input?.body === 'string' ? opts.tool.input.body.replace(/\[\[bug-image:\d+\]\]/g, '').trim().split('\n')[0] : '';
+            return [bug, body].filter(Boolean).join(' · ') || null;
+        },
+        input: z.object({
+            bug: z.string().optional().describe('Bug reference'),
+            body: z.string().optional().describe('Comment text'),
+            images: z.array(z.string()).optional().describe('Screenshot paths')
+        }).partial().passthrough(),
+        result: z.object({}).partial().passthrough()
+    },
     'delete_bug': {
         title: 'Delete Bug',
         icon: ICON_BUG,

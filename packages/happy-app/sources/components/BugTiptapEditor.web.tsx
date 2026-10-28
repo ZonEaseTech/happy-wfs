@@ -138,6 +138,7 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
     onImageDoubleClick,
     variant = 'create',
     contentInset = 'padded',
+    placeholder,
 }, ref) => {
     const imagesBySrcRef = React.useRef(new Map<string, LocalImage>());
     const attachmentIndexBySrc = React.useMemo(
@@ -201,7 +202,7 @@ export const BugTiptapEditor = React.forwardRef<BugTiptapEditorHandle, BugTiptap
                 HTMLAttributes: { draggable: 'true' },
             }),
             Placeholder.configure({
-                placeholder: t('bug.noteStylePlaceholder'),
+                placeholder: placeholder ?? t('bug.noteStylePlaceholder'),
             }),
         ],
         content: initialDoc ?? emptyDoc,

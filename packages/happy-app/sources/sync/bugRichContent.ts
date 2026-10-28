@@ -319,3 +319,29 @@ export function bugTiptapDocToRichContent<TAttachment extends { url: string }>(
     }
     return blocks;
 }
+
+/**
+ * What a comment sends: the editor's text and inline images, plus any images
+ * picked with the upload button, which have no place in the text yet. Those
+ * go after it, both as [[bug-image:N]] markers and as image nodes — a reader
+ * of contentJson only shows images the doc places, and the server counts
+ * markers to know how many uploads to wait for before notifying.
+ */
+export function buildBugCommentPayload<TImage>(
+    base: { description: string; contentJson: BugTiptapDoc | null; images: TImage[] },
+    extraImages: TImage[],
+): { body: string; contentJson: BugTiptapDoc | null; images: TImage[] } {
+    const offset = base.images.length;
+    const markers = extraImages.map((_, index) => makeBugImageMarker(offset + index + 1));
+    const body = [base.description.trim(), ...markers].filter(Boolean).join('\n\n');
+    const contentJson = base.contentJson
+        ? {
+            ...base.contentJson,
+            content: [
+                ...(base.contentJson.content ?? []),
+                ...extraImages.map((_, index) => ({ type: 'image', attrs: { src: makeBugAttachmentPlaceholder(offset + index + 1) } })),
+            ],
+        }
+        : null;
+    return { body, contentJson, images: [...base.images, ...extraImages] };
+}

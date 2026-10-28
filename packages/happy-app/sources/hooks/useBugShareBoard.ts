@@ -180,10 +180,10 @@ export function useBugShareBoard() {
         }
     }, [handleError, requireToken, updateBugInList, uploadImages]);
 
-    const addCommentWithImages = React.useCallback(async (bugId: string, body: string, images: LocalImage[]): Promise<BugReportDetail> => {
+    const addCommentWithImages = React.useCallback(async (bugId: string, body: string, images: LocalImage[], contentJson?: BugTiptapDoc | null): Promise<BugReportDetail> => {
         const token = requireToken();
         try {
-            const result = await addPublicBugComment(token, bugId, body);
+            const result = await addPublicBugComment(token, bugId, body, contentJson);
             let bug = result.bug;
             if (images.length > 0) {
                 bug = await uploadImages(bugId, images, result.commentId);

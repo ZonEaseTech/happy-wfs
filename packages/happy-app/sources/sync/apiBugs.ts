@@ -105,8 +105,8 @@ export async function deleteBug(credentials: AuthCredentials, bugId: string): Pr
     await readJson<{ ok: boolean }>(response);
 }
 
-export async function addBugComment(credentials: AuthCredentials, bugId: string, body: string): Promise<{ bug: BugReportDetail; commentId: string }> {
-    const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}/comments`, { method: 'POST', headers: authHeaders(credentials), body: JSON.stringify({ body }) });
+export async function addBugComment(credentials: AuthCredentials, bugId: string, body: string, contentJson?: BugTiptapDoc | null): Promise<{ bug: BugReportDetail; commentId: string }> {
+    const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}/comments`, { method: 'POST', headers: authHeaders(credentials), body: JSON.stringify({ body, ...(contentJson ? { contentJson } : {}) }) });
     return await readJson(response);
 }
 
@@ -160,8 +160,8 @@ export async function updatePublicBugContent(token: string, bugId: string, input
     return bugFromResponse(await readJson(response));
 }
 
-export async function addPublicBugComment(token: string, bugId: string, body: string): Promise<{ bug: BugReportDetail; commentId: string }> {
-    const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs/${encodeURIComponent(bugId)}/comments`, { method: 'POST', headers: publicHeaders(token), body: JSON.stringify({ body }) });
+export async function addPublicBugComment(token: string, bugId: string, body: string, contentJson?: BugTiptapDoc | null): Promise<{ bug: BugReportDetail; commentId: string }> {
+    const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs/${encodeURIComponent(bugId)}/comments`, { method: 'POST', headers: publicHeaders(token), body: JSON.stringify({ body, ...(contentJson ? { contentJson } : {}) }) });
     return await readJson(response);
 }
 

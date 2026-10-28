@@ -24,4 +24,6 @@ export type BugTiptapEditorProps = {
     onImageDoubleClick?: (src: string) => void;
     variant?: 'create' | 'detail';
     contentInset?: 'padded' | 'none';
+    /** Defaults to the bug description prompt */
+    placeholder?: string;
 };

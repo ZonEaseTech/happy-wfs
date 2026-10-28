@@ -23,6 +23,9 @@ export interface BugAttachment {
 export interface BugComment {
     id: string;
     body: string;
+    /** Rich layout, same shape as the bug's contentJson; absent or null for
+     *  plain comments and for servers older than rich comments */
+    contentJson?: BugTiptapDoc | null;
     authorNickname: string | null;
     createdAt: number;
     attachments: BugAttachment[];

@@ -184,3 +184,36 @@ describe('bug rich content', () => {
         expect(getBugTiptapPlainText(doc)).toBe('支付失败\n刷新后恢复');
     });
 });
+
+describe('buildBugCommentPayload', () => {
+    it('appends picked images after the inline ones, as markers and as image nodes', async () => {
+        const { buildBugCommentPayload, bugTiptapDocToRichContent } = await import('./bugRichContent');
+        const doc = {
+            type: 'doc' as const,
+            content: [
+                { type: 'paragraph', content: [{ type: 'text', text: '复测通过' }] },
+                { type: 'image', attrs: { src: 'bug-attachment:1' } },
+            ],
+        };
+
+        const payload = buildBugCommentPayload({ description: '复测通过\n\n[[bug-image:1]]', contentJson: doc, images: ['inline'] }, ['picked-a', 'picked-b']);
+
+        expect(payload.images).toEqual(['inline', 'picked-a', 'picked-b']);
+        expect(payload.body).toBe('复测通过\n\n[[bug-image:1]]\n\n[[bug-image:2]]\n\n[[bug-image:3]]');
+        // The rendered comment shows all three, in upload order.
+        const attachments = [{ url: 'u1' }, { url: 'u2' }, { url: 'u3' }];
+        const blocks = bugTiptapDocToRichContent(payload.contentJson, attachments);
+        expect(blocks.filter(b => b.type === 'image').map(b => (b as any).attachment.url)).toEqual(['u1', 'u2', 'u3']);
+    });
+
+    it('turns a plain native comment with picked images into marker text and no rich doc', async () => {
+        const { buildBugCommentPayload } = await import('./bugRichContent');
+        const payload = buildBugCommentPayload({ description: '看截图', contentJson: null, images: [] }, ['a']);
+        expect(payload).toEqual({ body: '看截图\n\n[[bug-image:1]]', contentJson: null, images: ['a'] });
+    });
+
+    it('yields an empty body when there is nothing to send', async () => {
+        const { buildBugCommentPayload } = await import('./bugRichContent');
+        expect(buildBugCommentPayload({ description: '  ', contentJson: null, images: [] }, []).body).toBe('');
+    });
+});

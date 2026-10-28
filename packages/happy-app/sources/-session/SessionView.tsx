@@ -419,8 +419,8 @@ export const SessionView = React.memo((props: { id: string }) => {
                 props: {
                     bug,
                     onBugUpdated: (updated: BugReportDetail) => setLinkedBugStatus(updated.status),
-                    onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[]) => {
-                        const result = await addBugComment(credentials, current.id, body);
+                    onAddComment: async (current: BugReportDetail, body: string, images: LocalImage[], contentJson: BugTiptapDoc | null) => {
+                        const result = await addBugComment(credentials, current.id, body, contentJson);
                         if (images.length > 0) {
                             return await uploadBugImages(current.id, images, result.commentId);
                         }

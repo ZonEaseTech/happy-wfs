@@ -1,6 +1,5 @@
 import React from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +16,7 @@ import type { ActionMenuItem } from '@/components/ActionMenu';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { BugTiptapEditor } from './BugTiptapEditor';
 import type { BugTiptapEditorHandle, BugTiptapEditorSnapshot } from './BugTiptapEditor.types';
-import { bugRichContentToTiptapDoc, bugTiptapDocWithAttachmentUrls, type BugTiptapDoc } from '@/sync/bugRichContent';
+import { buildBugCommentPayload, bugRichContentToTiptapDoc, bugTiptapDocWithAttachmentUrls, type BugTiptapDoc } from '@/sync/bugRichContent';
 import { buildBugPreviewImages, findBugPreviewImageIndex } from './bugImagePreview';
 
 const STATUS_OPTIONS: BugStatus[] = ['pending', 'in_progress', 'verify', 'closed'];
@@ -66,7 +65,7 @@ export function BugReportDetailModal({
     loadBug?: (bugId: string) => Promise<BugReportDetail>;
     onClose: () => void;
     onBugUpdated?: (bug: BugReportDetail) => void;
-    onAddComment?: (bug: BugReportDetail, body: string, images: LocalImage[]) => Promise<BugReportDetail>;
+    onAddComment?: (bug: BugReportDetail, body: string, images: LocalImage[], contentJson: BugTiptapDoc | null) => Promise<BugReportDetail>;
     onUploadImages?: (bug: BugReportDetail, images: LocalImage[], commentId?: string) => Promise<BugReportDetail>;
     onUpdateContent?: (bug: BugReportDetail, description: string, contentJson: BugTiptapDoc | null | undefined, images: LocalImage[]) => Promise<BugReportDetail>;
     onChangeStatus?: (bug: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => Promise<BugReportDetail>;
@@ -80,6 +79,10 @@ export function BugReportDetailModal({
     const [detailLoading, setDetailLoading] = React.useState(() => !isBugReportDetail(bug) && !!loadBug);
     const [comment, setComment] = React.useState('');
     const [commentFocused, setCommentFocused] = React.useState(false);
+    // The rich comment editor only exists on web, like the description editor.
+    const commentEditorRef = React.useRef<BugTiptapEditorHandle>(null);
+    const [commentResetKey, setCommentResetKey] = React.useState(0);
+    const [commentSnapshot, setCommentSnapshot] = React.useState<BugTiptapEditorSnapshot | null>(null);
     const commentInputRef = React.useRef<TextInput>(null);
     const [contentDirty, setContentDirty] = React.useState(false);
     const [contentSnapshot, setContentSnapshot] = React.useState<BugTiptapEditorSnapshot | null>(null);
@@ -157,10 +160,19 @@ export function BugReportDetailModal({
     }, [picker, updateBug]);
 
     const handleComment = React.useCallback(() => {
-        const body = comment.trim();
-        if ((!body && picker.images.length === 0) || !onAddComment) return;
-        void run(() => onAddComment(currentBug, body, picker.images));
-    }, [comment, currentBug, onAddComment, picker.images, run]);
+        if (!onAddComment) return;
+        const snapshot = Platform.OS === 'web' ? commentEditorRef.current?.getSnapshot() ?? commentSnapshot : null;
+        const base = snapshot
+            ? { description: snapshot.description, contentJson: snapshot.contentJson, images: snapshot.images }
+            : { description: comment.trim(), contentJson: null, images: [] as LocalImage[] };
+        const payload = buildBugCommentPayload(base, picker.images);
+        if (!payload.body) return;
+        void run(async () => {
+            const updated = await onAddComment(currentBug, payload.body, payload.images, payload.contentJson);
+            setCommentResetKey(key => key + 1);
+            return updated;
+        });
+    }, [comment, commentSnapshot, currentBug, onAddComment, picker.images, run]);
 
     const handleUploadOnly = React.useCallback(() => {
         if (!onUploadImages || picker.images.length === 0) return;
@@ -374,28 +386,37 @@ export function BugReportDetailModal({
                 {currentBug.comments.map(item => (
                     <View key={item.id} style={styles.comment}>
                         <Text style={styles.commentAuthor}>{item.authorNickname ?? t('bug.anonymousUser')}</Text>
-                        {item.body ? <Text style={styles.commentBody}>{item.body}</Text> : null}
-                        {item.attachments.length > 0 && (
-                            <View style={styles.grid}>{item.attachments.map(attachment => (
-                                <Pressable key={attachment.id} onPress={() => handleCommentImagePress(attachment)}>
-                                    <Image source={{ uri: attachment.url }} style={styles.smallImage} contentFit="cover" />
-                                </Pressable>
-                            ))}</View>
-                        )}
+                        {(item.body || item.attachments.length > 0) ? (
+                            <View style={styles.commentContent}>
+                                <BugRichContentView description={item.body} contentJson={item.contentJson} attachments={item.attachments} onImagePress={handleCommentImagePress} />
+                            </View>
+                        ) : null}
                     </View>
                 ))}
 
-                <TextInput
-                    ref={commentInputRef}
-                    style={styles.commentInput}
-                    value={comment}
-                    onChangeText={setComment}
-                    onFocus={() => setCommentFocused(true)}
-                    onBlur={() => setCommentFocused(false)}
-                    placeholder={t('bug.addComment')}
-                    placeholderTextColor={styles.muted.color}
-                    multiline
-                />
+                {Platform.OS === 'web' ? (
+                    <View style={styles.commentEditor}>
+                        <BugTiptapEditor
+                            ref={commentEditorRef}
+                            initialContentKey={`comment:${currentBug.id}:${commentResetKey}`}
+                            onChange={setCommentSnapshot}
+                            onImageDoubleClick={openBugEditorImagePreview}
+                            placeholder={t('bug.addComment')}
+                        />
+                    </View>
+                ) : (
+                    <TextInput
+                        ref={commentInputRef}
+                        style={styles.commentInput}
+                        value={comment}
+                        onChangeText={setComment}
+                        onFocus={() => setCommentFocused(true)}
+                        onBlur={() => setCommentFocused(false)}
+                        placeholder={t('bug.addComment')}
+                        placeholderTextColor={styles.muted.color}
+                        multiline
+                    />
+                )}
                 <ImagePreview images={picker.images} onRemove={picker.removeImage} maxImages={BUG_IMAGE_LIMITS.maxImages} />
                 <View style={styles.actionRow}>
                     <Pressable style={styles.secondaryButton} onPress={() => Platform.OS === 'web' ? fileInputRef.current?.click() : picker.pickFromGallery()}>
@@ -527,12 +548,11 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     description: { color: theme.colors.text, lineHeight: 22, ...Typography.default() },
     muted: { color: theme.colors.textSecondary, ...Typography.default() },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     image: { width: 112, height: 84, borderRadius: 10, backgroundColor: theme.colors.surfaceHigh },
-    smallImage: { width: 72, height: 56, borderRadius: 8, backgroundColor: theme.colors.surfaceHigh, marginTop: 8 },
     comment: { backgroundColor: theme.colors.surfaceHigh, borderRadius: 12, padding: 12, marginBottom: 8 },
     commentAuthor: { color: theme.colors.textSecondary, fontSize: 12, ...Typography.default('semiBold') },
-    commentBody: { color: theme.colors.text, marginTop: 6, lineHeight: 20, ...Typography.default() },
+    commentContent: { marginTop: 6 },
+    commentEditor: { minHeight: 76, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 12, backgroundColor: theme.colors.input.background, overflow: 'hidden' },
     commentInput: { minHeight: 76, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 12, padding: 10, color: theme.colors.text, backgroundColor: theme.colors.input.background, ...Typography.default() },
     actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     secondaryButton: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceHigh },
