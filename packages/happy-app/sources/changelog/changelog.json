@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 44,
+      "date": "2026-10-28",
+      "summary": "The bug comment box starts small and grows as you type.",
+      "changes": [
+        "Bugs: the comment box on the web opens at a single line instead of a tall empty panel, grows with what you write, and keeps its text off the edges."
+      ],
+      "rawMarkdown": "## Version 44 - 2026-10-28\n\n\nThe bug comment box starts small and grows as you type.\n\n- Bugs: the comment box on the web opens at a single line instead of a tall empty panel, grows with what you write, and keeps its text off the edges."
+    },
+    {
       "version": 43,
       "date": "2026-10-28",
       "summary": "Bug comments can carry screenshots in the text, and Claude can post them.",
@@ -477,5 +486,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 43
+  "latestVersion": 44
 }

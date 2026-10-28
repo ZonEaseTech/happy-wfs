@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 44 - 2026-10-28
+
+The bug comment box starts small and grows as you type.
+
+- Bugs: the comment box on the web opens at a single line instead of a tall empty panel, grows with what you write, and keeps its text off the edges.
+
 ## Version 43 - 2026-10-28
 
 Bug comments can carry screenshots in the text, and Claude can post them.
