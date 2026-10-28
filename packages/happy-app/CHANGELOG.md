@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 46 - 2026-10-28
+
+Happy has a faster address for use from mainland China.
+
+- Web: opening Happy at cn-happy.weifashi.cn connects to the server through a relay in Hong Kong instead of through Cloudflare's European nodes — requests and live updates arrive several times faster from mainland China. Sign in once at the new address; happy.zonease.org keeps working as before.
+
 ## Version 45 - 2026-10-28
 
 Reloading Happy in the browser shows your sessions and bugs much sooner.

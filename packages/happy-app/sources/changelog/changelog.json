@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 46,
+      "date": "2026-10-28",
+      "summary": "Happy has a faster address for use from mainland China.",
+      "changes": [
+        "Web: opening Happy at cn-happy.weifashi.cn connects to the server through a relay in Hong Kong instead of through Cloudflare's European nodes — requests and live updates arrive several times faster from mainland China. Sign in once at the new address; happy.zonease.org keeps working as before."
+      ],
+      "rawMarkdown": "## Version 46 - 2026-10-28\n\n\nHappy has a faster address for use from mainland China.\n\n- Web: opening Happy at cn-happy.weifashi.cn connects to the server through a relay in Hong Kong instead of through Cloudflare's European nodes — requests and live updates arrive several times faster from mainland China. Sign in once at the new address; happy.zonease.org keeps working as before."
+    },
+    {
       "version": 45,
       "date": "2026-10-28",
       "summary": "Reloading Happy in the browser shows your sessions and bugs much sooner.",
@@ -496,5 +505,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 45
+  "latestVersion": 46
 }
