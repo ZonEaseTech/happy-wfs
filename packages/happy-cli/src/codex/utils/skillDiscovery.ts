@@ -16,6 +16,9 @@ export interface DiscoverCodexSkillsOptions {
 }
 
 const DEFAULT_MAX_SKILLS = 400;
+// The list rides in every Codex session's metadata, which the app downloads
+// for every session on load, and the slash popup shows one line per skill.
+const MAX_DESCRIPTION_LENGTH = 120;
 const DEFAULT_MAX_DEPTH = 10;
 const SKILL_FILE = 'SKILL.md';
 const IGNORED_DIRECTORIES = new Set([
@@ -99,14 +102,22 @@ function skillRoots(homeDir: string, includePluginCache: boolean): Array<{ path:
         { path: join(homeDir, '.claude', 'skills'), source: 'claude' },
     ];
 
+    // Installed plugins only. ~/.codex/.tmp/plugins/plugins is Codex's copy of
+    // the whole marketplace — hundreds of skills nobody installed — and listing
+    // it made each session's metadata about 140KB.
     if (includePluginCache) {
         roots.push(
             { path: join(homeDir, '.codex', 'plugins', 'cache'), source: 'codex-plugin-cache' },
-            { path: join(homeDir, '.codex', '.tmp', 'plugins', 'plugins'), source: 'codex-plugin-marketplace' },
         );
     }
 
     return roots;
+}
+
+function shortenDescription(description: string | undefined): string | undefined {
+    if (!description) return description;
+    const oneLine = description.replace(/\s+/g, ' ').trim();
+    return oneLine.length > MAX_DESCRIPTION_LENGTH ? `${oneLine.slice(0, MAX_DESCRIPTION_LENGTH - 1)}…` : oneLine;
 }
 
 export function discoverCodexSkills(options: DiscoverCodexSkillsOptions = {}): CodexSkillMetadata[] {
@@ -138,7 +149,7 @@ export function discoverCodexSkills(options: DiscoverCodexSkillsOptions = {}): C
             seen.add(key);
             result.push({
                 name,
-                description: frontMatter.description,
+                description: shortenDescription(frontMatter.description),
                 source: root.source,
             });
         }

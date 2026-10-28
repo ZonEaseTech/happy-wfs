@@ -50,13 +50,31 @@ describe('discoverCodexSkills', () => {
             '# Writing Plans',
         ].join('\n'));
 
+        writeSkill(home, '.codex/plugins/cache/superpowers/1.0.0/skills/brainstorming', [
+            '---',
+            'name: brainstorming',
+            'description: Explore ideas before building',
+            '---',
+        ].join('\n'));
+
         const skills = discoverCodexSkills({ homeDir: home, includePluginCache: true });
 
+        // The marketplace copy under .codex/.tmp is not what is installed.
         expect(skills).toEqual([
             { name: 'pma', description: 'Project management assistant', source: 'agents' },
             { name: 'imagegen', description: 'Generate images', source: 'codex' },
-            { name: 'writing-plans', description: 'Write implementation plans', source: 'codex-plugin-marketplace' },
+            { name: 'brainstorming', description: 'Explore ideas before building', source: 'codex-plugin-cache' },
         ]);
+    });
+
+    it('cuts long descriptions to one short line', () => {
+        const home = makeHome();
+        writeSkill(home, '.codex/skills/long', ['---', 'name: long', `description: ${'很长的说明'.repeat(60)}`, '---'].join('\n'));
+
+        const [skill] = discoverCodexSkills({ homeDir: home, includePluginCache: false });
+
+        expect(skill.description!.length).toBe(120);
+        expect(skill.description!.endsWith('…')).toBe(true);
     });
 
     it('deduplicates by skill name and falls back to parent directory name', () => {
