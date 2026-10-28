@@ -52,7 +52,11 @@ export async function startApi() {
     app.register(import('@fastify/cors'), {
         origin: '*',
         allowedHeaders: '*',
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+        // Every API call from the web app carries Authorization, so each one is
+        // preceded by a preflight; let browsers reuse the answer per URL
+        // (Chrome caps this at two hours) instead of doubling every request.
+        maxAge: 7200
     });
     app.register(import('@fastify/multipart'), {
         limits: {
