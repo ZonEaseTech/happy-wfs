@@ -3802,11 +3802,14 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             });
         }
 
-        // Ping session once per websocket batch
-        this.onSessionVisible(sessionId);
+        // No catch-up fetch per batch: the batch itself carried the messages, a
+        // gap in seq already schedules one (handleUpdate), and the pending
+        // queue changes arrive as pending-message-upsert/delete. Calling
+        // onSessionVisible here sent a messages and a pending-messages request
+        // for every batch of every busy session, nearly all of them empty.
     }
 
-    private flushActivityUpdates = (updates: Map<string, ApiEphemeralActivityUpdate>) => {
+    private flushActivityUpdates =(updates: Map<string, ApiEphemeralActivityUpdate>) => {
         // log.log(`🔄 Flushing activity updates for ${updates.size} sessions - acquiring lock`);
 
         const sessions: Session[] = [];
