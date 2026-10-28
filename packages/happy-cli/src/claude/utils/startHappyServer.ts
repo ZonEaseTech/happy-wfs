@@ -16,7 +16,7 @@ import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { readCredentials } from "@/persistence";
 import { deviceExec, listDevices } from "@/device/deviceExec";
-import { deleteBug, editBug, getBug, listBugs, setBugStatus, submitBug, type BugDetail } from "@/bugs/bugs";
+import { commentOnBug, deleteBug, editBug, getBug, listBugs, setBugStatus, submitBug, type BugDetail } from "@/bugs/bugs";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
 import { applyDefaultWorkingDirectory } from '@/orchestrator/common';
@@ -327,6 +327,29 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         }
     });
 
+    mcp.registerTool('comment_bug', {
+        description: 'Post a comment under a bug on the user\'s Happy bug board. Everyone following the bug is notified (Feishu), which an edit to the description does not do. '
+            + 'Use it to report a result — a retest that passed or failed, a fix that shipped, a question for the reporter — instead of appending it to the description.',
+        title: 'Comment on Bug',
+        inputSchema: {
+            bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+            body: z.string().describe('The comment text. To place a screenshot inside it, put [[bug-image:N]] where the Nth entry of images should appear; images left unplaced follow the text.'),
+            images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine, in the order the [[bug-image:N]] markers refer to them. JPEG and PNG only, up to 10, 20MB each.'),
+        },
+    }, async (args) => {
+        const credentials = await readCredentials();
+        if (!credentials) {
+            return toToolError('No Happy credentials on this machine.');
+        }
+        try {
+            const result = await commentOnBug(credentials, args);
+            logger.debug('[happyMCP] Commented on bug:', result.displayId);
+            return toToolSuccess({ ok: true, ...result });
+        } catch (error) {
+            return toToolError(`Failed to comment on bug: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
     mcp.registerTool('set_bug_status', {
         description: 'Move a bug on the user\'s Happy bug board to another status: close it once a fix is verified, put it back in progress, send it to verification, or return it to pending. '
             + 'Use whenever the user says a bug is fixed, verified, closed, reopened, or should go back to someone.',
@@ -532,8 +555,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'comment_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'comment_bug'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;

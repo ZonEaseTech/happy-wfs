@@ -153,6 +153,17 @@ async function main() {
     },
   });
 
+  registerForwardedTool('comment_bug', {
+    description: 'Post a comment under a bug on the user\'s Happy bug board. Everyone following the bug is notified (Feishu), which an edit to the description does not do. '
+      + 'Use it to report a result — a retest that passed or failed, a fix that shipped, a question for the reporter — instead of appending it to the description.',
+    title: 'Comment on Bug',
+    inputSchema: {
+      bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
+      body: z.string().describe('The comment text. To place a screenshot inside it, put [[bug-image:N]] where the Nth entry of images should appear; images left unplaced follow the text.'),
+      images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine, in the order the [[bug-image:N]] markers refer to them. JPEG and PNG only, up to 10, 20MB each.'),
+    },
+  });
+
   registerForwardedTool('set_bug_status', {
     description: 'Move a bug on the user\'s Happy bug board to another status: close it once a fix is verified, put it back in progress, send it to verification, or return it to pending. '
       + 'Use whenever the user says a bug is fixed, verified, closed, reopened, or should go back to someone.',

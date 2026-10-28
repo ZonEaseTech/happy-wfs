@@ -106,6 +106,10 @@ const GEMINI_TOOL_PATTERNS: ExtendedToolPattern[] = [
     name: 'set_bug_status',
     inputFields: ['bug', 'status'],
   }),
+  createTool({
+    name: 'comment_bug',
+    inputFields: ['bug', 'body', 'images'],
+  }),
 
   // Gemini built-in
   createTool({

@@ -51,6 +51,12 @@ export interface EditBugInput {
     images?: string[];
 }
 
+export interface CommentOnBugInput {
+    bug: string;
+    body: string;
+    images?: string[];
+}
+
 export interface SubmittedBug {
     id: string;
     displayId: string;
@@ -172,7 +178,7 @@ export async function resolveBugId(credentials: Credentials, reference: string):
  * The server only takes JPEG and PNG, so the extension decides the type rather
  * than sniffing the bytes — a mislabelled file is rejected upstream anyway.
  */
-export async function attachBugImage(credentials: Credentials, bugId: string, filePath: string): Promise<void> {
+export async function attachBugImage(credentials: Credentials, bugId: string, filePath: string, commentId?: string): Promise<void> {
     const mimeType = IMAGE_MIME_TYPES[extname(filePath).toLowerCase()];
     if (!mimeType) {
         throw new Error('only .jpg, .jpeg and .png are supported');
@@ -183,6 +189,7 @@ export async function attachBugImage(credentials: Credentials, bugId: string, fi
     }
     const form = new FormData();
     form.append('file', new Blob([await readFile(filePath)], { type: mimeType }), basename(filePath));
+    if (commentId) form.append('commentId', commentId);
     await axios.post(`${configuration.serverUrl}/v1/bugs/${bugId}/attachments`, form, authHeaders(credentials));
 }
 
@@ -198,11 +205,12 @@ async function attachImages(
     bugId: string,
     images: string[],
     alreadyAttached: number,
+    commentId?: string,
 ): Promise<AttachmentOutcome[]> {
     const room = Math.max(MAX_BUG_IMAGES - alreadyAttached, 0);
     const attachments: AttachmentOutcome[] = [];
     for (const file of images.slice(0, room)) {
-        await attachBugImage(credentials, bugId, file)
+        await attachBugImage(credentials, bugId, file, commentId)
             .then(() => attachments.push({ file, ok: true }))
             .catch((error) => attachments.push({ file, ok: false, error: error instanceof Error ? error.message : String(error) }));
     }
@@ -261,6 +269,56 @@ export async function editBug(
         return bug;
     }
     return { ...bug, attachments: await attachImages(credentials, bugId, images, bug.attachmentCount ?? 0) };
+}
+
+/**
+ * Every image a comment carries needs a [[bug-image:N]] marker: the board
+ * places it there, and the server counts markers to know how many uploads to
+ * wait for before it sends the comment notification. Images the text does not
+ * place go after it, in order.
+ */
+export function withImageMarkers(body: string, imageCount: number): string {
+    const placed = new Set<number>();
+    for (const match of body.matchAll(/\[\[bug-image:(\d+)\]\]/g)) placed.add(Number(match[1]));
+    const missing: string[] = [];
+    for (let index = 1; index <= imageCount; index++) {
+        if (!placed.has(index)) missing.push(`[[bug-image:${index}]]`);
+    }
+    return missing.length ? [body.trim(), ...missing].filter(Boolean).join('\n\n') : body.trim();
+}
+
+/**
+ * Post a comment under a bug, optionally with screenshots placed in its text.
+ *
+ * The comment is created first and its images uploaded after, tagged with the
+ * comment's id; the server holds the Feishu notification until they arrive.
+ */
+export async function commentOnBug(
+    credentials: Credentials,
+    input: CommentOnBugInput,
+): Promise<{ id: string; displayId: string; commentId: string; commentCount?: number; attachments?: AttachmentOutcome[] }> {
+    const images = (input.images ?? []).slice(0, MAX_BUG_IMAGES);
+    const skipped = (input.images ?? []).slice(MAX_BUG_IMAGES);
+    const body = withImageMarkers(input.body, images.length);
+    if (!body) {
+        throw new Error('nothing to post — pass a body, images, or both');
+    }
+    const bugId = await resolveBugId(credentials, input.bug);
+    const response = await axios.post<{ bug: SubmittedBug; commentId: string }>(
+        `${configuration.serverUrl}/v1/bugs/${bugId}/comments`,
+        { body },
+        authHeaders(credentials),
+    );
+    const { bug, commentId } = response.data;
+    const result = { id: bug.id, displayId: bug.displayId, commentId, commentCount: bug.commentCount };
+    if (!images.length && !skipped.length) {
+        return result;
+    }
+    const attachments = await attachImages(credentials, bugId, images, 0, commentId);
+    for (const file of skipped) {
+        attachments.push({ file, ok: false, error: `skipped — a comment takes at most ${MAX_BUG_IMAGES} images` });
+    }
+    return { ...result, attachments };
 }
 
 /**
