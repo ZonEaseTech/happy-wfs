@@ -51,7 +51,10 @@ export async function startApi() {
     });
     app.register(import('@fastify/cors'), {
         origin: '*',
-        allowedHeaders: '*',
+        // No allowedHeaders: the default echoes the headers the preflight asks
+        // for. A '*' there lets requests through, but browsers do not count
+        // Authorization as covered by it when reusing a cached preflight, so
+        // every call was preflighted again despite maxAge.
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
         // Every API call from the web app carries Authorization, so each one is
         // preceded by a preflight; let browsers reuse the answer per URL
