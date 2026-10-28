@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 45 - 2026-10-28
+
+Reloading Happy in the browser shows your sessions and bugs much sooner.
+
+- Sessions: the browser keeps your session list between visits, so after a reload it appears at once and only what changed is fetched; sessions deleted in the meantime are removed as soon as the server confirms it. The first load after this update still takes the usual time.
+- Bugs: the pending tab no longer waits for the session list — bugs and GitHub issues show while sessions are still loading, and the other tabs show their buttons with a spinner in place of the list.
+
 ## Version 44 - 2026-10-28
 
 The bug comment box starts small and grows as you type.
