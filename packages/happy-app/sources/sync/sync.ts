@@ -3667,7 +3667,9 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) { // Should never happen
             console.error(`Session ${sessionId} not found`);
-            this.fetchSessions(); // Just fetch sessions again
+            // Coalesced: a burst of batches for the session must not become a
+            // burst of list fetches
+            this.sessionsSync.invalidate();
             return;
         }
 
@@ -3755,8 +3757,12 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                             ...(thinkingUpdate === false ? { thinking: false } : {}),
                             ...(thinkingUpdate === true ? { thinking: true } : {})
                         }]);
-                    } else {
-                        this.fetchSessions();
+                    } else if (!storage.getState().sharedSessions[sessionId]) {
+                        // An own session the list has not seen yet: its new
+                        // messages moved its updatedAt, so ?since= brings it in.
+                        // Sessions shared with us are never in that list —
+                        // refetching for them returned nothing, on every batch.
+                        this.sessionsSync.invalidate();
                     }
 
                     const messagesToApply = preparedUpdates
