@@ -250,6 +250,8 @@ export interface BugCommentNotificationMeta {
     recipients: MentionRecipient[];
     preview: string;
     bugUrl: string;
+    /** Public URLs of the comment's images, in order */
+    imageUrls?: string[];
 }
 
 export function buildBugCommentNotificationCard(meta: BugCommentNotificationMeta): FeishuMessagePayload {
@@ -265,6 +267,11 @@ export function buildBugCommentNotificationCard(meta: BugCommentNotificationMeta
     if (preview) {
         lines.push(`内容：${preview}`);
     }
+    // A group bot cannot upload images, so they go out as links; the files
+    // are public, and Feishu turns a bare URL into a clickable one.
+    (meta.imageUrls ?? []).forEach((url, index) => {
+        lines.push(`图片 ${index + 1}：${url}`);
+    });
     lines.push(`打开：${meta.bugUrl}`);
     return { msg_type: 'text', content: { text: lines.join('\n') } };
 }

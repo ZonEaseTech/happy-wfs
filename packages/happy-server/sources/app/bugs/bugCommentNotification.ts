@@ -8,6 +8,7 @@ import {
     type MentionRecipient,
 } from '@/app/notifications/feishuAdapter';
 import { bugDisplayId } from './bugPresenter';
+import { stripBugImageMarkers } from './bugService';
 import type { BugActor } from './bugTypes';
 
 const DEFAULT_APP_URL = 'https://happy.zonease.org';
@@ -24,9 +25,10 @@ function getAppUrl(): string {
  * a Feishu user id and are not the commenter themselves. Failures only warn —
  * the comment itself has already been persisted.
  */
-export async function notifyBugCommentToFeishu(bugId: string, actor: BugActor, commentBody: string): Promise<void> {
-    // Image-only comments have no text; keep the notification readable.
-    const previewBody = commentBody.trim() || '[图片]';
+export async function notifyBugCommentToFeishu(bugId: string, actor: BugActor, commentBody: string, imageUrls: string[] = []): Promise<void> {
+    // Inline images arrive as [[bug-image:N]] markers; image-only comments
+    // have no text left once those go. Keep the notification readable.
+    const previewBody = stripBugImageMarkers(commentBody) || '[图片]';
     const bug = await (db as any).bugReport.findUnique({
         where: { id: bugId },
         select: {
@@ -85,6 +87,7 @@ export async function notifyBugCommentToFeishu(bugId: string, actor: BugActor, c
         recipients,
         preview: previewBody,
         bugUrl: `${getAppUrl()}/bug`,
+        imageUrls,
     });
     for (const webhook of webhooks) {
         try {
@@ -92,5 +95,80 @@ export async function notifyBugCommentToFeishu(bugId: string, actor: BugActor, c
         } catch (error) {
             warn({ error, bugId }, 'failed to send bug comment feishu notification');
         }
+    }
+}
+
+/**
+ * Clients post a comment first and upload its images afterwards, one request
+ * each, so a notification sent when the comment is created has no images to
+ * link. The body names how many to expect: every image carries a
+ * [[bug-image:N]] marker. Hold the notification until that many are attached
+ * to the comment, or until IMAGE_WAIT_MS passes, whichever comes first.
+ */
+const IMAGE_WAIT_MS = 60_000;
+
+type PendingCommentNotification = {
+    bugId: string;
+    actor: BugActor;
+    body: string;
+    expectedImages: number;
+    timer: ReturnType<typeof setTimeout>;
+};
+
+const pendingComments = new Map<string, PendingCommentNotification>();
+
+export function countBugImageMarkers(body: string): number {
+    let max = 0;
+    for (const match of body.matchAll(/\[\[bug-image:(\d+)\]\]/g)) {
+        max = Math.max(max, Number(match[1]));
+    }
+    return max;
+}
+
+async function commentImageUrls(commentId: string): Promise<string[]> {
+    const rows = await (db as any).bugAttachment.findMany({
+        where: { commentId },
+        orderBy: { createdAt: 'asc' },
+        select: { url: true },
+    });
+    return rows.map((row: { url: string }) => row.url);
+}
+
+async function flushCommentNotification(commentId: string): Promise<void> {
+    const pending = pendingComments.get(commentId);
+    if (!pending) return;
+    pendingComments.delete(commentId);
+    clearTimeout(pending.timer);
+    const urls = await commentImageUrls(commentId).catch(() => []);
+    await notifyBugCommentToFeishu(pending.bugId, pending.actor, pending.body, urls);
+}
+
+/** Notify now for a text-only comment, or once its images have arrived. */
+export async function notifyBugCommentWhenReady(input: { commentId: string; bugId: string; actor: BugActor; body: string }): Promise<void> {
+    const expectedImages = countBugImageMarkers(input.body);
+    if (expectedImages === 0) {
+        await notifyBugCommentToFeishu(input.bugId, input.actor, input.body);
+        return;
+    }
+    const timer = setTimeout(() => {
+        void flushCommentNotification(input.commentId).catch((error) => warn({ error, bugId: input.bugId }, 'failed to send bug comment feishu notification'));
+    }, IMAGE_WAIT_MS);
+    timer.unref?.();
+    pendingComments.set(input.commentId, { bugId: input.bugId, actor: input.actor, body: input.body, expectedImages, timer });
+}
+
+/** Call after an image is attached; sends the held notification once the comment has them all. */
+export async function onBugCommentImageAttached(commentId: string | undefined): Promise<void> {
+    if (!commentId) return;
+    const pending = pendingComments.get(commentId);
+    if (!pending) return;
+    try {
+        const count = await (db as any).bugAttachment.count({ where: { commentId } });
+        if (count >= pending.expectedImages) {
+            await flushCommentNotification(commentId);
+        }
+    } catch (error) {
+        // The fallback timer still sends it.
+        warn({ error, bugId: pending.bugId }, 'failed to check bug comment images');
     }
 }

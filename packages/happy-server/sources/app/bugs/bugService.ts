@@ -76,7 +76,7 @@ function actorNickname(actor: BugActor): string {
     return actor.nickname.trim() || '匿名用户';
 }
 
-function stripBugImageMarkers(description: string): string {
+export function stripBugImageMarkers(description: string): string {
     return description
         .replace(/\[\[bug-image:\d+\]\]/g, '')
         .replace(/\n{3,}/g, '\n\n')
@@ -253,7 +253,7 @@ export async function updateBugContent(owner: BugOwnerScope, bugId: string, acto
 
 // Body may be empty: image-only comments carry their content as attachments
 // uploaded right after creation with this comment's id.
-export async function addBugComment(owner: BugOwnerScope, bugId: string, actor: BugActor, body: string, input: { publicOnly?: boolean } = {}) {
+export async function addBugComment(owner: BugOwnerScope, bugId: string, actor: BugActor, body: string, input: { publicOnly?: boolean; contentJson?: unknown | null } = {}) {
     const trimmed = body.trim();
     const nickname = actorNickname(actor);
     const userId = actorUserId(actor);
@@ -266,6 +266,10 @@ export async function addBugComment(owner: BugOwnerScope, bugId: string, actor: 
                 authorUserId: userId,
                 authorNickname: nickname,
                 body: trimmed,
+                // Same shape as the bug's own contentJson: the rich layout with
+                // images as bug-attachment:N placeholders. body keeps the plain
+                // text with [[bug-image:N]] markers for readers without it.
+                ...(input.contentJson == null ? {} : { contentJson: input.contentJson }),
             },
         });
         await bugDb(tx).bugReport.update({ where: { id: bugId }, data: { lastActivityAt: new Date() } });

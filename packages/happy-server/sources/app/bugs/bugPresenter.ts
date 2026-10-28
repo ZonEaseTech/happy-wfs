@@ -48,6 +48,7 @@ export function presentBugDetail(row: any) {
         comments: (row.comments ?? []).map((comment: any) => ({
             id: comment.id,
             body: comment.body,
+            contentJson: comment.contentJson ?? null,
             authorNickname: comment.authorNickname ?? null,
             createdAt: comment.createdAt.getTime(),
             attachments: (comment.attachments ?? []).map(presentBugAttachment),

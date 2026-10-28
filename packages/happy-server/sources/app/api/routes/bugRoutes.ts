@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { type Fastify } from '../types';
 import { uploadBugImage } from '@/app/bugs/bugImageUpload';
-import { notifyBugCommentToFeishu } from '@/app/bugs/bugCommentNotification';
+import { notifyBugCommentWhenReady, onBugCommentImageAttached } from '@/app/bugs/bugCommentNotification';
 import {
     addBugComment,
     getAccessibleBugOwnerIds,
@@ -31,6 +31,7 @@ const statusBody = z.object({
 
 const commentBody = z.object({
     body: z.string().trim().min(1),
+    contentJson: z.unknown().nullable().optional(),
 });
 
 const contentBody = z.object({
@@ -119,8 +120,8 @@ export function bugRoutes(app: Fastify) {
     }, async (request, reply) => {
         try {
             const actor = await getBugActorForUser(request.userId);
-            const result = await addBugComment(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, actor, request.body.body);
-            void notifyBugCommentToFeishu(request.params.bugId, actor, request.body.body);
+            const result = await addBugComment(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, actor, request.body.body, { contentJson: request.body.contentJson });
+            void notifyBugCommentWhenReady({ commentId: result.commentId, bugId: request.params.bugId, actor, body: request.body.body });
             return reply.code(201).send(result);
         } catch (error) {
             return handleRouteError(reply, error);
@@ -182,6 +183,7 @@ export function bugRoutes(app: Fastify) {
             if (!fileBuffer) return reply.code(400).send({ error: 'No file uploaded' });
             const upload = await uploadBugImage({ ownerId: request.userId, bugId: request.params.bugId, imageBuffer: fileBuffer, mimeType: fileMimeType || 'image/jpeg', sizeBytes: fileBuffer.length });
             const bug = await recordBugAttachment(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), { ...upload, commentId });
+            void onBugCommentImageAttached(commentId);
             return reply.code(201).send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);

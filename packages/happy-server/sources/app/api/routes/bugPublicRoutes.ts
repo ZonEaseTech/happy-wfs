@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { type Fastify } from '../types';
 import { uploadBugImage } from '@/app/bugs/bugImageUpload';
-import { notifyBugCommentToFeishu } from '@/app/bugs/bugCommentNotification';
+import { notifyBugCommentWhenReady, onBugCommentImageAttached } from '@/app/bugs/bugCommentNotification';
 import { createBugShareToken, verifyBugShareToken, type BugShareTokenPayload } from '@/app/bugs/bugShareToken';
 import {
     addBugComment,
@@ -28,7 +28,7 @@ const contentBody = z.object({
     description: z.string().trim().min(1),
     contentJson: z.unknown().nullable().optional(),
 });
-const commentBody = z.object({ body: z.string().trim().min(1) });
+const commentBody = z.object({ body: z.string().trim().min(1), contentJson: z.unknown().nullable().optional() });
 const statusBody = z.object({
     status: z.enum(['pending', 'in_progress', 'verify', 'closed']),
     action: z.enum(['return_to_pending']).optional(),
@@ -140,8 +140,8 @@ export function bugPublicRoutes(app: Fastify) {
         const context = await getPublicContext(request, reply);
         if (!context) return;
         try {
-            const result = await addBugComment(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, request.body.body, { publicOnly: true });
-            void notifyBugCommentToFeishu(request.params.bugId, { nickname: context.nickname }, request.body.body);
+            const result = await addBugComment(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, request.body.body, { publicOnly: true, contentJson: request.body.contentJson });
+            void notifyBugCommentWhenReady({ commentId: result.commentId, bugId: request.params.bugId, actor: { nickname: context.nickname }, body: request.body.body });
             return reply.code(201).send(result);
         } catch (error) {
             return handleRouteError(reply, error);
@@ -198,6 +198,7 @@ export function bugPublicRoutes(app: Fastify) {
             if (!fileBuffer) return reply.code(400).send({ error: 'No file uploaded' });
             const upload = await uploadBugImage({ ownerId: context.ownerId, bugId: request.params.bugId, imageBuffer: fileBuffer, mimeType: fileMimeType || 'image/jpeg', sizeBytes: fileBuffer.length });
             const bug = await recordBugAttachment(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, { ...upload, commentId }, { publicOnly: true });
+            void onBugCommentImageAttached(commentId);
             return reply.code(201).send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);

@@ -403,6 +403,7 @@ model BugComment {
   authorUser     Account?        @relation("BugCommentsByUser", fields: [authorUserId], references: [id], onDelete: SetNull)
   authorNickname String?
   body           String
+  contentJson    Json?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   attachments    BugAttachment[]
