@@ -133,6 +133,18 @@ describe("GET /v1/sessions", () => {
         expect(body.sessions.map((s: any) => s.id)).toEqual(["b", "a"]);
     });
 
+    it("lists every owned session id with its last change, for pruning a kept list", async () => {
+        seedSession(mkSession({ id: "a", updatedAt: new Date(5000) }));
+        seedSession(mkSession({ id: "b", updatedAt: new Date(3000) }));
+        seedSession(mkSession({ id: "other", accountId: "user-2" }));
+
+        const res = await app.inject({ method: "GET", url: "/v1/sessions/ids" });
+
+        expect(res.statusCode).toBe(200);
+        const ids = res.json().sessions.map((s: any) => [s.id, s.updatedAt]).sort();
+        expect(ids).toEqual([["a", 5000], ["b", 3000]]);
+    });
+
     it("filters by since when provided and orders by updatedAt asc", async () => {
         seedSession(mkSession({ id: "a", updatedAt: new Date(1000) }));
         seedSession(mkSession({ id: "b", updatedAt: new Date(2000) }));

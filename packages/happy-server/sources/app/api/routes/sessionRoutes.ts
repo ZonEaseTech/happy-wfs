@@ -71,6 +71,21 @@ export function sessionRoutes(app: Fastify) {
     });
 
     // V2 Sessions API - Active sessions only
+    // Every session the account owns, id and last change only. A client that
+    // keeps the session list between visits fetches changes with ?since=, which
+    // cannot report deletions; comparing against this list can.
+    app.get('/v1/sessions/ids', {
+        preHandler: app.authenticate,
+    }, async (request, reply) => {
+        const sessions = await db.session.findMany({
+            where: { accountId: request.userId },
+            select: { id: true, updatedAt: true },
+        });
+        return reply.send({
+            sessions: sessions.map((v) => ({ id: v.id, updatedAt: v.updatedAt.getTime() })),
+        });
+    });
+
     app.get('/v2/sessions/active', {
         preHandler: app.authenticate,
         schema: {
