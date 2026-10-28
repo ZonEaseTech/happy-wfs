@@ -2878,7 +2878,11 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         // Subscribe to connection state changes
         apiSocket.onReconnected(() => {
             log.log('🔌 Socket reconnected');
-            this.lastSessionsCursorMs = 0; // force full resync after reconnect to catch any missed events
+            // Catch up from the cursor rather than refetching the whole list:
+            // every change missed while disconnected moves the session's
+            // updatedAt, so ?since= returns it. This also fires on the first
+            // connect of every page load, where a full fetch would throw away
+            // the list just restored from the cache — megabytes each time.
             this.sessionsSync.invalidate();
             this.machinesSync.invalidate();
             log.log('🔌 Socket reconnected: Invalidating artifacts sync');
@@ -2889,14 +2893,14 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             if (this.viewingSessionId) {
                 this.fetchOrchestratorActivity(this.viewingSessionId);
             }
-            const sessionsData = storage.getState().sessionsData;
-            if (sessionsData) {
-                for (const item of sessionsData) {
-                    if (typeof item !== 'string') {
-                        this.messagesSync.get(item.id)?.invalidate();
-                        this.invalidatePendingMessagesSync(item.id);
-                    }
-                }
+            // Only sessions that have been opened hold messages or pending
+            // messages to refresh; asking for every session in the list sent a
+            // request (plus its CORS preflight) per session on each connect.
+            for (const sync of this.messagesSync.values()) {
+                sync.invalidate();
+            }
+            for (const sync of this.pendingMessagesSync.values()) {
+                sync.invalidate();
             }
         });
 
