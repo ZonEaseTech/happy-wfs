@@ -14,6 +14,7 @@ import { loadFiles } from "./storage/files";
 import { startMessageDeliveryTimeoutWorker } from "./app/messageDelivery/timeout";
 import { startOrchestratorScheduler } from "./app/orchestrator/scheduler";
 import { startFeedCleanup } from "./app/feed/feedCleanup";
+import { startSessionArchiveCleanup } from "./app/session/sessionArchiveCleanup";
 
 async function main() {
 
@@ -44,6 +45,7 @@ async function main() {
     startMessageDeliveryTimeoutWorker();
     startOrchestratorScheduler();
     startFeedCleanup();
+    startSessionArchiveCleanup();
 
     //
     // Ready
