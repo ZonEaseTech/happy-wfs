@@ -157,6 +157,9 @@ class Sync {
     // Older history is only fetched on demand — nothing pulls it in the
     // background, so opening a long session stays cheap.
     private static readonly INITIAL_MESSAGES_LIMIT = 50;
+    // Beyond this many messages missed while away, catching up from the held
+    // messages costs more than starting over from the latest page
+    private static readonly MAX_CATCH_UP_MESSAGES = 300;
     // On-device message cache: how much backfilled history is kept, and how
     // long a save may be deferred while pages keep arriving.
     private static readonly MESSAGE_CACHE_MAX_MESSAGES = 3000;
@@ -172,6 +175,8 @@ class Sync {
     private sessionsSync: InvalidateSync;
     private messagesSync = new Map<string, InvalidateSync>();
     private pendingMessagesSync = new Map<string, InvalidateSync>();
+    // Newest message seq a hint announced for a session not on screen
+    private hintedMessageSeq = new Map<string, number>();
     private messageFocus = createMessageFocus((state) => {
         if (FOCUSED_UPDATES) {
             apiSocket.sendIfReady('message-focus', state);
@@ -445,7 +450,18 @@ class Sync {
         // When user navigates into a session, clear the cursor so
         // fetchMessagesV3 runs a fresh bootstrap (latest 100 messages)
         // instead of incrementally catching up from a potentially stale cursor.
-        if (userInitiated) {
+        // Except when hints said messages arrived while it was off screen:
+        // then the cursor is exactly where the held messages stop, and catching
+        // up from it keeps them on screen meanwhile and leaves no gap.
+        const heldSeq = this.sessionLastSeq.get(sessionId);
+        const hintedSeq = this.hintedMessageSeq.get(sessionId);
+        this.hintedMessageSeq.delete(sessionId);
+        const behind = heldSeq !== undefined && hintedSeq !== undefined && hintedSeq > heldSeq;
+        if (behind && hintedSeq - heldSeq > Sync.MAX_CATCH_UP_MESSAGES) {
+            // Too far behind: start over from the cached copy and the latest page
+            this.dropHeldMessages(sessionId);
+            this.hydratedMessageSessions.delete(sessionId);
+        } else if (userInitiated && !behind) {
             this.sessionLastSeq.delete(sessionId);
         }
 
@@ -1400,6 +1416,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         this.messagesSync.delete(sessionId);
         this.pendingMessagesSync.delete(sessionId);
         this.sessionLastSeq.delete(sessionId);
+        this.hintedMessageSeq.delete(sessionId);
         this.sessionMessageLocks.delete(sessionId);
         this.sessionMessageUpdateQueues.delete(sessionId);
         this.sessionMessageQueueRunning.delete(sessionId);
@@ -3009,10 +3026,11 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             if (this.messageFocus.isFocused(sid)) {
                 // On screen, but the server had not heard yet: fetch it
                 this.invalidateMessagesSync(sid);
-            } else if (this.sessionLastSeq.has(sid)) {
-                // Messages held from an earlier visit now stop short; showing
-                // the session again starts from the latest page, without a gap
-                this.dropHeldMessages(sid);
+            } else if (this.sessionLastSeq.has(sid) && typeof updateData.body.messageSeq === 'number') {
+                // Messages held from an earlier visit now stop short. Keep them
+                // (they show at once when the session is opened again) and note
+                // how far behind they are; opening it catches up from them.
+                this.hintedMessageSeq.set(sid, Math.max(this.hintedMessageSeq.get(sid) ?? 0, updateData.body.messageSeq));
             }
         } else if (updateData.body.t === 'new-session') {
             log.log('🆕 New session update received');
