@@ -14,6 +14,7 @@ import { artifactUpdateHandler } from "./socket/artifactUpdateHandler";
 import { accessKeyHandler } from "./socket/accessKeyHandler";
 import { cleanupUserRpcSocket, getOrCreateUserRpcListeners } from "./socket/rpcRegistry";
 import { registerPtyHandlers } from "./socket/ptyHandler";
+import { messageFocusHandler } from "./socket/messageFocusHandler";
 
 export function startSocket(app: Fastify) {
     const io = new Server(app.server, {
@@ -48,6 +49,7 @@ export function startSocket(app: Fastify) {
         const sessionId = socket.handshake.auth.sessionId as string | undefined;
         const machineId = socket.handshake.auth.machineId as string | undefined;
         const supportsMessageReceipt = socket.handshake.auth.supportsMessageReceipt === true;
+        const focusedUpdates = socket.handshake.auth.focusedUpdates === true;
 
         if (!token) {
             log({ module: 'websocket' }, `No token provided`);
@@ -105,7 +107,8 @@ export function startSocket(app: Fastify) {
             connection = {
                 connectionType: 'user-scoped',
                 socket,
-                userId
+                userId,
+                ...(focusedUpdates ? { messageFocus: { all: false, sessionIds: new Set<string>() } } : {})
             };
         }
         eventRouter.addConnection(userId, connection);
@@ -154,6 +157,9 @@ export function startSocket(app: Fastify) {
         artifactUpdateHandler(userId, socket);
         accessKeyHandler(userId, socket);
         registerPtyHandlers(io, socket, userId, connection);
+        if (connection.connectionType === 'user-scoped' && connection.messageFocus) {
+            messageFocusHandler(socket, connection.messageFocus);
+        }
 
         // Ready
         log({ module: 'websocket' }, `User connected: ${userId}`);

@@ -20,6 +20,18 @@ export interface UserScopedConnection {
     connectionType: 'user-scoped';
     socket: Socket;
     userId: string;
+    /**
+     * Present only when the client asked for focused delivery: it then gets
+     * full new-message updates just for the sessions it shows, and a
+     * new-message-hint for every other one. Message bodies of sessions nobody
+     * is looking at made up most of what a browser downloaded.
+     */
+    messageFocus?: MessageFocus;
+}
+
+export interface MessageFocus {
+    all: boolean;
+    sessionIds: Set<string>;
 }
 
 export interface MachineScopedConnection {
@@ -42,6 +54,10 @@ export type RecipientFilter =
 // === UPDATE EVENT TYPES (Persistent) ===
 
 export type UpdateEvent = {
+    type: 'new-message-hint';
+    sessionId: string;
+    messageSeq: number;
+} | {
     type: 'new-message';
     sessionId: string;
     message: {
@@ -519,6 +535,7 @@ class EventRouter {
 
         let total = 0;
         let sessionScoped = 0;
+        let hint: UpdatePayload | undefined;
         for (const connection of connections) {
             // Skip message echo
             if (params.skipSenderConnection && connection === params.skipSenderConnection) {
@@ -530,7 +547,12 @@ class EventRouter {
                 continue;
             }
 
-            connection.socket.emit(params.eventName, params.payload);
+            if (params.eventName === 'update' && isOutOfFocus(connection, params.payload)) {
+                hint ??= buildNewMessageHint(params.payload);
+                connection.socket.emit(params.eventName, hint);
+            } else {
+                connection.socket.emit(params.eventName, params.payload);
+            }
             total += 1;
             if (connection.connectionType === 'session-scoped') {
                 sessionScoped += 1;
@@ -576,6 +598,35 @@ export function buildNewSessionUpdate(session: {
             updatedAt: session.updatedAt.getTime()
         },
         createdAt: Date.now()
+    };
+}
+
+/** A new message for a session this connection asked not to receive bodies for */
+function isOutOfFocus(connection: ClientConnection, payload: any): boolean {
+    if (connection.connectionType !== 'user-scoped' || !connection.messageFocus) {
+        return false;
+    }
+    if (payload?.body?.t !== 'new-message') {
+        return false;
+    }
+    return !connection.messageFocus.all && !connection.messageFocus.sessionIds.has(payload.body.sid);
+}
+
+/**
+ * What a focused client gets instead of a new message it is not showing: the
+ * same envelope (id, seq, createdAt) so ordering and the session's place in the
+ * list still move, without the message body.
+ */
+export function buildNewMessageHint(update: UpdatePayload): UpdatePayload {
+    return {
+        id: update.id,
+        seq: update.seq,
+        body: {
+            t: 'new-message-hint',
+            sid: update.body.sid,
+            messageSeq: update.body.message?.seq,
+        },
+        createdAt: update.createdAt,
     };
 }
 
