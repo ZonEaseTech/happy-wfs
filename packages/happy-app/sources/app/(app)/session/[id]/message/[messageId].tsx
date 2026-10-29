@@ -55,7 +55,9 @@ export default React.memo(() => {
     // Trigger session visibility when component mounts
     React.useEffect(() => {
         if (sessionId) {
+            const releaseFocus = sync.focusSessionMessages(sessionId);
             sync.onSessionVisible(sessionId, true);
+            return releaseFocus;
         }
     }, [sessionId]);
     

@@ -1,6 +1,14 @@
 import { io, Socket } from 'socket.io-client';
+import { Platform } from 'react-native';
 import { TokenStorage } from '@/auth/tokenStorage';
 import { Encryption } from './encryption/encryption';
+
+/**
+ * The web app asks the server for full new-message updates only for the
+ * sessions it shows (see Sync.focusSessionMessages) and a small hint for the
+ * rest. Native apps keep receiving everything for now.
+ */
+export const FOCUSED_UPDATES = Platform.OS === 'web';
 
 //
 // Types
@@ -61,7 +69,8 @@ class ApiSocket {
             path: '/v1/updates',
             auth: {
                 token: this.config.token,
-                clientType: 'user-scoped' as const
+                clientType: 'user-scoped' as const,
+                ...(FOCUSED_UPDATES ? { focusedUpdates: true } : {})
             },
             transports: ['websocket'],
             reconnection: true,
@@ -304,6 +313,13 @@ class ApiSocket {
 
     send(event: string, data: any) {
         this.socket!.emit(event, data);
+        return true;
+    }
+
+    /** Like send, but a no-op before the socket exists (it is re-sent on connect) */
+    sendIfReady(event: string, data: any): boolean {
+        if (!this.socket) return false;
+        this.socket.emit(event, data);
         return true;
     }
 

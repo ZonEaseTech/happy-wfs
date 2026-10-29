@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { apiSocket } from '@/sync/apiSocket';
+import { apiSocket, FOCUSED_UPDATES } from '@/sync/apiSocket';
 import { AuthCredentials } from '@/auth/tokenStorage';
 import { Encryption } from '@/sync/encryption/encryption';
 import { decodeBase64, encodeBase64 } from '@/encryption/base64';
@@ -64,6 +64,7 @@ import { sessionUpdateMetadataFields } from './ops';
 import { shouldInvalidateGitStatusOnActivityTransition } from './gitStatusRefreshPolicy';
 import { kvGet, kvMutate } from './apiKv';
 import { sessionListCache, type CachedSessionRow } from './sessionListCache';
+import { createMessageFocus } from './messageFocus';
 import {
     SESSION_MODE_CONFIG_KV_KEY,
     applySessionModeConfigPatches,
@@ -171,6 +172,11 @@ class Sync {
     private sessionsSync: InvalidateSync;
     private messagesSync = new Map<string, InvalidateSync>();
     private pendingMessagesSync = new Map<string, InvalidateSync>();
+    private messageFocus = createMessageFocus((state) => {
+        if (FOCUSED_UPDATES) {
+            apiSocket.sendIfReady('message-focus', state);
+        }
+    });
     private sessionReceivedMessages = new Map<string, Set<string>>();
     private messageSyncTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
     private sessionMessageUpdateQueues = new Map<string, ApiUpdateContainer[]>();
@@ -269,6 +275,19 @@ class Sync {
         this.feedSync = new InvalidateSync(this.fetchFeed);
         this.sharedSessionsSync = new InvalidateSync(this.fetchSharedSessions);
         this.openClawMachinesSync = new InvalidateSync(this.fetchOpenClawMachines);
+
+        // A voice conversation announces other sessions finishing, which it
+        // reads from their messages: follow all of them while it runs.
+        let releaseVoiceFocus: (() => void) | null = null;
+        storage.subscribe((state) => {
+            const voiceOn = state.realtimeStatus === 'connecting' || state.realtimeStatus === 'connected';
+            if (voiceOn && !releaseVoiceFocus) {
+                releaseVoiceFocus = this.focusAllSessionMessages();
+            } else if (!voiceOn && releaseVoiceFocus) {
+                releaseVoiceFocus();
+                releaseVoiceFocus = null;
+            }
+        });
 
         const registerPushToken = async () => {
             // Keep push token registration enabled in dev builds too:
@@ -399,6 +418,28 @@ class Sync {
         });
     }
 
+
+    /**
+     * Receive this session's messages in full until the returned function is
+     * called. With focused updates (web) the server sends other sessions'
+     * messages as hints only; call this from whatever shows a session.
+     */
+    focusSessionMessages = (sessionId: string): (() => void) => this.messageFocus.focus(sessionId);
+
+    /** Receive every session's messages in full, e.g. while a voice conversation follows them */
+    focusAllSessionMessages = (): (() => void) => this.messageFocus.focusAll();
+
+    /** Whether new messages of this session arrive in full rather than as hints */
+    private followsMessagesOf = (sessionId: string) => !FOCUSED_UPDATES || this.messageFocus.isFocused(sessionId);
+
+    /** Forget the messages held for a session so showing it again starts from the latest page */
+    private dropHeldMessages = (sessionId: string) => {
+        this.resetSessionMessageDispatch(sessionId);
+        this.sessionMessageUpdateQueues.delete(sessionId);
+        storage.getState().clearSessionMessages(sessionId);
+        this.sessionReceivedMessages.delete(sessionId);
+        this.sessionLastSeq.delete(sessionId);
+    }
 
     onSessionVisible = (sessionId: string, userInitiated: boolean = false) => {
         // When user navigates into a session, clear the cursor so
@@ -2893,14 +2934,17 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             if (this.viewingSessionId) {
                 this.fetchOrchestratorActivity(this.viewingSessionId);
             }
+            // A new connection knows nothing of what this client shows
+            this.messageFocus.resend();
             // Only sessions that have been opened hold messages or pending
             // messages to refresh; asking for every session in the list sent a
             // request (plus its CORS preflight) per session on each connect.
-            for (const sync of this.messagesSync.values()) {
-                sync.invalidate();
+            // With focused updates, only the ones still on screen.
+            for (const [sessionId, sync] of this.messagesSync) {
+                if (this.followsMessagesOf(sessionId)) sync.invalidate();
             }
-            for (const sync of this.pendingMessagesSync.values()) {
-                sync.invalidate();
+            for (const [sessionId, sync] of this.pendingMessagesSync) {
+                if (this.followsMessagesOf(sessionId)) sync.invalidate();
             }
         });
 
@@ -2952,6 +2996,24 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                 this.invalidateMessagesSync(sid);
             }
 
+        } else if (updateData.body.t === 'new-message-hint') {
+            // A message in a session this client does not show: the server sent
+            // only that it exists. Keep the session's place in the list moving.
+            const sid = updateData.body.sid;
+            const session = storage.getState().sessions[sid];
+            if (session) {
+                this.applySessions([{ ...session, updatedAt: updateData.createdAt, seq: updateData.seq }]);
+            } else if (!storage.getState().sharedSessions[sid]) {
+                this.sessionsSync.invalidate();
+            }
+            if (this.messageFocus.isFocused(sid)) {
+                // On screen, but the server had not heard yet: fetch it
+                this.invalidateMessagesSync(sid);
+            } else if (this.sessionLastSeq.has(sid)) {
+                // Messages held from an earlier visit now stop short; showing
+                // the session again starts from the latest page, without a gap
+                this.dropHeldMessages(sid);
+            }
         } else if (updateData.body.t === 'new-session') {
             log.log('🆕 New session update received');
             this.sessionsSync.invalidate();
@@ -3874,13 +3936,9 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                 clearTimeout(existing);
             }
             storage.getState().setSessionMessageSyncing(sessionId, true);
-            this.resetSessionMessageDispatch(sessionId);
-            this.sessionMessageUpdateQueues.delete(sessionId);
-            storage.getState().clearSessionMessages(sessionId);
-            this.sessionReceivedMessages.delete(sessionId);
-            // Reset seq cursor so the subsequent re-fetch starts from seq 0
-            // and retrieves all messages, not just those after the old cursor.
-            this.sessionLastSeq.delete(sessionId);
+            // Also resets the seq cursor, so the subsequent re-fetch starts from
+            // seq 0 and retrieves all messages, not just those after the old cursor.
+            this.dropHeldMessages(sessionId);
 
             const timeout = setTimeout(() => {
                 this.messageSyncTimeouts.delete(sessionId);

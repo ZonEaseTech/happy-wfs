@@ -82,6 +82,14 @@ export const ApiUpdateNewMessageSchema = z.object({
     message: ApiMessageSchema
 });
 
+// A new message in a session this client does not show (focused updates):
+// only that it exists, not its body
+export const ApiUpdateNewMessageHintSchema = z.object({
+    t: z.literal('new-message-hint'),
+    sid: z.string(),
+    messageSeq: z.number().optional(),
+});
+
 export const ApiUpdateNewSessionSchema = z.object({
     t: z.literal('new-session'),
     id: z.string(), // Session ID
@@ -296,6 +304,7 @@ export const ApiPublicShareDeletedSchema = z.object({
 
 export const ApiUpdateSchema = z.discriminatedUnion('t', [
     ApiUpdateNewMessageSchema,
+    ApiUpdateNewMessageHintSchema,
     ApiUpdateNewSessionSchema,
     ApiDeleteSessionSchema,
     ApiUpdateSessionStateSchema,

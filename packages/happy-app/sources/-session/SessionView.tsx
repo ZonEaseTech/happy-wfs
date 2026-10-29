@@ -1627,11 +1627,14 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     // Trigger refresh whenever this session screen gets focus.
     useFocusEffect(
         React.useCallback(() => {
+            // Full messages for this session while it is on screen
+            const releaseFocus = sync.focusSessionMessages(sessionId);
             sync.onSessionVisible(sessionId, true);
             startSilentRefreshTracking();
             void sync.refreshSessions().catch(() => {
                 // Silent refresh indicator handles delayed feedback if status stays stale.
             });
+            return releaseFocus;
         }, [sessionId, startSilentRefreshTracking])
     );
 
