@@ -60,8 +60,12 @@ class ActivityCache {
         
         // Cache miss - check database
         try {
+            // Existence and lastActiveAt only: the row also carries the
+            // encrypted metadata (tens of KB), and this runs on every cache
+            // miss of a session heartbeat
             const session = await db.session.findUnique({
-                where: { id: sessionId, accountId: userId }
+                where: { id: sessionId, accountId: userId },
+                select: { lastActiveAt: true }
             });
             
             if (session) {
@@ -102,7 +106,8 @@ class ActivityCache {
                         accountId: userId,
                         id: machineId
                     }
-                }
+                },
+                select: { lastActiveAt: true }
             });
             
             if (machine) {
@@ -230,7 +235,8 @@ class ActivityCache {
                                 id: update.id
                             }
                         },
-                        data: { lastActiveAt: new Date(update.timestamp) }
+                        data: { lastActiveAt: new Date(update.timestamp) },
+                        select: { id: true }
                     })
                 ));
                 

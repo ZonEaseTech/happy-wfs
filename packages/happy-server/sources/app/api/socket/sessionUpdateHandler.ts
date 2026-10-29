@@ -61,17 +61,26 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                 return;
             }
 
-            // Resolve session
+            // Resolve session. Only the version: the metadata is the bulk of
+            // the row and is needed only to answer a mismatch.
             const session = await db.session.findUnique({
-                where: { id: sid, accountId: userId }
+                where: { id: sid, accountId: userId },
+                select: { metadataVersion: true }
             });
             if (!session) {
                 return;
             }
+            const replyMismatch = async () => {
+                const current = await db.session.findUnique({
+                    where: { id: sid },
+                    select: { metadataVersion: true, metadata: true }
+                });
+                callback({ result: 'version-mismatch', version: current?.metadataVersion ?? session.metadataVersion, metadata: current?.metadata ?? null });
+            };
 
             // Check version
             if (session.metadataVersion !== expectedVersion) {
-                callback({ result: 'version-mismatch', version: session.metadataVersion, metadata: session.metadata });
+                await replyMismatch();
                 return null;
             }
 
@@ -84,7 +93,7 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                 }
             });
             if (count === 0) {
-                callback({ result: 'version-mismatch', version: session.metadataVersion, metadata: session.metadata });
+                await replyMismatch();
                 return null;
             }
 
@@ -122,21 +131,31 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                 return;
             }
 
-            // Resolve session
+            // Resolve session. Only the version: this runs on every agent state
+            // change, and reading the whole row pulled the encrypted metadata
+            // (tens of KB) each time. agentState is needed only for a mismatch.
             const session = await db.session.findUnique({
                 where: {
                     id: sid,
                     accountId: userId
-                }
+                },
+                select: { agentStateVersion: true }
             });
             if (!session) {
                 callback({ result: 'error' });
                 return null;
             }
+            const replyMismatch = async () => {
+                const current = await db.session.findUnique({
+                    where: { id: sid },
+                    select: { agentStateVersion: true, agentState: true }
+                });
+                callback({ result: 'version-mismatch', version: current?.agentStateVersion ?? session.agentStateVersion, agentState: current?.agentState ?? null });
+            };
 
             // Check version
             if (session.agentStateVersion !== expectedVersion) {
-                callback({ result: 'version-mismatch', version: session.agentStateVersion, agentState: session.agentState });
+                await replyMismatch();
                 return null;
             }
 
@@ -149,7 +168,7 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                 }
             });
             if (count === 0) {
-                callback({ result: 'version-mismatch', version: session.agentStateVersion, agentState: session.agentState });
+                await replyMismatch();
                 return null;
             }
 
@@ -362,9 +381,10 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                     return;
                 }
 
-                // Resolve session
+                // Resolve session (existence only)
                 const session = await db.session.findUnique({
-                    where: { id: sid, accountId: userId }
+                    where: { id: sid, accountId: userId },
+                    select: { id: true }
                 });
                 if (!session) {
                     if (callback) {
@@ -497,9 +517,10 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
 
                 log({ module: 'websocket' }, `Received message from socket ${socket.id}: sessionId=${sid}, messageLength=${message.length} bytes, connectionType=${connection.connectionType}, connectionSessionId=${connection.connectionType === 'session-scoped' ? connection.sessionId : 'N/A'}`);
 
-                // Resolve session
+                // Resolve session (existence only)
                 const session = await db.session.findUnique({
-                    where: { id: sid, accountId: userId }
+                    where: { id: sid, accountId: userId },
+                    select: { id: true }
                 });
                 if (!session) {
                     if (callback) {
@@ -596,9 +617,10 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
             }
             endedSessions.add(sid);
 
-            // Resolve session
+            // Resolve session (existence only)
             const session = await db.session.findUnique({
-                where: { id: sid, accountId: userId }
+                where: { id: sid, accountId: userId },
+                select: { id: true }
             });
             if (!session) {
                 return;
@@ -607,7 +629,8 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
             // Update last active at
             await db.session.update({
                 where: { id: sid },
-                data: { lastActiveAt: new Date(t), active: false }
+                data: { lastActiveAt: new Date(t), active: false },
+                select: { id: true }
             });
 
             // Emit session activity update to owner and shared users

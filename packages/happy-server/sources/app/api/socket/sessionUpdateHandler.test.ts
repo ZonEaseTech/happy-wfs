@@ -10,7 +10,7 @@ const {
     createSocket
 } = vi.hoisted(() => {
     const state = {
-        sessions: [] as Array<{ id: string; accountId: string }>,
+        sessions: [] as Array<{ id: string; accountId: string; agentState?: string | null; agentStateVersion?: number; metadata?: string }>,
         messages: [] as Array<{ id: string; sessionId: string; localId: string | null }>,
         deliveryIssues: [] as Array<{ sessionMessageId: string; status: "waiting" | "error"; reason: string | null }>
     };
@@ -24,8 +24,20 @@ const {
     const sessionFindUnique = vi.fn(async (args: any) => {
         return state.sessions.find((session) => (
             session.id === args?.where?.id &&
-            session.accountId === args?.where?.accountId
+            (args?.where?.accountId === undefined || session.accountId === args.where.accountId)
         )) ?? null;
+    });
+
+    const sessionUpdateMany = vi.fn(async (args: any) => {
+        const session = state.sessions.find((item) => (
+            item.id === args?.where?.id &&
+            item.agentStateVersion === args?.where?.agentStateVersion
+        ));
+        if (!session) {
+            return { count: 0 };
+        }
+        Object.assign(session, args.data);
+        return { count: 1 };
     });
 
     const sessionMessageFindFirst = vi.fn(async (args: any) => {
@@ -62,6 +74,7 @@ const {
     const dbMock = {
         session: {
             findUnique: sessionFindUnique,
+            updateMany: sessionUpdateMany,
             update: vi.fn(async () => ({}))
         },
         sessionMessage: {
@@ -85,12 +98,12 @@ const {
                     handlers.set(event, handler);
                 })
             } as any,
-            async trigger(event: string, data: any) {
+            async trigger(event: string, data: any, callback?: (response: any) => void) {
                 const handler = handlers.get(event);
                 if (!handler) {
                     throw new Error(`Missing handler for ${event}`);
                 }
-                await handler(data);
+                await handler(data, callback);
             }
         };
     };
@@ -112,7 +125,8 @@ vi.mock("@/storage/db", () => ({
 vi.mock("@/app/events/eventRouter", () => ({
     eventRouter: {
         getConnections: vi.fn(() => new Set()),
-        emitEphemeralToSessionSubscribers: emitEphemeralToSessionSubscribersMock
+        emitEphemeralToSessionSubscribers: emitEphemeralToSessionSubscribersMock,
+        emitToSessionSubscribers: vi.fn(async () => undefined)
     },
     buildSessionActivityEphemeral: vi.fn((sid: string, active: boolean, activeAt: number, thinking?: boolean) => ({
         type: "activity",
@@ -167,6 +181,11 @@ vi.mock("@/utils/log", () => ({
 
 vi.mock("@/utils/delay", () => ({
     delay: vi.fn(async () => undefined)
+}));
+
+vi.mock("@/app/notifications/notifier", () => ({
+    onInputNeeded: vi.fn(async () => undefined),
+    onMessageCompleted: vi.fn(async () => undefined)
 }));
 
 vi.mock("@/app/session/pendingMessageAutoDispatch", () => ({
@@ -384,5 +403,47 @@ describe("sessionUpdateHandler session-alive auto-dispatch", () => {
         const falseIdx = operationLog.indexOf("broadcast:thinking=false");
         const dispatchEndIdx = operationLog.indexOf("dispatch-end");
         expect(falseIdx).toBeLessThan(dispatchEndIdx);
+    });
+});
+
+describe("sessionUpdateHandler update-state", () => {
+    beforeEach(() => {
+        resetState();
+        dbMock.session.findUnique.mockClear();
+    });
+
+    const createConnection = (socket: any): ClientConnection => ({
+        connectionType: "session-scoped",
+        socket,
+        userId: "user-1",
+        sessionId: "session-1",
+        supportsMessageReceipt: true
+    });
+
+    // Runs on every agent state change; the session row also carries the
+    // encrypted metadata, tens of KB that the version check does not need.
+    it("checks the version without reading the rest of the session", async () => {
+        state.sessions.push({ id: "session-1", accountId: "user-1", agentState: "old", agentStateVersion: 3, metadata: "big" });
+        const { socket, trigger } = createSocket();
+        sessionUpdateHandler("user-1", socket, createConnection(socket));
+        const callback = vi.fn();
+
+        await trigger("update-state", { sid: "session-1", agentState: "new", expectedVersion: 3 }, callback);
+
+        expect(dbMock.session.findUnique).toHaveBeenCalledTimes(1);
+        expect(dbMock.session.findUnique).toHaveBeenCalledWith(expect.objectContaining({ select: { agentStateVersion: true } }));
+        expect(callback).toHaveBeenCalledWith({ result: "success", version: 4, agentState: "new" });
+    });
+
+    it("answers a version mismatch with the current agent state", async () => {
+        state.sessions.push({ id: "session-1", accountId: "user-1", agentState: "current", agentStateVersion: 5, metadata: "big" });
+        const { socket, trigger } = createSocket();
+        sessionUpdateHandler("user-1", socket, createConnection(socket));
+        const callback = vi.fn();
+
+        await trigger("update-state", { sid: "session-1", agentState: "stale", expectedVersion: 3 }, callback);
+
+        expect(callback).toHaveBeenCalledWith({ result: "version-mismatch", version: 5, agentState: "current" });
+        expect(state.sessions[0].agentState).toBe("current");
     });
 });

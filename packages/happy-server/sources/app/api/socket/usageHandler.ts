@@ -85,7 +85,8 @@ export function usageHandler(userId: string, socket: Socket) {
                             where: {
                                 id: sessionId,
                                 accountId: userId
-                            }
+                            },
+                            select: { id: true }
                         });
 
                         if (!session) {

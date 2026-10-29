@@ -21,12 +21,14 @@ export function startTimeout() {
                 lastActiveAt: {
                     lte: new Date(Date.now() - SESSION_TIMEOUT_MS)
                 }
-            }
+            },
+            select: { id: true, accountId: true }
         });
         for (const session of sessions) {
             const updated = await db.session.updateManyAndReturn({
                 where: { id: session.id, active: true },
-                data: { active: false }
+                data: { active: false },
+                select: { lastActiveAt: true }
             });
             if (updated.length === 0) {
                 continue;
@@ -50,12 +52,14 @@ export function startTimeout() {
                 lastActiveAt: {
                     lte: new Date(Date.now() - 1000 * 60 * 10) // 10 minutes
                 }
-            }
+            },
+            select: { id: true, accountId: true }
         });
         for (const machine of machines) {
             const updated = await db.machine.updateManyAndReturn({
                 where: { id: machine.id, active: true },
-                data: { active: false }
+                data: { active: false },
+                select: { lastActiveAt: true }
             });
             if (updated.length === 0) {
                 continue;
