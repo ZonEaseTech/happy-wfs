@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 51 - 2026-10-29
+
+Going back to a session you already opened shows it at once again.
+
+- Sessions: a session you had open no longer drops its messages when new ones arrive while you are elsewhere, which left a spinner when you came back. It now shows what you saw before right away and adds only what arrived in between. Only after a very long absence (hundreds of new messages) does it start again from your saved copy and the latest messages.
+
 ## Version 50 - 2026-10-29
 
 Happy in the browser downloads only the conversations you are looking at.

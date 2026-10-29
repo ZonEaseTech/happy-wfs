@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 51,
+      "date": "2026-10-29",
+      "summary": "Going back to a session you already opened shows it at once again.",
+      "changes": [
+        "Sessions: a session you had open no longer drops its messages when new ones arrive while you are elsewhere, which left a spinner when you came back. It now shows what you saw before right away and adds only what arrived in between. Only after a very long absence (hundreds of new messages) does it start again from your saved copy and the latest messages."
+      ],
+      "rawMarkdown": "## Version 51 - 2026-10-29\n\n\nGoing back to a session you already opened shows it at once again.\n\n- Sessions: a session you had open no longer drops its messages when new ones arrive while you are elsewhere, which left a spinner when you came back. It now shows what you saw before right away and adds only what arrived in between. Only after a very long absence (hundreds of new messages) does it start again from your saved copy and the latest messages."
+    },
+    {
       "version": 50,
       "date": "2026-10-29",
       "summary": "Happy in the browser downloads only the conversations you are looking at.",
@@ -546,5 +555,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 50
+  "latestVersion": 51
 }
