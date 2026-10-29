@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 50 - 2026-10-29
+
+Happy in the browser downloads only the conversations you are looking at.
+
+- Sessions: the browser now receives the full text of new messages only for the session on screen; for every other session it learns just that something new arrived. With several agents running, that is most of what the browser used to download, so the terminal and the page stay responsive on slow connections. The session list's states — working, needs approval, finished and unread — update live as before.
+- Sessions: opening a session you have not looked at for a while loads its latest messages when you open it.
+- Voice: while a voice conversation is running, the browser follows every session in full again, so it can still tell you when another session finishes.
+
 ## Version 49 - 2026-10-28
 
 Busy sessions no longer keep the app asking the server for nothing.

@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 50,
+      "date": "2026-10-29",
+      "summary": "Happy in the browser downloads only the conversations you are looking at.",
+      "changes": [
+        "Sessions: the browser now receives the full text of new messages only for the session on screen; for every other session it learns just that something new arrived. With several agents running, that is most of what the browser used to download, so the terminal and the page stay responsive on slow connections. The session list's states — working, needs approval, finished and unread — update live as before.",
+        "Sessions: opening a session you have not looked at for a while loads its latest messages when you open it.",
+        "Voice: while a voice conversation is running, the browser follows every session in full again, so it can still tell you when another session finishes."
+      ],
+      "rawMarkdown": "## Version 50 - 2026-10-29\n\n\nHappy in the browser downloads only the conversations you are looking at.\n\n- Sessions: the browser now receives the full text of new messages only for the session on screen; for every other session it learns just that something new arrived. With several agents running, that is most of what the browser used to download, so the terminal and the page stay responsive on slow connections. The session list's states — working, needs approval, finished and unread — update live as before.\n- Sessions: opening a session you have not looked at for a while loads its latest messages when you open it.\n- Voice: while a voice conversation is running, the browser follows every session in full again, so it can still tell you when another session finishes."
+    },
+    {
       "version": 49,
       "date": "2026-10-28",
       "summary": "Busy sessions no longer keep the app asking the server for nothing.",
@@ -535,5 +546,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 49
+  "latestVersion": 50
 }
