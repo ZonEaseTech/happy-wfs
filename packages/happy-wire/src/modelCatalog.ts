@@ -7,6 +7,8 @@ export type CodexModelFamily =
     | typeof MODEL_MODE_DEFAULT
     | 'gpt-6-astra'
     | 'gpt-6.1-sol'
+    | 'gpt-6.1-terra'
+    | 'gpt-6-luna'
     | 'gpt-5.6-sol'
     | 'gpt-5.6-terra'
     | 'gpt-5.6-luna'
@@ -149,6 +151,16 @@ export const MODEL_MODES = [
     'gpt-5.6-sol-high',
     'gpt-5.6-sol-xhigh',
     'gpt-5.6-sol-max',
+    'gpt-6.1-terra-low',
+    'gpt-6.1-terra-medium',
+    'gpt-6.1-terra-high',
+    'gpt-6.1-terra-xhigh',
+    'gpt-6.1-terra-max',
+    'gpt-6-luna-low',
+    'gpt-6-luna-medium',
+    'gpt-6-luna-high',
+    'gpt-6-luna-xhigh',
+    'gpt-6-luna-max',
     'gpt-5.6-terra-low',
     'gpt-5.6-terra-medium',
     'gpt-5.6-terra-high',
@@ -342,6 +354,16 @@ export const CODEX_MODEL_MODES = [
     'gpt-5.6-sol-high',
     'gpt-5.6-sol-xhigh',
     'gpt-5.6-sol-max',
+    'gpt-6.1-terra-low',
+    'gpt-6.1-terra-medium',
+    'gpt-6.1-terra-high',
+    'gpt-6.1-terra-xhigh',
+    'gpt-6.1-terra-max',
+    'gpt-6-luna-low',
+    'gpt-6-luna-medium',
+    'gpt-6-luna-high',
+    'gpt-6-luna-xhigh',
+    'gpt-6-luna-max',
     'gpt-5.6-terra-low',
     'gpt-5.6-terra-medium',
     'gpt-5.6-terra-high',
@@ -526,8 +548,8 @@ export const CODEX_MODEL_FAMILY_OPTIONS = [
     { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
     { value: 'gpt-6-astra', label: 'GPT-6 Astra', shortLabel: 'Astra', description: 'Most capable, 1M context' },
     { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', shortLabel: 'Sol', description: 'Near-Astra, a fifth of the price' },
-    { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', shortLabel: 'Terra', description: 'Balanced quality and cost' },
-    { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', shortLabel: 'Luna', description: 'Fast and cost-efficient' },
+    { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', shortLabel: 'Terra', description: 'Balanced quality and cost' },
+    { value: 'gpt-6-luna', label: 'GPT-6 Luna', shortLabel: 'Luna', description: 'Fast and cost-efficient' },
 ] as const satisfies readonly { value: CodexModelFamily; label: string; shortLabel: string; description: string }[];
 
 export const CODEX_MODEL_OPTIONS = [
@@ -542,14 +564,16 @@ export const CODEX_MODEL_OPTIONS = [
     { value: 'gpt-6.1-sol-high', label: 'GPT-6.1 Sol (High)', description: 'Strong quality' },
     { value: 'gpt-6.1-sol-xhigh', label: 'GPT-6.1 Sol (XHigh)', description: 'Best quality' },
     { value: 'gpt-6.1-sol-max', label: 'GPT-6.1 Sol (Max)', description: 'Deepest reasoning' },
-    { value: 'gpt-5.6-terra-low', label: 'GPT-5.6 Terra (Low)', description: 'Fast responses' },
-    { value: 'gpt-5.6-terra-medium', label: 'GPT-5.6 Terra (Medium)', description: 'Balanced responses' },
-    { value: 'gpt-5.6-terra-high', label: 'GPT-5.6 Terra (High)', description: 'Strong quality' },
-    { value: 'gpt-5.6-terra-xhigh', label: 'GPT-5.6 Terra (XHigh)', description: 'Best quality' },
-    { value: 'gpt-5.6-luna-low', label: 'GPT-5.6 Luna (Low)', description: 'Fastest responses' },
-    { value: 'gpt-5.6-luna-medium', label: 'GPT-5.6 Luna (Medium)', description: 'Balanced responses' },
-    { value: 'gpt-5.6-luna-high', label: 'GPT-5.6 Luna (High)', description: 'Strong quality' },
-    { value: 'gpt-5.6-luna-xhigh', label: 'GPT-5.6 Luna (XHigh)', description: 'Best quality' },
+    { value: 'gpt-6.1-terra-low', label: 'GPT-6.1 Terra (Low)', description: 'Fast responses' },
+    { value: 'gpt-6.1-terra-medium', label: 'GPT-6.1 Terra (Medium)', description: 'Balanced responses' },
+    { value: 'gpt-6.1-terra-high', label: 'GPT-6.1 Terra (High)', description: 'Strong quality' },
+    { value: 'gpt-6.1-terra-xhigh', label: 'GPT-6.1 Terra (XHigh)', description: 'Best quality' },
+    { value: 'gpt-6.1-terra-max', label: 'GPT-6.1 Terra (Max)', description: 'Deepest reasoning' },
+    { value: 'gpt-6-luna-low', label: 'GPT-6 Luna (Low)', description: 'Fastest responses' },
+    { value: 'gpt-6-luna-medium', label: 'GPT-6 Luna (Medium)', description: 'Balanced responses' },
+    { value: 'gpt-6-luna-high', label: 'GPT-6 Luna (High)', description: 'Strong quality' },
+    { value: 'gpt-6-luna-xhigh', label: 'GPT-6 Luna (XHigh)', description: 'Best quality' },
+    { value: 'gpt-6-luna-max', label: 'GPT-6 Luna (Max)', description: 'Deepest reasoning' },
     { value: 'gpt-5.3-codex-low', label: 'GPT-5.3-Codex (Low)', description: 'Fastest coding responses' },
     { value: 'gpt-5.3-codex-medium', label: 'GPT-5.3-Codex (Medium)', description: 'Balanced coding quality' },
     { value: 'gpt-5.3-codex-high', label: 'GPT-5.3-Codex (High)', description: 'Strong coding quality' },
@@ -586,6 +610,16 @@ const CODEX_MODE_TO_SELECTION: Partial<Record<ModelMode, { family: CodexModelFam
     'gpt-5.6-sol-high': { family: 'gpt-5.6-sol', effort: 'high' },
     'gpt-5.6-sol-xhigh': { family: 'gpt-5.6-sol', effort: 'xhigh' },
     'gpt-5.6-sol-max': { family: 'gpt-5.6-sol', effort: 'max' },
+    'gpt-6.1-terra-low': { family: 'gpt-6.1-terra', effort: 'low' },
+    'gpt-6.1-terra-medium': { family: 'gpt-6.1-terra', effort: 'medium' },
+    'gpt-6.1-terra-high': { family: 'gpt-6.1-terra', effort: 'high' },
+    'gpt-6.1-terra-xhigh': { family: 'gpt-6.1-terra', effort: 'xhigh' },
+    'gpt-6.1-terra-max': { family: 'gpt-6.1-terra', effort: 'max' },
+    'gpt-6-luna-low': { family: 'gpt-6-luna', effort: 'low' },
+    'gpt-6-luna-medium': { family: 'gpt-6-luna', effort: 'medium' },
+    'gpt-6-luna-high': { family: 'gpt-6-luna', effort: 'high' },
+    'gpt-6-luna-xhigh': { family: 'gpt-6-luna', effort: 'xhigh' },
+    'gpt-6-luna-max': { family: 'gpt-6-luna', effort: 'max' },
     'gpt-5.6-terra-low': { family: 'gpt-5.6-terra', effort: 'low' },
     'gpt-5.6-terra-medium': { family: 'gpt-5.6-terra', effort: 'medium' },
     'gpt-5.6-terra-high': { family: 'gpt-5.6-terra', effort: 'high' },
@@ -662,9 +696,18 @@ export function parseCodexModelMode(mode: ModelMode): { family: CodexModelFamily
     return CODEX_MODE_TO_SELECTION[mode] ?? { family: MODEL_MODE_DEFAULT, effort: 'medium' };
 }
 
+// Families that unlock the max reasoning effort; any other family's max falls
+// back to xhigh. Every GPT-6 generation model has it, the 5.6 line only Sol.
+const CODEX_FAMILIES_WITH_MAX: ReadonlySet<CodexModelFamily> = new Set<CodexModelFamily>([
+    'gpt-6-astra',
+    'gpt-6.1-sol',
+    'gpt-6.1-terra',
+    'gpt-6-luna',
+    'gpt-5.6-sol',
+]);
+
 export function getCodexReasoningOptions(family: CodexModelFamily): readonly CodexReasoningEffort[] {
-    // Astra and the Sol line are the only families that unlock the max reasoning effort.
-    if (family === 'gpt-6-astra' || family === 'gpt-6.1-sol' || family === 'gpt-5.6-sol') return ['max', 'xhigh', 'high', 'medium', 'low'];
+    if (CODEX_FAMILIES_WITH_MAX.has(family)) return ['max', 'xhigh', 'high', 'medium', 'low'];
     if (family === 'gpt-5.1-codex-mini') return ['high', 'medium'];
     if (family === MODEL_MODE_DEFAULT) return ['high', 'medium', 'low'];
     return ['xhigh', 'high', 'medium', 'low'];
@@ -679,7 +722,7 @@ export function buildCodexModelMode(
         const miniEffort = effort === 'high' ? 'high' : 'medium';
         return `gpt-5.1-codex-mini-${miniEffort}` as ModelMode;
     }
-    if (effort === 'max' && family !== 'gpt-6-astra' && family !== 'gpt-6.1-sol' && family !== 'gpt-5.6-sol') {
+    if (effort === 'max' && !CODEX_FAMILIES_WITH_MAX.has(family)) {
         return `${family}-xhigh` as ModelMode;
     }
     return `${family}-${effort}` as ModelMode;
@@ -693,6 +736,8 @@ export type ModelSelection = {
 const MODEL_NAME_LABELS: Record<string, string> = {
     'gpt-6-astra': 'GPT-6 Astra',
     'gpt-6.1-sol': 'GPT-6.1 Sol',
+    'gpt-6.1-terra': 'GPT-6.1 Terra',
+    'gpt-6-luna': 'GPT-6 Luna',
     'gpt-5.6-sol': 'GPT-5.6 Sol',
     'gpt-5.6-terra': 'GPT-5.6 Terra',
     'gpt-5.6-luna': 'GPT-5.6 Luna',
@@ -834,6 +879,9 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
     // Codex models (fallback; actual value comes from CLI via context_window_size)
     'gpt-6-astra': 1_050_000,
     'gpt-6.1-sol': 1_050_000,
+    // As Codex's own model catalog (0.166) gives them
+    'gpt-6.1-terra': 500_000,
+    'gpt-6-luna': 272_000,
     'gpt-5.6-sol': 1_500_000,
     'gpt-5.6-terra': 1_500_000,
     'gpt-5.6-luna': 1_500_000,

@@ -3,7 +3,7 @@ import type { ModelMode } from 'happy-wire';
 
 export type CopyTargetAgent = 'claude' | 'codex' | 'gemini' | 'cursor';
 
-export const CODEX_COPY_SESSION_MODEL_MODE = 'gpt-5.6-terra-high' satisfies ModelMode;
+export const CODEX_COPY_SESSION_MODEL_MODE = 'gpt-6.1-terra-high' satisfies ModelMode;
 
 export function getCopyToAgentModelMode(targetAgent: CopyTargetAgent): ModelMode {
     if (targetAgent === 'codex') return CODEX_COPY_SESSION_MODEL_MODE;

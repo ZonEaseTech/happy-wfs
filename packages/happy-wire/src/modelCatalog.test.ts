@@ -206,6 +206,40 @@ describe('modelCatalog', () => {
         expect(buildCodexModelMode('gpt-5.6-sol', 'max')).toBe('gpt-5.6-sol-max');
     });
 
+    it('supports GPT-6.1 Terra and GPT-6 Luna and keeps the 5.6 Terra and Luna modes valid after dropping them from the pickers', () => {
+        // 6.1 Terra(10-26 发布)与 6 Luna 接替 5.6 Terra / Luna 的位置。
+        const familyValues = CODEX_MODEL_FAMILY_OPTIONS.map(o => o.value);
+        expect(CODEX_MODEL_FAMILY_OPTIONS[3]).toMatchObject({ value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra' });
+        expect(CODEX_MODEL_FAMILY_OPTIONS[4]).toMatchObject({ value: 'gpt-6-luna', label: 'GPT-6 Luna' });
+        // Codex 0.166 的模型目录: 两者都到 max(Terra 另有 ultra, Happy 尚未提供)。
+        for (const family of ['gpt-6.1-terra', 'gpt-6-luna'] as const) {
+            expect(getCodexReasoningOptions(family)).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
+            expect(buildCodexModelMode(family, 'max')).toBe(`${family}-max`);
+            expect(isModelModeForAgent('codex', `${family}-max`)).toBe(true);
+            expect(parseCodexModelMode(`${family}-low`)).toEqual({ family, effort: 'low' });
+        }
+        expect(resolveModelSelectionForFlavor('codex', 'gpt-6.1-terra-high')).toEqual({
+            model: 'gpt-6.1-terra',
+            reasoningEffort: 'high',
+        });
+        expect(resolveModelSelectionForFlavor('codex', 'gpt-6-luna-medium')).toEqual({
+            model: 'gpt-6-luna',
+            reasoningEffort: 'medium',
+        });
+        expect(getMaxContextSize('gpt-6.1-terra-high', 'codex')).toBe(500_000);
+        expect(getMaxContextSize('gpt-6-luna-high', 'codex')).toBe(272_000);
+        expect(formatModelDisplay('gpt-6.1-terra', 'max')).toBe('GPT-6.1 Terra (Max)');
+        expect(formatModelDisplay('gpt-6-luna', 'low')).toBe('GPT-6 Luna (Low)');
+
+        // 5.6 Terra / Luna 只从两个 picker 列表移除, 已固定该模型的会话仍然可用, 档位上限不变。
+        expect(familyValues).not.toContain('gpt-5.6-terra');
+        expect(familyValues).not.toContain('gpt-5.6-luna');
+        expect(CODEX_MODEL_OPTIONS.map(o => o.value)).not.toContain('gpt-5.6-terra-high');
+        expect(isModelModeForAgent('codex', 'gpt-5.6-terra-xhigh')).toBe(true);
+        expect(isModelModeForAgent('codex', 'gpt-5.6-luna-low')).toBe(true);
+        expect(buildCodexModelMode('gpt-5.6-terra', 'max')).toBe('gpt-5.6-terra-xhigh');
+    });
+
     it('parses codex model mode into family and effort', () => {
         expect(parseCodexModelMode('gpt-5.2-medium')).toEqual({
             family: 'gpt-5.2',
@@ -254,7 +288,7 @@ describe('modelCatalog', () => {
 
     it('hides older Codex families from the picker while preserving mode compatibility', () => {
         const values = CODEX_MODEL_FAMILY_OPTIONS.map(option => option.value);
-        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']);
+        expect(values).toEqual([MODEL_MODE_DEFAULT, 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna']);
         expect(isModelModeForAgent('codex', 'gpt-5.5-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.4-high')).toBe(true);
         expect(isModelModeForAgent('codex', 'gpt-5.3-codex-xhigh')).toBe(true);
