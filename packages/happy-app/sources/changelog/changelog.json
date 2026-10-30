@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": 52,
+      "date": "2026-10-30",
+      "summary": "GPT-6.1 Terra and GPT-6 Luna replace the 5.6 Terra and Luna in the Codex model picker.",
+      "changes": [
+        "Models: GPT-6.1 Terra takes the place of GPT-5.6 Terra. OpenAI released it on October 26 for everyday work and computer use, at half the price of GPT-5.6 Terra and more than three times as fast as GPT-6.1 Sol.",
+        "Models: GPT-6 Luna takes the place of GPT-5.6 Luna as the fast, low-cost choice.",
+        "Models: both offer reasoning from low up to max; the 5.6 models stopped at xhigh.",
+        "Models: copying a session to Codex now starts it on GPT-6.1 Terra (High). Sessions already set to GPT-5.6 Terra or Luna keep working unchanged — the options just no longer show in the picker."
+      ],
+      "rawMarkdown": "## Version 52 - 2026-10-30\n\n\nGPT-6.1 Terra and GPT-6 Luna replace the 5.6 Terra and Luna in the Codex model picker.\n\n- Models: GPT-6.1 Terra takes the place of GPT-5.6 Terra. OpenAI released it on October 26 for everyday work and computer use, at half the price of GPT-5.6 Terra and more than three times as fast as GPT-6.1 Sol.\n- Models: GPT-6 Luna takes the place of GPT-5.6 Luna as the fast, low-cost choice.\n- Models: both offer reasoning from low up to max; the 5.6 models stopped at xhigh.\n- Models: copying a session to Codex now starts it on GPT-6.1 Terra (High). Sessions already set to GPT-5.6 Terra or Luna keep working unchanged — the options just no longer show in the picker."
+    },
+    {
       "version": 51,
       "date": "2026-10-29",
       "summary": "Going back to a session you already opened shows it at once again.",
@@ -555,5 +567,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 51
+  "latestVersion": 52
 }

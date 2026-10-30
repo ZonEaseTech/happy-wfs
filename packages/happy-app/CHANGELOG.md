@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 52 - 2026-10-30
+
+GPT-6.1 Terra and GPT-6 Luna replace the 5.6 Terra and Luna in the Codex model picker.
+
+- Models: GPT-6.1 Terra takes the place of GPT-5.6 Terra. OpenAI released it on October 26 for everyday work and computer use, at half the price of GPT-5.6 Terra and more than three times as fast as GPT-6.1 Sol.
+- Models: GPT-6 Luna takes the place of GPT-5.6 Luna as the fast, low-cost choice.
+- Models: both offer reasoning from low up to max; the 5.6 models stopped at xhigh.
+- Models: copying a session to Codex now starts it on GPT-6.1 Terra (High). Sessions already set to GPT-5.6 Terra or Luna keep working unchanged — the options just no longer show in the picker.
+
 ## Version 51 - 2026-10-29
 
 Going back to a session you already opened shows it at once again.
