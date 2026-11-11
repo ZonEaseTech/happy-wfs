@@ -22,6 +22,8 @@ export type CodexModelFamily =
 export type ClaudeReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type ClaudeModelFamily =
     | typeof MODEL_MODE_DEFAULT
+    | 'claude-fable-5-2'
+    | 'claude-fable-5-2[1m]'
     | 'claude-fable-5-1'
     | 'claude-fable-5-1[1m]'
     | 'claude-fable-5'
@@ -42,6 +44,8 @@ export type ClaudeModelFamily =
 
 export const MODEL_MODES = [
     MODEL_MODE_DEFAULT,
+    'claude-fable-5-2',
+    'claude-fable-5-2[1m]',
     'claude-fable-5-1',
     'claude-fable-5-1[1m]',
     'claude-fable-5',
@@ -59,6 +63,16 @@ export const MODEL_MODES = [
     'claude-sonnet-4-6',
     'claude-sonnet-4-6[1m]',
     'claude-haiku-4-5',
+    'claude-fable-5-2-low',
+    'claude-fable-5-2-medium',
+    'claude-fable-5-2-high',
+    'claude-fable-5-2-xhigh',
+    'claude-fable-5-2-max',
+    'claude-fable-5-2[1m]-low',
+    'claude-fable-5-2[1m]-medium',
+    'claude-fable-5-2[1m]-high',
+    'claude-fable-5-2[1m]-xhigh',
+    'claude-fable-5-2[1m]-max',
     'claude-fable-5-1-low',
     'claude-fable-5-1-medium',
     'claude-fable-5-1-high',
@@ -215,6 +229,8 @@ export type ModelMode = typeof MODEL_MODES[number];
 
 export const CLAUDE_MODEL_MODES = [
     MODEL_MODE_DEFAULT,
+    'claude-fable-5-2',
+    'claude-fable-5-2[1m]',
     'claude-fable-5-1',
     'claude-fable-5-1[1m]',
     'claude-fable-5',
@@ -232,6 +248,16 @@ export const CLAUDE_MODEL_MODES = [
     'claude-sonnet-4-6',
     'claude-sonnet-4-6[1m]',
     'claude-haiku-4-5',
+    'claude-fable-5-2-low',
+    'claude-fable-5-2-medium',
+    'claude-fable-5-2-high',
+    'claude-fable-5-2-xhigh',
+    'claude-fable-5-2-max',
+    'claude-fable-5-2[1m]-low',
+    'claude-fable-5-2[1m]-medium',
+    'claude-fable-5-2[1m]-high',
+    'claude-fable-5-2[1m]-xhigh',
+    'claude-fable-5-2[1m]-max',
     'claude-fable-5-1-low',
     'claude-fable-5-1-medium',
     'claude-fable-5-1-high',
@@ -427,8 +453,8 @@ export function getValidModelModesForAgent(agent: AgentFlavor): readonly ModelMo
 
 export const CLAUDE_MODEL_OPTIONS = [
     { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
-    { value: 'claude-fable-5-1[1m]', label: 'Claude Fable 5.1 (1M)', shortLabel: 'Fable 5.1', description: 'Latest Fable, 1M context' },
-    { value: 'claude-fable-5-1', label: 'Claude Fable 5.1', shortLabel: 'Fable 5.1', description: 'Latest Fable' },
+    { value: 'claude-fable-5-2[1m]', label: 'Claude Fable 5.2 (1M)', shortLabel: 'Fable 5.2', description: 'Latest Fable, 1M context' },
+    { value: 'claude-fable-5-2', label: 'Claude Fable 5.2', shortLabel: 'Fable 5.2', description: 'Latest Fable' },
     { value: 'claude-opus-5-5[1m]', label: 'Claude Opus 5.5 (1M)', shortLabel: 'Opus 5.5', description: 'Latest Opus, 1M context' },
     { value: 'claude-opus-5-5', label: 'Claude Opus 5.5', shortLabel: 'Opus 5.5', description: 'Latest Opus' },
     { value: 'claude-sonnet-5[1m]', label: 'Claude Sonnet 5 (1M)', shortLabel: 'Sonnet 5', description: 'Fast and balanced, 1M context' },
@@ -437,8 +463,8 @@ export const CLAUDE_MODEL_OPTIONS = [
 
 export const CLAUDE_MODEL_FAMILY_OPTIONS = [
     { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
-    { value: 'claude-fable-5-1', label: 'Claude Fable 5.1', shortLabel: 'Fable 5.1', description: 'Latest Fable' },
-    { value: 'claude-fable-5-1[1m]', label: 'Claude Fable 5.1 (1M)', shortLabel: 'Fable 5.1', description: 'Latest Fable, 1M context' },
+    { value: 'claude-fable-5-2', label: 'Claude Fable 5.2', shortLabel: 'Fable 5.2', description: 'Latest Fable' },
+    { value: 'claude-fable-5-2[1m]', label: 'Claude Fable 5.2 (1M)', shortLabel: 'Fable 5.2', description: 'Latest Fable, 1M context' },
     { value: 'claude-opus-5-5', label: 'Claude Opus 5.5', shortLabel: 'Opus 5.5', description: 'Latest Opus' },
     { value: 'claude-opus-5-5[1m]', label: 'Claude Opus 5.5 (1M)', shortLabel: 'Opus 5.5', description: 'Latest Opus, 1M context' },
     { value: 'claude-sonnet-5', label: 'Claude Sonnet 5', shortLabel: 'Sonnet 5', description: 'Fast and balanced' },
@@ -446,6 +472,16 @@ export const CLAUDE_MODEL_FAMILY_OPTIONS = [
 ] as const satisfies readonly { value: ClaudeModelFamily; label: string; shortLabel: string; description: string }[];
 
 const CLAUDE_MODE_TO_SELECTION: Partial<Record<ModelMode, { family: ClaudeModelFamily; effort: ClaudeReasoningEffort }>> = {
+    'claude-fable-5-2-low': { family: 'claude-fable-5-2', effort: 'low' },
+    'claude-fable-5-2-medium': { family: 'claude-fable-5-2', effort: 'medium' },
+    'claude-fable-5-2-high': { family: 'claude-fable-5-2', effort: 'high' },
+    'claude-fable-5-2-xhigh': { family: 'claude-fable-5-2', effort: 'xhigh' },
+    'claude-fable-5-2-max': { family: 'claude-fable-5-2', effort: 'max' },
+    'claude-fable-5-2[1m]-low': { family: 'claude-fable-5-2[1m]', effort: 'low' },
+    'claude-fable-5-2[1m]-medium': { family: 'claude-fable-5-2[1m]', effort: 'medium' },
+    'claude-fable-5-2[1m]-high': { family: 'claude-fable-5-2[1m]', effort: 'high' },
+    'claude-fable-5-2[1m]-xhigh': { family: 'claude-fable-5-2[1m]', effort: 'xhigh' },
+    'claude-fable-5-2[1m]-max': { family: 'claude-fable-5-2[1m]', effort: 'max' },
     'claude-fable-5-1-low': { family: 'claude-fable-5-1', effort: 'low' },
     'claude-fable-5-1-medium': { family: 'claude-fable-5-1', effort: 'medium' },
     'claude-fable-5-1-high': { family: 'claude-fable-5-1', effort: 'high' },
@@ -666,6 +702,7 @@ export function parseClaudeModelMode(mode: ModelMode): { family: ClaudeModelFami
 export function getClaudeReasoningOptions(family: ClaudeModelFamily): readonly ClaudeReasoningEffort[] {
     if (family === 'claude-sonnet-5' || family === 'claude-sonnet-5[1m]'
         || family === 'claude-opus-5-5' || family === 'claude-opus-5-5[1m]'
+        || family === 'claude-fable-5-2' || family === 'claude-fable-5-2[1m]'
         || family === 'claude-fable-5-1' || family === 'claude-fable-5-1[1m]'
         || family === 'claude-fable-5' || family === 'claude-fable-5[1m]'
         || family === 'claude-opus-5' || family === 'claude-opus-5[1m]'
@@ -677,6 +714,7 @@ export function getClaudeReasoningOptions(family: ClaudeModelFamily): readonly C
 
 export function claudeSupportsFastMode(family: ClaudeModelFamily): boolean {
     return family === 'claude-opus-5-5' || family === 'claude-opus-5-5[1m]'
+        || family === 'claude-fable-5-2' || family === 'claude-fable-5-2[1m]'
         || family === 'claude-fable-5-1' || family === 'claude-fable-5-1[1m]'
         || family === 'claude-fable-5' || family === 'claude-fable-5[1m]'
         || family === 'claude-opus-5' || family === 'claude-opus-5[1m]'
@@ -748,6 +786,7 @@ const MODEL_NAME_LABELS: Record<string, string> = {
     'gpt-5.2': 'GPT-5.2',
     'gpt-5.1-codex-max': 'GPT-5.1-Codex-Max',
     'gpt-5.1-codex-mini': 'GPT-5.1-Codex-Mini',
+    'claude-fable-5-2': 'Claude Fable 5.2',
     'claude-fable-5-1': 'Claude Fable 5.1',
     'claude-fable-5': 'Claude Fable 5',
     'claude-opus-5-5': 'Claude Opus 5.5',
@@ -859,6 +898,8 @@ const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
 
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
     // Claude models (default 200K; 1M is opt-in via [1m] suffix in Claude Code)
+    'claude-fable-5-2': 200_000,
+    'claude-fable-5-2[1m]': 1_000_000,
     'claude-fable-5-1': 200_000,
     'claude-fable-5-1[1m]': 1_000_000,
     'claude-fable-5': 200_000,
