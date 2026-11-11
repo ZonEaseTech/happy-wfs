@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 53 - 2026-11-11
+
+Claude Fable 5.2 replaces Fable 5.1 in the Claude model picker.
+
+- Models: Claude Fable 5.2 and Claude Fable 5.2 (1M) take the places of the two Fable 5.1 options. Fable 5.2 is Anthropic's newest Fable model and costs less per token than Fable 5.1.
+- Models: reasoning still goes from low up to max, and fast mode works as before.
+- Models: sessions already set to Fable 5.1 keep working unchanged — the options just no longer show in the picker.
+
 ## Version 52 - 2026-10-30
 
 GPT-6.1 Terra and GPT-6 Luna replace the 5.6 Terra and Luna in the Codex model picker.

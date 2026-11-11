@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 53,
+      "date": "2026-11-11",
+      "summary": "Claude Fable 5.2 replaces Fable 5.1 in the Claude model picker.",
+      "changes": [
+        "Models: Claude Fable 5.2 and Claude Fable 5.2 (1M) take the places of the two Fable 5.1 options. Fable 5.2 is Anthropic's newest Fable model and costs less per token than Fable 5.1.",
+        "Models: reasoning still goes from low up to max, and fast mode works as before.",
+        "Models: sessions already set to Fable 5.1 keep working unchanged — the options just no longer show in the picker."
+      ],
+      "rawMarkdown": "## Version 53 - 2026-11-11\n\n\nClaude Fable 5.2 replaces Fable 5.1 in the Claude model picker.\n\n- Models: Claude Fable 5.2 and Claude Fable 5.2 (1M) take the places of the two Fable 5.1 options. Fable 5.2 is Anthropic's newest Fable model and costs less per token than Fable 5.1.\n- Models: reasoning still goes from low up to max, and fast mode works as before.\n- Models: sessions already set to Fable 5.1 keep working unchanged — the options just no longer show in the picker."
+    },
+    {
       "version": 52,
       "date": "2026-10-30",
       "summary": "GPT-6.1 Terra and GPT-6 Luna replace the 5.6 Terra and Luna in the Codex model picker.",
@@ -567,5 +578,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 52
+  "latestVersion": 53
 }
