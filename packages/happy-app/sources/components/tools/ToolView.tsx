@@ -20,6 +20,7 @@ import { useOrchestratorActiveRunIds } from '@/sync/storage';
 import { shouldShowOrchestratorSubmitActivityIndicator } from './toolStatusIconRules';
 import { extractOrchestratorSubmitRunId } from './orchestratorRunId';
 import { useVault } from '@/sync/vault';
+import { VaultToolFooter } from './VaultToolFooter';
 
 interface ToolViewProps {
     metadata: Metadata | null;
@@ -311,6 +312,11 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
                     </View>
                 );
             })()}
+
+            {/* Resource center: allow a refused command, or add a key the agent asked for */}
+            {sessionId && shellCommand.includes('happy ') && (
+                <VaultToolFooter sessionId={sessionId} command={shellCommand} result={toolResultText} createdAt={tool.createdAt} />
+            )}
 
             {/* Permission footer - always renders when permission exists to maintain consistent height */}
             {/* AskUserQuestion has its own Submit button UI - no permission footer needed */}

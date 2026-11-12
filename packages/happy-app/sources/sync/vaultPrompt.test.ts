@@ -29,10 +29,23 @@ describe('buildVaultPromptSection', () => {
         expect(admin).not.toContain('cf-yyps');
     });
 
-    it('says nothing when the machine has no keys or its CLI cannot run them', () => {
-        expect(buildVaultPromptSection([key({})], 'mini', '0.6.63')).toBeNull();
+    it('says nothing when the CLI cannot run keys', () => {
         expect(buildVaultPromptSection([key({})], 'wfs', '0.6.62')).toBeNull();
         expect(buildVaultPromptSection([key({})], undefined, '0.6.63')).toBeNull();
+    });
+
+    it('tells an agent on a machine without keys how to ask for one', () => {
+        const none = buildVaultPromptSection([key({})], 'mini', '0.6.63')!;
+        expect(none).toContain('none are enabled for this machine');
+        expect(none).toContain('happy keys need <type>');
+        expect(none).not.toContain('cf-yyps');
+        expect(none).not.toContain('cfut_SECRET_VALUE');
+    });
+
+    it('offers asking for a missing key and waiting on a refusal when keys exist', () => {
+        const wfs = buildVaultPromptSection([key({})], 'wfs', '0.6.63')!;
+        expect(wfs).toContain('happy keys need <type>');
+        expect(wfs).toContain('stop and wait');
     });
 
     it('is stable regardless of key order', () => {
