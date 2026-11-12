@@ -78,8 +78,6 @@ interface AgentInputProps {
     sessionId?: string;
     onSend: (textSnapshot?: string) => void;
     sendIcon?: React.ReactNode;
-    onMicPress?: () => void;
-    isMicActive?: boolean;
     permissionMode?: PermissionMode;
     onPermissionModeChange?: (mode: PermissionMode) => void;
     hidePermissionSettings?: boolean;
@@ -753,17 +751,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             return;
         }
         const textSnapshot = resolveSendSnapshot();
-        log.log(`[SEND_DEBUG][INPUT] press hasText=${hasText} latestLen=${latestTextRef.current.trim().length} stateLen=${inputState.text.trim().length} propLen=${props.value.trim().length} pickedLen=${textSnapshot.trim().length} mic=${props.onMicPress ? 'yes' : 'no'} disabled=${props.isSendDisabled || props.isSending ? 'yes' : 'no'}`);
+        log.log(`[SEND_DEBUG][INPUT] press hasText=${hasText} latestLen=${latestTextRef.current.trim().length} stateLen=${inputState.text.trim().length} propLen=${props.value.trim().length} pickedLen=${textSnapshot.trim().length} disabled=${props.isSendDisabled || props.isSending ? 'yes' : 'no'}`);
         if (textSnapshot.trim() || hasFileAttachments) {
             hapticsLight();
             props.onSend(textSnapshot);
             return;
         }
-        if (props.onMicPress) {
-            hapticsLight();
-            props.onMicPress();
-        }
-    }, [hasFileAttachments, hasText, inputState.text, props.isSendDisabled, props.isSending, props.onMicPress, props.onSend, props.value, resolveSendSnapshot]);
+    }, [hasFileAttachments, hasText, inputState.text, props.isSendDisabled, props.isSending, props.onSend, props.value, resolveSendSnapshot]);
 
     const handleSendPressIn = React.useCallback(() => {
         if (!isCompactWeb) {
@@ -2196,17 +2190,17 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     </Pressable>
                                 )}
 
-                                {/* Send/Voice button - aligned with first row */}
+                                {/* Send button - aligned with first row */}
                                 <View
                                     style={[
                                         styles.sendButton,
-                                        (hasText || props.isSending || (props.onMicPress && !props.isMicActive))
+                                        (hasText || props.isSending)
                                             ? styles.sendButtonActive
                                             : styles.sendButtonInactive
                                     ]}
                                 >
                                     <Pressable
-                                        {...webTooltip(hasText ? 'Send' : (props.onMicPress ? 'Voice' : 'Send'))}
+                                        {...webTooltip('Send')}
                                         style={(p) => ({
                                             width: '100%',
                                             height: '100%',
@@ -2218,7 +2212,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         onPressIn={handleSendPressIn}
                                         onPress={handleSendPress}
                                         accessibilityState={{
-                                            disabled: !!(props.isSendDisabled || props.isSending || (!hasText && !props.onMicPress)),
+                                            disabled: !!(props.isSendDisabled || props.isSending || !hasText),
                                         }}
                                         disabled={props.isSendDisabled || props.isSending}
                                     >
@@ -2236,15 +2230,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                     styles.sendButtonIcon,
                                                     { marginTop: Platform.OS === 'web' ? 2 : 0 }
                                                 ]}
-                                            />
-                                        ) : props.onMicPress && !props.isMicActive ? (
-                                            <Image
-                                                source={require('@/assets/images/icon-voice-white.png')}
-                                                style={{
-                                                    width: 24,
-                                                    height: 24,
-                                                }}
-                                                tintColor={theme.colors.button.primary.tint}
                                             />
                                         ) : (
                                             <Octicons

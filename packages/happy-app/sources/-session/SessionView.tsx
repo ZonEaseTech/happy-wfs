@@ -30,8 +30,6 @@ import { useArchiveSession } from '@/hooks/useArchiveSession';
 import { useResumeSession } from '@/hooks/useResumeSession';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { Modal } from '@/modal';
-import { voiceHooks } from '@/realtime/hooks/voiceHooks';
-import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionDelete, machineBash, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, type UserMessageWithUuid } from '@/sync/ops';
 import type { GitHubIssue } from '@/sync/apiGithub';
 import { addBugComment, changeBugStatus, deleteBug, getBug, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
@@ -50,7 +48,7 @@ import { sync } from '@/sync/sync';
 import { hapticsLight } from '@/components/haptics';
 import { showToast } from '@/components/Toast';
 import { t } from '@/text';
-import { tracking, trackMessageSent } from '@/track';
+import { trackMessageSent } from '@/track';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { buildUploadedFilesText } from '@/utils/fileAttachments';
 import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
@@ -823,7 +821,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const isLandscape = useIsLandscape();
     const deviceType = useDeviceType();
     const [message, setMessage] = React.useState('');
-    const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
     const pendingMessages = useSessionPendingMessages(sessionId);
     const acceptedFriends = useAcceptedFriends();
@@ -1523,37 +1520,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     }), []);
 
 
-    // Handle microphone button press - memoized to prevent button flashing
-    const handleMicrophonePress = React.useCallback(async () => {
-        if (realtimeStatus === 'connecting') {
-            return; // Prevent actions during transitions
-        }
-        if (realtimeStatus === 'disconnected' || realtimeStatus === 'error') {
-            try {
-                const initialPrompt = voiceHooks.onVoiceStarted(sessionId);
-                await startRealtimeSession(sessionId, initialPrompt);
-                tracking?.capture('voice_session_started', { sessionId });
-            } catch (error) {
-                console.error('Failed to start realtime session:', error);
-                Modal.alert(t('common.error'), t('errors.voiceSessionFailed'));
-                tracking?.capture('voice_session_error', { error: error instanceof Error ? error.message : 'Unknown error' });
-            }
-        } else if (realtimeStatus === 'connected') {
-            // On web/desktop, stop session from mic button; on mobile, use the status bar
-            if (Platform.OS === 'web') {
-                await stopRealtimeSession();
-                tracking?.capture('voice_session_stopped');
-                voiceHooks.onVoiceStopped();
-            }
-        }
-    }, [realtimeStatus, sessionId]);
-
-    // Memoize mic button state to prevent flashing during chat transitions
-    const micButtonState = useMemo(() => ({
-        onMicPress: handleMicrophonePress,
-        isMicActive: realtimeStatus === 'connected' || realtimeStatus === 'connecting'
-    }), [handleMicrophonePress, realtimeStatus]);
-
     // Handle image button press - platform-specific behavior
     const handleImageButtonPress = React.useCallback(() => {
         if (Platform.OS === 'web') {
@@ -1971,8 +1937,6 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 }
             }}
             isSending={isSending}
-            onMicPress={micButtonState.onMicPress}
-            isMicActive={micButtonState.isMicActive}
             onAbort={() => {
                 Modal.alert(
                     t('session.abortConfirmTitle'),
