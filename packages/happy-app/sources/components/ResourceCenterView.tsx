@@ -10,6 +10,7 @@ import { openVaultAddKey } from '@/components/VaultAddKeyModal';
 import { VaultKeyDetail } from '@/components/VaultKeyDetail';
 import { VaultKeyIcon, VaultUsageList, vaultKindLabel } from '@/components/VaultSections';
 import { useDesktopRoute, useDesktopRoutes, useDrawerHeaderRight } from '@/components/desktopRoutes';
+import { layout } from '@/components/layout';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { useAllMachines } from '@/sync/storage';
@@ -107,30 +108,29 @@ export const ResourceCenterView = React.memo(() => {
         </View>
     );
 
+    // Every tab sits in the same centred column as the device list, so the tabs line up with what is under them.
     let body: React.ReactNode;
     if (tab === 'usage') {
-        body = scroll(styles.fill, <View style={styles.page}><VaultUsageList logs={vault.logs} keys={vault.keys} initialFilter={usageFilter} /></View>);
+        body = scroll(styles.fill, <View style={styles.frame}><VaultUsageList logs={vault.logs} keys={vault.keys} initialFilter={usageFilter} /></View>);
     } else if (tab === 'devices') {
         body = <View style={styles.fill}><DeviceManagementView /></View>;
     } else if (vault.keys.length === 0) {
-        body = scroll(styles.fill, welcome);
+        body = scroll(styles.fill, <View style={styles.frame}>{welcome}</View>);
     } else if (wide && current) {
-        body = (
-            <View style={[styles.fill, styles.row]}>
-                {scroll(styles.list, list, styles.listContent)}
-                {scroll(styles.fill, (
-                    <View style={styles.detail}>
-                        <VaultKeyDetail
-                            keyId={current.id}
-                            onShowUsage={() => { setUsageFilter(current.id); setTab('usage'); }}
-                            onDeleted={() => setSelected(null)}
-                        />
-                    </View>
-                ))}
+        body = scroll(styles.fill, (
+            <View style={[styles.frame, styles.columns]}>
+                <View style={[styles.card, styles.listCard]}>{list}</View>
+                <View style={[styles.card, styles.detailCard]}>
+                    <VaultKeyDetail
+                        keyId={current.id}
+                        onShowUsage={() => { setUsageFilter(current.id); setTab('usage'); }}
+                        onDeleted={() => setSelected(null)}
+                    />
+                </View>
             </View>
-        );
+        ));
     } else {
-        body = scroll(styles.fill, <View style={styles.page}>{list}</View>, styles.listContent);
+        body = scroll(styles.fill, <View style={[styles.frame, styles.columns]}><View style={[styles.card, styles.fill]}>{list}</View></View>);
     }
 
     const tabs: [Tab, string, number][] = [
@@ -140,15 +140,17 @@ export const ResourceCenterView = React.memo(() => {
     ];
 
     return (
-        <View style={[styles.fill, { backgroundColor: theme.colors.surface }]} onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}>
+        <View style={[styles.fill, { backgroundColor: theme.colors.groupped.background }]} onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}>
             {!isInDrawer && <Stack.Screen options={{ headerRight: () => addButton }} />}
             <View style={styles.tabsBar}>
-                <View style={styles.tabs}>
+                <View style={[styles.frame, styles.tabsFrame]}>
+                    <View style={styles.tabs}>
                     {tabs.map(([value, label, count]) => (
                         <Pressable key={value} onPress={() => { setTab(value); if (value !== 'usage') setUsageFilter(null); }} style={[styles.tab, tab === value && styles.tabActive]}>
                             <Text style={[styles.tabText, tab === value && styles.tabTextActive]}>{label}<Text style={styles.tabCount}>{`  ${count}`}</Text></Text>
                         </Pressable>
                     ))}
+                    </View>
                 </View>
             </View>
             <View style={styles.fill}>{body}</View>
@@ -160,19 +162,39 @@ const stylesheet = StyleSheet.create((theme) => ({
     fill: {
         flex: 1,
     },
-    row: {
-        flexDirection: 'row',
-    },
-    page: {
+    frame: {
         width: '100%',
-        maxWidth: 760,
+        maxWidth: layout.maxWidth,
         alignSelf: 'center',
     },
+    columns: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 14,
+        padding: 16,
+    },
+    card: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
+    listCard: {
+        width: 280,
+        padding: 6,
+        gap: 2,
+    },
+    detailCard: {
+        flex: 1,
+        minWidth: 0,
+    },
     tabsBar: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
+        backgroundColor: theme.colors.surface,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.colors.divider,
+    },
+    tabsFrame: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
     },
     tabs: {
         flexDirection: 'row',
@@ -208,17 +230,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 12.5,
         color: theme.colors.textSecondary,
     },
-    list: {
-        width: 280,
-        flexGrow: 0,
-        borderRightWidth: StyleSheet.hairlineWidth,
-        borderRightColor: theme.colors.divider,
-        backgroundColor: theme.colors.groupped.background,
-    },
-    listContent: {
-        padding: 10,
-        gap: 4,
-    },
     item: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -227,12 +238,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 10,
     },
     itemActive: {
-        backgroundColor: theme.colors.surface,
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 1 },
-        elevation: 1,
+        backgroundColor: theme.colors.groupped.background,
     },
     itemPressed: {
         backgroundColor: theme.colors.surfacePressed,
@@ -253,6 +259,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 4,
     },
     pasteRow: {
+        margin: 4,
         marginTop: 6,
         padding: 10,
         borderRadius: 10,
@@ -265,10 +272,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         ...Typography.default(),
         fontSize: 13.5,
         color: theme.colors.textSecondary,
-    },
-    detail: {
-        width: '100%',
-        maxWidth: 760,
     },
     welcome: {
         width: '100%',
