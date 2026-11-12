@@ -29,6 +29,7 @@ import { useIsReviewPending, toggleReviewPending } from '@/sync/reviewPending';
 import { useAwaitingClosureMarks, useIsAwaitingClosure, toggleAwaitingClosure } from '@/sync/awaitingClosure';
 import { saveSidebarOrder, useSidebarOrderOverrides } from '@/sync/sidebarOrder';
 import { compareSidebarOrder } from '@/utils/sidebarOrder';
+import { getMergedGroupPath, getWorktreeBranchLabel } from '@/utils/worktreeGrouping';
 import { SortableSessionRows, useSortableRowPressGuard } from './SortableSessionRows';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
@@ -144,6 +145,14 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     sessionTitleDisconnected: {
         color: theme.colors.textSecondary,
     },
+    sessionBranch: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        marginLeft: 6,
+        flexShrink: 1,
+        maxWidth: '45%',
+        ...Typography.mono(),
+    },
     statusDotContainer: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -249,27 +258,11 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
 
         sessions.forEach(session => {
             // Group key: by default use the session's own path (one group per
-            // worktree). When the user enables mergeWorktreeGroups, prefer
-            // metadata.worktreeBasePath (the original repo path the CLI fills
-            // when it spawns inside a worktree) and fall back to the parent
-            // directory of the worktree path. The fallback handles the common
-            // case where the CLI is too old to fill worktreeBasePath but the
-            // worktree paths all share a parent (e.g. all ~/.happy/
-            // workspaces/vk-* collapse into ~/.happy/workspaces).
+            // worktree). With mergeWorktreeGroups on, worktree sessions Happy
+            // created under ~/.happy/ join their source repo's group; ordinary
+            // directories stay separate (see getMergedGroupPath).
             const ownPath = session.metadata?.path || '';
-            let projectPath = ownPath;
-            if (mergeWorktreeGroups) {
-                const baseRepoPath = session.metadata?.worktreeBasePath;
-                if (baseRepoPath) {
-                    projectPath = baseRepoPath;
-                } else {
-                    // Take parent dir as the merge key. Strip trailing slashes
-                    // first so a path that itself ends in '/' doesn't yield ''.
-                    const trimmed = ownPath.replace(/\/+$/, '');
-                    const parent = trimmed.replace(/\/[^/]+$/, '');
-                    projectPath = parent || ownPath;
-                }
-            }
+            const projectPath = mergeWorktreeGroups ? getMergedGroupPath(session.metadata) : ownPath;
             const unknownText = t('status.unknown');
             const machineId = session.metadata?.machineId || unknownText;
 
@@ -427,6 +420,9 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const dragJustMovedRow = useSortableRowPressGuard();
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
+    // Merged worktree groups mix several tasks; the branch tells them apart.
+    const mergeWorktreeGroups = useSetting('mergeWorktreeGroups');
+    const branchLabel = mergeWorktreeGroups ? getWorktreeBranchLabel(session.metadata) : null;
     const [archivingSession, performArchive] = useHappyAction(async () => {
         const previousActive = storage.getState().sessions[session.id]?.active ?? session.active;
         storage.getState().updateSessionActivity(session.id, false);
@@ -686,6 +682,11 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                     >
                         {sessionName}
                     </Text>
+                    {branchLabel && (
+                        <Text style={styles.sessionBranch} numberOfLines={1}>
+                            {branchLabel}
+                        </Text>
+                    )}
                     {isPendingReview && (
                         <Ionicons
                             name="checkmark-circle"
