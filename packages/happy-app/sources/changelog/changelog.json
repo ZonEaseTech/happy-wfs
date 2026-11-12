@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 54,
+      "date": "2026-11-12",
+      "summary": "Merged worktree groups now keep each task recognisable.",
+      "changes": [
+        "Sessions: with \"Merge worktree groups\" on, sessions Happy created on a new branch join the group of the repository they came from — a task spanning ttpos-flutter and ttpos-server-go joins the ttpos group — instead of all landing together under ~/.happy/workspaces.",
+        "Sessions: each of those rows shows its branch name after the title, so tasks in the same group are easy to tell apart.",
+        "Sessions: ordinary folders are no longer merged with their neighbours; a session in /workspace/happy-wfs no longer shares a group with one in /workspace/AVTools."
+      ],
+      "rawMarkdown": "## Version 54 - 2026-11-12\n\n\nMerged worktree groups now keep each task recognisable.\n\n- Sessions: with \"Merge worktree groups\" on, sessions Happy created on a new branch join the group of the repository they came from — a task spanning ttpos-flutter and ttpos-server-go joins the ttpos group — instead of all landing together under ~/.happy/workspaces.\n- Sessions: each of those rows shows its branch name after the title, so tasks in the same group are easy to tell apart.\n- Sessions: ordinary folders are no longer merged with their neighbours; a session in /workspace/happy-wfs no longer shares a group with one in /workspace/AVTools."
+    },
+    {
       "version": 53,
       "date": "2026-11-11",
       "summary": "Claude Fable 5.2 replaces Fable 5.1 in the Claude model picker.",
@@ -578,5 +589,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 53
+  "latestVersion": 54
 }

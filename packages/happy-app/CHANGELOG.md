@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 54 - 2026-11-12
+
+Merged worktree groups now keep each task recognisable.
+
+- Sessions: with "Merge worktree groups" on, sessions Happy created on a new branch join the group of the repository they came from — a task spanning ttpos-flutter and ttpos-server-go joins the ttpos group — instead of all landing together under ~/.happy/workspaces.
+- Sessions: each of those rows shows its branch name after the title, so tasks in the same group are easy to tell apart.
+- Sessions: ordinary folders are no longer merged with their neighbours; a session in /workspace/happy-wfs no longer shares a group with one in /workspace/AVTools.
+
 ## Version 53 - 2026-11-11
 
 Claude Fable 5.2 replaces Fable 5.1 in the Claude model picker.
