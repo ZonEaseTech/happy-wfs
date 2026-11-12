@@ -228,6 +228,8 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     }
 
     logger.debug(`Session created: ${response.id}`);
+    // `happy run` inherits this through the agent's shell and records the session in the key's usage log.
+    process.env.HAPPY_SESSION_ID = response.id;
 
     // Always report to daemon if it exists
     try {

@@ -29,7 +29,15 @@ export function generateHookSettingsFile(port: number): string {
     const forwarderScript = resolve(projectPath(), 'scripts', 'session_hook_forwarder.cjs');
     const hookCommand = `node "${forwarderScript}" ${port}`;
 
+    // Soft defense for the resource center: the agent runs as the same OS user
+    // as Happy, so it could read the key files that unlock every vault copy on
+    // this device. These rules stop Claude's Read tool from doing so by
+    // accident; a determined shell command can still get past them.
+    const keyFiles = [configuration.privateKeyFile, join(configuration.happyHomeDir, 'device-keys.json')];
     const settings = {
+        permissions: {
+            deny: process.platform === 'win32' ? [] : keyFiles.map((file) => `Read(/${file})`),
+        },
         hooks: {
             SessionStart: [
                 {

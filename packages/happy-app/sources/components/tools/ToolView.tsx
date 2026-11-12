@@ -19,6 +19,7 @@ import { t } from '@/text';
 import { useOrchestratorActiveRunIds } from '@/sync/storage';
 import { shouldShowOrchestratorSubmitActivityIndicator } from './toolStatusIconRules';
 import { extractOrchestratorSubmitRunId } from './orchestratorRunId';
+import { useVault } from '@/sync/vault';
 
 interface ToolViewProps {
     metadata: Metadata | null;
@@ -99,6 +100,12 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
     const mcpSubtitle = useMCPSubtitle(tool);
     const activeOrchestratorRunIds = useOrchestratorActiveRunIds(sessionId ?? '');
     const orchestratorSubmitRunId = React.useMemo(() => extractOrchestratorSubmitRunId(tool), [tool]);
+
+    // A shell command run through `happy run <key> --` carries a resource center key.
+    const vault = useVault();
+    const shellCommand = Array.isArray(tool.input?.command) ? tool.input.command.join(' ') : typeof tool.input?.command === 'string' ? tool.input.command : '';
+    const vaultSlug = /(?:^|[\s;&|(])happy run ([a-z0-9][a-z0-9-]*) --/.exec(shellCommand)?.[1];
+    const vaultLabel = vaultSlug ? vault.keys.find((key) => key.slug === vaultSlug)?.name ?? vaultSlug : null;
 
     // Handle optional title and function type
     let toolTitle = tool.name;
@@ -209,6 +216,11 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
                                 </Text>
                             )}
                         </View>
+                        {vaultLabel && (
+                            <View style={styles.vaultChip}>
+                                <Text style={styles.vaultChipText} numberOfLines={1}>{`⚷ ${vaultLabel}`}</Text>
+                            </View>
+                        )}
                         {shouldShowRunningElapsed && (
                             <View style={styles.elapsedContainer}>
                                 <ElapsedView from={tool.startedAt ?? tool.createdAt} />
@@ -231,6 +243,11 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
                                 </Text>
                             )}
                         </View>
+                        {vaultLabel && (
+                            <View style={styles.vaultChip}>
+                                <Text style={styles.vaultChipText} numberOfLines={1}>{`⚷ ${vaultLabel}`}</Text>
+                            </View>
+                        )}
                         {shouldShowRunningElapsed && (
                             <View style={styles.elapsedContainer}>
                                 <ElapsedView from={tool.startedAt ?? tool.createdAt} />
@@ -353,6 +370,18 @@ const styles = StyleSheet.create((theme) => ({
     },
     titleContainer: {
         flex: 1,
+    },
+    vaultChip: {
+        marginLeft: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        borderRadius: 5,
+        backgroundColor: theme.colors.surfaceHighest,
+        maxWidth: 160,
+    },
+    vaultChipText: {
+        fontSize: 11,
+        color: theme.colors.textSecondary,
     },
     elapsedContainer: {
         marginLeft: 8,

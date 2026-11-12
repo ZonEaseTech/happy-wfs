@@ -533,6 +533,30 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="devices/key"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('resources.keys'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="devices/key-edit"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('resources.newKey'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="devices/usage"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('resources.usage'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
                 name="machine/[id]/repo/[repoId]"
                 options={{
                     headerShown: true,

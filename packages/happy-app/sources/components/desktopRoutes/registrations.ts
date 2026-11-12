@@ -9,6 +9,9 @@ import { registerDesktopRoute } from './registry';
 export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
     '/memory': 'memory.title',
     '/devices': 'tabs.devices',
+    '/devices/key': 'resources.keys',
+    '/devices/key-edit': 'resources.newKey',
+    '/devices/usage': 'resources.usage',
     '/settings/company': 'company.title',
     '/settings/company/members': 'company.members',
     '/settings/company/invites': 'company.invites',
@@ -34,6 +37,9 @@ export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
 
 registerDesktopRoute('/memory', () => import('@/app/(app)/memory'));
 registerDesktopRoute('/devices', () => import('@/app/(app)/devices/index'));
+registerDesktopRoute('/devices/key', () => import('@/app/(app)/devices/key'));
+registerDesktopRoute('/devices/key-edit', () => import('@/app/(app)/devices/key-edit'));
+registerDesktopRoute('/devices/usage', () => import('@/app/(app)/devices/usage'));
 registerDesktopRoute('/settings/company', () => import('@/app/(app)/settings/company'));
 registerDesktopRoute('/settings/company/members', () => import('@/app/(app)/settings/company/members'));
 registerDesktopRoute('/settings/company/invites', () => import('@/app/(app)/settings/company/invites'));

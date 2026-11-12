@@ -562,6 +562,28 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       process.exit(1);
     }
     return;
+  } else if (subcommand === 'keys') {
+    try {
+      const { handleKeysCommand } = await import('./commands/keys')
+      await handleKeysCommand()
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) console.error(error)
+      process.exit(1)
+    }
+    return;
+  } else if (subcommand === 'run') {
+    try {
+      const { handleRunCommand } = await import('./commands/run')
+      const exitCode = await handleRunCommand(args.slice(1))
+      // Same as `happy ssh`: let piped output drain before exiting.
+      await Promise.all([process.stdout, process.stderr].map((out) => new Promise((resolve) => out.write('', resolve))))
+      process.exit(exitCode)
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) console.error(error)
+      process.exit(1)
+    }
   } else if (subcommand === 'ssh') {
     const credentials = await readCredentials()
     if (!credentials) {
@@ -853,6 +875,8 @@ ${chalk.bold('Usage:')}
   happy daemon enable     Auto-start daemon on boot
   happy doctor            System diagnostics & troubleshooting
   happy update            Upgrade happy to the latest version
+  happy keys              List the keys this device may use
+  happy run <key> -- cmd  Run a command with a key from the resource center
 
 ${chalk.bold('Examples:')}
   happy                    Start session

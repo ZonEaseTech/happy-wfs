@@ -25,6 +25,7 @@ import { Terminal } from '@/components/Terminal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { Machine } from '@/sync/storageTypes';
+import { VaultSections } from '@/components/VaultSections';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -477,6 +478,8 @@ export const DeviceManagementView = React.memo(() => {
                     ))}
                 </ItemGroup>
             )}
+
+            <VaultSections />
 
             {shares.length > 0 && (
                 <ItemGroup title={t('devices.mcpShares')} footer={t('devices.mcpSharesFooter')}>

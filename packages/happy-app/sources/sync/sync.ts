@@ -61,6 +61,8 @@ import {
 import { resolveModelSelectionForFlavor } from 'happy-wire';
 import { getOrchestratorActivity, getOrchestratorActivityBatch } from './apiOrchestrator';
 import { sessionUpdateMetadataFields } from './ops';
+import { getVaultState, refreshVault } from './vault';
+import { buildVaultPromptSection } from './vaultPrompt';
 import { shouldInvalidateGitStatusOnActivityTransition } from './gitStatusRefreshPolicy';
 import { kvGet, kvMutate } from './apiKv';
 import { sessionListCache, type CachedSessionRow } from './sessionListCache';
@@ -548,6 +550,14 @@ class Sync {
 
 
     private buildSystemPrompt(sessionId: string): string {
+        // Resource center keys this session's machine may use with `happy run`.
+        const metadata = storage.getState().sessions[sessionId]?.metadata;
+        const machine = metadata?.machineId ? storage.getState().machines[metadata.machineId] : undefined;
+        const vaultSection = buildVaultPromptSection(getVaultState().keys, metadata?.machineId, machine?.metadata?.happyCliVersion);
+        return vaultSection ? `${this.buildDevicesSystemPrompt(sessionId)}\n\n${vaultSection}` : this.buildDevicesSystemPrompt(sessionId);
+    }
+
+    private buildDevicesSystemPrompt(sessionId: string): string {
         // A target device is only useful if the agent knows to prefer it —
         // otherwise it just reaches for local Bash and answers about the
         // machine hosting the session.
@@ -1928,6 +1938,8 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         // Replace entire machine state with fetched machines
         storage.getState().applyMachines(decryptedMachines, true);
         log.log(`🖥️ fetchMachines completed - processed ${decryptedMachines.length} machines`);
+        // Resource center keys feed every session's system prompt; load them once up front.
+        if (!getVaultState().loaded) refreshVault().catch((error) => log.log(`vault load failed: ${error}`));
     }
 
     private fetchFriends = async () => {
@@ -3155,6 +3167,9 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                 }
             }
         } else if (updateData.body.t === 'kv-batch-update') {
+            if (updateData.body.changes.some((item) => item.key.startsWith('vault:key:') || item.key.startsWith('vault:log:'))) {
+                refreshVault().catch((error) => log.log(`vault refresh failed: ${error}`));
+            }
             const change = updateData.body.changes.find((item) => item.key === SESSION_MODE_CONFIG_KV_KEY);
             if (change) {
                 const doc = change.value

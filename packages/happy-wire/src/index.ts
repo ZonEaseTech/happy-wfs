@@ -4,3 +4,4 @@ export * from './sessionProtocol';
 export * from './modelCatalog';
 export * from './notifications';
 export * from './memory';
+export * from './vault';

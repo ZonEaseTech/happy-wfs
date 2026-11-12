@@ -231,6 +231,8 @@ export async function runCodex(opts: {
 
     // Always report to daemon if it exists (skip if offline)
     if (response) {
+        // `happy run` inherits this through the agent's shell and records the session in the key's usage log.
+        process.env.HAPPY_SESSION_ID = response.id;
         try {
             logger.debug(`[START] Reporting session ${response.id} to daemon`);
             const result = await notifyDaemonSessionStarted(response.id, metadata);
