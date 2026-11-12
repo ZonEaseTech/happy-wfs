@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 59 - 2026-11-12
+
+Adding a key is now just pasting it, and refused commands or missing keys are handled right in the session.
+
+- Resources: paste a secret and Happy recognises GitHub and npm tokens, Alibaba Cloud AccessKeys, private keys and user@host addresses; anything else asks you to pick the type. Only the fields that type still needs are asked, and every device can use the key unless you narrow it.
+- Resources: keys are listed on the left with the selected key on the right. Its page says what to tell the agent, shows what it may run as tags you tap on or off, what must not be touched, and its recent use; the command name, devices, denied commands and secrets sit under Advanced.
+- Resources: the usage log and the device list are tabs at the top.
+- Sessions: when a command is refused because the key does not allow it, the card offers "Allow from now on", which adds the rule and asks the agent to run it again.
+- Sessions: when the agent needs a key you have not added, it asks for one and the card offers a button to paste it; once saved, the agent is told to carry on.
+
 ## Version 58 - 2026-11-12
 
 The Resource center now opens on your keys instead of the full device list.
