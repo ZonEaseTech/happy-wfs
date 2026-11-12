@@ -48,10 +48,11 @@ export function getMergedGroupPath(metadata: Partial<GroupingMetadata> | null | 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /**
- * Branch that tells merged worktree sessions apart. A workspace's repos may sit
- * on different branches: Happy names the default branch after the random
- * workspace directory, and the task branch (feature/bug-412-…) is the one worth
- * showing. The `feature/` prefix is dropped to keep the row short.
+ * Branch that tells merged worktree sessions apart, or null when there is
+ * nothing worth showing. Happy names a workspace's default branch after its
+ * random directory (keen-island-nkw7, happy/keen-island-nkw7); that says
+ * nothing about the task, so only a real task branch (feature/bug-412-…) is
+ * returned. The `feature/` prefix is dropped to keep the row short.
  */
 export function getWorktreeBranchLabel(metadata: Partial<GroupingMetadata> | null | undefined): string | null {
     const branches = metadata?.worktreeBranchName
@@ -59,7 +60,10 @@ export function getWorktreeBranchLabel(metadata: Partial<GroupingMetadata> | nul
         : [...new Set((metadata?.workspaceRepos ?? []).map(r => r.branchName).filter(Boolean))];
     if (branches.length === 0) return null;
 
-    const workspaceName = squash((metadata?.workspacePath || metadata?.path || '').replace(/\/+$/, '').split('/').pop() || '');
-    const branch = branches.find(b => !workspaceName || !squash(b).includes(workspaceName)) ?? branches[0];
-    return branch.replace(/^feature\//, '');
+    // A default branch is the workspace directory's name, sometimes behind a
+    // `happy/` prefix, so it shows up inside the session's own paths.
+    const paths = squash([metadata?.workspacePath, metadata?.path, ...(metadata?.workspaceRepos ?? []).map(r => r.path)].filter(Boolean).join('/'));
+    const isDefault = (b: string) => { const name = squash(b.replace(/^happy\//, '')); return name.length > 0 && paths.includes(name); };
+    const branch = branches.find(b => !isDefault(b));
+    return branch ? branch.replace(/^feature\//, '') : null;
 }

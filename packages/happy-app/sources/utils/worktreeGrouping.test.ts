@@ -66,11 +66,19 @@ describe('getWorktreeBranchLabel', () => {
         })).toBe('marketing-v232');
     });
 
-    it('still shows the default branch when it is the only one', () => {
+    it('shows nothing when every branch is just the random workspace name', () => {
         expect(getWorktreeBranchLabel({
             workspacePath: `${home}/.happy/workspaces/clear-beacon-rb41`,
             workspaceRepos: [repo('ttpos-flutter', 'clear-beacon-rb41', 'clear-beacon-rb41')],
-        })).toBe('clear-beacon-rb41');
+        })).toBeNull();
+        expect(getWorktreeBranchLabel({
+            workspacePath: `${home}/.happy/workspaces/keen-island-nkw7`,
+            workspaceRepos: [repo('ttpos-flutter', 'happy/keen-island-nkw7', 'keen-island-nkw7')],
+        })).toBeNull();
+        expect(getWorktreeBranchLabel({
+            path: `${home}/.happy/workspaces/happy-keen-island-nkw7/ttpos-flutter`,
+            workspaceRepos: [repo('ttpos-flutter', 'happy/keen-island-nkw7', 'happy-keen-island-nkw7')],
+        })).toBeNull();
         expect(getWorktreeBranchLabel({ worktreeBranchName: 'feature/fix-dedupe' })).toBe('fix-dedupe');
     });
 

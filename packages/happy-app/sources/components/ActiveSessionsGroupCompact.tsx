@@ -148,9 +148,8 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     sessionBranch: {
         fontSize: 12,
         color: theme.colors.textSecondary,
-        marginLeft: 6,
-        flexShrink: 1,
-        maxWidth: '45%',
+        marginTop: 2,
+        paddingLeft: 24, // status dot (16) + its margin (8): lines up with the title
         ...Typography.mono(),
     },
     statusDotContainer: {
@@ -682,11 +681,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                     >
                         {sessionName}
                     </Text>
-                    {branchLabel && (
-                        <Text style={styles.sessionBranch} numberOfLines={1}>
-                            {branchLabel}
-                        </Text>
-                    )}
                     {isPendingReview && (
                         <Ionicons
                             name="checkmark-circle"
@@ -704,6 +698,12 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                         <ProjectGitStatus sessionId={session.id} />
                     </View>
                 </View>
+                {/* Branch on its own line so it never squeezes the title. */}
+                {branchLabel && (
+                    <Text style={styles.sessionBranch} numberOfLines={1}>
+                        {branchLabel}
+                    </Text>
+                )}
             </View>
             {sessionStatus.state === 'thinking' && (
                 /* Amber matches permission_required attention strip; the two
