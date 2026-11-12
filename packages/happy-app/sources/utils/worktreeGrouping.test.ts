@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getMergedGroupPath, getWorktreeBranchLabel } from './worktreeGrouping';
+import { getMergedGroupPath, getSharedWorktreeMarks, getWorktreeBranchLabel } from './worktreeGrouping';
 
 const home = '/home/weifashi';
 const repo = (name: string, branchName: string, workspace: string) => ({
@@ -84,5 +84,41 @@ describe('getWorktreeBranchLabel', () => {
 
     it('returns nothing for ordinary sessions', () => {
         expect(getWorktreeBranchLabel({ path: '/workspace/happy-wfs' })).toBeNull();
+    });
+});
+
+describe('getSharedWorktreeMarks', () => {
+    const ws = (name: string, machineId = 'wfs') => ({ machineId, workspacePath: `${home}/.happy/workspaces/${name}` });
+
+    it('marks only sessions that share a workspace, one mark per workspace', () => {
+        const marks = getSharedWorktreeMarks([
+            { id: 'issue-1127', metadata: ws('fresh-ridge-tuy4') },
+            { id: '1026-continue', metadata: ws('happy-keen-island-nkw7') },
+            { id: 'member-check', metadata: ws('happy-keen-island-nkw7') },
+            { id: 'aot-1114', metadata: ws('calm-aurora-sxao') },
+            { id: '1026-batch6', metadata: ws('happy-keen-island-nkw7') },
+            { id: 'aot-review', metadata: ws('calm-aurora-sxao') },
+            { id: 'prod-ttpos', metadata: { path: '/workspace/ttpos' } },
+        ]);
+        expect(Object.fromEntries(marks)).toEqual({
+            '1026-continue': 0, 'member-check': 0, '1026-batch6': 0,
+            'aot-1114': 1, 'aot-review': 1,
+        });
+    });
+
+    it('tells apart same-named workspaces on different machines', () => {
+        const marks = getSharedWorktreeMarks([
+            { id: 'a', metadata: ws('keen-island-nkw7', 'wfs') },
+            { id: 'b', metadata: ws('keen-island-nkw7', 'admin') },
+        ]);
+        expect(marks.size).toBe(0);
+    });
+
+    it('falls back to the repos\' parent when workspacePath is missing', () => {
+        const marks = getSharedWorktreeMarks([
+            { id: 'a', metadata: { machineId: 'wfs', workspaceRepos: [repo('ttpos-flutter', 'x', 'keen-island-nkw7')] } },
+            { id: 'b', metadata: { machineId: 'wfs', workspaceRepos: [repo('ttpos-server-go', 'x', 'keen-island-nkw7')] } },
+        ]);
+        expect(Object.fromEntries(marks)).toEqual({ a: 0, b: 0 });
     });
 });

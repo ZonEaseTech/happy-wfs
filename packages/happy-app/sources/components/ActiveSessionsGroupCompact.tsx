@@ -29,7 +29,12 @@ import { useIsReviewPending, toggleReviewPending } from '@/sync/reviewPending';
 import { useAwaitingClosureMarks, useIsAwaitingClosure, toggleAwaitingClosure } from '@/sync/awaitingClosure';
 import { saveSidebarOrder, useSidebarOrderOverrides } from '@/sync/sidebarOrder';
 import { compareSidebarOrder } from '@/utils/sidebarOrder';
-import { getMergedGroupPath, getWorktreeBranchLabel } from '@/utils/worktreeGrouping';
+import { getMergedGroupPath, getSharedWorktreeMarks, getWorktreeBranchLabel } from '@/utils/worktreeGrouping';
+
+// Badge colour per shared worktree in a merged group (the number is what tells
+// them apart; colour only helps scanning). Kept clear of the amber, blue and
+// green the row already uses for attention, unread and review.
+const WORKTREE_MARK_COLORS = ['#8B5CF6', '#EC4899', '#14B8A6', '#6366F1', '#06B6D4', '#84CC16'];
 import { SortableSessionRows, useSortableRowPressGuard } from './SortableSessionRows';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
@@ -86,7 +91,10 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         textAlign: 'right',
     },
     sessionRow: {
-        height: 45,
+        // minHeight, not height: a two-line title plus the branch line needs
+        // more than 45px (SortableSessionRows measures each row).
+        minHeight: 45,
+        paddingVertical: 2,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
@@ -144,6 +152,23 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
     sessionTitleDisconnected: {
         color: theme.colors.textSecondary,
+    },
+    worktreeBadge: {
+        position: 'absolute',
+        right: 4,
+        top: 3,
+        minWidth: 15,
+        height: 13,
+        paddingHorizontal: 3,
+        borderRadius: 7,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    worktreeBadgeText: {
+        fontSize: 9,
+        lineHeight: 13,
+        color: '#FFFFFF',
+        ...Typography.mono('semiBold'),
     },
     sessionBranch: {
         fontSize: 12,
@@ -248,6 +273,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
         const groups = new Map<string, {
             path: string;
             displayPath: string;
+            worktreeMarks: Map<string, number>;
             machines: Map<string, {
                 machine: Machine | null;
                 machineName: string;
@@ -284,6 +310,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
                 projectGroup = {
                     path: projectPath,
                     displayPath,
+                    worktreeMarks: new Map(),
                     machines: new Map()
                 };
                 groups.set(groupKey, projectGroup);
@@ -318,6 +345,14 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
                     return compareSidebarOrder(a, b, sidebarOrderOverrides);
                 });
             });
+            // A merged group mixes several worktrees; mark the sessions that
+            // share one, in the order they are rendered.
+            if (mergeWorktreeGroups) {
+                const rendered = Array.from(projectGroup.machines.values())
+                    .sort((a, b) => a.machineName.localeCompare(b.machineName))
+                    .flatMap(machineGroup => machineGroup.sessions);
+                projectGroup.worktreeMarks = getSharedWorktreeMarks(rendered);
+            }
         });
 
         return groups;
@@ -393,6 +428,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
                                                 <CompactSessionRow
                                                     session={session}
                                                     selected={selectedSessionId === session.id}
+                                                    worktreeMark={projectGroup.worktreeMarks.get(session.id)}
                                                     showBorder={index < machineGroup.sessions.length - 1 ||
                                                         Array.from(projectGroup.machines.keys()).indexOf(machineId) < projectGroup.machines.size - 1}
                                                 />
@@ -409,7 +445,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
 }
 
 // Compact session row component with status line
-const CompactSessionRow = React.memo(({ session, selected, showBorder }: { session: Session; selected?: boolean; showBorder?: boolean }) => {
+const CompactSessionRow = React.memo(({ session, selected, showBorder, worktreeMark }: { session: Session; selected?: boolean; showBorder?: boolean; worktreeMark?: number }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const sessionStatus = useSessionStatus(session);
@@ -705,6 +741,12 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                     </Text>
                 )}
             </View>
+            {worktreeMark !== undefined && (
+                /* Same number = same worktree/branch as other rows in this group. */
+                <View style={[styles.worktreeBadge, { backgroundColor: WORKTREE_MARK_COLORS[worktreeMark % WORKTREE_MARK_COLORS.length] }]}>
+                    <Text style={styles.worktreeBadgeText}>{worktreeMark + 1}</Text>
+                </View>
+            )}
             {sessionStatus.state === 'thinking' && (
                 /* Amber matches permission_required attention strip; the two
                  * states are mutually exclusive in the state machine, so the
