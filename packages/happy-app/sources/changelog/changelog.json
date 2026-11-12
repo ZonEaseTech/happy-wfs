@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 60,
+      "date": "2026-11-12",
+      "summary": "The resource center's tabs now line up with what is under them.",
+      "changes": [
+        "Resources: the tabs, the key list with a key's page, the usage log and the device list share one centred column, so the tabs no longer float at the edge of a wide window. The key list and the selected key are two cards that scroll together."
+      ],
+      "rawMarkdown": "## Version 60 - 2026-11-12\n\n\nThe resource center's tabs now line up with what is under them.\n\n- Resources: the tabs, the key list with a key's page, the usage log and the device list share one centred column, so the tabs no longer float at the edge of a wide window. The key list and the selected key are two cards that scroll together."
+    },
+    {
       "version": 59,
       "date": "2026-11-12",
       "summary": "Adding a key is now just pasting it, and refused commands or missing keys are handled right in the session.",
@@ -649,5 +658,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 59
+  "latestVersion": 60
 }

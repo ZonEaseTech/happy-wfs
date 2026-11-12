@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 60 - 2026-11-12
+
+The resource center's tabs now line up with what is under them.
+
+- Resources: the tabs, the key list with a key's page, the usage log and the device list share one centred column, so the tabs no longer float at the edge of a wide window. The key list and the selected key are two cards that scroll together.
+
 ## Version 59 - 2026-11-12
 
 Adding a key is now just pasting it, and refused commands or missing keys are handled right in the session.
