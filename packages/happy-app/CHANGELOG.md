@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 56 - 2026-11-12
+
+Sessions working on the same branch now carry the same number.
+
+- Sessions: with "Merge worktree groups" on, sessions that share a worktree get a small numbered badge in the top-right corner of their row — the same number and colour for every session on that branch, so you can tell at a glance which ones belong together. A session alone on its branch gets no badge.
+- Sessions: rows grow to fit a two-line title plus the branch line instead of cutting it off.
+
 ## Version 55 - 2026-11-12
 
 Session titles in merged worktree groups get their full width back.

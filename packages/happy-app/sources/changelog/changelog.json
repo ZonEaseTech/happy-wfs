@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 56,
+      "date": "2026-11-12",
+      "summary": "Sessions working on the same branch now carry the same number.",
+      "changes": [
+        "Sessions: with \"Merge worktree groups\" on, sessions that share a worktree get a small numbered badge in the top-right corner of their row — the same number and colour for every session on that branch, so you can tell at a glance which ones belong together. A session alone on its branch gets no badge.",
+        "Sessions: rows grow to fit a two-line title plus the branch line instead of cutting it off."
+      ],
+      "rawMarkdown": "## Version 56 - 2026-11-12\n\n\nSessions working on the same branch now carry the same number.\n\n- Sessions: with \"Merge worktree groups\" on, sessions that share a worktree get a small numbered badge in the top-right corner of their row — the same number and colour for every session on that branch, so you can tell at a glance which ones belong together. A session alone on its branch gets no badge.\n- Sessions: rows grow to fit a two-line title plus the branch line instead of cutting it off."
+    },
+    {
       "version": 55,
       "date": "2026-11-12",
       "summary": "Session titles in merged worktree groups get their full width back.",
@@ -599,5 +609,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 55
+  "latestVersion": 56
 }
