@@ -25,7 +25,8 @@ import { Terminal } from '@/components/Terminal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { Machine } from '@/sync/storageTypes';
-import { VaultSections } from '@/components/VaultSections';
+import { VaultSectionTitle, VaultSections } from '@/components/VaultSections';
+import { useDesktopRoutes } from '@/components/desktopRoutes';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -102,15 +103,23 @@ function machineSubtitle(machine: Machine): string {
     return parts.join(' · ');
 }
 
+/** Rows the resource center shows before folding the rest behind "N more". */
+const HOME_DEVICE_ROWS = 3;
+
 /**
  * Devices are ordinary Happy machines — anything that ran the enrollment
  * one-liner shows up here with the live online state the daemon already
  * reports, so no separate inventory has to be kept in sync.
+ *
+ * `home` is the resource center: a few devices, then keys and usage.
+ * `all` is the full device page: enrollment, every device and MCP shares.
  */
-export const DeviceManagementView = React.memo(() => {
+export const DeviceManagementView = React.memo(({ mode = 'all' }: { mode?: 'home' | 'all' }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const auth = useAuth();
+    const { open } = useDesktopRoutes();
+    const openAllDevices = React.useCallback(() => open('/devices/all', { title: t('resources.allDevicesTitle') }), [open]);
     const machines = useAllMachines();
     const [creating, setCreating] = React.useState(false);
     const [menuDevice, setMenuDevice] = React.useState<Machine | null>(null);
@@ -368,7 +377,7 @@ export const DeviceManagementView = React.memo(() => {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <ItemGroup title={t('devices.addDeviceTitle')} footer={t('devices.addDeviceFooter')}>
+            {mode === 'all' && <ItemGroup title={t('devices.addDeviceTitle')} footer={t('devices.addDeviceFooter')}>
                 <Item
                     title={t('devices.shareMcp')}
                     icon={<Ionicons name="share-social-outline" size={29} color={theme.colors.textLink} />}
@@ -383,7 +392,7 @@ export const DeviceManagementView = React.memo(() => {
                     onPress={() => { void handleAddDevice(); }}
                     showChevron={false}
                 />
-            </ItemGroup>
+            </ItemGroup>}
 
             {keyRequests.length > 0 && (
                 <ItemGroup title={t('devices.pendingApprovals')} footer={t('devices.pendingApprovalsFooter')}>
@@ -412,15 +421,21 @@ export const DeviceManagementView = React.memo(() => {
                 </ItemGroup>
             )}
 
-            {sortedMachines.length === 0 ? (
+            {mode === 'home' && sortedMachines.length === 0 ? (
+                <ItemGroup title={<VaultSectionTitle title={t('resources.deviceSection')} link={t('resources.all')} onLink={openAllDevices} />}>
+                    <Item title={t('devices.emptyTitle')} subtitle={t('devices.addDevice')} onPress={openAllDevices} />
+                </ItemGroup>
+            ) : sortedMachines.length === 0 ? (
                 <View style={styles.emptyContainer}>
                     <Ionicons name="hardware-chip-outline" size={44} color={theme.colors.textSecondary} />
                     <Text style={styles.emptyTitle}>{t('devices.emptyTitle')}</Text>
                     <Text style={styles.emptyDescription}>{t('devices.emptyDescription')}</Text>
                 </View>
             ) : (
-                <ItemGroup title={t('devices.deviceList')}>
-                    {sortedMachines.map((machine) => (
+                <ItemGroup title={mode === 'home'
+                    ? <VaultSectionTitle title={t('resources.deviceSection')} note={t('resources.deviceCountShort', { count: sortedMachines.length })} link={t('resources.all')} onLink={openAllDevices} />
+                    : t('devices.deviceList')}>
+                    {(mode === 'home' ? sortedMachines.slice(0, HOME_DEVICE_ROWS) : sortedMachines).map((machine) => (
                         <Item
                             key={machine.id}
                             title={machineTitle(machine)}
@@ -476,12 +491,19 @@ export const DeviceManagementView = React.memo(() => {
                             showChevron={!showInlineActions}
                         />
                     ))}
+                    {mode === 'home' && sortedMachines.length > HOME_DEVICE_ROWS && (
+                        <Item
+                            title={t('resources.moreDevices', { count: sortedMachines.length - HOME_DEVICE_ROWS })}
+                            titleStyle={{ fontSize: 14, color: theme.colors.textSecondary }}
+                            onPress={openAllDevices}
+                        />
+                    )}
                 </ItemGroup>
             )}
 
-            <VaultSections />
+            {mode === 'home' && <VaultSections />}
 
-            {shares.length > 0 && (
+            {mode === 'all' && shares.length > 0 && (
                 <ItemGroup title={t('devices.mcpShares')} footer={t('devices.mcpSharesFooter')}>
                     {shares.map((share) => (
                         <Item

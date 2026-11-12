@@ -533,6 +533,14 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="devices/all"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('resources.allDevicesTitle'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
                 name="devices/key"
                 options={{
                     headerShown: true,

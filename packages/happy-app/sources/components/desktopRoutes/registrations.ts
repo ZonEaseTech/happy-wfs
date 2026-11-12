@@ -9,6 +9,7 @@ import { registerDesktopRoute } from './registry';
 export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
     '/memory': 'memory.title',
     '/devices': 'tabs.devices',
+    '/devices/all': 'resources.allDevicesTitle',
     '/devices/key': 'resources.keys',
     '/devices/key-edit': 'resources.newKey',
     '/devices/usage': 'resources.usage',
@@ -37,6 +38,7 @@ export const DESKTOP_ROUTE_TITLES: Record<string, string> = {
 
 registerDesktopRoute('/memory', () => import('@/app/(app)/memory'));
 registerDesktopRoute('/devices', () => import('@/app/(app)/devices/index'));
+registerDesktopRoute('/devices/all', () => import('@/app/(app)/devices/all'));
 registerDesktopRoute('/devices/key', () => import('@/app/(app)/devices/key'));
 registerDesktopRoute('/devices/key-edit', () => import('@/app/(app)/devices/key-edit'));
 registerDesktopRoute('/devices/usage', () => import('@/app/(app)/devices/usage'));

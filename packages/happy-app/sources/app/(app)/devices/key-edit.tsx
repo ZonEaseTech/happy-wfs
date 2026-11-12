@@ -1,18 +1,16 @@
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 import { Stack } from 'expo-router';
-import { useUnistyles } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { VAULT_KIND_PRESETS, VAULT_MIN_CLI_VERSION, VaultKeyKindSchema, type VaultKey, type VaultKeyKind } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { useDesktopRoute, useRouteParams } from '@/components/desktopRoutes';
-import { Item } from '@/components/Item';
-import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
-import { vaultKindLabel } from '@/components/VaultSections';
+import { layout } from '@/components/layout';
+import { VaultChip, vaultKindLabel } from '@/components/VaultSections';
+import { Typography } from '@/constants/Typography';
 import { useAuth } from '@/auth/AuthContext';
 import { useHappyAction } from '@/hooks/useHappyAction';
-import { Modal } from '@/modal';
 import { t } from '@/text';
 import { listDeviceShares } from '@/sync/apiDevices';
 import { storage } from '@/sync/storage';
@@ -33,8 +31,22 @@ function blankKey(kind: VaultKeyKind): VaultKey {
 
 const slugOf = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
 
-/** Resource center › add or edit a key (`?id=` to edit). Every field is set through a prompt, like the other settings pages. */
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    const styles = stylesheet;
+    return (
+        <View style={styles.field}>
+            <Text style={styles.label}>
+                {label}
+                {!!hint && <Text style={styles.labelHint}>{`  ${hint}`}</Text>}
+            </Text>
+            {children}
+        </View>
+    );
+}
+
+/** Resource center › add or edit a key (`?id=` to edit), as one form. */
 export default React.memo(function VaultKeyEditScreen() {
+    const styles = stylesheet;
     const { theme } = useUnistyles();
     const auth = useAuth();
     const { isInDrawer, dismiss } = useDesktopRoute();
@@ -55,200 +67,394 @@ export default React.memo(function VaultKeyEditScreen() {
         listDeviceShares(auth.credentials).then((shares) => setSharedIds(shares.flatMap((share) => share.machineIds))).catch(() => { });
     }, [auth.credentials]);
     const nameOf = (machineId: string) => machines[machineId]?.metadata?.displayName || machines[machineId]?.metadata?.host || machineId.slice(0, 8);
+    const cliTooOld = (machineId: string) => !isVersionSupported(machines[machineId]?.metadata?.happyCliVersion, VAULT_MIN_CLI_VERSION);
 
-    const prompt = async (title: string, value: string, opts: { secure?: boolean; multiline?: boolean; hint?: string } = {}) => {
-        const next = await Modal.prompt(title, opts.hint, {
-            defaultValue: opts.secure ? '' : value,
-            inputType: opts.secure && !opts.multiline ? 'secure-text' : undefined,
-            multiline: opts.multiline,
-            confirmText: t('common.save'),
-            cancelText: t('common.cancel'),
-        });
-        return next === null ? null : next.trim();
-    };
+    // Text typed into an "add" box but not added yet is still saved with the key.
+    const [newAllow, setNewAllow] = React.useState('');
+    const [newDeny, setNewDeny] = React.useState('');
+    const [newVariable, setNewVariable] = React.useState('');
+    const [scopeName, setScopeName] = React.useState('');
+    const [scopeProtected, setScopeProtected] = React.useState('');
 
-    const editRules = (list: 'allow' | 'deny') => async () => {
-        const rule = await prompt(list === 'allow' ? t('resources.allow') : t('resources.deny'), '', { hint: t('resources.rulePrompt') });
+    const addRule = (list: 'allow' | 'deny') => {
+        const rule = (list === 'allow' ? newAllow : newDeny).trim();
         if (rule && !draft[list].includes(rule)) update({ [list]: [...draft[list], rule] });
+        (list === 'allow' ? setNewAllow : setNewDeny)('');
     };
-
-    const toggleDevice = async (machineId: string) => {
-        if (draft.machineIds.includes(machineId)) {
-            update({ machineIds: draft.machineIds.filter((m) => m !== machineId) });
-            return;
+    const addScope = () => {
+        if (!scopeName.trim()) return;
+        update({ scope: [...draft.scope, { name: scopeName.trim(), protected: scopeProtected.trim() }] });
+        setScopeName('');
+        setScopeProtected('');
+    };
+    const addVariable = () => {
+        const name = newVariable.trim();
+        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !draft.env.some((v) => v.name === name)) {
+            update({ env: [...draft.env, { name, value: '', secret: true }] });
         }
-        const ok = !sharedIds.includes(machineId) || await Modal.confirm(t('resources.mcpSharedTitle'), t('resources.mcpSharedWarning'), {
-            confirmText: t('common.ok'), cancelText: t('common.cancel'),
-        });
-        if (ok) update({ machineIds: [...draft.machineIds, machineId] });
+        setNewVariable('');
     };
+    const toggleDevice = (machineId: string) => update({
+        machineIds: draft.machineIds.includes(machineId)
+            ? draft.machineIds.filter((m) => m !== machineId)
+            : [...draft.machineIds, machineId],
+    });
 
     const [saving, save] = useHappyAction(async () => {
         const slug = draft.slug || slugOf(draft.name);
-        if (!draft.name.trim()) throw new Error(t('resources.nameRequired'));
+        const pending = (list: string[], value: string) => (value.trim() && !list.includes(value.trim()) ? [...list, value.trim()] : list);
+        const next: VaultKey = {
+            ...draft,
+            slug,
+            name: draft.name.trim(),
+            allow: pending(draft.allow, newAllow),
+            deny: pending(draft.deny, newDeny),
+            scope: scopeName.trim() ? [...draft.scope, { name: scopeName.trim(), protected: scopeProtected.trim() }] : draft.scope,
+        };
+        if (!next.name) throw new Error(t('resources.nameRequired'));
         if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(slug)) throw new Error(t('resources.slugInvalid'));
-        if (vault.keys.some((key) => key.slug === slug && key.id !== draft.id)) throw new Error(t('resources.slugTaken'));
-        if (draft.env.some((v) => !v.name || (v.secret && !v.value))) throw new Error(t('resources.secretRequired'));
-        if (draft.ssh && (!draft.ssh.host || !draft.ssh.user || !draft.ssh.secret)) throw new Error(t('resources.loginRequired'));
-        if (draft.ssh && !draft.ssh.viaMachineId) throw new Error(t('resources.viaRequired'));
-        await saveVaultKey({ ...draft, slug, name: draft.name.trim() }, existing);
+        if (vault.keys.some((key) => key.slug === slug && key.id !== next.id)) throw new Error(t('resources.slugTaken'));
+        if (next.env.some((v) => !v.name || (v.secret && !v.value))) throw new Error(t('resources.secretRequired'));
+        if (next.ssh && (!next.ssh.host || !next.ssh.user || !next.ssh.secret || !next.ssh.port)) throw new Error(t('resources.loginRequired'));
+        if (next.ssh && !next.ssh.viaMachineId) throw new Error(t('resources.viaRequired'));
+        await saveVaultKey(next, existing);
         dismiss();
     });
 
-    const removeButton = (onPress: () => void) => (
-        <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button">
-            <Text style={{ fontSize: 14, color: theme.colors.textDestructive }}>{t('resources.remove')}</Text>
-        </Pressable>
-    );
     const ssh = draft.ssh;
     const updateSsh = (patch: Partial<NonNullable<VaultKey['ssh']>>) => update({ ssh: { ...ssh!, ...patch } });
+    const input = (props: React.ComponentProps<typeof TextInput> & { mono?: boolean }) => (
+        <TextInput
+            placeholderTextColor={theme.colors.input.placeholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+            {...props}
+            style={[styles.input, props.mono && styles.mono, props.style]}
+        />
+    );
+    const addButton = (onPress: () => void) => (
+        <Pressable onPress={onPress} style={styles.smallButton} accessibilityRole="button">
+            <Text style={styles.smallButtonText}>{t('resources.add')}</Text>
+        </Pressable>
+    );
+    const selectedShared = draft.machineIds.filter((m) => sharedIds.includes(m));
+    const selectedOld = (ssh ? [ssh.viaMachineId].filter(Boolean) : draft.machineIds).filter(cliTooOld);
+    const secretLabel = ssh?.auth === 'key' ? t('resources.authKey') : t('resources.authPassword');
 
     return (
         <ItemList>
             {!isInDrawer && <Stack.Screen options={{ headerTitle: existing ? t('resources.editKey') : t('resources.newKey'), headerBackTitle: t('common.back') }} />}
+            <View style={styles.card}>
+                {!existing && (
+                    <Field label={t('resources.kind')}>
+                        <View style={styles.chips}>
+                            {VaultKeyKindSchema.options.map((kind) => (
+                                <VaultChip
+                                    key={kind}
+                                    label={vaultKindLabel(kind)}
+                                    selected={draft.kind === kind}
+                                    onPress={() => setDraft({ ...blankKey(kind), id: draft.id, name: draft.name, slug: draft.slug, machineIds: draft.machineIds })}
+                                />
+                            ))}
+                        </View>
+                    </Field>
+                )}
 
-            {!existing && (
-                <ItemGroup title={t('resources.kind')}>
-                    {VaultKeyKindSchema.options.map((kind) => (
-                        <Item
-                            key={kind}
-                            title={vaultKindLabel(kind)}
-                            selected={draft.kind === kind}
-                            onPress={() => setDraft({ ...blankKey(kind), id: draft.id, name: draft.name, slug: draft.slug, machineIds: draft.machineIds })}
-                            showChevron={false}
-                        />
-                    ))}
-                </ItemGroup>
-            )}
+                <Field label={t('resources.name')}>
+                    {input({ value: draft.name, onChangeText: (name) => update({ name }), placeholder: ssh ? t('resources.namePlaceholderSsh') : t('resources.namePlaceholder'), autoCapitalize: 'sentences' })}
+                </Field>
+                <Field label={t('resources.slug')} hint={t('resources.slugUsage', { slug: draft.slug || slugOf(draft.name) || t('resources.slugFallback') })}>
+                    {input({ value: draft.slug, onChangeText: (slug) => update({ slug: slug.toLowerCase() }), placeholder: slugOf(draft.name) || 'cf-personal', mono: true })}
+                </Field>
 
-            <ItemGroup>
-                <Item title={t('resources.name')} detail={draft.name || '—'} onPress={async () => { const v = await prompt(t('resources.name'), draft.name); if (v !== null) update({ name: v }); }} />
-                <Item
-                    title={t('resources.slug')}
-                    detail={draft.slug || slugOf(draft.name) || '—'}
-                    detailStyle={{ fontFamily: 'IBMPlexMono-Regular' }}
-                    onPress={async () => { const v = await prompt(t('resources.slug'), draft.slug || slugOf(draft.name), { hint: t('resources.slugHint') }); if (v !== null) update({ slug: v }); }}
-                />
-            </ItemGroup>
-
-            {ssh ? (
-                <>
-                    <ItemGroup title={t('resources.login')}>
-                        <Item title={t('resources.host')} detail={ssh.host || '—'} onPress={async () => { const v = await prompt(t('resources.host'), ssh.host); if (v !== null) updateSsh({ host: v }); }} />
-                        <Item title={t('resources.port')} detail={String(ssh.port)} onPress={async () => { const v = await prompt(t('resources.port'), String(ssh.port)); const port = Number(v); if (v !== null && Number.isInteger(port) && port > 0 && port < 65536) updateSsh({ port }); }} />
-                        <Item title={t('resources.user')} detail={ssh.user || '—'} onPress={async () => { const v = await prompt(t('resources.user'), ssh.user); if (v !== null) updateSsh({ user: v }); }} />
-                        {!existing && (['password', 'key'] as const).map((method) => (
-                            <Item key={method} title={method === 'password' ? t('resources.authPassword') : t('resources.authKey')} selected={ssh.auth === method} onPress={() => updateSsh({ auth: method, secret: '' })} showChevron={false} />
-                        ))}
+                {ssh ? (
+                    <>
+                        <Field label={t('resources.hostPortUser')}>
+                            <View style={styles.row}>
+                                {input({ value: ssh.host, onChangeText: (host) => updateSsh({ host: host.trim() }), placeholder: t('resources.hostPlaceholder'), style: { flex: 1 } })}
+                                {input({ value: ssh.port ? String(ssh.port) : '', onChangeText: (value) => updateSsh({ port: Math.min(65535, Number(value.replace(/\D/g, '')) || 0) }), placeholder: '22', keyboardType: 'number-pad', style: { width: 64 } })}
+                                {input({ value: ssh.user, onChangeText: (user) => updateSsh({ user: user.trim() }), placeholder: 'root', style: { width: 96 } })}
+                            </View>
+                        </Field>
                         {!existing && (
-                            <Item
-                                title={ssh.auth === 'password' ? t('resources.authPassword') : t('resources.authKey')}
-                                detail={ssh.secret ? t('resources.secretSaved') : t('resources.secretMissing')}
-                                onPress={async () => { const v = await prompt(ssh.auth === 'password' ? t('resources.authPassword') : t('resources.authKey'), '', { secure: true, multiline: ssh.auth === 'key', hint: t('resources.secretPrompt') }); if (v) updateSsh({ secret: v }); }}
-                            />
+                            <Field label={t('resources.authMethod')}>
+                                <View style={styles.chips}>
+                                    {(['password', 'key'] as const).map((method) => (
+                                        <VaultChip
+                                            key={method}
+                                            label={method === 'password' ? t('resources.authPassword') : t('resources.authKey')}
+                                            selected={ssh.auth === method}
+                                            onPress={() => updateSsh({ auth: method, secret: '' })}
+                                        />
+                                    ))}
+                                </View>
+                            </Field>
                         )}
-                    </ItemGroup>
-                    <ItemGroup title={t('resources.via')} footer={t('resources.viaFooter')}>
-                        {machineList.filter((m) => !sharedIds.includes(m.id)).map((m) => (
-                            <Item
-                                key={m.id}
-                                title={nameOf(m.id)}
-                                subtitle={isVersionSupported(m.metadata?.happyCliVersion, VAULT_MIN_CLI_VERSION) ? undefined : t('resources.cliTooOld', { version: VAULT_MIN_CLI_VERSION })}
-                                selected={ssh.viaMachineId === m.id}
-                                onPress={() => updateSsh({ viaMachineId: m.id })}
-                                showChevron={false}
-                            />
+                        <Field label={secretLabel} hint={existing ? undefined : t('resources.secretNeverShown')}>
+                            {existing ? (
+                                <Text style={styles.locked}>{t('resources.secretLocked')}</Text>
+                            ) : input({
+                                value: ssh.secret,
+                                onChangeText: (secret) => updateSsh({ secret }),
+                                secureTextEntry: ssh.auth === 'password',
+                                multiline: ssh.auth === 'key',
+                                placeholder: ssh.auth === 'key' ? '-----BEGIN OPENSSH PRIVATE KEY-----' : undefined,
+                                mono: ssh.auth === 'key',
+                                style: ssh.auth === 'key' ? { height: 96, paddingTop: 8, textAlignVertical: 'top' } : undefined,
+                            })}
+                        </Field>
+                        <Field label={t('resources.via')} hint={t('resources.viaFooter')}>
+                            <View style={styles.chips}>
+                                {machineList.filter((m) => !sharedIds.includes(m.id)).map((m) => (
+                                    <VaultChip key={m.id} label={nameOf(m.id)} selected={ssh.viaMachineId === m.id} onPress={() => updateSsh({ viaMachineId: m.id })} />
+                                ))}
+                            </View>
+                        </Field>
+                    </>
+                ) : (
+                    <Field label={t('resources.secrets')} hint={existing ? undefined : t('resources.secretsNeverShown')}>
+                        {draft.env.map((v, index) => (
+                            <View key={`${v.name}-${index}`} style={[styles.row, styles.envRow]}>
+                                <Text style={[styles.mono, styles.envName]} numberOfLines={1}>{v.name}</Text>
+                                {existing && v.secret ? (
+                                    <Text style={[styles.locked, { flex: 1 }]}>{t('resources.secretLocked')}</Text>
+                                ) : input({
+                                    value: v.value,
+                                    onChangeText: (value) => update({ env: draft.env.map((item, i) => (i === index ? { ...item, value } : item)) }),
+                                    secureTextEntry: v.secret,
+                                    placeholder: v.secret ? t('resources.secretPlaceholder') : t('resources.plainPlaceholder'),
+                                    style: { flex: 1, minWidth: 180 },
+                                })}
+                                {draft.kind === 'custom' && !existing && (
+                                    <Pressable onPress={() => update({ env: draft.env.filter((_, i) => i !== index) })} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('resources.remove')}>
+                                        <Text style={styles.removeX}>✕</Text>
+                                    </Pressable>
+                                )}
+                            </View>
                         ))}
-                    </ItemGroup>
-                </>
-            ) : (
-                <ItemGroup title={t('resources.secrets')}>
-                    {draft.env.map((v, index) => (
-                        <Item
-                            key={`${v.name}-${index}`}
-                            title={v.name}
-                            titleStyle={{ fontFamily: 'IBMPlexMono-Regular', fontSize: 13 }}
-                            detail={v.secret ? (v.value ? t('resources.secretSaved') : t('resources.secretMissing')) : (v.value || t('resources.secretMissing'))}
-                            onPress={existing && v.secret ? undefined : async () => {
-                                const value = await prompt(v.name, v.value, { secure: v.secret, hint: t('resources.secretPrompt') });
-                                if (value !== null) update({ env: draft.env.map((item, i) => (i === index ? { ...item, value } : item)) });
-                            }}
-                            rightElement={draft.kind === 'custom' && !existing ? removeButton(() => update({ env: draft.env.filter((_, i) => i !== index) })) : undefined}
-                            showChevron={false}
-                        />
-                    ))}
-                    {draft.kind === 'custom' && !existing && (
-                        <Item
-                            title={t('resources.addVariable')}
-                            icon={<Ionicons name="add-circle-outline" size={29} color={theme.colors.textLink} />}
-                            onPress={async () => {
-                                const name = await prompt(t('resources.addVariable'), '', { hint: t('resources.variableName') });
-                                if (name && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) update({ env: [...draft.env, { name, value: '', secret: true }] });
-                            }}
-                            showChevron={false}
-                        />
+                        {draft.kind === 'custom' && !existing && (
+                            <View style={styles.row}>
+                                {input({ value: newVariable, onChangeText: setNewVariable, placeholder: t('resources.variableName'), mono: true, style: { flex: 1 }, onSubmitEditing: addVariable })}
+                                {addButton(addVariable)}
+                            </View>
+                        )}
+                    </Field>
+                )}
+
+                <Field label={t('resources.allow')} hint={t('resources.allowHint')}>
+                    <View style={styles.chips}>
+                        {draft.allow.length === 0 && <Text style={styles.empty}>{t('resources.emptyRules')}</Text>}
+                        {draft.allow.map((rule) => (
+                            <VaultChip key={rule} label={rule} tone="code" onRemove={() => update({ allow: draft.allow.filter((r) => r !== rule) })} />
+                        ))}
+                    </View>
+                    <View style={[styles.row, { marginTop: 6 }]}>
+                        {input({ value: newAllow, onChangeText: setNewAllow, placeholder: t('resources.allowPlaceholder'), mono: true, style: { flex: 1 }, onSubmitEditing: () => addRule('allow') })}
+                        {addButton(() => addRule('allow'))}
+                    </View>
+                </Field>
+                <Field label={t('resources.deny')} hint={t('resources.denyHint')}>
+                    <View style={styles.chips}>
+                        {draft.deny.length === 0 && <Text style={styles.empty}>{t('resources.emptyRules')}</Text>}
+                        {draft.deny.map((rule) => (
+                            <VaultChip key={rule} label={rule} tone="deny" onRemove={() => update({ deny: draft.deny.filter((r) => r !== rule) })} />
+                        ))}
+                    </View>
+                    <View style={[styles.row, { marginTop: 6 }]}>
+                        {input({ value: newDeny, onChangeText: setNewDeny, placeholder: t('resources.denyPlaceholder'), mono: true, style: { flex: 1 }, onSubmitEditing: () => addRule('deny') })}
+                        {addButton(() => addRule('deny'))}
+                    </View>
+                </Field>
+
+                <Field label={t('resources.scopeLabel')} hint={t('resources.scopeHint')}>
+                    {draft.scope.length > 0 && (
+                        <View style={[styles.chips, { marginBottom: 6 }]}>
+                            {draft.scope.map((scope, index) => (
+                                <VaultChip
+                                    key={`${scope.name}-${index}`}
+                                    label={scope.protected ? `${scope.name} · ${t('resources.doNotTouch', { what: scope.protected })}` : scope.name}
+                                    onRemove={() => update({ scope: draft.scope.filter((_, i) => i !== index) })}
+                                />
+                            ))}
+                        </View>
                     )}
-                </ItemGroup>
-            )}
+                    <View style={[styles.row, { flexWrap: 'wrap' }]}>
+                        {input({ value: scopeName, onChangeText: setScopeName, placeholder: ssh ? t('resources.scopePlaceholderSsh') : t('resources.scopeName'), style: styles.scopeInput })}
+                        {input({ value: scopeProtected, onChangeText: setScopeProtected, placeholder: t('resources.scopeProtected'), style: styles.scopeInput, onSubmitEditing: addScope })}
+                        {addButton(addScope)}
+                    </View>
+                </Field>
 
-            <ItemGroup title={t('resources.allow')} footer={t('resources.allowFooter')}>
-                {draft.allow.map((rule) => (
-                    <Item key={rule} title={rule} titleStyle={{ fontFamily: 'IBMPlexMono-Regular', fontSize: 13 }} rightElement={removeButton(() => update({ allow: draft.allow.filter((r) => r !== rule) }))} showChevron={false} />
-                ))}
-                <Item title={t('resources.addRule')} icon={<Ionicons name="add-circle-outline" size={29} color={theme.colors.textLink} />} onPress={editRules('allow')} showChevron={false} />
-            </ItemGroup>
-            <ItemGroup title={t('resources.deny')} footer={t('resources.denyFooter')}>
-                {draft.deny.map((rule) => (
-                    <Item key={rule} title={rule} titleStyle={{ fontFamily: 'IBMPlexMono-Regular', fontSize: 13, color: theme.colors.textDestructive }} rightElement={removeButton(() => update({ deny: draft.deny.filter((r) => r !== rule) }))} showChevron={false} />
-                ))}
-                <Item title={t('resources.addRule')} icon={<Ionicons name="add-circle-outline" size={29} color={theme.colors.textLink} />} onPress={editRules('deny')} showChevron={false} />
-            </ItemGroup>
+                {!ssh && (
+                    <Field label={t('resources.devices')} hint={t('resources.devicesFooter')}>
+                        <View style={styles.chips}>
+                            {machineList.map((m) => (
+                                <VaultChip
+                                    key={m.id}
+                                    label={sharedIds.includes(m.id) ? `${nameOf(m.id)} · ${t('resources.mcpSharedShort')}` : nameOf(m.id)}
+                                    tone={sharedIds.includes(m.id) ? 'warn' : 'default'}
+                                    selected={draft.machineIds.includes(m.id)}
+                                    checked={draft.machineIds.includes(m.id)}
+                                    onPress={() => toggleDevice(m.id)}
+                                />
+                            ))}
+                        </View>
+                        {selectedShared.length > 0 && (
+                            <Text style={styles.warn}>{t('resources.mcpWarnInline', { names: selectedShared.map(nameOf).join('、') })}</Text>
+                        )}
+                    </Field>
+                )}
+                {selectedOld.length > 0 && (
+                    <Text style={styles.warn}>{t('resources.cliOldInline', { names: selectedOld.map(nameOf).join('、'), version: VAULT_MIN_CLI_VERSION })}</Text>
+                )}
+            </View>
 
-            <ItemGroup title={t('resources.scope')} footer={t('resources.scopeFooter')}>
-                {draft.scope.map((scope, index) => (
-                    <Item
-                        key={`${scope.name}-${index}`}
-                        title={scope.name}
-                        subtitle={scope.protected ? t('resources.doNotTouch', { what: scope.protected }) : undefined}
-                        rightElement={removeButton(() => update({ scope: draft.scope.filter((_, i) => i !== index) }))}
-                        showChevron={false}
-                    />
-                ))}
-                <Item
-                    title={t('resources.addScope')}
-                    icon={<Ionicons name="add-circle-outline" size={29} color={theme.colors.textLink} />}
-                    onPress={async () => {
-                        const name = await prompt(t('resources.scope'), '', { hint: t('resources.scopeName') });
-                        if (!name) return;
-                        const protectedPart = await prompt(t('resources.scope'), '', { hint: t('resources.scopeProtected') });
-                        update({ scope: [...draft.scope, { name, protected: protectedPart ?? '' }] });
-                    }}
-                    showChevron={false}
-                />
-            </ItemGroup>
-
-            {!ssh && (
-                <ItemGroup title={t('resources.devices')} footer={t('resources.devicesFooter')}>
-                    {machineList.map((m) => (
-                        <Item
-                            key={m.id}
-                            title={nameOf(m.id)}
-                            subtitle={[
-                                sharedIds.includes(m.id) ? t('resources.mcpSharedTitle') : null,
-                                isVersionSupported(m.metadata?.happyCliVersion, VAULT_MIN_CLI_VERSION) ? null : t('resources.cliTooOld', { version: VAULT_MIN_CLI_VERSION }),
-                            ].filter(Boolean).join(' · ') || undefined}
-                            selected={draft.machineIds.includes(m.id)}
-                            onPress={() => { void toggleDevice(m.id); }}
-                            showChevron={false}
-                        />
-                    ))}
-                </ItemGroup>
-            )}
-
-            <ItemGroup>
-                <Item title={t('resources.save')} titleStyle={{ color: theme.colors.textLink, fontWeight: '600' }} loading={saving} onPress={save} showChevron={false} />
-            </ItemGroup>
+            <View style={styles.footer}>
+                <Pressable onPress={dismiss} style={styles.button} accessibilityRole="button">
+                    <Text style={styles.buttonText}>{t('common.cancel')}</Text>
+                </Pressable>
+                <Pressable onPress={save} disabled={saving} style={[styles.button, styles.primary, saving && { opacity: 0.6 }]} accessibilityRole="button">
+                    <Text style={[styles.buttonText, styles.primaryText]}>{t('resources.save')}</Text>
+                </Pressable>
+            </View>
             <View style={{ height: 24 }} />
         </ItemList>
     );
 });
+
+const stylesheet = StyleSheet.create((theme) => ({
+    card: {
+        backgroundColor: theme.colors.surface,
+        marginHorizontal: Platform.select({ ios: 16, default: 12 }),
+        marginTop: 16,
+        borderRadius: Platform.select({ ios: 10, default: 16 }),
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        maxWidth: layout.maxWidth,
+    },
+    field: {
+        paddingTop: 14,
+    },
+    label: {
+        ...Typography.default('semiBold'),
+        fontSize: 14,
+        color: theme.colors.text,
+        marginBottom: 6,
+    },
+    labelHint: {
+        ...Typography.default(),
+        fontSize: 12.5,
+        color: theme.colors.textSecondary,
+    },
+    input: {
+        ...Typography.default(),
+        height: 38,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
+        backgroundColor: theme.colors.input.background,
+        color: theme.colors.input.text,
+        fontSize: 15,
+        minWidth: 0,
+        ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
+    },
+    mono: {
+        fontFamily: 'IBMPlexMono-Regular',
+        fontSize: 13.5,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    chips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    // Side by side on wide screens; on phones the second box and the button drop to their own line.
+    scopeInput: {
+        flexGrow: 1,
+        flexBasis: 200,
+    },
+    envRow: {
+        flexWrap: 'wrap',
+        marginBottom: 6,
+    },
+    envName: {
+        width: 210,
+        fontSize: 13,
+        color: theme.colors.text,
+    },
+    locked: {
+        ...Typography.default(),
+        fontSize: 13.5,
+        color: theme.colors.textSecondary,
+        paddingVertical: 8,
+    },
+    empty: {
+        ...Typography.default(),
+        fontSize: 12.5,
+        color: theme.colors.textSecondary,
+    },
+    removeX: {
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+        paddingHorizontal: 4,
+    },
+    smallButton: {
+        height: 38,
+        paddingHorizontal: 14,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    smallButtonText: {
+        ...Typography.default(),
+        fontSize: 14,
+        color: theme.colors.textLink,
+    },
+    warn: {
+        ...Typography.default(),
+        marginTop: 8,
+        fontSize: 13,
+        lineHeight: 19,
+        color: theme.colors.box.warning.text,
+        backgroundColor: theme.colors.box.warning.background,
+        borderRadius: 8,
+        padding: 8,
+    },
+    footer: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+        paddingHorizontal: Platform.select({ ios: 16, default: 12 }),
+        paddingTop: 16,
+        maxWidth: layout.maxWidth,
+    },
+    button: {
+        height: 40,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
+        backgroundColor: theme.colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    buttonText: {
+        ...Typography.default('semiBold'),
+        fontSize: 15,
+        color: theme.colors.text,
+    },
+    primary: {
+        backgroundColor: theme.colors.button.primary.background,
+        borderColor: theme.colors.button.primary.background,
+    },
+    primaryText: {
+        color: theme.colors.button.primary.tint,
+    },
+}));
