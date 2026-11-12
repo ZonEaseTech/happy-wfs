@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 58 - 2026-11-12
+
+The Resource center now opens on your keys instead of the full device list.
+
+- Resources: the page shows three devices with a "more" row, then your keys, then the latest usage. Adding devices, MCP shares and the full device list move to Devices › All.
+- Resources: "Add key" sits at the top right. Each key shows its name in commands, what it covers and how many commands it allows or denies, plus how many devices have it and when it was last used.
+- Resources: adding or editing a key is one form: pick the type, type the values in place, add or remove allowed and denied commands as tags, and tick devices.
+- Resources: allowed and denied commands can be added or removed straight from a key's page, and what must not be touched is marked in red.
+- Resources: usage entries show which session ran the command and open it in one tap. The full log can be filtered by refused commands or by key.
+
 ## Version 57 - 2026-11-12
 
 The Devices page becomes the Resource center: store keys such as a Cloudflare token or a server login, and agents can use them without ever seeing them.

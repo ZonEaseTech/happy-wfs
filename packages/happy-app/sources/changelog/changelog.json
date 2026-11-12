@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": 58,
+      "date": "2026-11-12",
+      "summary": "The Resource center now opens on your keys instead of the full device list.",
+      "changes": [
+        "Resources: the page shows three devices with a \"more\" row, then your keys, then the latest usage. Adding devices, MCP shares and the full device list move to Devices › All.",
+        "Resources: \"Add key\" sits at the top right. Each key shows its name in commands, what it covers and how many commands it allows or denies, plus how many devices have it and when it was last used.",
+        "Resources: adding or editing a key is one form: pick the type, type the values in place, add or remove allowed and denied commands as tags, and tick devices.",
+        "Resources: allowed and denied commands can be added or removed straight from a key's page, and what must not be touched is marked in red.",
+        "Resources: usage entries show which session ran the command and open it in one tap. The full log can be filtered by refused commands or by key."
+      ],
+      "rawMarkdown": "## Version 58 - 2026-11-12\n\n\nThe Resource center now opens on your keys instead of the full device list.\n\n- Resources: the page shows three devices with a \"more\" row, then your keys, then the latest usage. Adding devices, MCP shares and the full device list move to Devices › All.\n- Resources: \"Add key\" sits at the top right. Each key shows its name in commands, what it covers and how many commands it allows or denies, plus how many devices have it and when it was last used.\n- Resources: adding or editing a key is one form: pick the type, type the values in place, add or remove allowed and denied commands as tags, and tick devices.\n- Resources: allowed and denied commands can be added or removed straight from a key's page, and what must not be touched is marked in red.\n- Resources: usage entries show which session ran the command and open it in one tap. The full log can be filtered by refused commands or by key."
+    },
+    {
       "version": 57,
       "date": "2026-11-12",
       "summary": "The Devices page becomes the Resource center: store keys such as a Cloudflare token or a server login, and agents can use them without ever seeing them.",
@@ -623,5 +636,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 57
+  "latestVersion": 58
 }
