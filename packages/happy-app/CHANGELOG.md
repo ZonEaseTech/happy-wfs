@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 57 - 2026-11-12
+
+The Devices page becomes the Resource center: store keys such as a Cloudflare token or a server login, and agents can use them without ever seeing them.
+
+- Resources: add a key (Cloudflare, Alibaba Cloud DNS, GitHub, npm, server login, or any key/value), pick which devices may use it, and say what it covers and what must not be touched. Secrets are encrypted per device and never shown again, not even to you; you can only replace them.
+- Resources: each key has an allow list and a deny list of commands. Common key types come with sensible defaults, and a command that reads the secret itself is always refused.
+- Resources: agents run `happy run <key> -- <command>` in their own shell. The secret is injected into that one command and masked as **** in its output; sessions know which keys their machine can use. You can use the same command in a terminal.
+- Resources: every use is logged, refused ones too. A refused command that is simply not on the allow list can be allowed in one tap from the log.
+- Sessions: a shell command that uses a key shows the key's name next to it.
+- Requires Happy CLI 0.6.63 or later on the device.
+
 ## Version 56 - 2026-11-12
 
 Sessions working on the same branch now carry the same number.

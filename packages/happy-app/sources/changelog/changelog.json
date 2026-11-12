@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": 57,
+      "date": "2026-11-12",
+      "summary": "The Devices page becomes the Resource center: store keys such as a Cloudflare token or a server login, and agents can use them without ever seeing them.",
+      "changes": [
+        "Resources: add a key (Cloudflare, Alibaba Cloud DNS, GitHub, npm, server login, or any key/value), pick which devices may use it, and say what it covers and what must not be touched. Secrets are encrypted per device and never shown again, not even to you; you can only replace them.",
+        "Resources: each key has an allow list and a deny list of commands. Common key types come with sensible defaults, and a command that reads the secret itself is always refused.",
+        "Resources: agents run `happy run <key> -- <command>` in their own shell. The secret is injected into that one command and masked as **** in its output; sessions know which keys their machine can use. You can use the same command in a terminal.",
+        "Resources: every use is logged, refused ones too. A refused command that is simply not on the allow list can be allowed in one tap from the log.",
+        "Sessions: a shell command that uses a key shows the key's name next to it.",
+        "Requires Happy CLI 0.6.63 or later on the device."
+      ],
+      "rawMarkdown": "## Version 57 - 2026-11-12\n\n\nThe Devices page becomes the Resource center: store keys such as a Cloudflare token or a server login, and agents can use them without ever seeing them.\n\n- Resources: add a key (Cloudflare, Alibaba Cloud DNS, GitHub, npm, server login, or any key/value), pick which devices may use it, and say what it covers and what must not be touched. Secrets are encrypted per device and never shown again, not even to you; you can only replace them.\n- Resources: each key has an allow list and a deny list of commands. Common key types come with sensible defaults, and a command that reads the secret itself is always refused.\n- Resources: agents run `happy run <key> -- <command>` in their own shell. The secret is injected into that one command and masked as **** in its output; sessions know which keys their machine can use. You can use the same command in a terminal.\n- Resources: every use is logged, refused ones too. A refused command that is simply not on the allow list can be allowed in one tap from the log.\n- Sessions: a shell command that uses a key shows the key's name next to it.\n- Requires Happy CLI 0.6.63 or later on the device."
+    },
+    {
       "version": 56,
       "date": "2026-11-12",
       "summary": "Sessions working on the same branch now carry the same number.",
@@ -609,5 +623,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 56
+  "latestVersion": 57
 }
