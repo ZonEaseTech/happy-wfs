@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 55 - 2026-11-12
+
+Session titles in merged worktree groups get their full width back.
+
+- Sessions: the branch name now sits on its own line under the title instead of squeezing it.
+- Sessions: branches Happy named after the random workspace folder (such as happy/keen-island-nkw7) are no longer shown; only real task branches like bug-412-member-login-guest-fail appear.
+
 ## Version 54 - 2026-11-12
 
 Merged worktree groups now keep each task recognisable.

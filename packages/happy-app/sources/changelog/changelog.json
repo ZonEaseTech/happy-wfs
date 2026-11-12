@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 55,
+      "date": "2026-11-12",
+      "summary": "Session titles in merged worktree groups get their full width back.",
+      "changes": [
+        "Sessions: the branch name now sits on its own line under the title instead of squeezing it.",
+        "Sessions: branches Happy named after the random workspace folder (such as happy/keen-island-nkw7) are no longer shown; only real task branches like bug-412-member-login-guest-fail appear."
+      ],
+      "rawMarkdown": "## Version 55 - 2026-11-12\n\n\nSession titles in merged worktree groups get their full width back.\n\n- Sessions: the branch name now sits on its own line under the title instead of squeezing it.\n- Sessions: branches Happy named after the random workspace folder (such as happy/keen-island-nkw7) are no longer shown; only real task branches like bug-412-member-login-guest-fail appear."
+    },
+    {
       "version": 54,
       "date": "2026-11-12",
       "summary": "Merged worktree groups now keep each task recognisable.",
@@ -589,5 +599,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 54
+  "latestVersion": 55
 }
