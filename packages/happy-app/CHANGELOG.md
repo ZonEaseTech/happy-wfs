@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 62 - 2026-11-13
+
+Running sessions now also hear when you change which devices they can reach.
+
+- Sessions: whenever anything Happy tells a session changes, such as the devices it targets or the keys it can use, the agent gets the current version with your next message, not only the keys. The chat still shows only what you typed.
+- Sessions: a message sent the moment the app opens, before your keys have loaded, no longer tells the agent it has no keys.
+
 ## Version 61 - 2026-11-13
 
 Sessions that were already running now learn about your keys too.

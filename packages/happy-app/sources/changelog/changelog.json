@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 62,
+      "date": "2026-11-13",
+      "summary": "Running sessions now also hear when you change which devices they can reach.",
+      "changes": [
+        "Sessions: whenever anything Happy tells a session changes, such as the devices it targets or the keys it can use, the agent gets the current version with your next message, not only the keys. The chat still shows only what you typed.",
+        "Sessions: a message sent the moment the app opens, before your keys have loaded, no longer tells the agent it has no keys."
+      ],
+      "rawMarkdown": "## Version 62 - 2026-11-13\n\n\nRunning sessions now also hear when you change which devices they can reach.\n\n- Sessions: whenever anything Happy tells a session changes, such as the devices it targets or the keys it can use, the agent gets the current version with your next message, not only the keys. The chat still shows only what you typed.\n- Sessions: a message sent the moment the app opens, before your keys have loaded, no longer tells the agent it has no keys."
+    },
+    {
       "version": 61,
       "date": "2026-11-13",
       "summary": "Sessions that were already running now learn about your keys too.",
@@ -668,5 +678,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 61
+  "latestVersion": 62
 }
