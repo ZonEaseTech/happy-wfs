@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 61 - 2026-11-13
+
+Sessions that were already running now learn about your keys too.
+
+- Sessions: a long-running session kept the instructions it started with, so it never heard about keys added later. When the keys a session can use change, Happy now passes the details to the agent along with your next message; the chat still shows only what you typed, and new sessions get them from the start as before.
+- Sessions: copying one of your messages copies what is shown, not anything Happy attached for the agent.
+
 ## Version 60 - 2026-11-12
 
 The resource center's tabs now line up with what is under them.
