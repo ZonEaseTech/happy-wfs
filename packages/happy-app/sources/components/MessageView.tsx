@@ -186,7 +186,8 @@ function UserTextBlock(props: {
     return props.message.sentByName || t('message.unknownSender');
   }, [props.isSharedSession, props.showSenderName, props.message.sentBy, props.currentUserId, props.message.sentByName]);
 
-  const { showActions, onContextMenu, actionsOverlay } = useMessageActions(props.message.text, props.sessionId, props.message.id);
+  // Copy and the other actions work on what the user sees, not on context the app attached for the agent.
+  const { showActions, onContextMenu, actionsOverlay } = useMessageActions(props.message.displayText || props.message.text, props.sessionId, props.message.id);
 
   return (
     <View style={styles.userMessageContainer}>

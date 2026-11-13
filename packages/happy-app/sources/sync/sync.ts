@@ -28,7 +28,7 @@ import { uploadChatImage } from './uploadChatImage';
 import { LocalImage } from '@/components/ImagePreview';
 import { applySettings, mergeSettings, Settings, settingsDefaults, settingsParse, SUPPORTED_SCHEMA_VERSION } from './settings';
 import { Profile, profileParse } from './profile';
-import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt, loadSessionMessagesCache, saveSessionMessagesCache, clearSessionMessagesCache, SESSION_MESSAGES_CACHE_MAX_BYTES } from './persistence';
+import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt, loadSessionMessagesCache, saveSessionMessagesCache, clearSessionMessagesCache, SESSION_MESSAGES_CACHE_MAX_BYTES, loadVaultNotesSent, saveVaultNotesSent } from './persistence';
 import { initializeTracking, tracking } from '@/track';
 import { parseToken } from '@/utils/parseToken';
 import { getServerUrl } from './serverConfig';
@@ -106,10 +106,19 @@ type SendOrQueueResult = (
     | { success: false; localId: string; error?: string; }
 );
 
+/** Short, stable fingerprint of a text (djb2); only used to notice that it changed. */
+function hashText(text: string): string {
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+    return (hash >>> 0).toString(36);
+}
+
 type PreparedOutgoingMessage = {
     localId: string;
     encryptedRawRecord: string;
     normalizedMessage: NormalizedMessage | null;
+    /** Fingerprint of the credentials note riding along, remembered once the message is accepted. */
+    vaultNote?: string;
 };
 
 /**
@@ -211,6 +220,7 @@ class Sync {
      *  Ensures input is cleared before message appears, regardless of whether
      *  the HTTP response or WebSocket echo arrives first. */
     private pendingSendCallbacks = new Map<string, () => void>();
+    private vaultNotesSent = loadVaultNotesSent();
     /** Defer showing no_cli_connection so CLI cold-start has a chance to attach
      *  and clear via message-delivery-cleared before the user sees the badge. */
     private deliveryErrorTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -550,11 +560,47 @@ class Sync {
 
 
     private buildSystemPrompt(sessionId: string): string {
-        // Resource center keys this session's machine may use with `happy run`.
+        const vaultSection = this.buildVaultSection(sessionId);
+        return vaultSection ? `${this.buildDevicesSystemPrompt(sessionId)}\n\n${vaultSection}` : this.buildDevicesSystemPrompt(sessionId);
+    }
+
+    /** Resource center keys this session's machine may use with `happy run`. */
+    private buildVaultSection(sessionId: string): string | null {
         const metadata = storage.getState().sessions[sessionId]?.metadata;
         const machine = metadata?.machineId ? storage.getState().machines[metadata.machineId] : undefined;
-        const vaultSection = buildVaultPromptSection(getVaultState().keys, metadata?.machineId, machine?.metadata?.happyCliVersion);
-        return vaultSection ? `${this.buildDevicesSystemPrompt(sessionId)}\n\n${vaultSection}` : this.buildDevicesSystemPrompt(sessionId);
+        return buildVaultPromptSection(getVaultState().keys, metadata?.machineId, machine?.metadata?.happyCliVersion);
+    }
+
+    /**
+     * Claude Code keeps the system prompt a conversation started with, even across restarts, so a
+     * long-running session never sees credentials added or changed later. When this session's
+     * credentials section differs from the one its agent last got, it rides along with the next
+     * message (the chat still shows only what the user typed). A conversation that has not
+     * started yet gets the section in its system prompt and needs no note.
+     */
+    private vaultNoteFor(sessionId: string, text: string, flavor: string | null | undefined): { note: string | null; fingerprint: string } | null {
+        const section = this.buildVaultSection(sessionId);
+        const messages = storage.getState().sessionMessages[sessionId];
+        // Slash commands must stay first in the message; image-only messages have no text to keep on screen.
+        if (!section || !messages?.isLoaded || (flavor && flavor !== 'claude') || text.startsWith('/') || !text.trim()) return null;
+        const fingerprint = `${section.length}:${hashText(section)}`;
+        if (this.vaultNotesSent[sessionId] === fingerprint) return null;
+        if (messages.messages.length === 0) {
+            this.rememberVaultNote(sessionId, fingerprint);
+            return null;
+        }
+        return {
+            fingerprint,
+            note: '<happy-context>\nHappy, the app the user writes from, attached this note; the user did not type it. '
+                + 'The credentials available to this session have changed since the conversation started, so this replaces any earlier "# Credentials" section.\n\n'
+                + `${section}\n</happy-context>`,
+        };
+    }
+
+    private rememberVaultNote(sessionId: string, fingerprint: string | undefined) {
+        if (!fingerprint) return;
+        this.vaultNotesSent = { ...this.vaultNotesSent, [sessionId]: fingerprint };
+        saveVaultNotesSent(this.vaultNotesSent);
     }
 
     private buildDevicesSystemPrompt(sessionId: string): string {
@@ -792,6 +838,12 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         const model = (resolvedModel && fastMode) ? `${resolvedModel}-fast` : resolvedModel;
         const fallbackModel: string | null = null;
 
+        const vaultNote = this.vaultNoteFor(sessionId, text, flavor);
+        if (vaultNote?.note) {
+            displayText = displayText ?? text;
+            text = `${text}\n\n${vaultNote.note}`;
+        }
+
         let messageContent: { type: 'text'; text: string } | { type: 'mixed'; text: string; images: ImageContent[] };
         if (uploadedImages && uploadedImages.length > 0) {
             messageContent = {
@@ -849,6 +901,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             localId,
             encryptedRawRecord,
             normalizedMessage,
+            vaultNote: vaultNote?.note ? vaultNote.fingerprint : undefined,
         };
     }
 
@@ -865,7 +918,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             return { success: false, error: prepared.error, localId: prepared.localId };
         }
 
-        const { localId, encryptedRawRecord, normalizedMessage } = prepared;
+        const { localId, encryptedRawRecord, normalizedMessage, vaultNote } = prepared;
         const sendStartedAt = Date.now();
         log.log(`[SEND_DEBUG][SYNC] start sid=${sessionId} localId=${localId} textLen=${text.length} images=${images?.length || 0} existingLocalId=${existingLocalId ? 'yes' : 'no'}`);
 
@@ -927,6 +980,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             }
 
             log.log(`[SEND_DEBUG][SYNC] success sid=${sessionId} localId=${localId} via=v3-http elapsedMs=${Date.now() - sendStartedAt}`);
+            this.rememberVaultNote(sessionId, vaultNote);
             return { success: true, localId };
         } catch (error) {
             log.log(`[SEND_DEBUG][SYNC] fail sid=${sessionId} localId=${localId} via=v3-exception error=${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1061,7 +1115,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             return { success: false, error: prepared.error, localId: prepared.localId };
         }
 
-        const { localId, encryptedRawRecord, normalizedMessage } = prepared;
+        const { localId, encryptedRawRecord, normalizedMessage, vaultNote } = prepared;
         if (!this.credentials) {
             return { success: false, localId, error: 'Not authenticated' };
         }
@@ -1110,6 +1164,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                 if (decryptedPending) {
                     storage.getState().upsertPendingMessage(sessionId, decryptedPending);
                 }
+                this.rememberVaultNote(sessionId, vaultNote);
                 return { success: true, mode: 'queued', localId, pendingId: responseData.pending.id };
             }
 
@@ -1131,6 +1186,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                 this.sessionLastSeq.set(sessionId, responseData.message.seq);
             }
 
+            this.rememberVaultNote(sessionId, vaultNote);
             return { success: true, mode: 'sent', localId };
         } catch (error) {
             this.pendingSendCallbacks.delete(localId);
