@@ -28,7 +28,7 @@ import { uploadChatImage } from './uploadChatImage';
 import { LocalImage } from '@/components/ImagePreview';
 import { applySettings, mergeSettings, Settings, settingsDefaults, settingsParse, SUPPORTED_SCHEMA_VERSION } from './settings';
 import { Profile, profileParse } from './profile';
-import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt, loadSessionMessagesCache, saveSessionMessagesCache, clearSessionMessagesCache, SESSION_MESSAGES_CACHE_MAX_BYTES, loadVaultNotesSent, saveVaultNotesSent } from './persistence';
+import { loadPendingSettings, savePendingSettings, loadSessionLastViewedAt, saveSessionLastViewedAt, loadSessionMessagesCache, saveSessionMessagesCache, clearSessionMessagesCache, SESSION_MESSAGES_CACHE_MAX_BYTES, loadContextNotesSent, saveContextNotesSent } from './persistence';
 import { initializeTracking, tracking } from '@/track';
 import { parseToken } from '@/utils/parseToken';
 import { getServerUrl } from './serverConfig';
@@ -117,8 +117,8 @@ type PreparedOutgoingMessage = {
     localId: string;
     encryptedRawRecord: string;
     normalizedMessage: NormalizedMessage | null;
-    /** Fingerprint of the credentials note riding along, remembered once the message is accepted. */
-    vaultNote?: string;
+    /** Fingerprint of the instructions riding along, remembered once the message is accepted. */
+    contextNote?: string;
 };
 
 /**
@@ -220,7 +220,7 @@ class Sync {
      *  Ensures input is cleared before message appears, regardless of whether
      *  the HTTP response or WebSocket echo arrives first. */
     private pendingSendCallbacks = new Map<string, () => void>();
-    private vaultNotesSent = loadVaultNotesSent();
+    private contextNotesSent = loadContextNotesSent();
     /** Defer showing no_cli_connection so CLI cold-start has a chance to attach
      *  and clear via message-delivery-cleared before the user sees the badge. */
     private deliveryErrorTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -566,6 +566,8 @@ class Sync {
 
     /** Resource center keys this session's machine may use with `happy run`. */
     private buildVaultSection(sessionId: string): string | null {
+        // Until the keys have loaded, "no keys" would be a wrong answer rather than no answer.
+        if (!getVaultState().loaded) return null;
         const metadata = storage.getState().sessions[sessionId]?.metadata;
         const machine = metadata?.machineId ? storage.getState().machines[metadata.machineId] : undefined;
         return buildVaultPromptSection(getVaultState().keys, metadata?.machineId, machine?.metadata?.happyCliVersion);
@@ -573,34 +575,37 @@ class Sync {
 
     /**
      * Claude Code keeps the system prompt a conversation started with, even across restarts, so a
-     * long-running session never sees credentials added or changed later. When this session's
-     * credentials section differs from the one its agent last got, it rides along with the next
-     * message (the chat still shows only what the user typed). A conversation that has not
-     * started yet gets the section in its system prompt and needs no note.
+     * long-running session never sees later changes to what Happy tells it: devices it was pointed
+     * at, keys added in the resource center. When the instructions this session would get differ
+     * from the ones its agent last got, the current version rides along with the next message
+     * (the chat still shows only what the user typed). A conversation that has not started yet
+     * gets them in its system prompt and needs no note.
      */
-    private vaultNoteFor(sessionId: string, text: string, flavor: string | null | undefined): { note: string | null; fingerprint: string } | null {
-        const section = this.buildVaultSection(sessionId);
+    private contextNoteFor(sessionId: string, text: string, flavor: string | null | undefined): { note: string | null; fingerprint: string } | null {
         const messages = storage.getState().sessionMessages[sessionId];
-        // Slash commands must stay first in the message; image-only messages have no text to keep on screen.
-        if (!section || !messages?.isLoaded || (flavor && flavor !== 'claude') || text.startsWith('/') || !text.trim()) return null;
-        const fingerprint = `${section.length}:${hashText(section)}`;
-        if (this.vaultNotesSent[sessionId] === fingerprint) return null;
+        // Wait for the keys (they decide part of the text); keep slash commands first in the
+        // message; image-only messages have no text to keep on screen.
+        if (!getVaultState().loaded || !messages?.isLoaded || (flavor && flavor !== 'claude') || text.startsWith('/') || !text.trim()) return null;
+        const prompt = this.buildSystemPrompt(sessionId);
+        const fingerprint = `${prompt.length}:${hashText(prompt)}`;
+        if (this.contextNotesSent[sessionId] === fingerprint) return null;
         if (messages.messages.length === 0) {
-            this.rememberVaultNote(sessionId, fingerprint);
+            this.rememberContextNote(sessionId, fingerprint);
             return null;
         }
         return {
             fingerprint,
             note: '<happy-context>\nHappy, the app the user writes from, attached this note; the user did not type it. '
-                + 'The credentials available to this session have changed since the conversation started, so this replaces any earlier "# Credentials" section.\n\n'
-                + `${section}\n</happy-context>`,
+                + 'What Happy tells this session (its devices, its credentials) has changed since the conversation started; '
+                + 'the version below replaces the one in your instructions.\n\n'
+                + `${prompt}\n</happy-context>`,
         };
     }
 
-    private rememberVaultNote(sessionId: string, fingerprint: string | undefined) {
+    private rememberContextNote(sessionId: string, fingerprint: string | undefined) {
         if (!fingerprint) return;
-        this.vaultNotesSent = { ...this.vaultNotesSent, [sessionId]: fingerprint };
-        saveVaultNotesSent(this.vaultNotesSent);
+        this.contextNotesSent = { ...this.contextNotesSent, [sessionId]: fingerprint };
+        saveContextNotesSent(this.contextNotesSent);
     }
 
     private buildDevicesSystemPrompt(sessionId: string): string {
@@ -838,10 +843,10 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         const model = (resolvedModel && fastMode) ? `${resolvedModel}-fast` : resolvedModel;
         const fallbackModel: string | null = null;
 
-        const vaultNote = this.vaultNoteFor(sessionId, text, flavor);
-        if (vaultNote?.note) {
+        const contextNote = this.contextNoteFor(sessionId, text, flavor);
+        if (contextNote?.note) {
             displayText = displayText ?? text;
-            text = `${text}\n\n${vaultNote.note}`;
+            text = `${text}\n\n${contextNote.note}`;
         }
 
         let messageContent: { type: 'text'; text: string } | { type: 'mixed'; text: string; images: ImageContent[] };
@@ -901,7 +906,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             localId,
             encryptedRawRecord,
             normalizedMessage,
-            vaultNote: vaultNote?.note ? vaultNote.fingerprint : undefined,
+            contextNote: contextNote?.note ? contextNote.fingerprint : undefined,
         };
     }
 
@@ -918,7 +923,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             return { success: false, error: prepared.error, localId: prepared.localId };
         }
 
-        const { localId, encryptedRawRecord, normalizedMessage, vaultNote } = prepared;
+        const { localId, encryptedRawRecord, normalizedMessage, contextNote } = prepared;
         const sendStartedAt = Date.now();
         log.log(`[SEND_DEBUG][SYNC] start sid=${sessionId} localId=${localId} textLen=${text.length} images=${images?.length || 0} existingLocalId=${existingLocalId ? 'yes' : 'no'}`);
 
@@ -980,7 +985,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             }
 
             log.log(`[SEND_DEBUG][SYNC] success sid=${sessionId} localId=${localId} via=v3-http elapsedMs=${Date.now() - sendStartedAt}`);
-            this.rememberVaultNote(sessionId, vaultNote);
+            this.rememberContextNote(sessionId, contextNote);
             return { success: true, localId };
         } catch (error) {
             log.log(`[SEND_DEBUG][SYNC] fail sid=${sessionId} localId=${localId} via=v3-exception error=${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1115,7 +1120,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             return { success: false, error: prepared.error, localId: prepared.localId };
         }
 
-        const { localId, encryptedRawRecord, normalizedMessage, vaultNote } = prepared;
+        const { localId, encryptedRawRecord, normalizedMessage, contextNote } = prepared;
         if (!this.credentials) {
             return { success: false, localId, error: 'Not authenticated' };
         }
@@ -1164,7 +1169,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                 if (decryptedPending) {
                     storage.getState().upsertPendingMessage(sessionId, decryptedPending);
                 }
-                this.rememberVaultNote(sessionId, vaultNote);
+                this.rememberContextNote(sessionId, contextNote);
                 return { success: true, mode: 'queued', localId, pendingId: responseData.pending.id };
             }
 
@@ -1186,7 +1191,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
                 this.sessionLastSeq.set(sessionId, responseData.message.seq);
             }
 
-            this.rememberVaultNote(sessionId, vaultNote);
+            this.rememberContextNote(sessionId, contextNote);
             return { success: true, mode: 'sent', localId };
         } catch (error) {
             this.pendingSendCallbacks.delete(localId);

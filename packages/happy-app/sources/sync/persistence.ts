@@ -247,11 +247,11 @@ export function saveSessionLastViewedAt(map: Map<string, number>) {
     setPersisted(SESSION_LAST_VIEWED_KEY, JSON.stringify(Object.fromEntries(map)));
 }
 
-const VAULT_NOTES_SENT_KEY = 'vault-notes-sent-v1';
+const CONTEXT_NOTES_SENT_KEY = 'context-notes-sent-v1';
 
-/** Per session, a fingerprint of the credentials note its agent last received with a message. */
-export function loadVaultNotesSent(): Record<string, string> {
-    const raw = mmkv.getString(VAULT_NOTES_SENT_KEY);
+/** Per session, a fingerprint of the Happy instructions its agent last received with a message. */
+export function loadContextNotesSent(): Record<string, string> {
+    const raw = mmkv.getString(CONTEXT_NOTES_SENT_KEY);
     if (!raw) return {};
     try {
         return JSON.parse(raw);
@@ -260,8 +260,8 @@ export function loadVaultNotesSent(): Record<string, string> {
     }
 }
 
-export function saveVaultNotesSent(notes: Record<string, string>) {
-    setPersisted(VAULT_NOTES_SENT_KEY, JSON.stringify(notes));
+export function saveContextNotesSent(notes: Record<string, string>) {
+    setPersisted(CONTEXT_NOTES_SENT_KEY, JSON.stringify(notes));
 }
 
 const SESSION_GOAL_PINS_KEY = 'session-goal-pins.v2';
