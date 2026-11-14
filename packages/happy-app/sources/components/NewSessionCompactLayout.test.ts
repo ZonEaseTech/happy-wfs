@@ -2,6 +2,8 @@ import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewSessionCompactLayout } from './NewSessionCompactLayout';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const viewport = vi.hoisted(() => ({ width: 1024 }));
 
@@ -26,7 +28,6 @@ function render(extraSlots: Record<string, React.ReactNode> = {}): string {
         machine: 'machine-control',
         profile: 'profile-control',
         sessionType: 'session-mode-control',
-        composer: 'composer-control',
         ...extraSlots,
     }));
 }
@@ -36,11 +37,11 @@ describe('NewSessionCompactLayout', () => {
         viewport.width = 1024;
     });
 
-    it('keeps the desktop machine and profile controls in one centered, bounded row', () => {
+    it('puts machine and profile on two full-width rows on desktop', () => {
         const html = render();
         expect(html).toContain('max-width:900px');
         expect(html).toContain('align-self:center');
-        expect(html).toContain('flex-direction:row');
+        expect(html).toContain('flex-direction:column');
         expect(html).toContain('machine-control');
         expect(html).toContain('profile-control');
         expect(html).not.toContain('position:absolute');
@@ -53,10 +54,10 @@ describe('NewSessionCompactLayout', () => {
         expect(html).toContain('gap:12px');
         expect(html).toContain('machine-control');
         expect(html).toContain('profile-control');
-        expect(html).toContain('composer-control');
+        expect(html).not.toContain('compact-composer');
     });
 
-    it('keeps the existing controls in order and the composer immediately after repository settings', () => {
+    it('keeps settings in order without putting a composer inside the scrolling setup', () => {
         const html = render({
             banner: 'external-context',
             warnings: 'cli-warning',
@@ -70,7 +71,6 @@ describe('NewSessionCompactLayout', () => {
             'compact-directory',
             'compact-session-mode',
             'compact-repositories',
-            'compact-composer',
         ];
         for (let i = 1; i < ids.length; i += 1) {
             expect(html.indexOf(`data-testid="${ids[i]}"`)).toBeGreaterThan(
@@ -81,6 +81,7 @@ describe('NewSessionCompactLayout', () => {
         expect(html).toContain('cli-warning');
         expect(html).toContain('directory-control');
         expect(html).toContain('repository-control');
+        expect(html).not.toContain('compact-composer');
     });
 
     it('does not reserve empty rows for optional slots', () => {
@@ -89,6 +90,17 @@ describe('NewSessionCompactLayout', () => {
             expect(html).not.toContain(`data-testid="compact-${slot}"`);
         }
         expect(html).toContain('data-testid="compact-session-mode"');
-        expect(html).toContain('data-testid="compact-composer"');
+        expect(html).not.toContain('data-testid="compact-composer"');
+    });
+
+    it('docks the unchanged AgentInput outside the web settings ScrollView', () => {
+        const source = readFileSync(resolve(__dirname, '../app/(app)/new/index.tsx'), 'utf8');
+        const webBranch = source.slice(source.indexOf('    if (compactWebLayout) {'), source.indexOf('    // VARIANT B: Enhanced'));
+        const scrollEnd = webBranch.indexOf('</ScrollView>');
+        const dock = webBranch.indexOf('testID="new-session-fixed-composer"');
+        expect(scrollEnd).toBeGreaterThan(0);
+        expect(dock).toBeGreaterThan(scrollEnd);
+        expect(webBranch.indexOf('{enhancedComposer}', dock)).toBeGreaterThan(dock);
+        expect(webBranch).not.toContain('composer={enhancedComposer}');
     });
 });

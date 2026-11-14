@@ -2504,9 +2504,16 @@ selectedProfile && (
                                     />
                                 </View>
                             ) : null}
-                            composer={enhancedComposer}
                         />
                     </ScrollView>
+                    <View
+                        testID="new-session-fixed-composer"
+                        style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom }}
+                    >
+                        <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
+                            {enhancedComposer}
+                        </View>
+                    </View>
                     {enhancedOverlays}
                 </Animated.View>
             </View>

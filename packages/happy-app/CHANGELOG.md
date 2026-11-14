@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 64 - 2026-11-14
+
+The new-session page keeps the message box docked at the bottom again.
+
+- Sessions: device and AI configuration are now on separate full-width rows, including desktop screens.
+- Sessions: the existing message input is outside the scrolling setup area again. Its content, model and permission controls, attachments, and send behavior are unchanged.
+
 ## Version 63 - 2026-11-14
 
 The web new-session page is more compact, with the same session controls.

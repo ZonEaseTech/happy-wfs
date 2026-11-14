@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 64,
+      "date": "2026-11-14",
+      "summary": "The new-session page keeps the message box docked at the bottom again.",
+      "changes": [
+        "Sessions: device and AI configuration are now on separate full-width rows, including desktop screens.",
+        "Sessions: the existing message input is outside the scrolling setup area again. Its content, model and permission controls, attachments, and send behavior are unchanged."
+      ],
+      "rawMarkdown": "## Version 64 - 2026-11-14\n\n\nThe new-session page keeps the message box docked at the bottom again.\n\n- Sessions: device and AI configuration are now on separate full-width rows, including desktop screens.\n- Sessions: the existing message input is outside the scrolling setup area again. Its content, model and permission controls, attachments, and send behavior are unchanged."
+    },
+    {
       "version": 63,
       "date": "2026-11-14",
       "summary": "The web new-session page is more compact, with the same session controls.",
@@ -689,5 +699,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 63
+  "latestVersion": 64
 }

@@ -9,7 +9,6 @@ export interface NewSessionCompactLayoutProps {
     directory?: React.ReactNode;
     sessionType: React.ReactNode;
     repositories?: React.ReactNode;
-    composer: React.ReactNode;
     banner?: React.ReactNode;
 }
 
@@ -24,7 +23,6 @@ export const NewSessionCompactLayout = React.memo(function NewSessionCompactLayo
     directory,
     sessionType,
     repositories,
-    composer,
     banner,
 }: NewSessionCompactLayoutProps) {
     const { theme } = useUnistyles();
@@ -50,20 +48,20 @@ export const NewSessionCompactLayout = React.memo(function NewSessionCompactLayo
             <View
                 testID="compact-machine-profile-row"
                 style={{
-                    flexDirection: narrow ? 'column' : 'row',
+                    flexDirection: 'column',
                     alignItems: 'stretch',
                     gap: spacing,
                 }}
             >
                 <View
                     testID="compact-machine"
-                    style={{ flex: narrow ? undefined : 1, minWidth: 0 }}
+                    style={{ minWidth: 0 }}
                 >
                     {machine}
                 </View>
                 <View
                     testID="compact-profile"
-                    style={{ flex: narrow ? undefined : 1, minWidth: 0 }}
+                    style={{ minWidth: 0 }}
                 >
                     {profile}
                 </View>
@@ -75,8 +73,6 @@ export const NewSessionCompactLayout = React.memo(function NewSessionCompactLayo
             <View testID="compact-session-mode">{sessionType}</View>
 
             {repositories ? <View testID="compact-repositories">{repositories}</View> : null}
-
-            <View testID="compact-composer">{composer}</View>
         </View>
     );
 });
