@@ -19,7 +19,6 @@ import { machineBash, machineSpawnNewSession, sessionUpdateMetadataFields } from
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { SessionTypeSelector } from '@/components/SessionTypeSelector';
-import { NewSessionCompactLayout } from '@/components/NewSessionCompactLayout';
 import { createWorktree } from '@/utils/createWorktree';
 import { createWorkspace, type WorkspaceRepoInput } from '@/utils/createWorkspace';
 import { RepoPickerBar, type SelectedRepo } from '@/components/RepoPickerBar';
@@ -431,7 +430,6 @@ function NewSessionWizard() {
     }, [agentType]);
 
     const [sessionType, setSessionType] = React.useState<'simple' | 'worktree'>(tempSessionData?.sessionType || persistedDraft?.sessionType || 'simple');
-    const [directoryBrowserOpen, setDirectoryBrowserOpen] = React.useState(false);
     const [branchMode, setBranchMode] = React.useState<'new' | 'existing'>('new');
     const [branchModeMenuVisible, setBranchModeMenuVisible] = React.useState(false);
     const [machineMenuVisible, setMachineMenuVisible] = React.useState(false);
@@ -1624,7 +1622,6 @@ function NewSessionWizard() {
     }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, branchMode, agentType, selectedProfileId, permissionMode, modelMode, fastMode, dismissedRecentMachinePaths, recentMachinePaths, profileMap, router, images, clearImages, clearFileAttachments, fileAttachments, tempSessionData, selectedRepos]);
 
     const screenWidth = useWindowDimensions().width;
-    const compactWebLayout = Platform.OS === 'web';
 
     // Machine online status for AgentInput (DRY - reused in info box too)
     const connectionStatus = React.useMemo(() => {
@@ -1754,9 +1751,190 @@ function NewSessionWizard() {
         </View>
     ) : null;
 
-    // Reuse the same controls and handlers; only the enhanced web presentation changes.
-    const enhancedMachineSelector = (
-selectedMachine && connectionStatus && (
+    // ========================================================================
+    // CONTROL A: Simpler AgentInput-driven layout (flag OFF)
+    // Shows machine/path selection via chips that navigate to picker screens
+    // ========================================================================
+    if (!useEnhancedSessionWizard) {
+        return (
+            <View style={[styles.container, Platform.OS !== 'web' && { paddingTop: 40 }]}>
+                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                    <Animated.View style={animatedInputStyle}>
+                    {/* External context banner */}
+                    {externalContextBanner && (
+                        <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
+                                {externalContextBanner}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Session type selector */}
+                    <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+                        <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
+                            <SessionTypeSelector
+                                value={sessionType}
+                                onChange={setSessionType}
+                                worktreeAccessory={branchModeSelector}
+                            />
+                        </View>
+                    </View>
+
+                    {/* Repo picker for worktree mode */}
+                    {sessionType === 'worktree' && selectedMachineId && (
+                        <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center', gap: 8 }}>
+                                <RepoPickerBar
+                                    machineId={selectedMachineId}
+                                    selectedRepos={selectedRepos}
+                                    onReposChange={setSelectedRepos}
+                                    onAddDirectory={handleAddDirectory}
+                                />
+                            </View>
+                        </View>
+                    )}
+
+                    {/* AgentInput with inline chips - sticky at bottom */}
+                    <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom }}>
+                        <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
+                            <AgentInput
+                                value={sessionPrompt}
+                                onChangeText={setSessionPrompt}
+                                onSend={handleCreateSession}
+                                isSendDisabled={!canCreate}
+                                isSending={isCreating}
+                                placeholder={t('session.initialMessage')}
+                                autocompletePrefixes={[]}
+                                autocompleteSuggestions={async () => []}
+                                agentType={agentType}
+                                onAgentClick={handleAgentClick}
+                                permissionMode={permissionMode}
+                                onPermissionModeChange={handlePermissionModeChange}
+                                modelMode={modelMode}
+                                onModelModeChange={handleModelModeChange}
+                                fastMode={fastMode}
+                                onFastModeChange={handleFastModeChange}
+                                connectionStatus={connectionStatus}
+                                machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
+                                onMachineClick={handleMachineClick}
+                                currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
+                                onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
+                                fileAttachments={fileAttachments}
+                                onFileAttachmentsChange={setFileAttachments}
+                                images={images}
+                                onImagesChange={(newImages) => {
+                                    const currentUris = new Set(newImages.map(img => img.uri));
+                                    images.forEach((img, index) => {
+                                        if (!currentUris.has(img.uri)) {
+                                            removeImage(index);
+                                        }
+                                    });
+                                }}
+                                onImageButtonPress={handleImageButtonPress}
+                                supportsImages={supportsImages}
+                                onImageDrop={handleImageDrop}
+                                quickActions={quickActions}
+                                onCustomizeQuickActions={handleCustomizeQuickActions}
+                            />
+                        </View>
+                    </View>
+                    </Animated.View>
+                </View>
+
+                {/* Hidden file input for web image upload */}
+                {Platform.OS === 'web' && (
+                    <input
+                        ref={fileInputRef as any}
+                        type="file"
+                        accept="*/*"
+                        multiple
+                        style={{ display: 'none' }}
+                        onChange={handleFileInputChange as any}
+                    />
+                )}
+
+                {/* Image Picker Sheet (native) */}
+                <ActionMenuModal
+                    visible={imagePickerSheetVisible}
+                    items={imagePickerMenuItems}
+                    onClose={() => setImagePickerSheetVisible(false)}
+                    deferItemPress
+                />
+
+                <ActionMenuModal
+                    visible={profileMenuVisible}
+                    title={t('wizard.step1Title')}
+                    searchable
+                    items={profileMenuItems}
+                    onClose={() => setProfileMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={branchModeMenuVisible}
+                    items={branchModeMenuItems}
+                    onClose={() => setBranchModeMenuVisible(false)}
+                />
+
+                <ActionMenuModal
+                    visible={machineMenuVisible}
+                    title={t('wizard.step2Title')}
+                    searchable
+                    searchPlaceholder={t('wizard.filterMachines')}
+                    items={machineMenuItems}
+                    onClose={() => setMachineMenuVisible(false)}
+                />
+
+                {/* Branch picker for Add Directory flow */}
+                <ActionMenuModal
+                    visible={addDirBranchMenu.visible}
+                    title={t('newSession.repos.targetBranch')}
+                    searchable
+                    items={addDirBranchMenu.items}
+                    onClose={() => {
+                        setAddDirBranchMenu({ visible: false, items: [] });
+                        addDirBranchResolveRef.current?.(undefined);
+                        addDirBranchResolveRef.current = null;
+                    }}
+                />
+
+                {/* Folder picker for Add Directory flow */}
+                {selectedMachineId && (
+                    <FolderPickerSheet
+                        ref={folderPickerRef}
+                        machineId={selectedMachineId}
+                        homeDir={selectedMachine?.metadata?.homeDir}
+                        onSelect={handleFolderSelected}
+                    />
+                )}
+            </View>
+        );
+    }
+
+    // ========================================================================
+    // VARIANT B: Enhanced profile-first wizard (flag ON)
+    // Full wizard with numbered sections, profile management, CLI detection
+    // ========================================================================
+    return (
+        <View style={styles.container}>
+            <Animated.View style={[{ flex: 1 }, animatedInputStyle]}>
+                <ScrollView
+                    ref={scrollViewRef}
+                    style={styles.scrollContainer}
+                    contentContainerStyle={styles.contentContainer}
+                    keyboardShouldPersistTaps="handled"
+                >
+                <View style={[
+                    { paddingHorizontal: screenWidth > 700 ? 16 : 8 }
+                ]}>
+                    <View style={[
+                        { maxWidth: layout.maxWidth, flex: 1, width: '100%', alignSelf: 'center' }
+                    ]}>
+                        <View ref={profileSectionRef} style={styles.wizardContainer}>
+                            {/* External context banner */}
+                            {externalContextBanner}
+
+                            {/* Machine selector */}
+                            {selectedMachine && connectionStatus && (
                                 <Pressable
                                     onPress={() => setMachineMenuVisible(true)}
                                     style={({ pressed }) => ({
@@ -1789,48 +1967,18 @@ selectedMachine && connectionStatus && (
                                     </View>
                                     <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
                                 </Pressable>
-                            )
-    );
-    const enhancedProfileSelector = (
-selectedProfile && (
-                                <Pressable
-                                    style={({ pressed }) => [
-                                        styles.profileListItem,
-                                        styles.profileListItemSelected,
-                                        { opacity: pressed ? 0.75 : 1 },
-                                    ]}
-                                    onPress={() => setProfileMenuVisible(true)}
-                                >
-                                    <View style={styles.profileIcon}>
-                                        <Ionicons name={selectedProfile.isBuiltIn ? "star" : "person"} size={12} color="#FFFFFF" />
-                                    </View>
-                                    <View style={{ flex: 1, marginRight: 12 }}>
-                                        <Text style={styles.profileListName}>{selectedProfile.name}</Text>
-                                        <Text style={styles.profileListDetails} numberOfLines={2}>
-                                            {getProfileSubtitle(selectedProfile)}
-                                        </Text>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                        <Ionicons name="chevron-down" size={18} color={theme.colors.textSecondary} />
-                                        <Pressable
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                            onPress={(e) => {
-                                                e.stopPropagation();
-                                                handleEditProfile(selectedProfile);
-                                            }}
-                                        >
-                                            <Ionicons name="create-outline" size={20} color={theme.colors.button.secondary.tint} />
-                                        </Pressable>
-                                    </View>
-                                </Pressable>
-                            )
-    );
-    const hasCliWarning = Boolean(selectedMachineId && (
-        (cliAvailability.claude === false && !isWarningDismissed('claude') && !hiddenBanners.claude)
-        || (cliAvailability.codex === false && !isWarningDismissed('codex') && !hiddenBanners.codex)
-        || (cliAvailability.gemini === false && !isWarningDismissed('gemini') && !hiddenBanners.gemini)
-    ));
-    const enhancedCliWarnings = hasCliWarning ? (<>
+                            )}
+
+                            {/* Section 1: Profile Management */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
+                                <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>1.</Text>
+                                <Ionicons name="person-outline" size={18} color={theme.colors.text} />
+                                <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step1Title')}</Text>
+                            </View>
+                            <Text style={styles.sectionDescription}>
+                                {t('wizard.step1Description')}
+                            </Text>
+
                             {/* Missing CLI Installation Banners */}
                             {selectedMachineId && cliAvailability.claude === false && !isWarningDismissed('claude') && !hiddenBanners.claude && (
                                 <View style={{
@@ -2048,10 +2196,80 @@ selectedProfile && (
                                 </View>
                             )}
 
+                            {/* Selected AI profile dropdown */}
+                            {selectedProfile && (
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.profileListItem,
+                                        styles.profileListItemSelected,
+                                        { opacity: pressed ? 0.75 : 1 },
+                                    ]}
+                                    onPress={() => setProfileMenuVisible(true)}
+                                >
+                                    <View style={styles.profileIcon}>
+                                        <Ionicons name={selectedProfile.isBuiltIn ? "star" : "person"} size={12} color="#FFFFFF" />
+                                    </View>
+                                    <View style={{ flex: 1, marginRight: 12 }}>
+                                        <Text style={styles.profileListName}>{selectedProfile.name}</Text>
+                                        <Text style={styles.profileListDetails} numberOfLines={2}>
+                                            {getProfileSubtitle(selectedProfile)}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                        <Ionicons name="chevron-down" size={18} color={theme.colors.textSecondary} />
+                                        <Pressable
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                handleEditProfile(selectedProfile);
+                                            }}
+                                        >
+                                            <Ionicons name="create-outline" size={20} color={theme.colors.button.secondary.tint} />
+                                        </Pressable>
+                                    </View>
+                                </Pressable>
+                            )}
 
-    </>) : null;
-    const enhancedDirectorySelector = (
-<SearchableListSelector<string>
+                            {/* Profile Action Buttons (add/duplicate/delete) hidden by request — manage profiles from the per-profile edit pencil instead */}
+
+                            {/* Section 2: Session Mode */}
+                            <View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
+                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>2.</Text>
+                                    <Ionicons name="git-branch-outline" size={18} color={theme.colors.text} />
+                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step3Title')}</Text>
+                                </View>
+                                <Text style={styles.sectionDescription}>
+                                    {t('wizard.step3Description')}
+                                </Text>
+                                <View style={{ marginBottom: 12 }}>
+                                    <SessionTypeSelector value={sessionType} onChange={setSessionType} worktreeAccessory={branchModeSelector} />
+                                    {sessionType === 'worktree' && selectedMachineId && (
+                                        <View style={{ marginTop: 8, gap: 8 }}>
+                                            <RepoPickerBar
+                                                machineId={selectedMachineId}
+                                                selectedRepos={selectedRepos}
+                                                onReposChange={setSelectedRepos}
+                                                onAddDirectory={handleAddDirectory}
+                                            />
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+
+                            {sessionType !== 'worktree' && (
+                                <>
+                                    {/* Section 3: Working Directory */}
+                                    <View ref={pathSectionRef}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
+                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>3.</Text>
+                                            <Ionicons name="folder-outline" size={18} color={theme.colors.text} />
+                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={{ marginBottom: 24 }}>
+                                <SearchableListSelector<string>
                                     config={{
                                     getItemId: (path) => path,
                                     getItemTitle: (path) => formatPathRelativeToHome(path, selectedMachine?.metadata?.homeDir),
@@ -2099,38 +2317,9 @@ selectedProfile && (
                                     showSearch: true,
                                     allowCustomInput: true,
                                     compactItems: true,
-                                    recentItemsAsChips: compactWebLayout,
-                                    searchAccessory: compactWebLayout ? (
-                                        <Pressable
-                                            testID="new-session-browse-directories"
-                                            accessibilityRole="button"
-                                            accessibilityLabel={t('newSession.repos.browseDirectory')}
-                                            accessibilityState={{ expanded: directoryBrowserOpen }}
-                                            onPress={() => setDirectoryBrowserOpen(value => !value)}
-                                            style={({ pressed }) => ({
-                                                paddingHorizontal: 10,
-                                                paddingVertical: 9,
-                                                borderRadius: 8,
-                                                backgroundColor: theme.colors.surfaceHigh,
-                                                opacity: pressed ? 0.7 : 1,
-                                            })}
-                                        >
-                                            <Text style={{ fontSize: 12, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                {t('newSession.repos.browseDirectory')}
-                                            </Text>
-                                        </Pressable>
-                                    ) : undefined,
                                     onInputTextChange: setPathInputText,
-                                    onEmptyInput: compactWebLayout ? () => {
-                                        setPathInputText('');
-                                        setSelectedPath('');
-                                    } : undefined,
                                 }}
-                                items={!compactWebLayout || directoryBrowserOpen ? directorySuggestions : []}
-                                collapsedSections={compactWebLayout ? { all: false } : undefined}
-                                onCollapsedSectionsChange={compactWebLayout ? collapsed => {
-                                    if (collapsed.all) setDirectoryBrowserOpen(false);
-                                } : undefined}
+                                items={directorySuggestions}
                                 recentItems={recentPaths}
                                 favoriteItems={(() => {
                                     if (!selectedMachine?.metadata?.homeDir) return [];
@@ -2171,9 +2360,21 @@ selectedProfile && (
                                 }}
                                     context={{ homeDir: selectedMachine?.metadata?.homeDir }}
                                 />
-    );
-    const enhancedComposer = (
-<AgentInput
+                                    </View>
+                                </>
+                            )}
+
+
+
+                        </View>
+                    </View>
+                </View>
+                </ScrollView>
+
+                {/* Section 5: AgentInput - Sticky at bottom */}
+                <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom }}>
+                    <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
+                        <AgentInput
                             value={sessionPrompt}
                             onChangeText={setSessionPrompt}
                             onSend={handleCreateSession}
@@ -2191,9 +2392,9 @@ selectedProfile && (
                             fastMode={fastMode}
                             onFastModeChange={handleFastModeChange}
                             connectionStatus={connectionStatus}
-                            machineName={compactWebLayout ? undefined : selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
+                            machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
                             onMachineClick={handleAgentInputMachineClick}
-                            currentPath={compactWebLayout || (sessionType === 'worktree' && selectedRepos.length > 0) ? undefined : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
+                            currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
                             onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handleAgentInputPathClick}
                             profileId={selectedProfileId}
                             onProfileClick={handleAgentInputProfileClick}
@@ -2214,164 +2415,7 @@ selectedProfile && (
                             quickActions={quickActions}
                             onCustomizeQuickActions={handleCustomizeQuickActions}
                         />
-    );
-    const enhancedOverlays = (<>
-                {/* Hidden file input for web image upload */}
-                {Platform.OS === 'web' && (
-                    <input
-                        ref={fileInputRef as any}
-                        type="file"
-                        accept="*/*"
-                        multiple
-                        style={{ display: 'none' }}
-                        onChange={handleFileInputChange as any}
-                    />
-                )}
-
-                {/* Image Picker Sheet (native) */}
-                <ActionMenuModal
-                    visible={imagePickerSheetVisible}
-                    items={imagePickerMenuItems}
-                    onClose={() => setImagePickerSheetVisible(false)}
-                    deferItemPress
-                />
-
-                <ActionMenuModal
-                    visible={profileMenuVisible}
-                    title={t('wizard.step1Title')}
-                    searchable
-                    items={profileMenuItems}
-                    onClose={() => setProfileMenuVisible(false)}
-                />
-
-                <ActionMenuModal
-                    visible={branchModeMenuVisible}
-                    items={branchModeMenuItems}
-                    onClose={() => setBranchModeMenuVisible(false)}
-                />
-
-                <ActionMenuModal
-                    visible={machineMenuVisible}
-                    title={t('wizard.step2Title')}
-                    searchable
-                    searchPlaceholder={t('wizard.filterMachines')}
-                    items={machineMenuItems}
-                    onClose={() => setMachineMenuVisible(false)}
-                />
-
-                {/* Branch picker for Add Directory flow */}
-                <ActionMenuModal
-                    visible={addDirBranchMenu.visible}
-                    title={t('newSession.repos.targetBranch')}
-                    searchable
-                    items={addDirBranchMenu.items}
-                    onClose={() => {
-                        setAddDirBranchMenu({ visible: false, items: [] });
-                        addDirBranchResolveRef.current?.(undefined);
-                        addDirBranchResolveRef.current = null;
-                    }}
-                />
-
-                {/* Folder picker for Add Directory flow */}
-                {selectedMachineId && (
-                    <FolderPickerSheet
-                        ref={folderPickerRef}
-                        machineId={selectedMachineId}
-                        homeDir={selectedMachine?.metadata?.homeDir}
-                        onSelect={handleFolderSelected}
-                    />
-                )}
-
-    </>);
-
-    // ========================================================================
-    // CONTROL A: Simpler AgentInput-driven layout (flag OFF)
-    // Shows machine/path selection via chips that navigate to picker screens
-    // ========================================================================
-    if (!useEnhancedSessionWizard) {
-        return (
-            <View style={[styles.container, Platform.OS !== 'web' && { paddingTop: 40 }]}>
-                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                    <Animated.View style={animatedInputStyle}>
-                    {/* External context banner */}
-                    {externalContextBanner && (
-                        <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
-                                {externalContextBanner}
-                            </View>
-                        </View>
-                    )}
-
-                    {/* Session type selector */}
-                    <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-                        <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
-                            <SessionTypeSelector
-                                value={sessionType}
-                                onChange={setSessionType}
-                                worktreeAccessory={branchModeSelector}
-                            />
-                        </View>
                     </View>
-
-                    {/* Repo picker for worktree mode */}
-                    {sessionType === 'worktree' && selectedMachineId && (
-                        <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center', gap: 8 }}>
-                                <RepoPickerBar
-                                    machineId={selectedMachineId}
-                                    selectedRepos={selectedRepos}
-                                    onReposChange={setSelectedRepos}
-                                    onAddDirectory={handleAddDirectory}
-                                />
-                            </View>
-                        </View>
-                    )}
-
-                    {/* AgentInput with inline chips - sticky at bottom */}
-                    <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom }}>
-                        <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
-                            <AgentInput
-                                value={sessionPrompt}
-                                onChangeText={setSessionPrompt}
-                                onSend={handleCreateSession}
-                                isSendDisabled={!canCreate}
-                                isSending={isCreating}
-                                placeholder={t('session.initialMessage')}
-                                autocompletePrefixes={[]}
-                                autocompleteSuggestions={async () => []}
-                                agentType={agentType}
-                                onAgentClick={handleAgentClick}
-                                permissionMode={permissionMode}
-                                onPermissionModeChange={handlePermissionModeChange}
-                                modelMode={modelMode}
-                                onModelModeChange={handleModelModeChange}
-                                fastMode={fastMode}
-                                onFastModeChange={handleFastModeChange}
-                                connectionStatus={connectionStatus}
-                                machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
-                                onMachineClick={handleMachineClick}
-                                currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
-                                onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
-                                fileAttachments={fileAttachments}
-                                onFileAttachmentsChange={setFileAttachments}
-                                images={images}
-                                onImagesChange={(newImages) => {
-                                    const currentUris = new Set(newImages.map(img => img.uri));
-                                    images.forEach((img, index) => {
-                                        if (!currentUris.has(img.uri)) {
-                                            removeImage(index);
-                                        }
-                                    });
-                                }}
-                                onImageButtonPress={handleImageButtonPress}
-                                supportsImages={supportsImages}
-                                onImageDrop={handleImageDrop}
-                                quickActions={quickActions}
-                                onCustomizeQuickActions={handleCustomizeQuickActions}
-                            />
-                        </View>
-                    </View>
-                    </Animated.View>
                 </View>
 
                 {/* Hidden file input for web image upload */}
@@ -2439,187 +2483,6 @@ selectedProfile && (
                         onSelect={handleFolderSelected}
                     />
                 )}
-            </View>
-        );
-    }
-
-    // Compact A layout is web-only. Native enhanced and the legacy flag-off UI stay intact.
-    if (compactWebLayout) {
-        return (
-            <View style={styles.container}>
-                <Animated.View style={[{ flex: 1 }, animatedInputStyle]}>
-                    <ScrollView
-                        ref={scrollViewRef}
-                        style={styles.scrollContainer}
-                        contentContainerStyle={[styles.contentContainer, { paddingBottom: safeArea.bottom + 16 }]}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        <NewSessionCompactLayout
-                            banner={externalContextBanner}
-                            machine={(
-                                <View>
-                                    <Text style={[styles.sectionHeader, { marginTop: 0 }]}>{t('wizard.step2Title')}</Text>
-                                    {enhancedMachineSelector || (
-                                        <Pressable onPress={() => setMachineMenuVisible(true)} style={styles.selectorButton}>
-                                            <Text style={styles.selectorButtonText}>{t('newSession.noMachineSelected')}</Text>
-                                            <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
-                                        </Pressable>
-                                    )}
-                                </View>
-                            )}
-                            profile={(
-                                <View ref={profileSectionRef}>
-                                    <Text style={[styles.sectionHeader, { marginTop: 0 }]}>{t('wizard.step1Title')}</Text>
-                                    {enhancedProfileSelector || (
-                                        <Pressable onPress={() => setProfileMenuVisible(true)} style={styles.selectorButton}>
-                                            <Text style={styles.selectorButtonText}>{t('wizard.step1Title')}</Text>
-                                            <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
-                                        </Pressable>
-                                    )}
-                                </View>
-                            )}
-                            warnings={enhancedCliWarnings}
-                            directory={sessionType !== 'worktree' ? (
-                                <View ref={pathSectionRef}>
-                                    <Text style={[styles.sectionHeader, { marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
-                                    <View style={{ marginHorizontal: screenWidth > 700 ? -16 : -12 }}>{enhancedDirectorySelector}</View>
-                                </View>
-                            ) : null}
-                            sessionType={(
-                                <View style={{ flexDirection: screenWidth > 700 ? 'row' : 'column', alignItems: screenWidth > 700 ? 'center' : 'stretch', justifyContent: 'space-between', gap: 8 }}>
-                                    <Text style={[styles.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>{t('wizard.step3Title')}</Text>
-                                    <View style={{ width: screenWidth > 700 ? 280 : '100%' }}>
-                                        <SessionTypeSelector value={sessionType} onChange={setSessionType} />
-                                    </View>
-                                </View>
-                            )}
-                            repositories={sessionType === 'worktree' && selectedMachineId ? (
-                                <View style={{ gap: 8 }}>
-                                    <View style={{ alignItems: 'flex-start' }}>{branchModeSelector}</View>
-                                    <RepoPickerBar
-                                        machineId={selectedMachineId}
-                                        selectedRepos={selectedRepos}
-                                        onReposChange={setSelectedRepos}
-                                        onAddDirectory={handleAddDirectory}
-                                    />
-                                </View>
-                            ) : null}
-                        />
-                    </ScrollView>
-                    <View
-                        testID="new-session-fixed-composer"
-                        style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom }}
-                    >
-                        <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
-                            {enhancedComposer}
-                        </View>
-                    </View>
-                    {enhancedOverlays}
-                </Animated.View>
-            </View>
-        );
-    }
-
-    // ========================================================================
-    // VARIANT B: Enhanced profile-first wizard (flag ON)
-    // Full wizard with numbered sections, profile management, CLI detection
-    // ========================================================================
-    return (
-        <View style={styles.container}>
-            <Animated.View style={[{ flex: 1 }, animatedInputStyle]}>
-                <ScrollView
-                    ref={scrollViewRef}
-                    style={styles.scrollContainer}
-                    contentContainerStyle={styles.contentContainer}
-                    keyboardShouldPersistTaps="handled"
-                >
-                <View style={[
-                    { paddingHorizontal: screenWidth > 700 ? 16 : 8 }
-                ]}>
-                    <View style={[
-                        { maxWidth: layout.maxWidth, flex: 1, width: '100%', alignSelf: 'center' }
-                    ]}>
-                        <View ref={profileSectionRef} style={styles.wizardContainer}>
-                            {/* External context banner */}
-                            {externalContextBanner}
-
-                            {/* Machine selector */}
-                            {enhancedMachineSelector}
-
-                            {/* Section 1: Profile Management */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>1.</Text>
-                                <Ionicons name="person-outline" size={18} color={theme.colors.text} />
-                                <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step1Title')}</Text>
-                            </View>
-                            <Text style={styles.sectionDescription}>
-                                {t('wizard.step1Description')}
-                            </Text>
-
-                            {enhancedCliWarnings}
-
-                            {/* Selected AI profile dropdown */}
-                            {enhancedProfileSelector}
-
-                            {/* Profile Action Buttons (add/duplicate/delete) hidden by request — manage profiles from the per-profile edit pencil instead */}
-
-                            {/* Section 2: Session Mode */}
-                            <View>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>2.</Text>
-                                    <Ionicons name="git-branch-outline" size={18} color={theme.colors.text} />
-                                    <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step3Title')}</Text>
-                                </View>
-                                <Text style={styles.sectionDescription}>
-                                    {t('wizard.step3Description')}
-                                </Text>
-                                <View style={{ marginBottom: 12 }}>
-                                    <SessionTypeSelector value={sessionType} onChange={setSessionType} worktreeAccessory={branchModeSelector} />
-                                    {sessionType === 'worktree' && selectedMachineId && (
-                                        <View style={{ marginTop: 8, gap: 8 }}>
-                                            <RepoPickerBar
-                                                machineId={selectedMachineId}
-                                                selectedRepos={selectedRepos}
-                                                onReposChange={setSelectedRepos}
-                                                onAddDirectory={handleAddDirectory}
-                                            />
-                                        </View>
-                                    )}
-                                </View>
-                            </View>
-
-                            {sessionType !== 'worktree' && (
-                                <>
-                                    {/* Section 3: Working Directory */}
-                                    <View ref={pathSectionRef}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 12 }}>
-                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>3.</Text>
-                                            <Ionicons name="folder-outline" size={18} color={theme.colors.text} />
-                                            <Text style={[styles.sectionHeader, { marginBottom: 0, marginTop: 0 }]}>{t('wizard.step4Title')}</Text>
-                                        </View>
-                                    </View>
-
-                                    <View style={{ marginBottom: 24 }}>
-                                {enhancedDirectorySelector}
-                                    </View>
-                                </>
-                            )}
-
-
-
-                        </View>
-                    </View>
-                </View>
-                </ScrollView>
-
-                {/* Section 5: AgentInput - Sticky at bottom */}
-                <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom }}>
-                    <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
-                        {enhancedComposer}
-                    </View>
-                </View>
-
-                {enhancedOverlays}
             </Animated.View>
         </View>
     );

@@ -1,20 +1,5 @@
 # Changelog
 
-## Version 64 - 2026-11-14
-
-The new-session page keeps the message box docked at the bottom again.
-
-- Sessions: device and AI configuration are now on separate full-width rows, including desktop screens.
-- Sessions: the existing message input is outside the scrolling setup area again. Its content, model and permission controls, attachments, and send behavior are unchanged.
-
-## Version 63 - 2026-11-14
-
-The web new-session page is more compact, with the same session controls.
-
-- Sessions: the enhanced web page puts the device and AI profile side by side, keeps recent directories as short chips, and opens subdirectories only when you choose Browse. The initial message follows the settings instead of sitting far below them.
-- Sessions: profile editing, CLI warnings, model and permission selection, attachments, and single- or multi-repository Worktree setup keep their existing behavior. Native and the simpler session page are unchanged.
-- Sessions: clearing the compact directory input also clears the effective working directory, so starting a session is disabled until a directory is selected again.
-
 ## Version 62 - 2026-11-13
 
 Running sessions now also hear when you change which devices they can reach.

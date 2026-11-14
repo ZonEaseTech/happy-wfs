@@ -1,27 +1,6 @@
 {
   "entries": [
     {
-      "version": 64,
-      "date": "2026-11-14",
-      "summary": "The new-session page keeps the message box docked at the bottom again.",
-      "changes": [
-        "Sessions: device and AI configuration are now on separate full-width rows, including desktop screens.",
-        "Sessions: the existing message input is outside the scrolling setup area again. Its content, model and permission controls, attachments, and send behavior are unchanged."
-      ],
-      "rawMarkdown": "## Version 64 - 2026-11-14\n\n\nThe new-session page keeps the message box docked at the bottom again.\n\n- Sessions: device and AI configuration are now on separate full-width rows, including desktop screens.\n- Sessions: the existing message input is outside the scrolling setup area again. Its content, model and permission controls, attachments, and send behavior are unchanged."
-    },
-    {
-      "version": 63,
-      "date": "2026-11-14",
-      "summary": "The web new-session page is more compact, with the same session controls.",
-      "changes": [
-        "Sessions: the enhanced web page puts the device and AI profile side by side, keeps recent directories as short chips, and opens subdirectories only when you choose Browse. The initial message follows the settings instead of sitting far below them.",
-        "Sessions: profile editing, CLI warnings, model and permission selection, attachments, and single- or multi-repository Worktree setup keep their existing behavior. Native and the simpler session page are unchanged.",
-        "Sessions: clearing the compact directory input also clears the effective working directory, so starting a session is disabled until a directory is selected again."
-      ],
-      "rawMarkdown": "## Version 63 - 2026-11-14\n\n\nThe web new-session page is more compact, with the same session controls.\n\n- Sessions: the enhanced web page puts the device and AI profile side by side, keeps recent directories as short chips, and opens subdirectories only when you choose Browse. The initial message follows the settings instead of sitting far below them.\n- Sessions: profile editing, CLI warnings, model and permission selection, attachments, and single- or multi-repository Worktree setup keep their existing behavior. Native and the simpler session page are unchanged.\n- Sessions: clearing the compact directory input also clears the effective working directory, so starting a session is disabled until a directory is selected again."
-    },
-    {
       "version": 62,
       "date": "2026-11-13",
       "summary": "Running sessions now also hear when you change which devices they can reach.",
@@ -699,5 +678,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 64
+  "latestVersion": 62
 }
