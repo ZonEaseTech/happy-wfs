@@ -63,10 +63,16 @@ export interface SelectorConfig<T> {
 
     // Visual customization
     compactItems?: boolean; // Use reduced padding for more compact lists (default: false)
+    /** Opt-in compact recent-path chips; other selector callers keep their list UI. */
+    recentItemsAsChips?: boolean;
+    /** Optional control alongside the existing search input (for example, browse). */
+    searchAccessory?: React.ReactNode;
 
     // Optional input observer for callers that provide dynamic items based on
     // the current text (for example, remote directory suggestions).
     onInputTextChange?: (text: string) => void;
+    /** Opt-in selection reset when a path input is emptied; legacy selectors keep their behavior. */
+    onEmptyInput?: () => void;
 }
 
 /**
@@ -170,6 +176,31 @@ const stylesheet = StyleSheet.create((theme) => ({
     showMoreTitle: {
         textAlign: 'center',
         color: theme.colors.button.primary.background,
+    },
+    recentChips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+    },
+    recentChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: 7,
+        backgroundColor: theme.colors.surfaceHigh,
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+        maxWidth: '100%',
+    },
+    recentChipText: {
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        maxWidth: 240,
+        flexShrink: 1,
+        ...Typography.default(),
     },
 }));
 
@@ -335,6 +366,9 @@ export function SearchableListSelector<T>(props: SearchableListSelectorProps<T>)
         isUserTyping.current = true; // User is actively typing
         setInputText(text);
         config.onInputTextChange?.(text);
+        if (!text.trim()) {
+            config.onEmptyInput?.();
+        }
 
         // If allowCustomInput, try to parse and select
         if (config.allowCustomInput && text.trim()) {
@@ -356,7 +390,9 @@ export function SearchableListSelector<T>(props: SearchableListSelectorProps<T>)
     const handleClear = () => {
         isUserTyping.current = false;
         setInputText('');
-        // Don't clear selection - just clear input
+        // Legacy callers only clear the visible input. Compact path selection
+        // opts in to clearing the effective directory as well.
+        config.onEmptyInput?.();
     };
 
     // Handle add to favorites
@@ -516,11 +552,56 @@ export function SearchableListSelector<T>(props: SearchableListSelectorProps<T>)
                             />
                         </Pressable>
                     )}
+                    {config.searchAccessory}
+                </View>
+            )}
+
+            {showRecent && config.recentItemsAsChips && filteredRecentItems.length > 0 && (
+                <View style={styles.recentChips}>
+                    <Text style={styles.recentChipText}>{config.recentSectionTitle}</Text>
+                    {(showAllRecent ? filteredRecentItems : filteredRecentItems.slice(0, 3)).map(item => (
+                        <Pressable
+                            key={config.getItemId(item)}
+                            accessibilityRole="button"
+                            accessibilityLabel={config.getItemTitle(item)}
+                            onPress={() => handleSelectItem(item)}
+                            style={styles.recentChip}
+                        >
+                            <Text style={styles.recentChipText} numberOfLines={1}>
+                                {config.getItemTitle(item)}
+                            </Text>
+                            {onRemoveRecentItem && (
+                                <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${t('common.delete')} ${config.getItemTitle(item)}`}
+                                    hitSlop={4}
+                                    onPress={event => {
+                                        event.stopPropagation();
+                                        onRemoveRecentItem(item);
+                                    }}
+                                >
+                                    <Ionicons name="close" size={12} color={theme.colors.textSecondary} />
+                                </Pressable>
+                            )}
+                        </Pressable>
+                    ))}
+                    {filteredRecentItems.length > 3 && (
+                        <Pressable
+                            onPress={() => setShowAllRecent(!showAllRecent)}
+                            style={styles.recentChip}
+                        >
+                            <Text style={styles.recentChipText}>
+                                {showAllRecent
+                                    ? t('machineLauncher.showLess')
+                                    : t('machineLauncher.showAll', { count: filteredRecentItems.length })}
+                            </Text>
+                        </Pressable>
+                    )}
                 </View>
             )}
 
             {/* Recent Items Section */}
-            {showRecent && filteredRecentItems.length > 0 && (
+            {showRecent && !config.recentItemsAsChips && filteredRecentItems.length > 0 && (
                 <>
                     <Pressable
                         style={styles.sectionHeader}
