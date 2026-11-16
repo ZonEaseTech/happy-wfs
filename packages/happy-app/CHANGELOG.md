@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 73 - 2026-11-16
+
+Agents keep using the credentials your machine already has.
+
+- Sessions: what Happy tells agents about the resource center made some read it as the only way to use credentials, and refuse tools already set up on the machine. Agents are now told that logged-in CLIs, your own tools and config files are used as before; the resource center is one more place for credentials, and asking for a key is only an option when nothing else covers the task. Running sessions get this with your next message.
+
 ## Version 72 - 2026-11-16
 
 Keys you made before now run any command too, without you allowing them one by one.

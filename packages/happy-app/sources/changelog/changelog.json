@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 73,
+      "date": "2026-11-16",
+      "summary": "Agents keep using the credentials your machine already has.",
+      "changes": [
+        "Sessions: what Happy tells agents about the resource center made some read it as the only way to use credentials, and refuse tools already set up on the machine. Agents are now told that logged-in CLIs, your own tools and config files are used as before; the resource center is one more place for credentials, and asking for a key is only an option when nothing else covers the task. Running sessions get this with your next message."
+      ],
+      "rawMarkdown": "## Version 73 - 2026-11-16\n\n\nAgents keep using the credentials your machine already has.\n\n- Sessions: what Happy tells agents about the resource center made some read it as the only way to use credentials, and refuse tools already set up on the machine. Agents are now told that logged-in CLIs, your own tools and config files are used as before; the resource center is one more place for credentials, and asking for a key is only an option when nothing else covers the task. Running sessions get this with your next message."
+    },
+    {
       "version": 72,
       "date": "2026-11-16",
       "summary": "Keys you made before now run any command too, without you allowing them one by one.",
@@ -760,5 +769,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 72
+  "latestVersion": 73
 }
