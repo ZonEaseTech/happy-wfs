@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 70 - 2026-11-16
+
+Keys no longer stop ordinary commands: every new key starts open.
+
+- Resources: a new key of any type runs any command except the ones on its deny list, so agents no longer wait for you to allow each new command. Risky operations start on that list: deleting Cloudflare deployments or DNS records, unpublishing npm packages, changing Google Analytics settings and force pushes. Server logins already worked this way.
+- Resources: on an open key, the key page shows "Any command" with what is still denied right below it, instead of toggles that no longer matter. Turn "Any command" off to go back to allowing commands one by one.
+- Commands that read a secret directly stay blocked on every key.
+
 ## Version 69 - 2026-11-16
 
 "Continue with Google / Apple / Facebook" credentials now have a home in the resource center.

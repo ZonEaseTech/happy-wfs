@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 70,
+      "date": "2026-11-16",
+      "summary": "Keys no longer stop ordinary commands: every new key starts open.",
+      "changes": [
+        "Resources: a new key of any type runs any command except the ones on its deny list, so agents no longer wait for you to allow each new command. Risky operations start on that list: deleting Cloudflare deployments or DNS records, unpublishing npm packages, changing Google Analytics settings and force pushes. Server logins already worked this way.",
+        "Resources: on an open key, the key page shows \"Any command\" with what is still denied right below it, instead of toggles that no longer matter. Turn \"Any command\" off to go back to allowing commands one by one.",
+        "Commands that read a secret directly stay blocked on every key."
+      ],
+      "rawMarkdown": "## Version 70 - 2026-11-16\n\n\nKeys no longer stop ordinary commands: every new key starts open.\n\n- Resources: a new key of any type runs any command except the ones on its deny list, so agents no longer wait for you to allow each new command. Risky operations start on that list: deleting Cloudflare deployments or DNS records, unpublishing npm packages, changing Google Analytics settings and force pushes. Server logins already worked this way.\n- Resources: on an open key, the key page shows \"Any command\" with what is still denied right below it, instead of toggles that no longer matter. Turn \"Any command\" off to go back to allowing commands one by one.\n- Commands that read a secret directly stay blocked on every key."
+    },
+    {
       "version": 69,
       "date": "2026-11-16",
       "summary": "\"Continue with Google / Apple / Facebook\" credentials now have a home in the resource center.",
@@ -731,5 +742,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 69
+  "latestVersion": 70
 }
