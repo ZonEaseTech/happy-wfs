@@ -584,6 +584,18 @@ async function spawnAndWaitForDaemon(): Promise<boolean> {
       if (isDebug()) console.error(error)
       process.exit(1)
     }
+  } else if (subcommand === 'mail') {
+    try {
+      const { handleMailCommand } = await import('./commands/mail')
+      const exitCode = await handleMailCommand(args.slice(1))
+      // Under `happy run` stdout is a pipe, which macOS writes asynchronously: drain before exiting.
+      await Promise.all([process.stdout, process.stderr].map((out) => new Promise((resolve) => out.write('', resolve))))
+      process.exit(exitCode)
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) console.error(error)
+      process.exit(1)
+    }
   } else if (subcommand === 'ssh') {
     const credentials = await readCredentials()
     if (!credentials) {
@@ -877,6 +889,7 @@ ${chalk.bold('Usage:')}
   happy update            Upgrade happy to the latest version
   happy keys              List the keys this device may use
   happy run <key> -- cmd  Run a command with a key from the resource center
+  happy mail check|send   Mail through an email key (via happy run)
 
 ${chalk.bold('Examples:')}
   happy                    Start session

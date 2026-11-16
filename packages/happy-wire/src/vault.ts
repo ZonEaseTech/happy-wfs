@@ -16,8 +16,14 @@ import { z } from 'zod';
 
 export const VAULT_MIN_CLI_VERSION = '0.6.63';
 
-export const VaultKeyKindSchema = z.enum(['cloudflare', 'aliyun', 'github', 'npm', 'ssh', 'custom']);
+/** First CLI that knows email keys and has `happy mail`; older ones skip such keys when they read their copies. */
+export const VAULT_EMAIL_MIN_CLI_VERSION = '0.6.65';
+
+export const VaultKeyKindSchema = z.enum(['cloudflare', 'aliyun', 'github', 'npm', 'ssh', 'email', 'custom']);
 export type VaultKeyKind = z.infer<typeof VaultKeyKindSchema>;
+
+/** The CLI a device needs before it can use a key of this kind. */
+export const vaultKindMinCliVersion = (kind: VaultKeyKind): string => (kind === 'email' ? VAULT_EMAIL_MIN_CLI_VERSION : VAULT_MIN_CLI_VERSION);
 
 export const VaultEnvVarSchema = z.object({
     name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
@@ -125,6 +131,19 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
         allow: ['*'],
         deny: ['*image prune -a*', '*system prune*', 'rm -rf /*'],
     },
+    // Read by `happy mail` (happy-cli), which logs in with the address and the IMAP/SMTP password.
+    email: {
+        env: [
+            { name: 'MAIL_ADDRESS', secret: false },
+            { name: 'MAIL_PASSWORD', secret: true },
+            { name: 'SMTP_HOST', secret: false },
+            { name: 'SMTP_PORT', secret: false },
+            { name: 'IMAP_HOST', secret: false },
+            { name: 'IMAP_PORT', secret: false },
+        ],
+        allow: ['happy mail send *', 'happy mail check'],
+        deny: [],
+    },
     custom: {
         env: [{ name: 'MY_SECRET', secret: true }],
         allow: [],
@@ -143,7 +162,7 @@ export const VAULT_TOOLS_MIN_CLI_VERSION = '0.6.64';
 export const VaultSaveKeyInputSchema = z.object({
     key: z.string().optional().describe('Name in commands (the <name> in `happy run <name>`) of the key to change. Leave out to add a new key.'),
     name: z.string().optional().describe('Display name, e.g. "Lark mail". Required for a new key.'),
-    kind: VaultKeyKindSchema.optional().describe('Type of a new key: github, npm, cloudflare, aliyun, ssh (a server login) or custom (anything else; the default).'),
+    kind: VaultKeyKindSchema.optional().describe('Type of a new key: github, npm, cloudflare, aliyun, ssh (a server login), email (a mailbox: MAIL_ADDRESS, MAIL_PASSWORD, SMTP_HOST, SMTP_PORT, IMAP_HOST, IMAP_PORT; used with `happy mail`) or custom (anything else; the default).'),
     slug: z.string().optional().describe('Name in commands: lowercase letters, digits and dashes. Made from the display name when left out.'),
     env: z.array(z.object({
         name: z.string().describe('Variable name, e.g. SMTP_HOST'),

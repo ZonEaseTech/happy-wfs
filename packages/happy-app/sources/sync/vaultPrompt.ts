@@ -1,7 +1,7 @@
-import { VAULT_MIN_CLI_VERSION, VAULT_TOOLS_MIN_CLI_VERSION, vaultKeyDevices, type VaultKey } from 'happy-wire';
+import { VAULT_MIN_CLI_VERSION, VAULT_TOOLS_MIN_CLI_VERSION, vaultKeyDevices, vaultKindMinCliVersion, type VaultKey } from 'happy-wire';
 import { isVersionSupported } from '@/utils/versionUtils';
 
-const NEED_KEY = 'When a task needs an account or a server login that no listed key covers, run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
+const NEED_KEY = 'When a task needs an account or a server login that no listed key covers, run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh, email or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
 /** CLIs with `save_key` / `delete_key` (VAULT_TOOLS_MIN_CLI_VERSION): the agent drafts keys itself, the user confirms on a card. */
 const EDIT_KEYS = 'To add a key, change one (its allowed commands, devices, variables or secret) or delete one, call `save_key` or `delete_key`: Happy shows the user a card, nothing changes until they confirm it there, and they will tell you when it is done.'
     + ' When a task needs an account or a server login that no listed key covers, draft the key with `save_key`.'
@@ -20,8 +20,9 @@ export function buildVaultPromptSection(keys: VaultKey[], machineId: string | un
     // `happy run` is whatever CLI the machine has now, but save_key / delete_key come from the
     // session's own CLI process, which keeps the version it started with until it restarts.
     const manage = isVersionSupported(sessionCliVersion, VAULT_TOOLS_MIN_CLI_VERSION) ? EDIT_KEYS : NEED_KEY;
+    // A CLI too old for a kind skips those keys when it reads them, so they are not offered here.
     const usable = keys
-        .filter((key) => vaultKeyDevices(key).includes(machineId))
+        .filter((key) => vaultKeyDevices(key).includes(machineId) && isVersionSupported(cliVersion, vaultKindMinCliVersion(key.kind)))
         .sort((a, b) => a.slug.localeCompare(b.slug));
     if (usable.length === 0) {
         return [
@@ -35,10 +36,11 @@ export function buildVaultPromptSection(keys: VaultKey[], machineId: string | un
 
     const lines = usable.map((key) => {
         const parts = [
-            `- \`${key.slug}\` (${key.name}${key.ssh ? `, login ${key.ssh.user}@${key.ssh.host}` : ''})`,
+            `- \`${key.slug}\` (${key.name}${key.ssh ? `, login ${key.ssh.user}@${key.ssh.host}` : ''}${key.kind === 'email' ? `, mailbox ${key.env.find((v) => v.name === 'MAIL_ADDRESS')?.value ?? '?'}` : ''})`,
             `allow: ${key.allow.map((rule) => `\`${rule}\``).join(', ') || 'nothing yet'}`,
             key.deny.length ? `deny: ${key.deny.map((rule) => `\`${rule}\``).join(', ')}` : null,
             ...key.scope.map((scope) => `covers ${scope.name}${scope.protected ? ` (do not touch: ${scope.protected})` : ''}`),
+            key.kind === 'email' ? `send with \`happy run ${key.slug} -- happy mail send --to <address> --subject <text> --body <text>\` (or --body-file <path>); \`happy run ${key.slug} -- happy mail check\` tests the login` : null,
         ].filter(Boolean);
         return parts.join('; ');
     });

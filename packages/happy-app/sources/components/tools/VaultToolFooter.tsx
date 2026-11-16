@@ -15,7 +15,7 @@ const RUN = /(?:^|[\s;&|(])happy run ([a-z0-9][a-z0-9-]*) -- ([\s\S]+)$/;
 const NEED = /(?:^|[\s;&|(])happy keys need ([a-z]+)/;
 /** Printed by `happy run` when a command is simply not on the key's allow list (see happy-cli run.ts). */
 const NOT_ALLOWED = "not on the key's allow list";
-const KIND_ALIASES: Record<string, VaultKeyKind> = { cf: 'cloudflare', ali: 'aliyun', alidns: 'aliyun', gh: 'github', server: 'ssh' };
+const KIND_ALIASES: Record<string, VaultKeyKind> = { cf: 'cloudflare', ali: 'aliyun', alidns: 'aliyun', gh: 'github', server: 'ssh', mail: 'email' };
 /** Bars the user waved away, for as long as the app runs. */
 const dismissed = new Set<string>();
 

@@ -71,6 +71,18 @@ describe('buildVaultPromptSection', () => {
         expect(buildVaultPromptSection([key({})], 'wfs', '0.6.64', undefined)).not.toContain('save_key');
     });
 
+    it('offers an email key only to CLIs that can read it, with its mailbox and how to send', () => {
+        const mail = key({
+            id: 'm', slug: 'lark-mail', kind: 'email', name: '飞书邮箱', scope: [], allow: ['happy mail send *', 'happy mail check'],
+            env: [{ name: 'MAIL_ADDRESS', value: 'wfs@ttpos.com', secret: false }, { name: 'MAIL_PASSWORD', value: 'MAIL_SECRET', secret: true }, { name: 'SMTP_HOST', value: 'smtp.larksuite.com', secret: false }],
+        });
+        const ready = buildVaultPromptSection([mail], 'wfs', '0.6.65', '0.6.65')!;
+        expect(ready).toContain('`lark-mail` (飞书邮箱, mailbox wfs@ttpos.com)');
+        expect(ready).toContain('happy run lark-mail -- happy mail send --to <address>');
+        expect(ready).not.toContain('MAIL_SECRET');
+        expect(buildVaultPromptSection([mail], 'wfs', '0.6.64', '0.6.64')).toContain('none are enabled for this machine');
+    });
+
     it('is stable regardless of key order', () => {
         const a = key({ id: 'a', slug: 'a-key', machineIds: ['wfs'] });
         const b = key({ id: 'b', slug: 'b-key', machineIds: ['wfs'] });

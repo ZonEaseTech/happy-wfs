@@ -63,6 +63,13 @@ describe('buildVaultProposal', () => {
         expect(proposal).toMatchObject({ action: 'add', missing: ['GH_TOKEN'], key: { slug: 'github-work', allow: ['git push *', 'gh pr create *', 'gh release create *'], machineIds: ['wfs'] } });
     });
 
+    it('drafts a mailbox from its preset, leaving out IMAP when the agent has none', () => {
+        const proposal = buildVaultProposal('save_key', { name: 'Lark mail', kind: 'email', env: [{ name: 'MAIL_ADDRESS', value: 'wfs@ttpos.com' }, { name: 'SMTP_HOST', value: 'smtp.larksuite.com' }, { name: 'SMTP_PORT', value: '465' }] }, keys, devices);
+        expect(proposal).toMatchObject({ action: 'add', missing: ['MAIL_PASSWORD'], key: { kind: 'email', allow: ['happy mail send *', 'happy mail check'] } });
+        if (proposal.action !== 'add') return;
+        expect(proposal.key.env.map((v) => [v.name, v.secret])).toEqual([['MAIL_ADDRESS', false], ['MAIL_PASSWORD', true], ['SMTP_HOST', false], ['SMTP_PORT', false]]);
+    });
+
     it('drafts a server login and asks for its password when the agent has none', () => {
         const proposal = buildVaultProposal('save_key', { name: 'staging', ssh: { host: '10.0.0.5', user: 'root' }, devices: ['mac mini'] }, keys, devices);
         expect(proposal).toMatchObject({

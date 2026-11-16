@@ -2,7 +2,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { VAULT_KIND_PRESETS, VaultKeyKindSchema } from 'happy-wire';
 
 vi.mock('@/text', () => ({ t: (key: string, params?: object) => (params ? `${key} ${JSON.stringify(params)}` : key) }));
-import { VAULT_RULE_OPTIONS, detectVaultPaste, parseSshAddress, vaultAutoSlug, vaultCanDo } from './vaultRules';
+import { VAULT_RULE_OPTIONS, detectVaultPaste, matchMailProvider, parseMailSettings, parseSshAddress, vaultAutoSlug, vaultCanDo } from './vaultRules';
+
+// Lark's "IMAP/SMTP" page as the user pasted it: each label on its own line, the value under it.
+const LARK = `SMTP 地址
+smtp.larksuite.com
+IMAP/SMTP 密码
+Abcd1234Efgh5678
+SMTP 端口号（SSL）
+465
+SMTP 端口号（starttls）
+587
+IMAP 地址
+imap.larksuite.com
+IMAP 端口号（SSL）
+993
+SMTP 发信限制规则发信频率（调用 SMTP 服务的整体频率）200 封/100 秒
+单日发信上限（一个发件人单日发信上限）450 封`;
 
 describe('detectVaultPaste', () => {
     it('recognises values with a fixed shape', () => {
@@ -20,6 +36,26 @@ describe('detectVaultPaste', () => {
         expect(detectVaultPaste('hunter2')).toBeNull();
         expect(detectVaultPaste('someone@localhost')).toBeNull();
         expect(detectVaultPaste('')).toBeNull();
+    });
+});
+
+describe('parseMailSettings', () => {
+    it('reads a pasted Lark settings page: servers, the SSL ports and the password', () => {
+        const settings = parseMailSettings(LARK);
+        expect(settings).toEqual({ smtpHost: 'smtp.larksuite.com', smtpPort: 465, imapHost: 'imap.larksuite.com', imapPort: 993, password: 'Abcd1234Efgh5678', address: undefined });
+        expect(matchMailProvider(settings!)?.id).toBe('lark');
+        expect(detectVaultPaste(LARK)).toEqual({ kind: 'email', as: 'settings' });
+    });
+
+    it('reads label: value lines and picks up the address', () => {
+        const settings = parseMailSettings('Email: me@corp.example\nSMTP server: smtp.corp.example\nSMTP port: 587\nPassword: s3cret-pass');
+        expect(settings).toMatchObject({ smtpHost: 'smtp.corp.example', smtpPort: 587, imapHost: undefined, password: 's3cret-pass', address: 'me@corp.example' });
+        expect(matchMailProvider(settings!)).toBeUndefined();
+    });
+
+    it('needs a mail server to say anything', () => {
+        expect(parseMailSettings('ghp_' + 'a'.repeat(36))).toBeNull();
+        expect(parseMailSettings('wfs@ttpos.com')).toBeNull();
     });
 });
 

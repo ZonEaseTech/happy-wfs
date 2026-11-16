@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { VAULT_KIND_PRESETS, VAULT_MIN_CLI_VERSION, VaultKeyKindSchema, type VaultKey, type VaultKeyKind } from 'happy-wire';
+import { VAULT_KIND_PRESETS, VAULT_MIN_CLI_VERSION, VaultKeyKindSchema, vaultKindMinCliVersion, type VaultKey, type VaultKeyKind } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { VaultChip, VaultKeyIcon, vaultKindLabel } from '@/components/VaultSections';
 import { Typography } from '@/constants/Typography';
@@ -11,7 +11,7 @@ import { t } from '@/text';
 import { useAllMachines } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { saveVaultKey, useVault } from '@/sync/vault';
-import { VAULT_FIELD_LABELS as FIELD_LABELS, detectVaultPaste, parseSshAddress, vaultAutoSlug, vaultCanDo, type VaultPasteGuess } from '@/sync/vaultRules';
+import { VAULT_FIELD_LABELS as FIELD_LABELS, VAULT_MAIL_PROVIDERS, detectVaultPaste, matchMailProvider, parseMailSettings, parseSshAddress, vaultAutoSlug, vaultCanDo, vaultFieldLabel, type VaultMailProvider, type VaultPasteGuess } from '@/sync/vaultRules';
 import { isVersionSupported } from '@/utils/versionUtils';
 import type { Machine } from '@/sync/storageTypes';
 
@@ -22,8 +22,14 @@ const guessText = (guess: VaultPasteGuess): string => (
     guess.kind === 'github' ? t('resources.guessGithub')
         : guess.kind === 'npm' ? t('resources.guessNpm')
             : guess.kind === 'aliyun' ? t('resources.guessAliyun')
-                : guess.as === 'privateKey' ? t('resources.guessPrivateKey') : t('resources.guessAddress')
+                : guess.kind === 'email' ? t('resources.guessMailSettings')
+                    : guess.as === 'privateKey' ? t('resources.guessPrivateKey') : t('resources.guessAddress')
 );
+
+const MAIL_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const providerServers = (provider: VaultMailProvider) => ({
+    SMTP_HOST: provider.smtp[0], SMTP_PORT: String(provider.smtp[1]), IMAP_HOST: provider.imap[0], IMAP_PORT: String(provider.imap[1]),
+});
 
 /** Only the head and tail of a pasted secret stay readable. */
 const maskValue = (value: string) => (value.length > 12 ? `${value.slice(0, 4)}••••••••••••${value.slice(-4)}` : '••••••••');
@@ -44,8 +50,6 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
     const machines = useAllMachines();
     // A copy can only go to a device whose key this client holds.
     const eligible = React.useMemo(() => machines.filter((machine) => !!sync.encryption.getMachineEncryption(machine.id)), [machines]);
-    const cliReady = (machine: Machine) => isVersionSupported(machine.metadata?.happyCliVersion, VAULT_MIN_CLI_VERSION);
-    const outdated = eligible.filter((machine) => !cliReady(machine));
 
     const uniqueName = (base: string) => {
         let name = base;
@@ -65,6 +69,11 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
     const [allDevices, setAllDevices] = React.useState(true);
     const [deviceIds, setDeviceIds] = React.useState<string[]>([]);
     const [showDevices, setShowDevices] = React.useState(false);
+    const [provider, setProvider] = React.useState<string | null>(null);
+    const [showServers, setShowServers] = React.useState(false);
+    // Devices whose CLI cannot use this kind of key yet (email keys need a newer one).
+    const minCli = kind ? vaultKindMinCliVersion(kind) : VAULT_MIN_CLI_VERSION;
+    const outdated = eligible.filter((machine) => !isVersionSupported(machine.metadata?.happyCliVersion, minCli));
 
     /** Puts the pasted value where it belongs for `next` and names the key after it. */
     const fill = (next: VaultKeyKind, text: string, pasted: VaultPasteGuess | null) => {
@@ -74,6 +83,19 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
             if (pasted?.as === 'address') setAddress(value);
             else if (pasted?.as === 'privateKey') { setAuth('key'); setSecret(text); } else if (value) { setAuth('password'); setSecret(value); }
             setName(uniqueName(pasted?.as === 'address' ? parseSshAddress(value)?.host ?? vaultKindLabel(next) : vaultKindLabel(next)));
+            return;
+        }
+        if (next === 'email') {
+            const settings = parseMailSettings(text);
+            const match = settings ? matchMailProvider(settings) : undefined;
+            const found: Record<string, string | undefined> = settings
+                ? { SMTP_HOST: settings.smtpHost, SMTP_PORT: settings.smtpPort?.toString(), IMAP_HOST: settings.imapHost, IMAP_PORT: settings.imapPort?.toString(), MAIL_PASSWORD: settings.password, MAIL_ADDRESS: settings.address }
+                // A single pasted value: an address is the address, anything else the password.
+                : { [MAIL_ADDRESS.test(value) ? 'MAIL_ADDRESS' : 'MAIL_PASSWORD']: value || undefined };
+            setValues({ ...(match && providerServers(match)), ...Object.fromEntries(Object.entries(found).filter((entry): entry is [string, string] => !!entry[1])) });
+            setProvider(match?.id ?? (settings ? 'other' : null));
+            setShowServers(!!settings && !match);
+            setName(uniqueName(found.MAIL_ADDRESS ?? match?.label() ?? vaultKindLabel(next)));
             return;
         }
         const env = VAULT_KIND_PRESETS[next].env;
@@ -88,7 +110,13 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
         if (detected) fill(detected.kind, text, detected);
     };
     const pickKind = (next: VaultKeyKind) => fill(next, raw, guess?.kind === next ? guess : null);
-    const startOver = () => { setRaw(''); setGuess(null); setKind(null); setValues({}); setAddress(''); setSecret(''); };
+    const startOver = () => { setRaw(''); setGuess(null); setKind(null); setValues({}); setAddress(''); setSecret(''); setProvider(null); setShowServers(false); };
+    /** A known provider fills in its servers; Other opens them for typing. */
+    const pickProvider = (next: VaultMailProvider | null) => {
+        setProvider(next?.id ?? 'other');
+        setShowServers(!next);
+        if (next) setValues((current) => ({ ...current, ...providerServers(next) }));
+    };
 
     const [saving, save] = useHappyAction(async () => {
         if (!kind) return;
@@ -108,6 +136,8 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
             if (!values.value?.trim()) throw new Error(t('resources.secretRequired'));
             env = [{ name: varName, value: values.value.trim(), secret: true }];
         } else {
+            if (kind === 'email' && !MAIL_ADDRESS.test((values.MAIL_ADDRESS ?? '').trim())) throw new Error(t('resources.mailAddressInvalid'));
+            if (kind === 'email' && !(values.SMTP_HOST ?? '').trim()) throw new Error(t('resources.mailProviderRequired'));
             // Optional plain values that were left empty are not injected at all.
             env = preset.env.map((v) => ({ name: v.name, value: (values[v.name] ?? '').trim(), secret: v.secret })).filter((v) => v.value || !FIELD_LABELS[v.name]?.optional);
             if (env.some((v) => !v.value)) throw new Error(t('resources.secretRequired'));
@@ -139,6 +169,25 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
             {VaultKeyKindSchema.options.map((option) => <VaultChip key={option} label={vaultKindLabel(option)} onPress={() => pickKind(option)} />)}
         </View>
     );
+
+    /** One preset variable, under the name its provider gives it. */
+    const envField = (v: { name: string; secret: boolean }) => {
+        const field = FIELD_LABELS[v.name];
+        const preset = VAULT_KIND_PRESETS[kind!].env;
+        return (
+            <React.Fragment key={v.name}>
+                {label(field?.optional ? `${vaultFieldLabel(v.name)} · ${t('resources.optional')}` : vaultFieldLabel(v.name), field?.where?.())}
+                {input({
+                    value: values[v.name] ?? '',
+                    onChangeText: (value) => setValues((current) => ({ ...current, [v.name]: value })),
+                    secureTextEntry: v.secret,
+                    placeholder: v.secret ? t('resources.secretPlaceholder') : field?.optional ? t('resources.optionalPlaceholder') : '',
+                    autoFocus: !values[v.name] && preset.find((other) => !values[other.name])?.name === v.name,
+                    mono: !v.secret,
+                })}
+            </React.Fragment>
+        );
+    };
 
     let body: React.ReactNode;
     if (!kind) {
@@ -196,22 +245,23 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
                         {label(t('resources.value'), t('resources.secretNeverShown'))}
                         {input({ value: values.value ?? '', onChangeText: (value) => setValues({ value }), secureTextEntry: true, autoFocus: !values.value })}
                     </>
-                ) : preset.env.map((v) => {
-                    const field = FIELD_LABELS[v.name] ?? { label: v.name };
-                    return (
-                        <React.Fragment key={v.name}>
-                            {label(field.optional ? `${field.label} · ${t('resources.optional')}` : field.label, field.where?.())}
-                            {input({
-                                value: values[v.name] ?? '',
-                                onChangeText: (value) => setValues((current) => ({ ...current, [v.name]: value })),
-                                secureTextEntry: v.secret,
-                                placeholder: v.secret ? t('resources.secretPlaceholder') : field.optional ? t('resources.optionalPlaceholder') : '',
-                                autoFocus: !values[v.name] && preset.env.findIndex((other) => !values[other.name]) === preset.env.indexOf(v),
-                                mono: !v.secret,
-                            })}
-                        </React.Fragment>
-                    );
-                })}
+                ) : kind === 'email' ? (
+                    <>
+                        {label(t('resources.mailProvider'))}
+                        <View style={styles.chips}>
+                            {VAULT_MAIL_PROVIDERS.map((option) => <VaultChip key={option.id} label={option.label()} selected={provider === option.id} onPress={() => pickProvider(option)} />)}
+                            <VaultChip label={t('resources.mailProviderOther')} selected={provider === 'other'} onPress={() => pickProvider(null)} />
+                        </View>
+                        {preset.env.filter((v) => v.name.startsWith('MAIL_')).map(envField)}
+                        {provider && !showServers && (
+                            <View style={styles.line}>
+                                <Text style={[styles.lineText, styles.mono]}>{t('resources.mailServers', { smtp: `${values.SMTP_HOST}:${values.SMTP_PORT}`, imap: `${values.IMAP_HOST}:${values.IMAP_PORT}` })}</Text>
+                                <Pressable onPress={() => setShowServers(true)} hitSlop={8}><Text style={styles.link}>{t('resources.change')}</Text></Pressable>
+                            </View>
+                        )}
+                        {showServers && preset.env.filter((v) => !v.name.startsWith('MAIL_')).map(envField)}
+                    </>
+                ) : preset.env.map(envField)}
 
                 {label(t('resources.name'))}
                 {input({ value: name, onChangeText: setName, autoCapitalize: 'sentences' })}
@@ -240,7 +290,7 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
                                 ))}
                             </View>
                         )}
-                        {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map(machineName).join('、'), version: VAULT_MIN_CLI_VERSION })}</Text>}
+                        {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map(machineName).join('、'), version: minCli })}</Text>}
                         <Text style={styles.hint}>{t('resources.mcpNote')}</Text>
                     </View>
                 )}

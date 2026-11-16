@@ -25,6 +25,7 @@ export async function handleKeysCommand(): Promise<void> {
         console.log(`  allow:  ${key.allow.join('  |  ') || '— (nothing runs until the user adds a rule)'}`)
         console.log(`  deny:   ${key.deny.join('  |  ') || '—'}`)
         for (const scope of key.scope) console.log(`  scope:  ${scope.name}${scope.protected ? ` — do not touch: ${scope.protected}` : ''}`)
+        if (key.kind === 'email') console.log(`  mail:   happy run ${key.slug} -- happy mail send --to <address> --subject <text> --body <text>   (happy mail check tests the login)`)
     }
     console.log(`\nUse a key: happy run <name> -- <command>. Commands that read the secret ($VAR, env, printenv, sh -c, eval) never run.`)
 }

@@ -22,6 +22,7 @@ export const vaultKindLabel = (kind: VaultKeyKind): string => ({
     github: t('resources.kindGithub'),
     npm: t('resources.kindNpm'),
     ssh: t('resources.kindSsh'),
+    email: t('resources.kindEmail'),
     custom: t('resources.kindCustom'),
 })[kind];
 
@@ -37,6 +38,7 @@ const KIND_TILES: Record<VaultKeyKind, { fg: string; bg: string; bgDark: string;
     github: { fg: '#6B7280', bg: '#F3F4F6', bgDark: 'rgba(156,163,175,0.2)', mark: 'GH' },
     npm: { fg: '#CB3837', bg: '#FDECEC', bgDark: 'rgba(203,56,55,0.2)', mark: 'npm' },
     ssh: { fg: '#2563EB', bg: '#E8F0FE', bgDark: 'rgba(37,99,235,0.25)', icon: 'server-outline' },
+    email: { fg: '#0891B2', bg: '#E0F7FA', bgDark: 'rgba(8,145,178,0.22)', icon: 'mail-outline' },
     custom: { fg: '#7C3AED', bg: '#F1EBFE', bgDark: 'rgba(124,58,237,0.22)', icon: 'key-outline' },
 };
 

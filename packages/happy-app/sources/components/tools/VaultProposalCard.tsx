@@ -13,7 +13,7 @@ import { storage } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { deleteVaultKey, saveVaultKey, useVault } from '@/sync/vault';
 import { buildVaultProposal, vaultKeyUnchanged, type VaultProposalProblem, type VaultProposalTool } from '@/sync/vaultProposal';
-import { VAULT_FIELD_LABELS, VAULT_RULE_OPTIONS, vaultDenyLabel } from '@/sync/vaultRules';
+import { VAULT_FIELD_LABELS, VAULT_RULE_OPTIONS, vaultDenyLabel, vaultFieldLabel } from '@/sync/vaultRules';
 import type { ToolCall } from '@/sync/typesMessage';
 
 type Line = { text: string; mono?: boolean; tone?: 'add' | 'remove' };
@@ -65,7 +65,7 @@ function addRows(key: VaultKey, missing: string[], online: string[]): Row[] {
     }
     for (const v of key.env) {
         rows.push({
-            label: VAULT_FIELD_LABELS[v.name]?.label ?? v.name,
+            label: vaultFieldLabel(v.name),
             mono: !VAULT_FIELD_LABELS[v.name],
             lines: [v.secret ? { text: t('resources.proposalFilled') } : { text: v.value, mono: true }],
             fill: missing.includes(v.name) ? { name: v.name, secret: v.secret } : undefined,

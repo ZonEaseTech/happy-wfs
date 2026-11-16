@@ -33,6 +33,10 @@ export const VAULT_RULE_OPTIONS: Record<VaultKeyKind, VaultRuleOption[]> = {
     ssh: [
         { pattern: '*', label: () => t('resources.anyCommand') },
     ],
+    email: [
+        { pattern: 'happy mail send *', label: () => t('resources.ruleMailSend') },
+        { pattern: 'happy mail check', label: () => t('resources.ruleMailCheck') },
+    ],
     custom: [],
 };
 
@@ -45,14 +49,76 @@ const DENY_LABELS: Record<string, () => string> = {
 };
 
 /** What each preset variable is called on the provider's own site, and where to find it. */
-export const VAULT_FIELD_LABELS: Record<string, { label: string; where?: () => string; optional?: true }> = {
+export const VAULT_FIELD_LABELS: Record<string, { label: string | (() => string); where?: () => string; optional?: true }> = {
     CLOUDFLARE_API_TOKEN: { label: 'API Token', where: () => t('resources.whereCfToken') },
     CLOUDFLARE_ACCOUNT_ID: { label: 'Account ID', where: () => t('resources.whereCfAccount'), optional: true },
     ALIYUN_ACCESS_KEY_ID: { label: 'AccessKey ID' },
     ALIYUN_ACCESS_KEY_SECRET: { label: 'AccessKey Secret', where: () => t('resources.whereAliSecret') },
     GH_TOKEN: { label: 'Token', where: () => t('resources.whereGithub') },
     NPM_TOKEN: { label: 'Token', where: () => t('resources.whereNpm') },
+    MAIL_ADDRESS: { label: () => t('resources.fieldMailAddress'), where: () => t('resources.whereMailAddress') },
+    MAIL_PASSWORD: { label: () => t('resources.fieldMailPassword'), where: () => t('resources.whereMailPassword') },
+    SMTP_HOST: { label: () => t('resources.fieldSmtpHost') },
+    SMTP_PORT: { label: () => t('resources.fieldSmtpPort') },
+    IMAP_HOST: { label: () => t('resources.fieldImapHost'), optional: true },
+    IMAP_PORT: { label: () => t('resources.fieldImapPort'), optional: true },
 };
+
+/** What a variable is called on screen: the provider's own name for it, or the variable itself. */
+export function vaultFieldLabel(name: string): string {
+    const label = VAULT_FIELD_LABELS[name]?.label;
+    return typeof label === 'function' ? label() : label ?? name;
+}
+
+/**
+ * Mailboxes whose servers are filled in for the user. Outlook / Microsoft 365 are left out on
+ * purpose: they no longer accept a password over SMTP or IMAP, only OAuth.
+ */
+export type VaultMailProvider = { id: string; label: () => string; smtp: [string, number]; imap: [string, number] };
+export const VAULT_MAIL_PROVIDERS: VaultMailProvider[] = [
+    { id: 'lark', label: () => t('resources.mailLark'), smtp: ['smtp.larksuite.com', 465], imap: ['imap.larksuite.com', 993] },
+    { id: 'feishu', label: () => t('resources.mailFeishu'), smtp: ['smtp.feishu.cn', 465], imap: ['imap.feishu.cn', 993] },
+    { id: 'exmail', label: () => t('resources.mailExmail'), smtp: ['smtp.exmail.qq.com', 465], imap: ['imap.exmail.qq.com', 993] },
+    { id: 'aliyun', label: () => t('resources.mailAliyun'), smtp: ['smtp.qiye.aliyun.com', 465], imap: ['imap.qiye.aliyun.com', 993] },
+    { id: 'qq', label: () => t('resources.mailQq'), smtp: ['smtp.qq.com', 465], imap: ['imap.qq.com', 993] },
+    { id: '163', label: () => t('resources.mail163'), smtp: ['smtp.163.com', 465], imap: ['imap.163.com', 993] },
+    { id: 'gmail', label: () => 'Gmail', smtp: ['smtp.gmail.com', 465], imap: ['imap.gmail.com', 993] },
+];
+
+export type VaultMailSettings = { address?: string; password?: string; smtpHost?: string; smtpPort?: number; imapHost?: string; imapPort?: number };
+
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+
+/**
+ * A mailbox's "IMAP/SMTP" settings as pasted from the provider. Lark puts each label on its own
+ * line with the value under it, others write "label: value"; both are read. Null unless it names
+ * an SMTP or IMAP server.
+ */
+export function parseMailSettings(raw: string): VaultMailSettings | null {
+    const hosts: string[] = raw.match(/\b(?:smtp|imap)(?:[\w-]*\.)+[a-z]{2,}\b/gi) ?? [];
+    const smtpHost = hosts.find((host) => /^smtp/i.test(host))?.toLowerCase();
+    const imapHost = hosts.find((host) => /^imap/i.test(host))?.toLowerCase();
+    if (!smtpHost && !imapHost) return null;
+
+    const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const pairs: Array<[string, string]> = [];
+    for (let i = 0; i < lines.length; i++) {
+        const inline = /^(.+?)\s*[:：]\s*(\S+)$/.exec(lines[i]);
+        if (inline) pairs.push([inline[1].toLowerCase(), inline[2]]);
+        else if (i + 1 < lines.length && !/\s/.test(lines[i + 1])) pairs.push([lines[i].toLowerCase(), lines[++i]]);
+    }
+    const port = (server: 'smtp' | 'imap') => {
+        const ports = pairs.filter(([label, value]) => label.includes(server) && !label.includes(server === 'smtp' ? 'imap' : 'smtp') && /^\d{2,5}$/.test(value));
+        const value = (ports.find(([label]) => label.includes('ssl')) ?? ports[0])?.[1];
+        return value ? Number(value) : undefined;
+    };
+    const password = pairs.find(([label, value]) => /密码|密碼|授权码|授權碼|password|authorization/.test(label) && !EMAIL.test(value) && !hosts.includes(value))?.[1];
+    return { smtpHost, imapHost, smtpPort: port('smtp'), imapPort: port('imap'), password, address: EMAIL.exec(raw)?.[0] };
+}
+
+export const matchMailProvider = (settings: VaultMailSettings): VaultMailProvider | undefined => (
+    VAULT_MAIL_PROVIDERS.find((provider) => provider.smtp[0] === settings.smtpHost || provider.imap[0] === settings.imapHost)
+);
 
 export const vaultDenyLabel = (pattern: string): string => DENY_LABELS[pattern]?.() ?? pattern;
 
@@ -74,10 +140,11 @@ export function vaultCanDo(key: Pick<VaultKey, 'kind' | 'allow' | 'deny'>): stri
  * recognised; everything else (a Cloudflare token, a password) returns null
  * and the user picks the type.
  */
-export type VaultPasteGuess = { kind: VaultKeyKind; as: 'secret' | 'id' | 'privateKey' | 'address' };
+export type VaultPasteGuess = { kind: VaultKeyKind; as: 'secret' | 'id' | 'privateKey' | 'address' | 'settings' };
 
 export function detectVaultPaste(raw: string): VaultPasteGuess | null {
     const value = raw.trim();
+    if (parseMailSettings(value)) return { kind: 'email', as: 'settings' };
     if (/^-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(value)) return { kind: 'ssh', as: 'privateKey' };
     if (/^(ghp_|gho_|ghs_|github_pat_)\w{20,}$/.test(value)) return { kind: 'github', as: 'secret' };
     if (/^npm_\w{20,}$/.test(value)) return { kind: 'npm', as: 'secret' };
@@ -96,7 +163,7 @@ export function parseSshAddress(value: string): { user: string; host: string; po
 
 /** A command name that is free: from the key's name when it has latin letters, else from its type. */
 export function vaultAutoSlug(name: string, kind: VaultKeyKind, taken: string[]): string {
-    const fallback: Record<VaultKeyKind, string> = { cloudflare: 'cloudflare', aliyun: 'aliyun', github: 'github', npm: 'npm', ssh: 'server', custom: 'secret' };
+    const fallback: Record<VaultKeyKind, string> = { cloudflare: 'cloudflare', aliyun: 'aliyun', github: 'github', npm: 'npm', ssh: 'server', email: 'mail', custom: 'secret' };
     const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 28) || fallback[kind];
     let slug = base;
     for (let i = 2; taken.includes(slug); i++) slug = `${base}-${i}`;
@@ -112,6 +179,7 @@ export function vaultSay(key: Pick<VaultKey, 'kind' | 'name'>): string {
         github: t('resources.sayGithub', { name }),
         npm: t('resources.sayNpm', { name }),
         ssh: t('resources.saySsh', { name }),
+        email: t('resources.sayEmail', { name }),
         custom: t('resources.sayCustom', { name }),
     }[key.kind];
 }

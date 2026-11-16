@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as React from 'react';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { VAULT_MIN_CLI_VERSION, vaultKeyDevices, type VaultKey } from 'happy-wire';
+import { vaultKeyDevices, vaultKindMinCliVersion, type VaultKey } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { showCopiedToast } from '@/components/Toast';
@@ -14,7 +14,7 @@ import { t } from '@/text';
 import { useAllMachines, storage } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { deleteVaultKey, saveVaultKey, useVault } from '@/sync/vault';
-import { VAULT_FIELD_LABELS, VAULT_RULE_OPTIONS, vaultDenyLabel, vaultSay } from '@/sync/vaultRules';
+import { VAULT_RULE_OPTIONS, vaultDenyLabel, vaultFieldLabel, vaultSay } from '@/sync/vaultRules';
 import { formatLastSeen, getSessionName } from '@/utils/sessionUtils';
 import { isVersionSupported } from '@/utils/versionUtils';
 
@@ -77,7 +77,7 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
     const custom = key.allow.filter((rule) => !options.some((option) => option.pattern === rule));
     const devices = vaultKeyDevices(key);
     const allDevices = eligible.length > 0 && eligible.every((machine) => devices.includes(machine.id));
-    const outdated = eligible.filter((machine) => !isVersionSupported(machine.metadata?.happyCliVersion, VAULT_MIN_CLI_VERSION));
+    const outdated = eligible.filter((machine) => !isVersionSupported(machine.metadata?.happyCliVersion, vaultKindMinCliVersion(key.kind)));
     const logs = vault.logs.filter((entry) => entry.keyId === key.id);
     const lastUse = logs.find((entry) => entry.outcome !== 'denied');
     const say = vaultSay(key);
@@ -245,7 +245,7 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
                                     />
                                 ))}
                             </View>
-                            {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map((m) => vaultMachineName(m.id)).join('、'), version: VAULT_MIN_CLI_VERSION })}</Text>}
+                            {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map((m) => vaultMachineName(m.id)).join('、'), version: vaultKindMinCliVersion(key.kind) })}</Text>}
                             <Text style={styles.hint}>{t('resources.mcpNote')}</Text>
                         </View>
                     </View>
@@ -271,7 +271,7 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
                         </View>
                     ) : key.env.map((v) => (
                         <View key={v.name} style={styles.kv}>
-                            <Text style={styles.kvKey} numberOfLines={1}>{VAULT_FIELD_LABELS[v.name]?.label ?? v.name}</Text>
+                            <Text style={styles.kvKey} numberOfLines={1}>{vaultFieldLabel(v.name)}</Text>
                             <Text style={[styles.kvValue, !v.secret && styles.mono]} numberOfLines={1}>{v.secret ? t('resources.secretSaved') : v.value}</Text>
                         </View>
                     ))}
