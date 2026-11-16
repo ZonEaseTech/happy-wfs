@@ -48,6 +48,22 @@ describe('buildVaultPromptSection', () => {
         expect(wfs).toContain('stop and wait');
     });
 
+    it('offers a server login on every device it was given to', () => {
+        const both = { ...prod, machineIds: ['admin', 'wfs'], ssh: { ...prod.ssh!, viaMachineId: 'admin' } };
+        expect(buildVaultPromptSection([both], 'admin', '0.6.63')).toContain('`vm-node05`');
+        expect(buildVaultPromptSection([both], 'wfs', '0.6.63')).toContain('`vm-node05`');
+        expect(buildVaultPromptSection([both], 'mini', '0.6.63')).not.toContain('`vm-node05`');
+    });
+
+    it('has agents on a CLI with the key tools draft keys themselves instead', () => {
+        const wfs = buildVaultPromptSection([key({})], 'wfs', '0.6.64')!;
+        expect(wfs).toContain('`save_key` or `delete_key`');
+        expect(wfs).toContain('nothing changes until they confirm');
+        expect(wfs).not.toContain('happy keys need');
+        expect(buildVaultPromptSection([key({})], 'mini', '0.6.64')).toContain('draft the key with `save_key`');
+        expect(buildVaultPromptSection([key({})], 'wfs', '0.6.63')).not.toContain('save_key');
+    });
+
     it('is stable regardless of key order', () => {
         const a = key({ id: 'a', slug: 'a-key', machineIds: ['wfs'] });
         const b = key({ id: 'b', slug: 'b-key', machineIds: ['wfs'] });

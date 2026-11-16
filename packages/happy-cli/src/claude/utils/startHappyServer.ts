@@ -28,7 +28,7 @@ import {
     ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA,
     ORCHESTRATOR_SUBMIT_TOOL_SCHEMA,
 } from '@/orchestrator/mcpToolSchemas';
-import { CLAUDE_MODEL_MODES, CODEX_MODEL_MODES, GEMINI_MODEL_MODES } from 'happy-wire';
+import { CLAUDE_MODEL_MODES, CODEX_MODEL_MODES, GEMINI_MODEL_MODES, VaultDeleteKeyInputSchema, VaultSaveKeyInputSchema } from 'happy-wire';
 
 function toToolSuccess(data: unknown) {
     return {
@@ -231,6 +231,26 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
             isError: false,
         };
     });
+
+    // Resource center: the agent only drafts. The app shows the call as a card and writes
+    // nothing until the user confirms it there, so these never touch (or log) a key.
+    mcp.registerTool('save_key', {
+        description: 'Add a key to the user\'s Happy resource center, or change one: its variables, secret, server login, allowed or denied commands, devices or name. '
+            + 'Happy shows the draft to the user as a card and nothing is saved until they confirm it; they will tell you when it is done. '
+            + 'Put a secret in only if the user gave it to you in this conversation; otherwise leave its value out and they fill it in on the card.',
+        title: 'Save Key',
+        inputSchema: VaultSaveKeyInputSchema.shape,
+    }, async () => ({
+        content: [{ type: 'text', text: 'Shown to the user in Happy as a card. On it they can fill in values you left out and confirm, nothing else; to change the draft they will ask you. Nothing is saved until they confirm, and they will message you when it is done: wait for that instead of calling this again or working around it.' }],
+    }));
+
+    mcp.registerTool('delete_key', {
+        description: 'Delete a key from the user\'s Happy resource center, together with every device\'s copy. Happy asks the user to confirm on a card and nothing is deleted until they do.',
+        title: 'Delete Key',
+        inputSchema: VaultDeleteKeyInputSchema.shape,
+    }, async () => ({
+        content: [{ type: 'text', text: 'Shown to the user in Happy. Nothing is deleted until they confirm the card, and they will message you when it is done.' }],
+    }));
 
     mcp.registerTool('submit_bug', {
         description: 'File a bug report on the user\'s Happy bug board. Use when the user asks to report or file a bug. '
@@ -555,8 +575,8 @@ export async function startHappyServer(client: ApiSessionClient) {
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableOrchestratorTools = shouldEnableOrchestratorTools();
     const toolNames = enableOrchestratorTools
-        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'comment_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'comment_bug'];
+        ? ['change_title', 'preview_html', 'device_list', 'device_exec', 'save_key', 'delete_key', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'comment_bug', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+        : ['change_title', 'preview_html', 'device_list', 'device_exec', 'save_key', 'delete_key', 'list_bugs', 'get_bug', 'submit_bug', 'edit_bug', 'delete_bug', 'set_bug_status', 'comment_bug'];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;

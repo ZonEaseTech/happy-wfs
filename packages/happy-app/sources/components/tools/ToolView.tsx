@@ -21,6 +21,8 @@ import { shouldShowOrchestratorSubmitActivityIndicator } from './toolStatusIconR
 import { extractOrchestratorSubmitRunId } from './orchestratorRunId';
 import { useVault } from '@/sync/vault';
 import { VaultToolFooter } from './VaultToolFooter';
+import { VaultProposalCard } from './VaultProposalCard';
+import { vaultProposalTool } from '@/sync/vaultProposal';
 
 interface ToolViewProps {
     metadata: Metadata | null;
@@ -107,6 +109,7 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
     const shellCommand = Array.isArray(tool.input?.command) ? tool.input.command.join(' ') : typeof tool.input?.command === 'string' ? tool.input.command : '';
     const vaultSlug = /(?:^|[\s;&|(])happy run ([a-z0-9][a-z0-9-]*) --/.exec(shellCommand)?.[1];
     const vaultLabel = vaultSlug ? vault.keys.find((key) => key.slug === vaultSlug)?.name ?? vaultSlug : null;
+    const vaultTool = vaultProposalTool(tool.name);
 
     // Handle optional title and function type
     let toolTitle = tool.name;
@@ -316,6 +319,11 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
             {/* Resource center: allow a refused command, or add a key the agent asked for */}
             {sessionId && shellCommand.includes('happy ') && (
                 <VaultToolFooter sessionId={sessionId} command={shellCommand} result={toolResultText} createdAt={tool.createdAt} />
+            )}
+
+            {/* Resource center: a key the agent drafted with save_key / delete_key, saved only once the user confirms */}
+            {sessionId && vaultTool && tool.state === 'completed' && (
+                <VaultProposalCard sessionId={sessionId} tool={tool} toolKind={vaultTool} />
             )}
 
             {/* Permission footer - always renders when permission exists to maintain consistent height */}

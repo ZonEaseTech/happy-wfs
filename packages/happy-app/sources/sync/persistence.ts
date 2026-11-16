@@ -264,6 +264,25 @@ export function saveContextNotesSent(notes: Record<string, string>) {
     setPersisted(CONTEXT_NOTES_SENT_KEY, JSON.stringify(notes));
 }
 
+const VAULT_PROPOSALS_DONE_KEY = 'vault-proposals-done-v1';
+
+export type VaultProposalDone = { done: 'added' | 'changed' | 'deleted'; name: string };
+
+/** Per agent key draft (by message id), what the user did with it, so a reload does not offer it again. */
+export function loadVaultProposalsDone(): Record<string, VaultProposalDone> {
+    const raw = mmkv.getString(VAULT_PROPOSALS_DONE_KEY);
+    if (!raw) return {};
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return {};
+    }
+}
+
+export function saveVaultProposalsDone(done: Record<string, VaultProposalDone>) {
+    setPersisted(VAULT_PROPOSALS_DONE_KEY, JSON.stringify(done));
+}
+
 const SESSION_GOAL_PINS_KEY = 'session-goal-pins.v2';
 const SESSION_GOAL_PINS_LEGACY_KEY = 'session-goal-pins.v1';
 

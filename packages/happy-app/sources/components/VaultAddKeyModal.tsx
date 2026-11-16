@@ -62,7 +62,6 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
     const [address, setAddress] = React.useState('');
     const [auth, setAuth] = React.useState<'password' | 'key'>('password');
     const [secret, setSecret] = React.useState('');
-    const [via, setVia] = React.useState(eligible.find(cliReady)?.id ?? '');
     const [allDevices, setAllDevices] = React.useState(true);
     const [deviceIds, setDeviceIds] = React.useState<string[]>([]);
     const [showDevices, setShowDevices] = React.useState(false);
@@ -95,14 +94,15 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
         if (!kind) return;
         const preset = VAULT_KIND_PRESETS[kind];
         if (!name.trim()) throw new Error(t('resources.nameRequired'));
+        const machineIds = allDevices ? eligible.map((machine) => machine.id) : deviceIds;
+        if (machineIds.length === 0) throw new Error(t('resources.devicesRequired'));
         let ssh: VaultKey['ssh'] = null;
         let env: VaultKey['env'] = [];
         if (kind === 'ssh') {
             const login = parseSshAddress(address);
             if (!login) throw new Error(t('resources.addressInvalid'));
             if (!secret.trim()) throw new Error(t('resources.loginRequired'));
-            if (!via) throw new Error(t('resources.viaRequired'));
-            ssh = { ...login, auth, secret: auth === 'key' ? secret : secret.trim(), viaMachineId: via };
+            ssh = { ...login, auth, secret: auth === 'key' ? secret : secret.trim(), viaMachineId: machineIds[0] };
         } else if (kind === 'custom') {
             if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(varName)) throw new Error(t('resources.variableInvalid'));
             if (!values.value?.trim()) throw new Error(t('resources.secretRequired'));
@@ -112,8 +112,6 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
             env = preset.env.map((v) => ({ name: v.name, value: (values[v.name] ?? '').trim(), secret: v.secret })).filter((v) => v.value || !FIELD_LABELS[v.name]?.optional);
             if (env.some((v) => !v.value)) throw new Error(t('resources.secretRequired'));
         }
-        const machineIds = kind === 'ssh' ? [] : allDevices ? eligible.map((machine) => machine.id) : deviceIds;
-        if (kind !== 'ssh' && machineIds.length === 0) throw new Error(t('resources.devicesRequired'));
         const key: VaultKey = {
             v: 1, id: newId(), kind, name: name.trim(),
             slug: vaultAutoSlug(name, kind, vault.keys.map((existing) => existing.slug)),
@@ -190,10 +188,6 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
                         {auth === 'password'
                             ? input({ value: secret, onChangeText: setSecret, secureTextEntry: true })
                             : input({ value: secret, onChangeText: setSecret, multiline: true, mono: true, placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----', style: { height: 90, paddingTop: 8, textAlignVertical: 'top' } })}
-                        {label(t('resources.via'), t('resources.viaHint'))}
-                        <View style={styles.chips}>
-                            {eligible.filter(cliReady).map((machine) => <VaultChip key={machine.id} label={machineName(machine)} selected={via === machine.id} onPress={() => setVia(machine.id)} />)}
-                        </View>
                     </>
                 ) : kind === 'custom' ? (
                     <>
@@ -222,40 +216,36 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
                 {label(t('resources.name'))}
                 {input({ value: name, onChangeText: setName, autoCapitalize: 'sentences' })}
 
-                {kind !== 'ssh' && (
-                    <>
-                        <View style={styles.line}>
-                            <Text style={styles.lineText}>
-                                {allDevices ? t('resources.allDevicesCount', { count: eligible.length }) : t('resources.onlyDevices', { names: deviceIds.map((id) => machineName(eligible.find((m) => m.id === id)!)).join('、') || '—' })}
-                            </Text>
-                            <Pressable onPress={() => setShowDevices(!showDevices)} hitSlop={8}><Text style={styles.link}>{showDevices ? t('resources.collapse') : t('resources.change')}</Text></Pressable>
+                <View style={styles.line}>
+                    <Text style={styles.lineText}>
+                        {allDevices ? t('resources.allDevicesCount', { count: eligible.length }) : t('resources.onlyDevices', { names: deviceIds.map((id) => machineName(eligible.find((m) => m.id === id)!)).join('、') || '—' })}
+                    </Text>
+                    <Pressable onPress={() => setShowDevices(!showDevices)} hitSlop={8}><Text style={styles.link}>{showDevices ? t('resources.collapse') : t('resources.change')}</Text></Pressable>
+                </View>
+                {showDevices && (
+                    <View style={{ gap: 8, marginTop: 4 }}>
+                        <View style={styles.chips}>
+                            <VaultChip label={t('resources.devicesAll')} selected={allDevices} onPress={() => setAllDevices(true)} />
+                            <VaultChip label={t('resources.devicesSome')} selected={!allDevices} onPress={() => { setAllDevices(false); if (deviceIds.length === 0) setDeviceIds(eligible.map((m) => m.id)); }} />
                         </View>
-                        {showDevices && (
-                            <View style={{ gap: 8, marginTop: 4 }}>
-                                <View style={styles.chips}>
-                                    <VaultChip label={t('resources.devicesAll')} selected={allDevices} onPress={() => setAllDevices(true)} />
-                                    <VaultChip label={t('resources.devicesSome')} selected={!allDevices} onPress={() => { setAllDevices(false); if (deviceIds.length === 0) setDeviceIds(eligible.map((m) => m.id)); }} />
-                                </View>
-                                {!allDevices && (
-                                    <View style={styles.chips}>
-                                        {eligible.map((machine) => (
-                                            <VaultChip
-                                                key={machine.id}
-                                                label={machineName(machine)}
-                                                selected={deviceIds.includes(machine.id)}
-                                                onPress={() => setDeviceIds((current) => (current.includes(machine.id) ? current.filter((id) => id !== machine.id) : [...current, machine.id]))}
-                                            />
-                                        ))}
-                                    </View>
-                                )}
-                                {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map(machineName).join('、'), version: VAULT_MIN_CLI_VERSION })}</Text>}
-                                <Text style={styles.hint}>{t('resources.mcpNote')}</Text>
+                        {!allDevices && (
+                            <View style={styles.chips}>
+                                {eligible.map((machine) => (
+                                    <VaultChip
+                                        key={machine.id}
+                                        label={machineName(machine)}
+                                        selected={deviceIds.includes(machine.id)}
+                                        onPress={() => setDeviceIds((current) => (current.includes(machine.id) ? current.filter((id) => id !== machine.id) : [...current, machine.id]))}
+                                    />
+                                ))}
                             </View>
                         )}
-                    </>
+                        {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map(machineName).join('、'), version: VAULT_MIN_CLI_VERSION })}</Text>}
+                        <Text style={styles.hint}>{t('resources.mcpNote')}</Text>
+                    </View>
                 )}
 
-                <View style={[styles.line, kind !== 'ssh' && styles.lineTight]}>
+                <View style={[styles.line, styles.lineTight]}>
                     <Text style={styles.lineText}>
                         {t('resources.canDoPreview', { what: vaultCanDo({ kind, allow: preset.allow, deny: preset.deny }) })}
                         {'\n'}

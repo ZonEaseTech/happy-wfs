@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as React from 'react';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { VAULT_MIN_CLI_VERSION, type VaultKey } from 'happy-wire';
+import { VAULT_MIN_CLI_VERSION, vaultKeyDevices, type VaultKey } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { showCopiedToast } from '@/components/Toast';
@@ -75,14 +75,15 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
 
     const options = VAULT_RULE_OPTIONS[key.kind];
     const custom = key.allow.filter((rule) => !options.some((option) => option.pattern === rule));
-    const allDevices = !key.ssh && eligible.length > 0 && eligible.every((machine) => key.machineIds.includes(machine.id));
+    const devices = vaultKeyDevices(key);
+    const allDevices = eligible.length > 0 && eligible.every((machine) => devices.includes(machine.id));
     const outdated = eligible.filter((machine) => !isVersionSupported(machine.metadata?.happyCliVersion, VAULT_MIN_CLI_VERSION));
     const logs = vault.logs.filter((entry) => entry.keyId === key.id);
     const lastUse = logs.find((entry) => entry.outcome !== 'denied');
     const say = vaultSay(key);
-    const devicesText = key.ssh
-        ? t('resources.connectsFrom', { name: vaultMachineName(key.ssh.viaMachineId) })
-        : allDevices ? t('resources.allDevicesUse') : t('resources.someDevicesUse', { names: key.machineIds.map(vaultMachineName).join('、') || '—' });
+    const devicesText = allDevices ? t('resources.allDevicesUse') : t('resources.someDevicesUse', { names: devices.map(vaultMachineName).join('、') || '—' });
+    // Server logins keep the first device in `viaMachineId` for CLIs that still require the field.
+    const setDevices = (machineIds: string[]) => update(key.ssh ? { machineIds, ssh: { ...key.ssh, viaMachineId: machineIds[0] } } : { machineIds });
 
     const rename = async () => {
         const next = await Modal.prompt(t('resources.rename'), undefined, { defaultValue: key.name, confirmText: t('common.save'), cancelText: t('common.cancel') });
@@ -227,35 +228,25 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
                         <Pressable onPress={() => { void changeSlug(); }} hitSlop={8}><Text style={styles.link}>{t('resources.change')}</Text></Pressable>
                     </View>
                     <View style={styles.kv}>
-                        <Text style={styles.kvKey}>{key.ssh ? t('resources.via') : t('resources.devices')}</Text>
+                        <Text style={styles.kvKey}>{t('resources.devices')}</Text>
                         <View style={[styles.kvValue, { gap: 6 }]}>
-                            {key.ssh ? (
-                                <View style={styles.tags}>
-                                    {eligible.filter((m) => isVersionSupported(m.metadata?.happyCliVersion, VAULT_MIN_CLI_VERSION)).map((machine) => (
-                                        <VaultChip key={machine.id} label={vaultMachineName(machine.id)} selected={key.ssh!.viaMachineId === machine.id} onPress={() => { void update({ ssh: { ...key.ssh!, viaMachineId: machine.id } }); }} />
-                                    ))}
-                                </View>
-                            ) : (
-                                <>
-                                    <View style={styles.tags}>
-                                        <VaultChip label={t('resources.devicesAll')} selected={allDevices} onPress={() => { void update({ machineIds: eligible.map((m) => m.id) }); }} />
-                                        {eligible.map((machine) => (
-                                            <VaultChip
-                                                key={machine.id}
-                                                label={vaultMachineName(machine.id)}
-                                                selected={!allDevices && key.machineIds.includes(machine.id)}
-                                                onPress={() => {
-                                                    const current = allDevices ? [] : key.machineIds;
-                                                    const next = current.includes(machine.id) ? current.filter((id) => id !== machine.id) : [...current, machine.id];
-                                                    if (next.length > 0) void update({ machineIds: next });
-                                                }}
-                                            />
-                                        ))}
-                                    </View>
-                                    {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map((m) => vaultMachineName(m.id)).join('、'), version: VAULT_MIN_CLI_VERSION })}</Text>}
-                                    <Text style={styles.hint}>{t('resources.mcpNote')}</Text>
-                                </>
-                            )}
+                            <View style={styles.tags}>
+                                <VaultChip label={t('resources.devicesAll')} selected={allDevices} onPress={() => { void setDevices(eligible.map((m) => m.id)); }} />
+                                {eligible.map((machine) => (
+                                    <VaultChip
+                                        key={machine.id}
+                                        label={vaultMachineName(machine.id)}
+                                        selected={!allDevices && devices.includes(machine.id)}
+                                        onPress={() => {
+                                            const current = allDevices ? [] : devices;
+                                            const next = current.includes(machine.id) ? current.filter((id) => id !== machine.id) : [...current, machine.id];
+                                            if (next.length > 0) void setDevices(next);
+                                        }}
+                                    />
+                                ))}
+                            </View>
+                            {outdated.length > 0 && <Text style={styles.hint}>{t('resources.cliOldInline', { names: outdated.map((m) => vaultMachineName(m.id)).join('、'), version: VAULT_MIN_CLI_VERSION })}</Text>}
+                            <Text style={styles.hint}>{t('resources.mcpNote')}</Text>
                         </View>
                     </View>
                     <View style={styles.kv}>

@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { create } from 'zustand';
 import { MMKV } from 'react-native-mmkv';
 import { parseMcpResult } from '../parseMcpResult';
+import { t } from '@/text';
 
 const mmkv = new MMKV();
 const TITLE_CACHE_KEY = 'orchestrator-title-cache';
@@ -52,6 +53,8 @@ function stripMCPPrefix(name: string): string {
  */
 export function formatMCPTitle(tool: ToolCall): string {
     const withoutPrefix = stripMCPPrefix(tool.name);
+    if (withoutPrefix === 'save_key') return t('resources.toolSaveKey');
+    if (withoutPrefix === 'delete_key') return t('resources.deleteKey');
 
     let prefix = "MCP: ";
     if (/^orchestrator_/.test(withoutPrefix) || /^preview_html$/.test(withoutPrefix)) {
@@ -118,6 +121,9 @@ export function useMCPSubtitle(tool: ToolCall): string {
     if (toolName === "preview_html" && tool.input?.title) {
         return tool.input.title;
     }
+    if (toolName === 'save_key' || toolName === 'delete_key') {
+        return String(tool.input?.name ?? tool.input?.key ?? '');
+    }
     if (isSubmit) {
         return tool.input?.title ?? '';
     }
@@ -140,6 +146,10 @@ export function formatMCPIcon(tool: ToolCall, size: number = 18, color: string =
 
     if (withoutPrefix === "preview_html") {
         return <Ionicons name="earth-outline" size={size} color={color} />;
+    }
+
+    if (withoutPrefix === 'save_key' || withoutPrefix === 'delete_key') {
+        return <Ionicons name="key-outline" size={size} color={color} />;
     }
 
     return <Ionicons name="extension-puzzle-outline" size={size} color={secondaryColor || color} />;

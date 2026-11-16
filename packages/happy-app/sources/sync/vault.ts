@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { VaultKeySchema, VaultUsageLogSchema, vaultKvKey, type VaultDeviceCopy, type VaultKey, type VaultUsageLog } from 'happy-wire';
+import { VaultKeySchema, VaultUsageLogSchema, vaultKeyDevices, vaultKvKey, type VaultDeviceCopy, type VaultKey, type VaultUsageLog } from 'happy-wire';
 import { kvBulkGet, kvGetByPrefix, kvMutate, type KvMutation } from './apiKv';
 import { sync } from './sync';
 import { decodeUTF8 } from '@/encryption/text';
@@ -59,8 +59,6 @@ export function refreshVault(): Promise<void> {
     return inflight;
 }
 
-/** Server logins only ever live on the device that dials out. */
-const devicesOf = (key: VaultKey) => (key.ssh ? [key.ssh.viaMachineId] : key.machineIds);
 
 /**
  * Writes the account record plus one copy per allowed device, and deletes the
@@ -71,8 +69,8 @@ async function writeKey(next: VaultKey | null, previous: VaultKey | null): Promi
     const credentials = sync.getCredentials();
     if (!credentials) throw new Error('Not signed in');
     const id = (next ?? previous)!.id;
-    const nextDevices = next ? devicesOf(next) : [];
-    const goneDevices = previous ? devicesOf(previous).filter((machineId) => !nextDevices.includes(machineId)) : [];
+    const nextDevices = next ? vaultKeyDevices(next) : [];
+    const goneDevices = previous ? vaultKeyDevices(previous).filter((machineId) => !nextDevices.includes(machineId)) : [];
 
     const values = new Map<string, string | null>();
     values.set(vaultKvKey.key(id), next ? await sync.encryption.encryptRaw(next) : null);

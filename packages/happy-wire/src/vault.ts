@@ -132,6 +132,52 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
     },
 };
 
+/** First CLI whose Happy MCP server offers agents `save_key` and `delete_key`. */
+export const VAULT_TOOLS_MIN_CLI_VERSION = '0.6.64';
+
+/**
+ * `save_key`: an agent's draft of a new key or of changes to one. The CLI only hands the call
+ * over; the app shows it as a card and writes nothing until the user confirms it there, so an
+ * agent can never widen a key's rules by itself.
+ */
+export const VaultSaveKeyInputSchema = z.object({
+    key: z.string().optional().describe('Name in commands (the <name> in `happy run <name>`) of the key to change. Leave out to add a new key.'),
+    name: z.string().optional().describe('Display name, e.g. "Lark mail". Required for a new key.'),
+    kind: VaultKeyKindSchema.optional().describe('Type of a new key: github, npm, cloudflare, aliyun, ssh (a server login) or custom (anything else; the default).'),
+    slug: z.string().optional().describe('Name in commands: lowercase letters, digits and dashes. Made from the display name when left out.'),
+    env: z.array(z.object({
+        name: z.string().describe('Variable name, e.g. SMTP_HOST'),
+        value: z.string().optional().describe('Its value. Leave out a secret the user has not given you in this conversation: they fill it in on the card.'),
+        secret: z.boolean().optional().describe('true (the default) for passwords and tokens: masked, and commands may not read it; false for hosts, ports and user names.'),
+    })).optional().describe('Variables `happy run` injects into commands. On an existing key, the ones listed are added or replaced and the rest kept.'),
+    removeEnv: z.array(z.string()).optional().describe('Variables to drop from an existing key.'),
+    ssh: z.object({
+        host: z.string(),
+        user: z.string(),
+        port: z.number().int().optional().describe('Default 22'),
+        auth: z.enum(['password', 'key']).optional().describe('Default password'),
+        secret: z.string().optional().describe('The password or private key. Leave out unless the user gave it to you in this conversation.'),
+    }).optional().describe('Login of a server key (kind ssh).'),
+    allow: z.array(z.string()).optional().describe('The full list of commands the key may run, as patterns where * matches anything. A command that mentions a secret variable never runs, so allow programs that read the variables from their environment themselves (a script, or a tool that takes its credentials from the environment). Replaces the current list; a new key starts from its type\'s defaults (custom: none).'),
+    deny: z.array(z.string()).optional().describe('The full list of patterns that never run, even when allowed. Replaces the current list.'),
+    devices: z.array(z.string()).optional().describe('Names or ids of the devices that get a copy. A new key goes to every device unless given; an existing key keeps its devices.'),
+});
+export type VaultSaveKeyInput = z.infer<typeof VaultSaveKeyInputSchema>;
+
+/** `delete_key`: confirmed by the user on a card in the app, like `save_key`. */
+export const VaultDeleteKeyInputSchema = z.object({
+    key: z.string().describe('Name in commands of the key to delete.'),
+});
+
+/**
+ * Devices that hold a copy of the key. Server logins first named a single device in
+ * `ssh.viaMachineId`; they now list their devices in `machineIds` like every other key, and
+ * `viaMachineId` only keeps the first one for clients that still require the field.
+ */
+export function vaultKeyDevices(key: Pick<VaultKey, 'ssh' | 'machineIds'>): string[] {
+    return key.ssh && key.machineIds.length === 0 ? [key.ssh.viaMachineId] : key.machineIds;
+}
+
 /** `*` matches anything (including nothing); everything else is literal. */
 export function vaultPatternToRegExp(pattern: string): RegExp {
     const body = pattern.split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
