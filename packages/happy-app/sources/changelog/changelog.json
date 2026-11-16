@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 67,
+      "date": "2026-11-16",
+      "summary": "Mailboxes now have their own key type, and agents can send mail with them.",
+      "changes": [
+        "Resources: a new Email type. Pick your provider (Lark, Feishu, Tencent Exmail, Alibaba Mail, QQ Mail, NetEase 163 or Gmail) and its servers are filled in, so you only enter the address and the IMAP/SMTP password. Pasting the whole settings page from your mailbox fills in what it can.",
+        "Resources: an agent sends mail through the key with `happy mail send`, and `happy mail check` tests the login; the password never reaches the agent. This needs CLI 0.6.65 on the device.",
+        "Resources: mail settings show under plain names such as \"Email address\" and \"IMAP/SMTP password\", on the key page and on the agent's draft cards."
+      ],
+      "rawMarkdown": "## Version 67 - 2026-11-16\n\n\nMailboxes now have their own key type, and agents can send mail with them.\n\n- Resources: a new Email type. Pick your provider (Lark, Feishu, Tencent Exmail, Alibaba Mail, QQ Mail, NetEase 163 or Gmail) and its servers are filled in, so you only enter the address and the IMAP/SMTP password. Pasting the whole settings page from your mailbox fills in what it can.\n- Resources: an agent sends mail through the key with `happy mail send`, and `happy mail check` tests the login; the password never reaches the agent. This needs CLI 0.6.65 on the device.\n- Resources: mail settings show under plain names such as \"Email address\" and \"IMAP/SMTP password\", on the key page and on the agent's draft cards."
+    },
+    {
       "version": 66,
       "date": "2026-11-16",
       "summary": "Sessions that were already open when a device's CLI was upgraded are no longer told about key tools they do not have yet.",
@@ -700,5 +711,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 66
+  "latestVersion": 67
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 67 - 2026-11-16
+
+Mailboxes now have their own key type, and agents can send mail with them.
+
+- Resources: a new Email type. Pick your provider (Lark, Feishu, Tencent Exmail, Alibaba Mail, QQ Mail, NetEase 163 or Gmail) and its servers are filled in, so you only enter the address and the IMAP/SMTP password. Pasting the whole settings page from your mailbox fills in what it can.
+- Resources: an agent sends mail through the key with `happy mail send`, and `happy mail check` tests the login; the password never reaches the agent. This needs CLI 0.6.65 on the device.
+- Resources: mail settings show under plain names such as "Email address" and "IMAP/SMTP password", on the key page and on the agent's draft cards.
+
 ## Version 66 - 2026-11-16
 
 Sessions that were already open when a device's CLI was upgraded are no longer told about key tools they do not have yet.
