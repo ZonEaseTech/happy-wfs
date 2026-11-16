@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 68,
+      "date": "2026-11-16",
+      "summary": "Google Analytics can now be used from a session, with a Google service account key.",
+      "changes": [
+        "Resources: a new Google service account type. Paste the JSON key you downloaded from Google Cloud and it is recognised; the form shows the service account's address to add under your GA property's Access management, and takes an optional default property ID.",
+        "Resources: agents read reports and realtime data, and view GA settings, with `happy ga`; changing GA settings is a separate permission, off until you turn it on. The JSON key reaches commands only as a private temporary file that is deleted afterwards, and the private key is masked in any output. This needs CLI 0.6.66 on the device."
+      ],
+      "rawMarkdown": "## Version 68 - 2026-11-16\n\n\nGoogle Analytics can now be used from a session, with a Google service account key.\n\n- Resources: a new Google service account type. Paste the JSON key you downloaded from Google Cloud and it is recognised; the form shows the service account's address to add under your GA property's Access management, and takes an optional default property ID.\n- Resources: agents read reports and realtime data, and view GA settings, with `happy ga`; changing GA settings is a separate permission, off until you turn it on. The JSON key reaches commands only as a private temporary file that is deleted afterwards, and the private key is masked in any output. This needs CLI 0.6.66 on the device."
+    },
+    {
       "version": 67,
       "date": "2026-11-16",
       "summary": "Mailboxes now have their own key type, and agents can send mail with them.",
@@ -711,5 +721,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 67
+  "latestVersion": 68
 }

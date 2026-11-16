@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 68 - 2026-11-16
+
+Google Analytics can now be used from a session, with a Google service account key.
+
+- Resources: a new Google service account type. Paste the JSON key you downloaded from Google Cloud and it is recognised; the form shows the service account's address to add under your GA property's Access management, and takes an optional default property ID.
+- Resources: agents read reports and realtime data, and view GA settings, with `happy ga`; changing GA settings is a separate permission, off until you turn it on. The JSON key reaches commands only as a private temporary file that is deleted afterwards, and the private key is masked in any output. This needs CLI 0.6.66 on the device.
+
 ## Version 67 - 2026-11-16
 
 Mailboxes now have their own key type, and agents can send mail with them.
