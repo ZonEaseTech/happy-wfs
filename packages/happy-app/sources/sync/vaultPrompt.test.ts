@@ -56,12 +56,19 @@ describe('buildVaultPromptSection', () => {
     });
 
     it('has agents on a CLI with the key tools draft keys themselves instead', () => {
-        const wfs = buildVaultPromptSection([key({})], 'wfs', '0.6.64')!;
+        const wfs = buildVaultPromptSection([key({})], 'wfs', '0.6.64', '0.6.64')!;
         expect(wfs).toContain('`save_key` or `delete_key`');
         expect(wfs).toContain('nothing changes until they confirm');
         expect(wfs).not.toContain('happy keys need');
-        expect(buildVaultPromptSection([key({})], 'mini', '0.6.64')).toContain('draft the key with `save_key`');
-        expect(buildVaultPromptSection([key({})], 'wfs', '0.6.63')).not.toContain('save_key');
+        expect(buildVaultPromptSection([key({})], 'mini', '0.6.64', '0.6.64')).toContain('draft the key with `save_key`');
+        expect(buildVaultPromptSection([key({})], 'wfs', '0.6.63', '0.6.63')).not.toContain('save_key');
+    });
+
+    it('goes by the session\'s own CLI for the key tools, since a session started before an upgrade lacks them', () => {
+        const before = buildVaultPromptSection([key({})], 'wfs', '0.6.64', '0.6.63')!;
+        expect(before).toContain('happy keys need <type>');
+        expect(before).not.toContain('save_key');
+        expect(buildVaultPromptSection([key({})], 'wfs', '0.6.64', undefined)).not.toContain('save_key');
     });
 
     it('is stable regardless of key order', () => {

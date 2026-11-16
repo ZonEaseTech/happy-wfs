@@ -15,9 +15,11 @@ const KEY_FILES = 'Never read ~/.happy/access.key, ~/.happy/device-keys.json or 
  * Must be deterministic (sorted, no timestamps): the CLI hashes the appended
  * prompt and restarts the agent whenever it changes.
  */
-export function buildVaultPromptSection(keys: VaultKey[], machineId: string | undefined, cliVersion: string | undefined): string | null {
+export function buildVaultPromptSection(keys: VaultKey[], machineId: string | undefined, cliVersion: string | undefined, sessionCliVersion?: string): string | null {
     if (!machineId || !isVersionSupported(cliVersion, VAULT_MIN_CLI_VERSION)) return null;
-    const manage = isVersionSupported(cliVersion, VAULT_TOOLS_MIN_CLI_VERSION) ? EDIT_KEYS : NEED_KEY;
+    // `happy run` is whatever CLI the machine has now, but save_key / delete_key come from the
+    // session's own CLI process, which keeps the version it started with until it restarts.
+    const manage = isVersionSupported(sessionCliVersion, VAULT_TOOLS_MIN_CLI_VERSION) ? EDIT_KEYS : NEED_KEY;
     const usable = keys
         .filter((key) => vaultKeyDevices(key).includes(machineId))
         .sort((a, b) => a.slug.localeCompare(b.slug));

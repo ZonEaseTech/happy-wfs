@@ -570,7 +570,7 @@ class Sync {
         if (!getVaultState().loaded) return null;
         const metadata = storage.getState().sessions[sessionId]?.metadata;
         const machine = metadata?.machineId ? storage.getState().machines[metadata.machineId] : undefined;
-        return buildVaultPromptSection(getVaultState().keys, metadata?.machineId, machine?.metadata?.happyCliVersion);
+        return buildVaultPromptSection(getVaultState().keys, metadata?.machineId, machine?.metadata?.happyCliVersion, metadata?.version);
     }
 
     /**
