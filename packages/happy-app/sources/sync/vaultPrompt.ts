@@ -1,10 +1,15 @@
 import { VAULT_GOOGLE_KEY_VAR, VAULT_MIN_CLI_VERSION, VAULT_TOOLS_MIN_CLI_VERSION, parseGoogleServiceAccount, vaultKeyDevices, vaultKindMinCliVersion, type VaultKey } from 'happy-wire';
 import { isVersionSupported } from '@/utils/versionUtils';
 
-const NEED_KEY = 'When a task needs an account or a server login that no listed key covers, run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh, email, google, google-login, apple-login, facebook-login or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
+/**
+ * The resource center is one more place for credentials, never the only allowed one: an agent that
+ * read "ask for a key" as "credentials only through Happy" refused the user's own Cloudflare tool.
+ */
+const LOCAL_OK = 'Credentials already set up on this machine (logged-in CLIs such as gh or wrangler, the user\'s own tools and config files) are used directly, as before: Happy\'s resource center is an extra place for credentials, not the only allowed one, and its rules only apply to `happy run`.';
+const NEED_KEY = 'When a task needs an account or a server login that neither a listed key nor this machine\'s own setup covers, you may run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh, email, google, google-login, apple-login, facebook-login or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
 /** CLIs with `save_key` / `delete_key` (VAULT_TOOLS_MIN_CLI_VERSION): the agent drafts keys itself, the user confirms on a card. */
 const EDIT_KEYS = 'To add a key, change one (its allowed commands, devices, variables or secret) or delete one, call `save_key` or `delete_key`: Happy shows the user a card, nothing changes until they confirm it there, and they will tell you when it is done.'
-    + ' When a task needs an account or a server login that no listed key covers, draft the key with `save_key`.'
+    + ' When a task needs an account or a server login that neither a listed key nor this machine\'s own setup covers, you may draft the key with `save_key`.'
     + ' Put a secret in only if the user already gave it to you in this conversation; otherwise leave it out and they fill it in on the card. Never ask the user to paste a secret into the chat.';
 const KEY_FILES = 'Never read ~/.happy/access.key, ~/.happy/device-keys.json or any other Happy key file, and never try to print or copy a credential.';
 
@@ -36,6 +41,7 @@ export function buildVaultPromptSection(keys: VaultKey[], machineId: string | un
             '# Credentials',
             '',
             'The user keeps credentials (cloud accounts, server logins) in Happy\'s resource center, but none are enabled for this machine yet.'
+            + ` ${LOCAL_OK}`
             + ` ${manage}`
             + ` ${KEY_FILES}`,
         ].join('\n');
@@ -62,6 +68,7 @@ export function buildVaultPromptSection(keys: VaultKey[], machineId: string | un
         + ' The secret is injected into that one command and masked in its output; you never see it.'
         + ' Only commands matching a key\'s allow rules run, deny rules always win, and commands that read the secret ($VAR, env, printenv, sh -c, eval) never run.'
         + ' If a command is refused for not being allowed, stop and wait: the user can allow it from this session in one tap and will ask you to run it again. Never work around a refusal.'
+        + ` ${LOCAL_OK}`
         + ` ${manage}`
         + ` ${KEY_FILES}`
         + ' `happy keys` lists the details.',

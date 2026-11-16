@@ -107,6 +107,14 @@ describe('buildVaultPromptSection', () => {
         expect(buildVaultPromptSection([apple], 'wfs', '0.6.66', '0.6.66')).toContain('none are enabled for this machine');
     });
 
+    it('lets agents keep using the credentials the machine already has', () => {
+        for (const prompt of [buildVaultPromptSection([key({})], 'wfs', '0.6.67', '0.6.67')!, buildVaultPromptSection([key({})], 'mini', '0.6.67', '0.6.67')!, buildVaultPromptSection([key({})], 'wfs', '0.6.63')!]) {
+            expect(prompt).toContain('Credentials already set up on this machine');
+            expect(prompt).toContain('not the only allowed one');
+            expect(prompt).toContain('you may');
+        }
+    });
+
     it('is stable regardless of key order', () => {
         const a = key({ id: 'a', slug: 'a-key', machineIds: ['wfs'] });
         const b = key({ id: 'b', slug: 'b-key', machineIds: ['wfs'] });
