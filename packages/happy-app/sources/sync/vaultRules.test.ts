@@ -59,6 +59,14 @@ describe('parseMailSettings', () => {
     });
 });
 
+describe('Google service account keys', () => {
+    it('are recognised when the downloaded JSON is pasted', () => {
+        const json = JSON.stringify({ type: 'service_account', project_id: 'demo', private_key: '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n', client_email: 'ga@demo.iam.gserviceaccount.com' }, null, 2);
+        expect(detectVaultPaste(json)).toEqual({ kind: 'google', as: 'serviceAccount' });
+        expect(detectVaultPaste('{"type":"authorized_user"}')).toBeNull();
+    });
+});
+
 describe('parseSshAddress', () => {
     it('splits user, host and port, defaulting to 22', () => {
         expect(parseSshAddress('dev@43.239.84.25')).toEqual({ user: 'dev', host: '43.239.84.25', port: 22 });

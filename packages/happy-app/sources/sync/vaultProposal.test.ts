@@ -70,6 +70,11 @@ describe('buildVaultProposal', () => {
         expect(proposal.key.env.map((v) => [v.name, v.secret])).toEqual([['MAIL_ADDRESS', false], ['MAIL_PASSWORD', true], ['SMTP_HOST', false], ['SMTP_PORT', false]]);
     });
 
+    it('drafts a Google key with its property, leaving the JSON key to the user', () => {
+        const proposal = buildVaultProposal('save_key', { name: 'GA', kind: 'google', env: [{ name: 'GA_PROPERTY_ID', value: '123456' }] }, keys, devices);
+        expect(proposal).toMatchObject({ action: 'add', missing: ['GOOGLE_SERVICE_ACCOUNT'], key: { kind: 'google', slug: 'ga', allow: ['happy ga data *', 'happy ga admin get *'] } });
+    });
+
     it('drafts a server login and asks for its password when the agent has none', () => {
         const proposal = buildVaultProposal('save_key', { name: 'staging', ssh: { host: '10.0.0.5', user: 'root' }, devices: ['mac mini'] }, keys, devices);
         expect(proposal).toMatchObject({

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useShallow } from 'zustand/react/shallow';
-import { VaultKeySchema, vaultKeyDevices, type VaultKey } from 'happy-wire';
+import { parseGoogleServiceAccount, VAULT_GOOGLE_KEY_VAR, VaultKeySchema, vaultKeyDevices, type VaultKey } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { VaultKeyIcon, vaultKindLabel, vaultMachineName } from '@/components/VaultSections';
 import { Typography } from '@/constants/Typography';
@@ -164,6 +164,8 @@ export const VaultProposalCard = React.memo(({ sessionId, tool, toolKind }: { se
             ssh: ssh && (ssh.secret ? ssh : { ...ssh, secret: ssh.auth === 'key' ? fills.ssh ?? '' : fill('ssh') }),
         };
         if (key.env.some((v) => !v.value) || (key.ssh && !key.ssh.secret.trim())) throw new Error(t('resources.secretRequired'));
+        const serviceAccount = key.env.find((v) => v.name === VAULT_GOOGLE_KEY_VAR);
+        if (serviceAccount && !parseGoogleServiceAccount(serviceAccount.value)) throw new Error(t('resources.googleKeyInvalid'));
         const parsed = VaultKeySchema.safeParse(key);
         if (!parsed.success) throw new Error(t('resources.proposalInvalid'));
         await saveVaultKey(parsed.data, proposal.action === 'edit' ? proposal.previous : null);

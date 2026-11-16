@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { constants as osConstants, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
-import { checkVaultCommand, createVaultMasker, vaultSecretsOf, type VaultDeviceCopy, type VaultUsageLog } from 'happy-wire'
+import { checkVaultCommand, createVaultMasker, VAULT_GOOGLE_KEY_VAR, vaultSecretsOf, type VaultDeviceCopy, type VaultUsageLog } from 'happy-wire'
 import { readCredentials, readSettings } from '@/persistence'
 import { fetchDeviceKeys, writeUsageLog } from '@/vault/store'
 
@@ -23,12 +23,15 @@ export type RunInvocation = { file: string; args: string[]; env: Record<string, 
 /**
  * What actually gets spawned. Local keys run the command directly (no shell,
  * so the checked string is what runs); server logins hand the command to the
- * remote shell over ssh, with the password in SSHPASS (never in argv) or the
- * private key in a 0600 file the caller creates and removes.
+ * remote shell over ssh, with the password in SSHPASS (never in argv). A private
+ * key, or a Google service account's JSON key, sits in a 0600 file the caller
+ * creates and removes: ssh gets it with -i, Google's tools through
+ * GOOGLE_APPLICATION_CREDENTIALS.
  */
 export function buildRunInvocation(key: VaultDeviceCopy, argv: string[], privateKeyFile: string | null): RunInvocation {
     if (!key.ssh) {
-        return { file: argv[0], args: argv.slice(1), env: Object.fromEntries(key.env.map((v) => [v.name, v.value])) }
+        const env = Object.fromEntries(key.env.filter((v) => v.name !== VAULT_GOOGLE_KEY_VAR).map((v) => [v.name, v.value]))
+        return { file: argv[0], args: argv.slice(1), env: privateKeyFile ? { ...env, GOOGLE_APPLICATION_CREDENTIALS: privateKeyFile } : env }
     }
     const { host, port, user, auth, secret } = key.ssh
     const target = ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=15', '-p', String(port), `${user}@${host}`, argv.join(' ')]
@@ -104,10 +107,13 @@ export async function handleRunCommand(args: string[]): Promise<number> {
     if (key.ssh?.auth === 'password' && spawnSync('sshpass', ['-V']).error) {
         throw new Error('sshpass is not installed on this machine (apt install sshpass, or brew install hudochenkov/sshpass/sshpass). A key with a private key instead of a password does not need it.')
     }
-    const keyDir = key.ssh?.auth === 'key' ? mkdtempSync(join(tmpdir(), 'happy-run-')) : null
-    const keyFile = keyDir ? join(keyDir, 'id') : null
+    const fileSecret = key.ssh?.auth === 'key'
+        ? (key.ssh.secret.endsWith('\n') ? key.ssh.secret : `${key.ssh.secret}\n`)
+        : key.env.find((v) => v.name === VAULT_GOOGLE_KEY_VAR)?.value ?? null
+    const keyDir = fileSecret === null ? null : mkdtempSync(join(tmpdir(), 'happy-run-'))
+    const keyFile = keyDir ? join(keyDir, key.ssh ? 'id' : 'service-account.json') : null
     try {
-        if (keyFile) writeFileSync(keyFile, key.ssh!.secret.endsWith('\n') ? key.ssh!.secret : `${key.ssh!.secret}\n`, { mode: 0o600 })
+        if (keyFile) writeFileSync(keyFile, fileSecret!, { mode: 0o600 })
         const exitCode = await spawnMasked(buildRunInvocation(key, argv, keyFile), vaultSecretsOf(key))
         await writeUsageLog(credentials, entry({ outcome: exitCode === 0 ? 'ok' : 'failed', reason: null, rule: check.rule, exitCode, durationMs: Date.now() - startedAt }))
         return exitCode

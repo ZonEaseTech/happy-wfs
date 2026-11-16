@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { VAULT_KIND_PRESETS, VAULT_MIN_CLI_VERSION, VaultKeyKindSchema, vaultKindMinCliVersion, type VaultKey, type VaultKeyKind } from 'happy-wire';
+import { VAULT_KIND_PRESETS, VAULT_MIN_CLI_VERSION, VaultKeyKindSchema, parseGoogleServiceAccount, vaultKindMinCliVersion, type VaultKey, type VaultKeyKind } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { VaultChip, VaultKeyIcon, vaultKindLabel } from '@/components/VaultSections';
 import { Typography } from '@/constants/Typography';
@@ -23,6 +23,7 @@ const guessText = (guess: VaultPasteGuess): string => (
         : guess.kind === 'npm' ? t('resources.guessNpm')
             : guess.kind === 'aliyun' ? t('resources.guessAliyun')
                 : guess.kind === 'email' ? t('resources.guessMailSettings')
+                : guess.kind === 'google' ? t('resources.guessGoogle')
                     : guess.as === 'privateKey' ? t('resources.guessPrivateKey') : t('resources.guessAddress')
 );
 
@@ -98,6 +99,12 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
             setName(uniqueName(found.MAIL_ADDRESS ?? match?.label() ?? vaultKindLabel(next)));
             return;
         }
+        if (next === 'google') {
+            const account = parseGoogleServiceAccount(value);
+            setValues(value ? { GOOGLE_SERVICE_ACCOUNT: value } : {});
+            setName(uniqueName(account?.projectId ? `Google · ${account.projectId}` : vaultKindLabel(next)));
+            return;
+        }
         const env = VAULT_KIND_PRESETS[next].env;
         const target = next === 'aliyun' && pasted?.as !== 'id' ? env[1].name : next === 'custom' ? 'value' : env[0].name;
         setValues(value ? { [target]: value } : {});
@@ -138,6 +145,8 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
         } else {
             if (kind === 'email' && !MAIL_ADDRESS.test((values.MAIL_ADDRESS ?? '').trim())) throw new Error(t('resources.mailAddressInvalid'));
             if (kind === 'email' && !(values.SMTP_HOST ?? '').trim()) throw new Error(t('resources.mailProviderRequired'));
+            if (kind === 'google' && !parseGoogleServiceAccount((values.GOOGLE_SERVICE_ACCOUNT ?? '').trim())) throw new Error(t('resources.googleKeyInvalid'));
+            if (kind === 'google' && !/^\d*$/.test((values.GA_PROPERTY_ID ?? '').trim())) throw new Error(t('resources.gaPropertyInvalid'));
             // Optional plain values that were left empty are not injected at all.
             env = preset.env.map((v) => ({ name: v.name, value: (values[v.name] ?? '').trim(), secret: v.secret })).filter((v) => v.value || !FIELD_LABELS[v.name]?.optional);
             if (env.some((v) => !v.value)) throw new Error(t('resources.secretRequired'));
@@ -260,6 +269,15 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
                             </View>
                         )}
                         {showServers && preset.env.filter((v) => !v.name.startsWith('MAIL_')).map(envField)}
+                    </>
+                ) : kind === 'google' ? (
+                    <>
+                        {preset.env.map(envField)}
+                        {(() => {
+                            // The address Google Analytics has to be told about before any call works.
+                            const account = parseGoogleServiceAccount((values.GOOGLE_SERVICE_ACCOUNT ?? '').trim());
+                            return account && <Text style={styles.hint}>{t('resources.googleGrantHint', { email: account.clientEmail })}</Text>;
+                        })()}
                     </>
                 ) : preset.env.map(envField)}
 

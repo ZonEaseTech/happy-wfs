@@ -18,12 +18,41 @@ export const VAULT_MIN_CLI_VERSION = '0.6.63';
 
 /** First CLI that knows email keys and has `happy mail`; older ones skip such keys when they read their copies. */
 export const VAULT_EMAIL_MIN_CLI_VERSION = '0.6.65';
+/** First CLI that knows Google service account keys and has `happy ga`. */
+export const VAULT_GOOGLE_MIN_CLI_VERSION = '0.6.66';
 
-export const VaultKeyKindSchema = z.enum(['cloudflare', 'aliyun', 'github', 'npm', 'ssh', 'email', 'custom']);
+export const VaultKeyKindSchema = z.enum(['cloudflare', 'aliyun', 'github', 'npm', 'ssh', 'email', 'google', 'custom']);
 export type VaultKeyKind = z.infer<typeof VaultKeyKindSchema>;
 
+const KIND_MIN_CLI_VERSION: Partial<Record<VaultKeyKind, string>> = { email: VAULT_EMAIL_MIN_CLI_VERSION, google: VAULT_GOOGLE_MIN_CLI_VERSION };
+
 /** The CLI a device needs before it can use a key of this kind. */
-export const vaultKindMinCliVersion = (kind: VaultKeyKind): string => (kind === 'email' ? VAULT_EMAIL_MIN_CLI_VERSION : VAULT_MIN_CLI_VERSION);
+export const vaultKindMinCliVersion = (kind: VaultKeyKind): string => KIND_MIN_CLI_VERSION[kind] ?? VAULT_MIN_CLI_VERSION;
+
+/**
+ * Where a key keeps a Google Cloud service account's JSON key. `happy run` never passes it as a
+ * variable: the command gets it as a private file named by GOOGLE_APPLICATION_CREDENTIALS, which
+ * is what Google's own libraries and `happy ga` read.
+ */
+export const VAULT_GOOGLE_KEY_VAR = 'GOOGLE_SERVICE_ACCOUNT';
+
+export type GoogleServiceAccount = { clientEmail: string; privateKey: string; privateKeyId: string | null; projectId: string | null };
+
+/** A service account's JSON key as downloaded from Google Cloud, or null when the text is not one. */
+export function parseGoogleServiceAccount(text: string): GoogleServiceAccount | null {
+    try {
+        const json = JSON.parse(text);
+        if (json?.type !== 'service_account' || typeof json.client_email !== 'string' || typeof json.private_key !== 'string' || !json.private_key.includes('PRIVATE KEY')) return null;
+        return {
+            clientEmail: json.client_email,
+            privateKey: json.private_key,
+            privateKeyId: typeof json.private_key_id === 'string' ? json.private_key_id : null,
+            projectId: typeof json.project_id === 'string' ? json.project_id : null,
+        };
+    } catch {
+        return null;
+    }
+}
 
 export const VaultEnvVarSchema = z.object({
     name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
@@ -144,6 +173,15 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
         allow: ['happy mail send *', 'happy mail check'],
         deny: [],
     },
+    // Read by `happy ga` (happy-cli): reports and settings reads on, settings changes off.
+    google: {
+        env: [
+            { name: VAULT_GOOGLE_KEY_VAR, secret: true },
+            { name: 'GA_PROPERTY_ID', secret: false },
+        ],
+        allow: ['happy ga data *', 'happy ga admin get *'],
+        deny: [],
+    },
     custom: {
         env: [{ name: 'MY_SECRET', secret: true }],
         allow: [],
@@ -162,7 +200,7 @@ export const VAULT_TOOLS_MIN_CLI_VERSION = '0.6.64';
 export const VaultSaveKeyInputSchema = z.object({
     key: z.string().optional().describe('Name in commands (the <name> in `happy run <name>`) of the key to change. Leave out to add a new key.'),
     name: z.string().optional().describe('Display name, e.g. "Lark mail". Required for a new key.'),
-    kind: VaultKeyKindSchema.optional().describe('Type of a new key: github, npm, cloudflare, aliyun, ssh (a server login), email (a mailbox: MAIL_ADDRESS, MAIL_PASSWORD, SMTP_HOST, SMTP_PORT, IMAP_HOST, IMAP_PORT; used with `happy mail`) or custom (anything else; the default).'),
+    kind: VaultKeyKindSchema.optional().describe('Type of a new key: github, npm, cloudflare, aliyun, ssh (a server login), email (a mailbox: MAIL_ADDRESS, MAIL_PASSWORD, SMTP_HOST, SMTP_PORT, IMAP_HOST, IMAP_PORT; used with `happy mail`), google (a Google Cloud service account: GOOGLE_SERVICE_ACCOUNT holds its JSON key, GA_PROPERTY_ID an optional default Google Analytics property; used with `happy ga`) or custom (anything else; the default).'),
     slug: z.string().optional().describe('Name in commands: lowercase letters, digits and dashes. Made from the display name when left out.'),
     env: z.array(z.object({
         name: z.string().describe('Variable name, e.g. SMTP_HOST'),
@@ -206,6 +244,8 @@ export function vaultPatternToRegExp(pattern: string): RegExp {
 /** The env names a command could read the secrets through. */
 function secretVarNames(key: Pick<VaultKey, 'env' | 'ssh'>): string[] {
     const names = key.env.filter(v => v.secret).map(v => v.name);
+    // A service account key reaches the command as the file this variable names.
+    if (names.includes(VAULT_GOOGLE_KEY_VAR)) names.push('GOOGLE_APPLICATION_CREDENTIALS');
     return key.ssh ? [...names, 'SSHPASS'] : names;
 }
 
@@ -242,7 +282,11 @@ export function isVaultCommandLearnable(key: Pick<VaultKey, 'env' | 'ssh' | 'all
 
 export function vaultSecretsOf(key: Pick<VaultKey, 'env' | 'ssh'>): string[] {
     const values = key.env.filter(v => v.secret).map(v => v.value);
-    return [...values, ...(key.ssh ? [key.ssh.secret] : [])].filter(v => v.length >= 4);
+    // A service account's private key can be printed on its own or a line at a time: mask those pieces too.
+    const google = key.env.find(v => v.secret && v.name === VAULT_GOOGLE_KEY_VAR);
+    const pem = google ? parseGoogleServiceAccount(google.value)?.privateKey : undefined;
+    const pemParts = pem ? [pem.trim(), ...pem.split('\n').filter(line => line && !line.startsWith('-----'))] : [];
+    return [...values, ...pemParts, ...(key.ssh ? [key.ssh.secret] : [])].filter(v => v.length >= 4);
 }
 
 const encodeBase64 = (value: string) => {

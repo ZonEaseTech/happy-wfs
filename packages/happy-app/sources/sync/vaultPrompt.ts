@@ -1,12 +1,19 @@
-import { VAULT_MIN_CLI_VERSION, VAULT_TOOLS_MIN_CLI_VERSION, vaultKeyDevices, vaultKindMinCliVersion, type VaultKey } from 'happy-wire';
+import { VAULT_GOOGLE_KEY_VAR, VAULT_MIN_CLI_VERSION, VAULT_TOOLS_MIN_CLI_VERSION, parseGoogleServiceAccount, vaultKeyDevices, vaultKindMinCliVersion, type VaultKey } from 'happy-wire';
 import { isVersionSupported } from '@/utils/versionUtils';
 
-const NEED_KEY = 'When a task needs an account or a server login that no listed key covers, run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh, email or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
+const NEED_KEY = 'When a task needs an account or a server login that no listed key covers, run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh, email, google or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
 /** CLIs with `save_key` / `delete_key` (VAULT_TOOLS_MIN_CLI_VERSION): the agent drafts keys itself, the user confirms on a card. */
 const EDIT_KEYS = 'To add a key, change one (its allowed commands, devices, variables or secret) or delete one, call `save_key` or `delete_key`: Happy shows the user a card, nothing changes until they confirm it there, and they will tell you when it is done.'
     + ' When a task needs an account or a server login that no listed key covers, draft the key with `save_key`.'
     + ' Put a secret in only if the user already gave it to you in this conversation; otherwise leave it out and they fill it in on the card. Never ask the user to paste a secret into the chat.';
 const KEY_FILES = 'Never read ~/.happy/access.key, ~/.happy/device-keys.json or any other Happy key file, and never try to print or copy a credential.';
+
+/** The service account and default property of a Google key; its email is not a secret, the JSON around it is. */
+function googleAccount(key: VaultKey): string {
+    const account = parseGoogleServiceAccount(key.env.find((v) => v.name === VAULT_GOOGLE_KEY_VAR)?.value ?? '');
+    const property = key.env.find((v) => v.name === 'GA_PROPERTY_ID')?.value;
+    return `${account ? `, service account ${account.clientEmail}` : ''}${property ? `, default property ${property}` : ''}`;
+}
 
 /**
  * The "# Credentials" block appended to the system prompt: which resource
@@ -36,10 +43,11 @@ export function buildVaultPromptSection(keys: VaultKey[], machineId: string | un
 
     const lines = usable.map((key) => {
         const parts = [
-            `- \`${key.slug}\` (${key.name}${key.ssh ? `, login ${key.ssh.user}@${key.ssh.host}` : ''}${key.kind === 'email' ? `, mailbox ${key.env.find((v) => v.name === 'MAIL_ADDRESS')?.value ?? '?'}` : ''})`,
+            `- \`${key.slug}\` (${key.name}${key.ssh ? `, login ${key.ssh.user}@${key.ssh.host}` : ''}${key.kind === 'email' ? `, mailbox ${key.env.find((v) => v.name === 'MAIL_ADDRESS')?.value ?? '?'}` : ''}${key.kind === 'google' ? googleAccount(key) : ''})`,
             `allow: ${key.allow.map((rule) => `\`${rule}\``).join(', ') || 'nothing yet'}`,
             key.deny.length ? `deny: ${key.deny.map((rule) => `\`${rule}\``).join(', ')}` : null,
             ...key.scope.map((scope) => `covers ${scope.name}${scope.protected ? ` (do not touch: ${scope.protected})` : ''}`),
+            key.kind === 'google' ? `Google Analytics with \`happy run ${key.slug} -- happy ga data runReport --body '<RunReportRequest JSON>'\` (other Data API methods likewise, --property <id> for another property); \`happy run ${key.slug} -- happy ga admin get accountSummaries\` lists the properties it can see; settings changes are \`happy run ${key.slug} -- happy ga admin change <POST|PATCH|DELETE> <path>\`; \`happy ga --help\` for the rest` : null,
             key.kind === 'email' ? `send with \`happy run ${key.slug} -- happy mail send --to <address> --subject <text> --body <text>\` (or --body-file <path>); \`happy run ${key.slug} -- happy mail check\` tests the login` : null,
         ].filter(Boolean);
         return parts.join('; ');

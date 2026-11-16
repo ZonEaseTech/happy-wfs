@@ -83,6 +83,19 @@ describe('buildVaultPromptSection', () => {
         expect(buildVaultPromptSection([mail], 'wfs', '0.6.64', '0.6.64')).toContain('none are enabled for this machine');
     });
 
+    it('offers a Google key to CLIs with happy ga, naming its service account but never its key', () => {
+        const json = JSON.stringify({ type: 'service_account', project_id: 'demo', private_key: '-----BEGIN PRIVATE KEY-----\nPRIVATE_BODY\n-----END PRIVATE KEY-----\n', client_email: 'ga@demo.iam.gserviceaccount.com' });
+        const ga = key({
+            id: 'g', slug: 'ga', kind: 'google', name: 'GA', scope: [], allow: ['happy ga data *', 'happy ga admin get *'],
+            env: [{ name: 'GOOGLE_SERVICE_ACCOUNT', value: json, secret: true }, { name: 'GA_PROPERTY_ID', value: '123456', secret: false }],
+        });
+        const ready = buildVaultPromptSection([ga], 'wfs', '0.6.66', '0.6.66')!;
+        expect(ready).toContain('`ga` (GA, service account ga@demo.iam.gserviceaccount.com, default property 123456)');
+        expect(ready).toContain('happy run ga -- happy ga data runReport');
+        expect(ready).not.toContain('PRIVATE_BODY');
+        expect(buildVaultPromptSection([ga], 'wfs', '0.6.65', '0.6.65')).toContain('none are enabled for this machine');
+    });
+
     it('is stable regardless of key order', () => {
         const a = key({ id: 'a', slug: 'a-key', machineIds: ['wfs'] });
         const b = key({ id: 'b', slug: 'b-key', machineIds: ['wfs'] });

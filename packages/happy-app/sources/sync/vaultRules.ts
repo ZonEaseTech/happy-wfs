@@ -1,4 +1,4 @@
-import type { VaultKey, VaultKeyKind } from 'happy-wire';
+import { parseGoogleServiceAccount, type VaultKey, type VaultKeyKind } from 'happy-wire';
 import { t } from '@/text';
 
 /**
@@ -37,6 +37,11 @@ export const VAULT_RULE_OPTIONS: Record<VaultKeyKind, VaultRuleOption[]> = {
         { pattern: 'happy mail send *', label: () => t('resources.ruleMailSend') },
         { pattern: 'happy mail check', label: () => t('resources.ruleMailCheck') },
     ],
+    google: [
+        { pattern: 'happy ga data *', label: () => t('resources.ruleGaData') },
+        { pattern: 'happy ga admin get *', label: () => t('resources.ruleGaAdminGet') },
+        { pattern: 'happy ga admin change *', label: () => t('resources.ruleGaAdminChange'), risk: true },
+    ],
     custom: [],
 };
 
@@ -62,6 +67,8 @@ export const VAULT_FIELD_LABELS: Record<string, { label: string | (() => string)
     SMTP_PORT: { label: () => t('resources.fieldSmtpPort') },
     IMAP_HOST: { label: () => t('resources.fieldImapHost'), optional: true },
     IMAP_PORT: { label: () => t('resources.fieldImapPort'), optional: true },
+    GOOGLE_SERVICE_ACCOUNT: { label: () => t('resources.fieldGoogleKey'), where: () => t('resources.whereGoogleKey') },
+    GA_PROPERTY_ID: { label: () => t('resources.fieldGaProperty'), where: () => t('resources.whereGaProperty'), optional: true },
 };
 
 /** What a variable is called on screen: the provider's own name for it, or the variable itself. */
@@ -140,10 +147,11 @@ export function vaultCanDo(key: Pick<VaultKey, 'kind' | 'allow' | 'deny'>): stri
  * recognised; everything else (a Cloudflare token, a password) returns null
  * and the user picks the type.
  */
-export type VaultPasteGuess = { kind: VaultKeyKind; as: 'secret' | 'id' | 'privateKey' | 'address' | 'settings' };
+export type VaultPasteGuess = { kind: VaultKeyKind; as: 'secret' | 'id' | 'privateKey' | 'address' | 'settings' | 'serviceAccount' };
 
 export function detectVaultPaste(raw: string): VaultPasteGuess | null {
     const value = raw.trim();
+    if (parseGoogleServiceAccount(value)) return { kind: 'google', as: 'serviceAccount' };
     if (parseMailSettings(value)) return { kind: 'email', as: 'settings' };
     if (/^-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(value)) return { kind: 'ssh', as: 'privateKey' };
     if (/^(ghp_|gho_|ghs_|github_pat_)\w{20,}$/.test(value)) return { kind: 'github', as: 'secret' };
@@ -163,7 +171,7 @@ export function parseSshAddress(value: string): { user: string; host: string; po
 
 /** A command name that is free: from the key's name when it has latin letters, else from its type. */
 export function vaultAutoSlug(name: string, kind: VaultKeyKind, taken: string[]): string {
-    const fallback: Record<VaultKeyKind, string> = { cloudflare: 'cloudflare', aliyun: 'aliyun', github: 'github', npm: 'npm', ssh: 'server', email: 'mail', custom: 'secret' };
+    const fallback: Record<VaultKeyKind, string> = { cloudflare: 'cloudflare', aliyun: 'aliyun', github: 'github', npm: 'npm', ssh: 'server', email: 'mail', google: 'google', custom: 'secret' };
     const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 28) || fallback[kind];
     let slug = base;
     for (let i = 2; taken.includes(slug); i++) slug = `${base}-${i}`;
@@ -180,6 +188,7 @@ export function vaultSay(key: Pick<VaultKey, 'kind' | 'name'>): string {
         npm: t('resources.sayNpm', { name }),
         ssh: t('resources.saySsh', { name }),
         email: t('resources.sayEmail', { name }),
+        google: t('resources.sayGoogle', { name }),
         custom: t('resources.sayCustom', { name }),
     }[key.kind];
 }

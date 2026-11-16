@@ -3,6 +3,7 @@ import {
     checkVaultCommand,
     createVaultMasker,
     isVaultCommandLearnable,
+    parseGoogleServiceAccount,
     VAULT_KIND_PRESETS,
     vaultKvKey,
     vaultPatternToRegExp,
@@ -24,6 +25,24 @@ const prod = {
     allow: ['*'],
     deny: VAULT_KIND_PRESETS.ssh.deny,
 };
+
+// Shaped like a downloaded key; the PEM body is filler.
+const PEM = '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7FILLERLINEONE\nZ2xvYmFsLXNlY3JldC1saW5lLXR3by1maWxsZXItdGV4dC0xMjM0NTY3ODkwYWJj\n-----END PRIVATE KEY-----\n';
+const serviceAccount = JSON.stringify({ type: 'service_account', project_id: 'demo-proj', private_key_id: 'abc123', private_key: PEM, client_email: 'ga-reader@demo-proj.iam.gserviceaccount.com', token_uri: 'https://example.invalid/token' }, null, 2);
+const ga = {
+    env: [{ name: 'GOOGLE_SERVICE_ACCOUNT', value: serviceAccount, secret: true }, { name: 'GA_PROPERTY_ID', value: '123456', secret: false }],
+    ssh: null,
+    allow: ['*'],
+    deny: [],
+};
+
+describe('parseGoogleServiceAccount', () => {
+    it('reads a downloaded key and nothing else', () => {
+        expect(parseGoogleServiceAccount(serviceAccount)).toEqual({ clientEmail: 'ga-reader@demo-proj.iam.gserviceaccount.com', privateKey: PEM, privateKeyId: 'abc123', projectId: 'demo-proj' });
+        expect(parseGoogleServiceAccount(JSON.stringify({ type: 'authorized_user', client_id: 'x' }))).toBeNull();
+        expect(parseGoogleServiceAccount('not json')).toBeNull();
+    });
+});
 
 describe('vaultPatternToRegExp', () => {
     it('treats * as anything and the rest literally', () => {
@@ -78,6 +97,20 @@ describe('checkVaultCommand', () => {
 
     it('does not treat the non-secret account id as a secret', () => {
         expect(checkVaultCommand({ ...cf, allow: ['*'] }, 'echo $CLOUDFLARE_ACCOUNT_ID').allowed).toBe(true);
+    });
+});
+
+describe('Google service account keys', () => {
+    it('refuse commands that name the key file', () => {
+        expect(checkVaultCommand(ga, 'cat $GOOGLE_APPLICATION_CREDENTIALS')).toEqual({ allowed: false, reason: 'guard', rule: null });
+        expect(checkVaultCommand(ga, 'python3 report.py ${GOOGLE_APPLICATION_CREDENTIALS}').allowed).toBe(false);
+        expect(checkVaultCommand(ga, 'happy ga data runReport').allowed).toBe(true);
+    });
+
+    it('mask the private key whole and line by line', () => {
+        const m = createVaultMasker(vaultSecretsOf(ga));
+        const line = PEM.split('\n')[2];
+        expect(m.push(`key line: ${line}\n${PEM}`) + m.flush()).toBe('key line: ****\n****\n');
     });
 });
 

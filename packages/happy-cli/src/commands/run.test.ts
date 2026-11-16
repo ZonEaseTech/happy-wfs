@@ -40,6 +40,17 @@ describe('buildRunInvocation', () => {
         expect(run.args.join(' ')).not.toContain('pw-or-key')
     })
 
+    it('hands a Google service account key over as a file, never as a variable', () => {
+        const ga: VaultDeviceCopy = {
+            ...base, slug: 'ga', kind: 'google', ssh: null,
+            env: [{ name: 'GOOGLE_SERVICE_ACCOUNT', value: '{"type":"service_account"}', secret: true }, { name: 'GA_PROPERTY_ID', value: '123456', secret: false }],
+        }
+        expect(buildRunInvocation(ga, ['happy', 'ga', 'data', 'runReport'], '/tmp/happy-run-x/service-account.json')).toEqual({
+            file: 'happy', args: ['ga', 'data', 'runReport'],
+            env: { GA_PROPERTY_ID: '123456', GOOGLE_APPLICATION_CREDENTIALS: '/tmp/happy-run-x/service-account.json' },
+        })
+    })
+
     it('logs in with a private key file when the key holds one', () => {
         const run = buildRunInvocation(prod('key'), ['uptime'], '/tmp/happy-run-x/id')
         expect(run).toEqual({
