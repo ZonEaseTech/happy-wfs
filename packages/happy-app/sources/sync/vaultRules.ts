@@ -2,14 +2,15 @@ import { parseGoogleServiceAccount, type VaultKey, type VaultKeyKind } from 'hap
 import { t } from '@/text';
 
 /**
- * Plain-language names for the commands a key can run. The ones a kind's
- * preset turns on (VAULT_KIND_PRESETS) come first; the rest are offered off,
- * risky ones marked. Rules not listed here show as their raw pattern.
+ * Plain-language names for the commands a key can run. "Any command" comes first: every kind
+ * starts with it on (VAULT_KIND_PRESETS), so the rest only matter once the user narrows a key
+ * down. Risky ones are marked. Rules not listed here show as their raw pattern.
  */
 export type VaultRuleOption = { pattern: string; label: () => string; risk?: true };
 
 export const VAULT_RULE_OPTIONS: Record<VaultKeyKind, VaultRuleOption[]> = {
     cloudflare: [
+        { pattern: '*', label: () => t('resources.anyCommand') },
         { pattern: 'npx wrangler deploy*', label: () => t('resources.ruleCfDeploy') },
         { pattern: 'npx wrangler pages deploy *', label: () => t('resources.ruleCfPages') },
         { pattern: 'npx wrangler deployments *', label: () => t('resources.ruleCfDeployments') },
@@ -17,16 +18,19 @@ export const VAULT_RULE_OPTIONS: Record<VaultKeyKind, VaultRuleOption[]> = {
         { pattern: 'npx wrangler delete*', label: () => t('resources.ruleCfDelete'), risk: true },
     ],
     aliyun: [
+        { pattern: '*', label: () => t('resources.anyCommand') },
         { pattern: 'alidns list *', label: () => t('resources.ruleDnsList') },
         { pattern: 'alidns add *', label: () => t('resources.ruleDnsAdd') },
         { pattern: 'alidns delete *', label: () => t('resources.ruleDnsDelete'), risk: true },
     ],
     github: [
+        { pattern: '*', label: () => t('resources.anyCommand') },
         { pattern: 'git push *', label: () => t('resources.ruleGitPush') },
         { pattern: 'gh pr create *', label: () => t('resources.ruleGhPr') },
         { pattern: 'gh release create *', label: () => t('resources.ruleGhRelease') },
     ],
     npm: [
+        { pattern: '*', label: () => t('resources.anyCommand') },
         { pattern: 'npm publish*', label: () => t('resources.ruleNpmPublish') },
         { pattern: 'npm unpublish*', label: () => t('resources.ruleNpmUnpublish'), risk: true },
     ],
@@ -34,18 +38,20 @@ export const VAULT_RULE_OPTIONS: Record<VaultKeyKind, VaultRuleOption[]> = {
         { pattern: '*', label: () => t('resources.anyCommand') },
     ],
     email: [
+        { pattern: '*', label: () => t('resources.anyCommand') },
         { pattern: 'happy mail send *', label: () => t('resources.ruleMailSend') },
         { pattern: 'happy mail check', label: () => t('resources.ruleMailCheck') },
     ],
     google: [
+        { pattern: '*', label: () => t('resources.anyCommand') },
         { pattern: 'happy ga data *', label: () => t('resources.ruleGaData') },
         { pattern: 'happy ga admin get *', label: () => t('resources.ruleGaAdminGet') },
         { pattern: 'happy ga admin change *', label: () => t('resources.ruleGaAdminChange'), risk: true },
     ],
-    'google-login': [{ pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
-    'apple-login': [{ pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
-    'facebook-login': [{ pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
-    custom: [],
+    'google-login': [{ pattern: '*', label: () => t('resources.anyCommand') }, { pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
+    'apple-login': [{ pattern: '*', label: () => t('resources.anyCommand') }, { pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
+    'facebook-login': [{ pattern: '*', label: () => t('resources.anyCommand') }, { pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
+    custom: [{ pattern: '*', label: () => t('resources.anyCommand') }],
 };
 
 const DENY_LABELS: Record<string, () => string> = {
@@ -54,6 +60,10 @@ const DENY_LABELS: Record<string, () => string> = {
     'rm -rf /*': () => t('resources.denyRmRoot'),
     'git push --force*': () => t('resources.denyForcePush'),
     'git push -f*': () => t('resources.denyForcePushShort'),
+    'npx wrangler delete*': () => t('resources.ruleCfDelete'),
+    'alidns delete *': () => t('resources.ruleDnsDelete'),
+    'npm unpublish*': () => t('resources.ruleNpmUnpublish'),
+    'happy ga admin change *': () => t('resources.ruleGaAdminChange'),
 };
 
 /** What each preset variable is called on the provider's own site, and where to find it. */

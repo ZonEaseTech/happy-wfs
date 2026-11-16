@@ -17,7 +17,8 @@ const cf = {
         { name: 'CLOUDFLARE_ACCOUNT_ID', value: '4c1f8a2e9d0b47c3', secret: false },
     ],
     ssh: null,
-    allow: VAULT_KIND_PRESETS.cloudflare.allow,
+    // A key the user narrowed to a few commands (keys start open, see VAULT_KIND_PRESETS).
+    allow: ['npx wrangler deploy*', 'npx wrangler deployments *', 'npx wrangler pages deploy *'],
     deny: [],
 };
 const prod = {
@@ -42,6 +43,21 @@ describe('parseGoogleServiceAccount', () => {
         expect(parseGoogleServiceAccount(serviceAccount)).toEqual({ clientEmail: 'ga-reader@demo-proj.iam.gserviceaccount.com', privateKey: PEM, privateKeyId: 'abc123', projectId: 'demo-proj' });
         expect(parseGoogleServiceAccount(JSON.stringify({ type: 'authorized_user', client_id: 'x' }))).toBeNull();
         expect(parseGoogleServiceAccount('not json')).toBeNull();
+    });
+});
+
+describe('VAULT_KIND_PRESETS', () => {
+    it('start every kind open, with only its risky operations denied', () => {
+        for (const preset of Object.values(VAULT_KIND_PRESETS)) expect(preset.allow).toEqual(['*']);
+        const open = (kind: keyof typeof VAULT_KIND_PRESETS) => ({ ...VAULT_KIND_PRESETS[kind], env: [], ssh: null });
+        expect(checkVaultCommand(open('github'), 'gh run list --repo ZonEaseTech/ttpos-lite --limit 10')).toEqual({ allowed: true, rule: '*' });
+        expect(checkVaultCommand(open('github'), 'git fetch -q origin main').allowed).toBe(true);
+        expect(checkVaultCommand(open('github'), 'git push --force origin main')).toMatchObject({ allowed: false, reason: 'deny' });
+        expect(checkVaultCommand(open('cloudflare'), 'npx wrangler delete my-worker')).toMatchObject({ allowed: false, reason: 'deny' });
+        expect(checkVaultCommand(open('aliyun'), 'alidns delete 123')).toMatchObject({ allowed: false, reason: 'deny' });
+        expect(checkVaultCommand(open('npm'), 'npm unpublish pkg@1.0.0')).toMatchObject({ allowed: false, reason: 'deny' });
+        expect(checkVaultCommand(open('google'), 'happy ga admin change PATCH properties/1')).toMatchObject({ allowed: false, reason: 'deny' });
+        expect(checkVaultCommand(open('custom'), 'printenv MY_SECRET')).toMatchObject({ allowed: false, reason: 'guard' });
     });
 });
 

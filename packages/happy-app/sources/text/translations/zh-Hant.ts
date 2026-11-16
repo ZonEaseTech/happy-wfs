@@ -317,6 +317,8 @@ export const zhHant: TranslationStructure = {
         appleClientRequired: "Services ID 和 Bundle ID 至少填一個。",
         guessGoogleClient: "Google 登入的用戶端資訊",
         guessAppleKey: "Apple 的 .p8 私鑰",
+        openRulesExcept: ({ denied }: { denied: string }) => `所有命令都放行，除了：${denied}。要改在「進階 › 禁止的命令」裡。`,
+        openRulesNoDeny: "所有命令都放行。要攔某些命令，在「進階 › 禁止的命令」裡加。",
         listSeparator: "、",
         mcpNote: "ⓘ 分享過 MCP 的裝置，伺服器也能解開發給它們的鑰匙（伺服器是你自己的）",
         more: "更多",

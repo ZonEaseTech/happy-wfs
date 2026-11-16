@@ -75,6 +75,8 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
 
     const options = VAULT_RULE_OPTIONS[key.kind];
     const custom = key.allow.filter((rule) => !options.some((option) => option.pattern === rule));
+    // An open key runs anything but its deny list: the narrower toggles would only read as "off" while doing nothing.
+    const open = key.allow.includes('*');
     const devices = vaultKeyDevices(key);
     const allDevices = eligible.length > 0 && eligible.every((machine) => devices.includes(machine.id));
     const outdated = eligible.filter((machine) => !isVersionSupported(machine.metadata?.happyCliVersion, vaultKindMinCliVersion(key.kind)));
@@ -160,7 +162,7 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
 
             <Text style={styles.section}>{t('resources.canDo')}<Text style={styles.sectionHint}>{`  ${t('resources.tapToToggle')}`}</Text></Text>
             <View style={styles.tags}>
-                {options.map((option) => {
+                {(open ? options.filter((option) => option.pattern === '*') : options).map((option) => {
                     const on = key.allow.includes(option.pattern);
                     return (
                         <Pressable
@@ -173,15 +175,18 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
                         </Pressable>
                     );
                 })}
-                {custom.map((rule) => (
+                {!open && custom.map((rule) => (
                     <Pressable key={rule} onPress={() => { void update({ allow: key.allow.filter((other) => other !== rule) }); }} style={[styles.tag, styles.tagOn]} accessibilityHint={t('resources.tapToRemove')}>
                         <Text style={[styles.tagText, styles.tagTextOn, styles.mono]}>✓ {rule}</Text>
                     </Pressable>
                 ))}
-                <Pressable onPress={() => startEditing('allow')} style={[styles.tag, styles.tagAdd]}>
-                    <Text style={styles.link}>＋ {t('resources.writeOwn')}</Text>
-                </Pressable>
+                {!open && (
+                    <Pressable onPress={() => startEditing('allow')} style={[styles.tag, styles.tagAdd]}>
+                        <Text style={styles.link}>＋ {t('resources.writeOwn')}</Text>
+                    </Pressable>
+                )}
             </View>
+            {open && <Text style={styles.hint}>{key.deny.length ? t('resources.openRulesExcept', { denied: key.deny.map(vaultDenyLabel).join('、') }) : t('resources.openRulesNoDeny')}</Text>}
             {editing === 'allow' && inline(t('resources.allowPlaceholder'))}
 
             <View style={styles.sectionRow}>

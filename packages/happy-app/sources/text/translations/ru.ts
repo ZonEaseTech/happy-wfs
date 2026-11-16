@@ -326,6 +326,8 @@ export const ru: TranslationStructure = {
         appleClientRequired: "Fill in the Services ID, the bundle ID, or both.",
         guessGoogleClient: "Google sign-in client details",
         guessAppleKey: "an Apple .p8 key",
+        openRulesExcept: ({ denied }: { denied: string }) => `Every command runs, except: ${denied}. Change that under Advanced › Denied commands.`,
+        openRulesNoDeny: "Every command runs. To block some, add them under Advanced › Denied commands.",
         listSeparator: ", ",
         mcpNote: "ⓘ The server can also open keys sent to devices shared over MCP (it is your own server).",
         more: "More",

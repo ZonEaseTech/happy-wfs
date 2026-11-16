@@ -141,27 +141,31 @@ export const vaultKvKey = {
     log: (at: number, rand: string) => `vault:log:${String(9_999_999_999_999 - at).padStart(13, '0')}-${rand}`,
 };
 
-/** Defaults a kind starts with in the editor. `allow` empty = nothing runs until the user adds rules. */
+/**
+ * Defaults a kind starts with. Every kind starts open (`*`): any command runs except the deny list
+ * and the built-in guard, so ordinary work never waits on the user; the risky operations a kind
+ * has start on the deny list instead.
+ */
 export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: string; secret: boolean }>; allow: string[]; deny: string[] }> = {
     cloudflare: {
         env: [{ name: 'CLOUDFLARE_API_TOKEN', secret: true }, { name: 'CLOUDFLARE_ACCOUNT_ID', secret: false }],
-        allow: ['npx wrangler deploy*', 'npx wrangler deployments *', 'npx wrangler pages deploy *'],
-        deny: [],
+        allow: ['*'],
+        deny: ['npx wrangler delete*'],
     },
     aliyun: {
         env: [{ name: 'ALIYUN_ACCESS_KEY_ID', secret: false }, { name: 'ALIYUN_ACCESS_KEY_SECRET', secret: true }],
-        allow: ['alidns list *', 'alidns add *'],
-        deny: [],
+        allow: ['*'],
+        deny: ['alidns delete *'],
     },
     github: {
         env: [{ name: 'GH_TOKEN', secret: true }],
-        allow: ['git push *', 'gh pr create *', 'gh release create *'],
+        allow: ['*'],
         deny: ['git push --force*', 'git push -f*'],
     },
     npm: {
         env: [{ name: 'NPM_TOKEN', secret: true }],
-        allow: ['npm publish*'],
-        deny: [],
+        allow: ['*'],
+        deny: ['npm unpublish*'],
     },
     ssh: {
         env: [],
@@ -178,7 +182,7 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
             { name: 'IMAP_HOST', secret: false },
             { name: 'IMAP_PORT', secret: false },
         ],
-        allow: ['happy mail send *', 'happy mail check'],
+        allow: ['*'],
         deny: [],
     },
     // Read by `happy ga` (happy-cli): reports and settings reads on, settings changes off.
@@ -187,8 +191,8 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
             { name: VAULT_GOOGLE_KEY_VAR, secret: true },
             { name: 'GA_PROPERTY_ID', secret: false },
         ],
-        allow: ['happy ga data *', 'happy ga admin get *'],
-        deny: [],
+        allow: ['*'],
+        deny: ['happy ga admin change *'],
     },
     // "Continue with Google / Apple / Facebook": what a backend needs to sign users in. The IDs are
     // not secret (apps embed them); `happy oauth check` tells whether the credentials work.
@@ -199,7 +203,7 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
             { name: 'GOOGLE_IOS_CLIENT_ID', secret: false },
             { name: 'GOOGLE_ANDROID_CLIENT_ID', secret: false },
         ],
-        allow: ['happy oauth check'],
+        allow: ['*'],
         deny: [],
     },
     'apple-login': {
@@ -210,7 +214,7 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
             { name: 'APPLE_BUNDLE_ID', secret: false },
             { name: 'APPLE_PRIVATE_KEY', secret: true },
         ],
-        allow: ['happy oauth check'],
+        allow: ['*'],
         deny: [],
     },
     'facebook-login': {
@@ -219,12 +223,12 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
             { name: 'FACEBOOK_APP_SECRET', secret: true },
             { name: 'FACEBOOK_CLIENT_TOKEN', secret: true },
         ],
-        allow: ['happy oauth check'],
+        allow: ['*'],
         deny: [],
     },
     custom: {
         env: [{ name: 'MY_SECRET', secret: true }],
-        allow: [],
+        allow: ['*'],
         deny: [],
     },
 };
@@ -255,7 +259,7 @@ export const VaultSaveKeyInputSchema = z.object({
         auth: z.enum(['password', 'key']).optional().describe('Default password'),
         secret: z.string().optional().describe('The password or private key. Leave out unless the user gave it to you in this conversation.'),
     }).optional().describe('Login of a server key (kind ssh).'),
-    allow: z.array(z.string()).optional().describe('The full list of commands the key may run, as patterns where * matches anything. A command that mentions a secret variable never runs, so allow programs that read the variables from their environment themselves (a script, or a tool that takes its credentials from the environment). Replaces the current list; a new key starts from its type\'s defaults (custom: none).'),
+    allow: z.array(z.string()).optional().describe('The full list of commands the key may run, as patterns where * matches anything. A command that mentions a secret variable never runs, so allow programs that read the variables from their environment themselves (a script, or a tool that takes its credentials from the environment). Replaces the current list; a new key starts open (*), anything but its deny list.'),
     deny: z.array(z.string()).optional().describe('The full list of patterns that never run, even when allowed. Replaces the current list.'),
     devices: z.array(z.string()).optional().describe('Names or ids of the devices that get a copy. A new key goes to every device unless given; an existing key keeps its devices.'),
 });

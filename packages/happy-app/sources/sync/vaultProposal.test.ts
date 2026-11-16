@@ -58,26 +58,26 @@ describe('buildVaultProposal', () => {
         expect(proposal.key.machineIds).toEqual(['admin', 'wfs']);
     });
 
-    it('starts a typed key from its preset, so a GitHub token lands in GH_TOKEN with the usual rules', () => {
+    it('starts a typed key from its preset: a GitHub token lands in GH_TOKEN, open but for force pushes', () => {
         const proposal = buildVaultProposal('save_key', { name: 'GitHub work', kind: 'github', devices: ['coder wfs'] }, keys, devices);
-        expect(proposal).toMatchObject({ action: 'add', missing: ['GH_TOKEN'], key: { slug: 'github-work', allow: ['git push *', 'gh pr create *', 'gh release create *'], machineIds: ['wfs'] } });
+        expect(proposal).toMatchObject({ action: 'add', missing: ['GH_TOKEN'], key: { slug: 'github-work', allow: ['*'], deny: ['git push --force*', 'git push -f*'], machineIds: ['wfs'] } });
     });
 
     it('drafts a mailbox from its preset, leaving out IMAP when the agent has none', () => {
         const proposal = buildVaultProposal('save_key', { name: 'Lark mail', kind: 'email', env: [{ name: 'MAIL_ADDRESS', value: 'wfs@ttpos.com' }, { name: 'SMTP_HOST', value: 'smtp.larksuite.com' }, { name: 'SMTP_PORT', value: '465' }] }, keys, devices);
-        expect(proposal).toMatchObject({ action: 'add', missing: ['MAIL_PASSWORD'], key: { kind: 'email', allow: ['happy mail send *', 'happy mail check'] } });
+        expect(proposal).toMatchObject({ action: 'add', missing: ['MAIL_PASSWORD'], key: { kind: 'email', allow: ['*'], deny: [] } });
         if (proposal.action !== 'add') return;
         expect(proposal.key.env.map((v) => [v.name, v.secret])).toEqual([['MAIL_ADDRESS', false], ['MAIL_PASSWORD', true], ['SMTP_HOST', false], ['SMTP_PORT', false]]);
     });
 
     it('drafts a Google key with its property, leaving the JSON key to the user', () => {
         const proposal = buildVaultProposal('save_key', { name: 'GA', kind: 'google', env: [{ name: 'GA_PROPERTY_ID', value: '123456' }] }, keys, devices);
-        expect(proposal).toMatchObject({ action: 'add', missing: ['GOOGLE_SERVICE_ACCOUNT'], key: { kind: 'google', slug: 'ga', allow: ['happy ga data *', 'happy ga admin get *'] } });
+        expect(proposal).toMatchObject({ action: 'add', missing: ['GOOGLE_SERVICE_ACCOUNT'], key: { kind: 'google', slug: 'ga', allow: ['*'], deny: ['happy ga admin change *'] } });
     });
 
     it('drafts a Facebook sign-in key, asking for the secret and leaving out the optional client token', () => {
         const proposal = buildVaultProposal('save_key', { name: 'Facebook', kind: 'facebook-login', env: [{ name: 'FACEBOOK_APP_ID', value: '1234567890' }] }, keys, devices);
-        expect(proposal).toMatchObject({ action: 'add', missing: ['FACEBOOK_APP_SECRET'], key: { kind: 'facebook-login', allow: ['happy oauth check'] } });
+        expect(proposal).toMatchObject({ action: 'add', missing: ['FACEBOOK_APP_SECRET'], key: { kind: 'facebook-login', allow: ['*'] } });
         if (proposal.action !== 'add') return;
         expect(proposal.key.env.map((v) => v.name)).toEqual(['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET']);
     });
