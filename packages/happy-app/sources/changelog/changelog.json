@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 74,
+      "date": "2026-11-16",
+      "summary": "Codex and Gemini sessions now hear when Happy's instructions change, too.",
+      "changes": [
+        "Sessions: Codex and Gemini only read Happy's instructions (devices, credentials) from their first message, and the updates Happy sends with your next message went to Claude sessions only. A Codex session kept following instructions that had since changed, such as the old wording about credentials. Every kind of session now gets the current instructions with your next message; the chat still shows only what you typed."
+      ],
+      "rawMarkdown": "## Version 74 - 2026-11-16\n\n\nCodex and Gemini sessions now hear when Happy's instructions change, too.\n\n- Sessions: Codex and Gemini only read Happy's instructions (devices, credentials) from their first message, and the updates Happy sends with your next message went to Claude sessions only. A Codex session kept following instructions that had since changed, such as the old wording about credentials. Every kind of session now gets the current instructions with your next message; the chat still shows only what you typed."
+    },
+    {
       "version": 73,
       "date": "2026-11-16",
       "summary": "Agents keep using the credentials your machine already has.",
@@ -769,5 +778,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 73
+  "latestVersion": 74
 }

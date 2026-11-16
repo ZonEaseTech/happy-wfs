@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 74 - 2026-11-16
+
+Codex and Gemini sessions now hear when Happy's instructions change, too.
+
+- Sessions: Codex and Gemini only read Happy's instructions (devices, credentials) from their first message, and the updates Happy sends with your next message went to Claude sessions only. A Codex session kept following instructions that had since changed, such as the old wording about credentials. Every kind of session now gets the current instructions with your next message; the chat still shows only what you typed.
+
 ## Version 73 - 2026-11-16
 
 Agents keep using the credentials your machine already has.
