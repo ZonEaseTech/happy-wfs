@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": 65,
+      "date": "2026-11-16",
+      "summary": "Agents can now add, change and delete your keys, and nothing changes until you confirm.",
+      "changes": [
+        "Resources: paste a service's settings into a session and the agent drafts the key itself; it can also change a key's allowed commands, devices, variables or secret, or delete a key. Each draft appears in the session as a card: a new key with everything it will hold, a change with only what is added or removed, a delete with what goes. Nothing is saved until you tap the card, and the agent is told when you do.",
+        "Resources: values the agent did not have, such as a password you did not give it, are filled in right on the card and never reach the agent.",
+        "Resources: a draft that cannot be saved, for example one naming a device you do not have, says why and asks the agent to fix it in one tap.",
+        "Resources: a server login can be used from several devices, like any other key.",
+        "Agents get these abilities on devices running CLI 0.6.64 or later."
+      ],
+      "rawMarkdown": "## Version 65 - 2026-11-16\n\n\nAgents can now add, change and delete your keys, and nothing changes until you confirm.\n\n- Resources: paste a service's settings into a session and the agent drafts the key itself; it can also change a key's allowed commands, devices, variables or secret, or delete a key. Each draft appears in the session as a card: a new key with everything it will hold, a change with only what is added or removed, a delete with what goes. Nothing is saved until you tap the card, and the agent is told when you do.\n- Resources: values the agent did not have, such as a password you did not give it, are filled in right on the card and never reach the agent.\n- Resources: a draft that cannot be saved, for example one naming a device you do not have, says why and asks the agent to fix it in one tap.\n- Resources: a server login can be used from several devices, like any other key.\n- Agents get these abilities on devices running CLI 0.6.64 or later."
+    },
+    {
       "version": 62,
       "date": "2026-11-13",
       "summary": "Running sessions now also hear when you change which devices they can reach.",
@@ -678,5 +691,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 62
+  "latestVersion": 65
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 65 - 2026-11-16
+
+Agents can now add, change and delete your keys, and nothing changes until you confirm.
+
+- Resources: paste a service's settings into a session and the agent drafts the key itself; it can also change a key's allowed commands, devices, variables or secret, or delete a key. Each draft appears in the session as a card: a new key with everything it will hold, a change with only what is added or removed, a delete with what goes. Nothing is saved until you tap the card, and the agent is told when you do.
+- Resources: values the agent did not have, such as a password you did not give it, are filled in right on the card and never reach the agent.
+- Resources: a draft that cannot be saved, for example one naming a device you do not have, says why and asks the agent to fix it in one tap.
+- Resources: a server login can be used from several devices, like any other key.
+- Agents get these abilities on devices running CLI 0.6.64 or later.
+
 ## Version 62 - 2026-11-13
 
 Running sessions now also hear when you change which devices they can reach.
