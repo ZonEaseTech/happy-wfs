@@ -579,13 +579,14 @@ class Sync {
      * at, keys added in the resource center. When the instructions this session would get differ
      * from the ones its agent last got, the current version rides along with the next message
      * (the chat still shows only what the user typed). A conversation that has not started yet
-     * gets them in its system prompt and needs no note.
+     * gets them in its system prompt and needs no note. Codex and Gemini sessions need it as much:
+     * the CLI hands them the instructions of their first message only.
      */
-    private contextNoteFor(sessionId: string, text: string, flavor: string | null | undefined): { note: string | null; fingerprint: string } | null {
+    private contextNoteFor(sessionId: string, text: string): { note: string | null; fingerprint: string } | null {
         const messages = storage.getState().sessionMessages[sessionId];
         // Wait for the keys (they decide part of the text); keep slash commands first in the
         // message; image-only messages have no text to keep on screen.
-        if (!getVaultState().loaded || !messages?.isLoaded || (flavor && flavor !== 'claude') || text.startsWith('/') || !text.trim()) return null;
+        if (!getVaultState().loaded || !messages?.isLoaded || text.startsWith('/') || !text.trim()) return null;
         const prompt = this.buildSystemPrompt(sessionId);
         const fingerprint = `${prompt.length}:${hashText(prompt)}`;
         if (this.contextNotesSent[sessionId] === fingerprint) return null;
@@ -843,7 +844,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
         const model = (resolvedModel && fastMode) ? `${resolvedModel}-fast` : resolvedModel;
         const fallbackModel: string | null = null;
 
-        const contextNote = this.contextNoteFor(sessionId, text, flavor);
+        const contextNote = this.contextNoteFor(sessionId, text);
         if (contextNote?.note) {
             displayText = displayText ?? text;
             text = `${text}\n\n${contextNote.note}`;
