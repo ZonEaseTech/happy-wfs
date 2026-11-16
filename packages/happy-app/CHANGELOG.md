@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 66 - 2026-11-16
+
+Sessions that were already open when a device's CLI was upgraded are no longer told about key tools they do not have yet.
+
+- Resources: whether an agent can draft keys now depends on the CLI its own session started with, not the CLI the device has since been upgraded to; the session picks the tools up once it restarts.
+
 ## Version 65 - 2026-11-16
 
 Agents can now add, change and delete your keys, and nothing changes until you confirm.

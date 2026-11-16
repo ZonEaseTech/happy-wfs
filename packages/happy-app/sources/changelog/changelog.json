@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 66,
+      "date": "2026-11-16",
+      "summary": "Sessions that were already open when a device's CLI was upgraded are no longer told about key tools they do not have yet.",
+      "changes": [
+        "Resources: whether an agent can draft keys now depends on the CLI its own session started with, not the CLI the device has since been upgraded to; the session picks the tools up once it restarts."
+      ],
+      "rawMarkdown": "## Version 66 - 2026-11-16\n\n\nSessions that were already open when a device's CLI was upgraded are no longer told about key tools they do not have yet.\n\n- Resources: whether an agent can draft keys now depends on the CLI its own session started with, not the CLI the device has since been upgraded to; the session picks the tools up once it restarts."
+    },
+    {
       "version": 65,
       "date": "2026-11-16",
       "summary": "Agents can now add, change and delete your keys, and nothing changes until you confirm.",
@@ -691,5 +700,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 65
+  "latestVersion": 66
 }
