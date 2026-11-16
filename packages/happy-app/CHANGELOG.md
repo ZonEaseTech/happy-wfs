@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 69 - 2026-11-16
+
+"Continue with Google / Apple / Facebook" credentials now have a home in the resource center.
+
+- Resources: three new types, Google sign-in, Apple sign-in and Facebook sign-in. Every field says where to find it in the provider's console; the secrets (Google client secret, Apple .p8 key, Facebook app secret and client token) are stored encrypted, and the Apple .p8 key keeps its line breaks.
+- Resources: an agent checks whether the credentials work with `happy oauth check`, which asks Google, Apple or Facebook directly and prints no token. A local backend started through the key gets the IDs and secrets as environment variables without the agent seeing them. This needs CLI 0.6.67 on the device.
+
 ## Version 68 - 2026-11-16
 
 Google Analytics can now be used from a session, with a Google service account key.

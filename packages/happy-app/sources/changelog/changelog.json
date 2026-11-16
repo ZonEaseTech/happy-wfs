@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 69,
+      "date": "2026-11-16",
+      "summary": "\"Continue with Google / Apple / Facebook\" credentials now have a home in the resource center.",
+      "changes": [
+        "Resources: three new types, Google sign-in, Apple sign-in and Facebook sign-in. Every field says where to find it in the provider's console; the secrets (Google client secret, Apple .p8 key, Facebook app secret and client token) are stored encrypted, and the Apple .p8 key keeps its line breaks.",
+        "Resources: an agent checks whether the credentials work with `happy oauth check`, which asks Google, Apple or Facebook directly and prints no token. A local backend started through the key gets the IDs and secrets as environment variables without the agent seeing them. This needs CLI 0.6.67 on the device."
+      ],
+      "rawMarkdown": "## Version 69 - 2026-11-16\n\n\n\"Continue with Google / Apple / Facebook\" credentials now have a home in the resource center.\n\n- Resources: three new types, Google sign-in, Apple sign-in and Facebook sign-in. Every field says where to find it in the provider's console; the secrets (Google client secret, Apple .p8 key, Facebook app secret and client token) are stored encrypted, and the Apple .p8 key keeps its line breaks.\n- Resources: an agent checks whether the credentials work with `happy oauth check`, which asks Google, Apple or Facebook directly and prints no token. A local backend started through the key gets the IDs and secrets as environment variables without the agent seeing them. This needs CLI 0.6.67 on the device."
+    },
+    {
       "version": 68,
       "date": "2026-11-16",
       "summary": "Google Analytics can now be used from a session, with a Google service account key.",
@@ -721,5 +731,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 68
+  "latestVersion": 69
 }
