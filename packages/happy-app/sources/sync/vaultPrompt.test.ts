@@ -96,6 +96,17 @@ describe('buildVaultPromptSection', () => {
         expect(buildVaultPromptSection([ga], 'wfs', '0.6.65', '0.6.65')).toContain('none are enabled for this machine');
     });
 
+    it('offers sign-in keys to CLIs with happy oauth, with how to check them and nothing secret', () => {
+        const apple = key({
+            id: 'a', slug: 'apple-login', kind: 'apple-login', name: 'Apple', scope: [], allow: ['happy oauth check'],
+            env: [{ name: 'APPLE_TEAM_ID', value: 'TEAM123456', secret: false }, { name: 'APPLE_PRIVATE_KEY', value: '-----BEGIN PRIVATE KEY-----\nP8_BODY\n-----END PRIVATE KEY-----\n', secret: true }],
+        });
+        const ready = buildVaultPromptSection([apple], 'wfs', '0.6.67', '0.6.67')!;
+        expect(ready).toContain('happy run apple-login -- happy oauth check');
+        expect(ready).not.toContain('P8_BODY');
+        expect(buildVaultPromptSection([apple], 'wfs', '0.6.66', '0.6.66')).toContain('none are enabled for this machine');
+    });
+
     it('is stable regardless of key order', () => {
         const a = key({ id: 'a', slug: 'a-key', machineIds: ['wfs'] });
         const b = key({ id: 'b', slug: 'b-key', machineIds: ['wfs'] });

@@ -24,6 +24,9 @@ export const vaultKindLabel = (kind: VaultKeyKind): string => ({
     ssh: t('resources.kindSsh'),
     email: t('resources.kindEmail'),
     google: t('resources.kindGoogle'),
+    'google-login': t('resources.kindGoogleLogin'),
+    'apple-login': t('resources.kindAppleLogin'),
+    'facebook-login': t('resources.kindFacebookLogin'),
     custom: t('resources.kindCustom'),
 })[kind];
 
@@ -41,6 +44,9 @@ const KIND_TILES: Record<VaultKeyKind, { fg: string; bg: string; bgDark: string;
     ssh: { fg: '#2563EB', bg: '#E8F0FE', bgDark: 'rgba(37,99,235,0.25)', icon: 'server-outline' },
     email: { fg: '#0891B2', bg: '#E0F7FA', bgDark: 'rgba(8,145,178,0.22)', icon: 'mail-outline' },
     google: { fg: '#4285F4', bg: '#E8F0FE', bgDark: 'rgba(66,133,244,0.22)', mark: 'G' },
+    'google-login': { fg: '#EA4335', bg: '#FDECEA', bgDark: 'rgba(234,67,53,0.2)', icon: 'logo-google' },
+    'apple-login': { fg: '#6B7280', bg: '#F3F4F6', bgDark: 'rgba(156,163,175,0.2)', icon: 'logo-apple' },
+    'facebook-login': { fg: '#1877F2', bg: '#E7F0FD', bgDark: 'rgba(24,119,242,0.22)', icon: 'logo-facebook' },
     custom: { fg: '#7C3AED', bg: '#F1EBFE', bgDark: 'rgba(124,58,237,0.22)', icon: 'key-outline' },
 };
 

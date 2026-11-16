@@ -67,6 +67,17 @@ describe('Google service account keys', () => {
     });
 });
 
+describe('sign-in credentials', () => {
+    it('are recognised by their shape: Google client secrets and IDs, Apple .p8 keys', () => {
+        expect(detectVaultPaste('GOCSPX-' + 'a1B2'.repeat(7))).toEqual({ kind: 'google-login', as: 'secret' });
+        expect(detectVaultPaste('1234567890-abcdefg.apps.googleusercontent.com')).toEqual({ kind: 'google-login', as: 'id' });
+        const p8 = '-----BEGIN PRIVATE KEY-----\n' + 'M'.repeat(64) + '\n' + 'N'.repeat(56) + '\n' + 'O'.repeat(64) + '\n-----END PRIVATE KEY-----';
+        expect(detectVaultPaste(p8)).toEqual({ kind: 'apple-login', as: 'privateKey' });
+        // A long PKCS#8 key is a server key, not a .p8.
+        expect(detectVaultPaste('-----BEGIN PRIVATE KEY-----\n' + 'R'.repeat(1600) + '\n-----END PRIVATE KEY-----')).toEqual({ kind: 'ssh', as: 'privateKey' });
+    });
+});
+
 describe('parseSshAddress', () => {
     it('splits user, host and port, defaulting to 22', () => {
         expect(parseSshAddress('dev@43.239.84.25')).toEqual({ user: 'dev', host: '43.239.84.25', port: 22 });

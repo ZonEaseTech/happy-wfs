@@ -20,11 +20,19 @@ export const VAULT_MIN_CLI_VERSION = '0.6.63';
 export const VAULT_EMAIL_MIN_CLI_VERSION = '0.6.65';
 /** First CLI that knows Google service account keys and has `happy ga`. */
 export const VAULT_GOOGLE_MIN_CLI_VERSION = '0.6.66';
+/** First CLI that knows the Google / Apple / Facebook login kinds and has `happy oauth`. */
+export const VAULT_OAUTH_MIN_CLI_VERSION = '0.6.67';
 
-export const VaultKeyKindSchema = z.enum(['cloudflare', 'aliyun', 'github', 'npm', 'ssh', 'email', 'google', 'custom']);
+export const VaultKeyKindSchema = z.enum(['cloudflare', 'aliyun', 'github', 'npm', 'ssh', 'email', 'google', 'google-login', 'apple-login', 'facebook-login', 'custom']);
 export type VaultKeyKind = z.infer<typeof VaultKeyKindSchema>;
 
-const KIND_MIN_CLI_VERSION: Partial<Record<VaultKeyKind, string>> = { email: VAULT_EMAIL_MIN_CLI_VERSION, google: VAULT_GOOGLE_MIN_CLI_VERSION };
+const KIND_MIN_CLI_VERSION: Partial<Record<VaultKeyKind, string>> = {
+    email: VAULT_EMAIL_MIN_CLI_VERSION,
+    google: VAULT_GOOGLE_MIN_CLI_VERSION,
+    'google-login': VAULT_OAUTH_MIN_CLI_VERSION,
+    'apple-login': VAULT_OAUTH_MIN_CLI_VERSION,
+    'facebook-login': VAULT_OAUTH_MIN_CLI_VERSION,
+};
 
 /** The CLI a device needs before it can use a key of this kind. */
 export const vaultKindMinCliVersion = (kind: VaultKeyKind): string => KIND_MIN_CLI_VERSION[kind] ?? VAULT_MIN_CLI_VERSION;
@@ -182,6 +190,38 @@ export const VAULT_KIND_PRESETS: Record<VaultKeyKind, { env: Array<{ name: strin
         allow: ['happy ga data *', 'happy ga admin get *'],
         deny: [],
     },
+    // "Continue with Google / Apple / Facebook": what a backend needs to sign users in. The IDs are
+    // not secret (apps embed them); `happy oauth check` tells whether the credentials work.
+    'google-login': {
+        env: [
+            { name: 'GOOGLE_CLIENT_ID', secret: false },
+            { name: 'GOOGLE_CLIENT_SECRET', secret: true },
+            { name: 'GOOGLE_IOS_CLIENT_ID', secret: false },
+            { name: 'GOOGLE_ANDROID_CLIENT_ID', secret: false },
+        ],
+        allow: ['happy oauth check'],
+        deny: [],
+    },
+    'apple-login': {
+        env: [
+            { name: 'APPLE_TEAM_ID', secret: false },
+            { name: 'APPLE_KEY_ID', secret: false },
+            { name: 'APPLE_SERVICES_ID', secret: false },
+            { name: 'APPLE_BUNDLE_ID', secret: false },
+            { name: 'APPLE_PRIVATE_KEY', secret: true },
+        ],
+        allow: ['happy oauth check'],
+        deny: [],
+    },
+    'facebook-login': {
+        env: [
+            { name: 'FACEBOOK_APP_ID', secret: false },
+            { name: 'FACEBOOK_APP_SECRET', secret: true },
+            { name: 'FACEBOOK_CLIENT_TOKEN', secret: true },
+        ],
+        allow: ['happy oauth check'],
+        deny: [],
+    },
     custom: {
         env: [{ name: 'MY_SECRET', secret: true }],
         allow: [],
@@ -200,7 +240,7 @@ export const VAULT_TOOLS_MIN_CLI_VERSION = '0.6.64';
 export const VaultSaveKeyInputSchema = z.object({
     key: z.string().optional().describe('Name in commands (the <name> in `happy run <name>`) of the key to change. Leave out to add a new key.'),
     name: z.string().optional().describe('Display name, e.g. "Lark mail". Required for a new key.'),
-    kind: VaultKeyKindSchema.optional().describe('Type of a new key: github, npm, cloudflare, aliyun, ssh (a server login), email (a mailbox: MAIL_ADDRESS, MAIL_PASSWORD, SMTP_HOST, SMTP_PORT, IMAP_HOST, IMAP_PORT; used with `happy mail`), google (a Google Cloud service account: GOOGLE_SERVICE_ACCOUNT holds its JSON key, GA_PROPERTY_ID an optional default Google Analytics property; used with `happy ga`) or custom (anything else; the default).'),
+    kind: VaultKeyKindSchema.optional().describe('Type of a new key: github, npm, cloudflare, aliyun, ssh (a server login), email (a mailbox: MAIL_ADDRESS, MAIL_PASSWORD, SMTP_HOST, SMTP_PORT, IMAP_HOST, IMAP_PORT; used with `happy mail`), google (a Google Cloud service account: GOOGLE_SERVICE_ACCOUNT holds its JSON key, GA_PROPERTY_ID an optional default Google Analytics property; used with `happy ga`), google-login (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_IOS_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID), apple-login (APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_SERVICES_ID, APPLE_BUNDLE_ID, APPLE_PRIVATE_KEY = the .p8 key), facebook-login (FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, FACEBOOK_CLIENT_TOKEN), the three for "continue with ..." sign-in and checked with `happy oauth check`, or custom (anything else; the default).'),
     slug: z.string().optional().describe('Name in commands: lowercase letters, digits and dashes. Made from the display name when left out.'),
     env: z.array(z.object({
         name: z.string().describe('Variable name, e.g. SMTP_HOST'),
@@ -280,13 +320,30 @@ export function isVaultCommandLearnable(key: Pick<VaultKey, 'env' | 'ssh' | 'all
     return !result.allowed && result.reason === 'not-allowed';
 }
 
+/** A private key can be printed whole or a line at a time, as stored or re-wrapped: all of those are masked. */
+const pemPieces = (text: string): string[] => {
+    if (!text.includes('-----BEGIN')) return [];
+    const pieces = (pem: string) => [pem.trim(), ...pem.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('-----'))];
+    return [...new Set([...pieces(text), ...pieces(vaultNormalizePem(text))])];
+};
+
 export function vaultSecretsOf(key: Pick<VaultKey, 'env' | 'ssh'>): string[] {
-    const values = key.env.filter(v => v.secret).map(v => v.value);
-    // A service account's private key can be printed on its own or a line at a time: mask those pieces too.
-    const google = key.env.find(v => v.secret && v.name === VAULT_GOOGLE_KEY_VAR);
-    const pem = google ? parseGoogleServiceAccount(google.value)?.privateKey : undefined;
-    const pemParts = pem ? [pem.trim(), ...pem.split('\n').filter(line => line && !line.startsWith('-----'))] : [];
-    return [...values, ...pemParts, ...(key.ssh ? [key.ssh.secret] : [])].filter(v => v.length >= 4);
+    const secrets = key.env.filter(v => v.secret);
+    // A service account's JSON key carries its private key inside, with escaped line breaks.
+    const pems = secrets.flatMap(v => pemPieces(v.name === VAULT_GOOGLE_KEY_VAR ? parseGoogleServiceAccount(v.value)?.privateKey ?? '' : v.value));
+    const ssh = key.ssh ? [key.ssh.secret, ...pemPieces(key.ssh.secret)] : [];
+    return [...secrets.map(v => v.value), ...pems, ...ssh].filter(v => v.length >= 4);
+}
+
+/**
+ * A PEM block with its line breaks put back. Single-line fields drop them when a key is pasted
+ * in, and most PEM readers then refuse it. Text without a PEM block comes back unchanged.
+ */
+export function vaultNormalizePem(text: string): string {
+    const match = /-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/.exec(text);
+    if (!match) return text;
+    const body = match[2].replace(/\s+/g, '');
+    return `-----BEGIN ${match[1]}-----\n${(body.match(/.{1,64}/g) ?? []).join('\n')}\n-----END ${match[1]}-----\n`;
 }
 
 const encodeBase64 = (value: string) => {

@@ -75,6 +75,13 @@ describe('buildVaultProposal', () => {
         expect(proposal).toMatchObject({ action: 'add', missing: ['GOOGLE_SERVICE_ACCOUNT'], key: { kind: 'google', slug: 'ga', allow: ['happy ga data *', 'happy ga admin get *'] } });
     });
 
+    it('drafts a Facebook sign-in key, asking for the secret and leaving out the optional client token', () => {
+        const proposal = buildVaultProposal('save_key', { name: 'Facebook', kind: 'facebook-login', env: [{ name: 'FACEBOOK_APP_ID', value: '1234567890' }] }, keys, devices);
+        expect(proposal).toMatchObject({ action: 'add', missing: ['FACEBOOK_APP_SECRET'], key: { kind: 'facebook-login', allow: ['happy oauth check'] } });
+        if (proposal.action !== 'add') return;
+        expect(proposal.key.env.map((v) => v.name)).toEqual(['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET']);
+    });
+
     it('drafts a server login and asks for its password when the agent has none', () => {
         const proposal = buildVaultProposal('save_key', { name: 'staging', ssh: { host: '10.0.0.5', user: 'root' }, devices: ['mac mini'] }, keys, devices);
         expect(proposal).toMatchObject({

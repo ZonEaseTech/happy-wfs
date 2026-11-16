@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useShallow } from 'zustand/react/shallow';
-import { parseGoogleServiceAccount, VAULT_GOOGLE_KEY_VAR, VaultKeySchema, vaultKeyDevices, type VaultKey } from 'happy-wire';
+import { parseGoogleServiceAccount, VAULT_GOOGLE_KEY_VAR, VaultKeySchema, vaultKeyDevices, vaultNormalizePem, type VaultKey } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { VaultKeyIcon, vaultKindLabel, vaultMachineName } from '@/components/VaultSections';
 import { Typography } from '@/constants/Typography';
@@ -68,7 +68,8 @@ function addRows(key: VaultKey, missing: string[], online: string[]): Row[] {
             label: vaultFieldLabel(v.name),
             mono: !VAULT_FIELD_LABELS[v.name],
             lines: [v.secret ? { text: t('resources.proposalFilled') } : { text: v.value, mono: true }],
-            fill: missing.includes(v.name) ? { name: v.name, secret: v.secret } : undefined,
+            // A private key goes in a multi-line field, which keeps its line breaks.
+            fill: missing.includes(v.name) ? { name: v.name, secret: v.secret && !VAULT_FIELD_LABELS[v.name]?.multiline, multiline: VAULT_FIELD_LABELS[v.name]?.multiline } : undefined,
         });
     }
     rows.push({ label: t('resources.canDo'), lines: key.allow.length ? key.allow.map((rule) => ruleLine(key, rule)) : [{ text: t('resources.canDoNothing') }] });
@@ -159,7 +160,7 @@ export const VaultProposalCard = React.memo(({ sessionId, tool, toolKind }: { se
         const key: VaultKey = {
             ...proposal.key,
             id: proposal.key.id || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
-            env: proposal.key.env.map((v) => (v.value ? v : { ...v, value: fill(v.name) })),
+            env: proposal.key.env.map((v) => (v.value ? v : { ...v, value: vaultNormalizePem(fill(v.name)) })),
             // A private key keeps its line breaks; a password is trimmed.
             ssh: ssh && (ssh.secret ? ssh : { ...ssh, secret: ssh.auth === 'key' ? fills.ssh ?? '' : fill('ssh') }),
         };

@@ -1,7 +1,7 @@
 import { VAULT_GOOGLE_KEY_VAR, VAULT_MIN_CLI_VERSION, VAULT_TOOLS_MIN_CLI_VERSION, parseGoogleServiceAccount, vaultKeyDevices, vaultKindMinCliVersion, type VaultKey } from 'happy-wire';
 import { isVersionSupported } from '@/utils/versionUtils';
 
-const NEED_KEY = 'When a task needs an account or a server login that no listed key covers, run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh, email, google or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
+const NEED_KEY = 'When a task needs an account or a server login that no listed key covers, run `happy keys need <type>` (type: cloudflare, aliyun, github, npm, ssh, email, google, google-login, apple-login, facebook-login or custom) and stop to wait: the user gets a button in Happy to add the key and will tell you to continue. Never ask the user to paste a secret into the chat.';
 /** CLIs with `save_key` / `delete_key` (VAULT_TOOLS_MIN_CLI_VERSION): the agent drafts keys itself, the user confirms on a card. */
 const EDIT_KEYS = 'To add a key, change one (its allowed commands, devices, variables or secret) or delete one, call `save_key` or `delete_key`: Happy shows the user a card, nothing changes until they confirm it there, and they will tell you when it is done.'
     + ' When a task needs an account or a server login that no listed key covers, draft the key with `save_key`.'
@@ -47,6 +47,7 @@ export function buildVaultPromptSection(keys: VaultKey[], machineId: string | un
             `allow: ${key.allow.map((rule) => `\`${rule}\``).join(', ') || 'nothing yet'}`,
             key.deny.length ? `deny: ${key.deny.map((rule) => `\`${rule}\``).join(', ')}` : null,
             ...key.scope.map((scope) => `covers ${scope.name}${scope.protected ? ` (do not touch: ${scope.protected})` : ''}`),
+            key.kind.endsWith('-login') ? `sign-in credentials: \`happy run ${key.slug} -- happy oauth check\` checks them with the provider; IDs are listed by \`happy keys\` and may go into app config, secrets only reach a command started with \`happy run ${key.slug} -- <command>\` (a local backend, once that command is allowed)` : null,
             key.kind === 'google' ? `Google Analytics with \`happy run ${key.slug} -- happy ga data runReport --body '<RunReportRequest JSON>'\` (other Data API methods likewise, --property <id> for another property); \`happy run ${key.slug} -- happy ga admin get accountSummaries\` lists the properties it can see; settings changes are \`happy run ${key.slug} -- happy ga admin change <POST|PATCH|DELETE> <path>\`; \`happy ga --help\` for the rest` : null,
             key.kind === 'email' ? `send with \`happy run ${key.slug} -- happy mail send --to <address> --subject <text> --body <text>\` (or --body-file <path>); \`happy run ${key.slug} -- happy mail check\` tests the login` : null,
         ].filter(Boolean);

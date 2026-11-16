@@ -4,6 +4,7 @@ import {
     createVaultMasker,
     isVaultCommandLearnable,
     parseGoogleServiceAccount,
+    vaultNormalizePem,
     VAULT_KIND_PRESETS,
     vaultKvKey,
     vaultPatternToRegExp,
@@ -111,6 +112,22 @@ describe('Google service account keys', () => {
         const m = createVaultMasker(vaultSecretsOf(ga));
         const line = PEM.split('\n')[2];
         expect(m.push(`key line: ${line}\n${PEM}`) + m.flush()).toBe('key line: ****\n****\n');
+    });
+});
+
+describe('vaultNormalizePem', () => {
+    it('puts back the line breaks a single-line field dropped, and leaves other text alone', () => {
+        const pem = '-----BEGIN PRIVATE KEY-----\n' + 'A'.repeat(64) + '\n' + 'B'.repeat(20) + '\n-----END PRIVATE KEY-----\n';
+        expect(vaultNormalizePem(pem.replace(/\n/g, ''))).toBe(pem);
+        expect(vaultNormalizePem(pem.replace(/\n/g, ' '))).toBe(pem);
+        expect(vaultNormalizePem(pem)).toBe(pem);
+        expect(vaultNormalizePem('plain-secret')).toBe('plain-secret');
+    });
+
+    it('lets a .p8 key be masked line by line', () => {
+        const p8 = '-----BEGIN PRIVATE KEY-----\n' + 'C'.repeat(64) + '\n' + 'D'.repeat(30) + '\n-----END PRIVATE KEY-----\n';
+        const m = createVaultMasker(vaultSecretsOf({ env: [{ name: 'APPLE_PRIVATE_KEY', value: p8, secret: true }], ssh: null }));
+        expect(m.push(`${'D'.repeat(30)}\n`) + m.flush()).toBe('****\n');
     });
 });
 

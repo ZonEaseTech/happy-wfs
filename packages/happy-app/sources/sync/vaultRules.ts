@@ -42,6 +42,9 @@ export const VAULT_RULE_OPTIONS: Record<VaultKeyKind, VaultRuleOption[]> = {
         { pattern: 'happy ga admin get *', label: () => t('resources.ruleGaAdminGet') },
         { pattern: 'happy ga admin change *', label: () => t('resources.ruleGaAdminChange'), risk: true },
     ],
+    'google-login': [{ pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
+    'apple-login': [{ pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
+    'facebook-login': [{ pattern: 'happy oauth check', label: () => t('resources.ruleOauthCheck') }],
     custom: [],
 };
 
@@ -54,7 +57,7 @@ const DENY_LABELS: Record<string, () => string> = {
 };
 
 /** What each preset variable is called on the provider's own site, and where to find it. */
-export const VAULT_FIELD_LABELS: Record<string, { label: string | (() => string); where?: () => string; optional?: true }> = {
+export const VAULT_FIELD_LABELS: Record<string, { label: string | (() => string); where?: () => string; optional?: true; multiline?: true }> = {
     CLOUDFLARE_API_TOKEN: { label: 'API Token', where: () => t('resources.whereCfToken') },
     CLOUDFLARE_ACCOUNT_ID: { label: 'Account ID', where: () => t('resources.whereCfAccount'), optional: true },
     ALIYUN_ACCESS_KEY_ID: { label: 'AccessKey ID' },
@@ -69,6 +72,18 @@ export const VAULT_FIELD_LABELS: Record<string, { label: string | (() => string)
     IMAP_PORT: { label: () => t('resources.fieldImapPort'), optional: true },
     GOOGLE_SERVICE_ACCOUNT: { label: () => t('resources.fieldGoogleKey'), where: () => t('resources.whereGoogleKey') },
     GA_PROPERTY_ID: { label: () => t('resources.fieldGaProperty'), where: () => t('resources.whereGaProperty'), optional: true },
+    GOOGLE_CLIENT_ID: { label: () => t('resources.fieldGoogleClientId'), where: () => t('resources.whereGoogleClientId') },
+    GOOGLE_CLIENT_SECRET: { label: () => t('resources.fieldGoogleClientSecret'), where: () => t('resources.whereGoogleClientSecret') },
+    GOOGLE_IOS_CLIENT_ID: { label: () => t('resources.fieldGoogleIosClientId'), where: () => t('resources.whereGoogleIosClientId'), optional: true },
+    GOOGLE_ANDROID_CLIENT_ID: { label: () => t('resources.fieldGoogleAndroidClientId'), where: () => t('resources.whereGoogleAndroidClientId'), optional: true },
+    APPLE_TEAM_ID: { label: 'Team ID', where: () => t('resources.whereAppleTeamId') },
+    APPLE_KEY_ID: { label: 'Key ID', where: () => t('resources.whereAppleKeyId') },
+    APPLE_SERVICES_ID: { label: () => t('resources.fieldAppleServicesId'), where: () => t('resources.whereAppleServicesId'), optional: true },
+    APPLE_BUNDLE_ID: { label: () => t('resources.fieldAppleBundleId'), where: () => t('resources.whereAppleBundleId'), optional: true },
+    APPLE_PRIVATE_KEY: { label: () => t('resources.fieldApplePrivateKey'), where: () => t('resources.whereApplePrivateKey'), multiline: true },
+    FACEBOOK_APP_ID: { label: 'App ID', where: () => t('resources.whereFacebookAppId') },
+    FACEBOOK_APP_SECRET: { label: 'App Secret', where: () => t('resources.whereFacebookAppSecret') },
+    FACEBOOK_CLIENT_TOKEN: { label: 'Client Token', where: () => t('resources.whereFacebookClientToken'), optional: true },
 };
 
 /** What a variable is called on screen: the provider's own name for it, or the variable itself. */
@@ -152,6 +167,10 @@ export type VaultPasteGuess = { kind: VaultKeyKind; as: 'secret' | 'id' | 'priva
 export function detectVaultPaste(raw: string): VaultPasteGuess | null {
     const value = raw.trim();
     if (parseGoogleServiceAccount(value)) return { kind: 'google', as: 'serviceAccount' };
+    if (/^GOCSPX-[\w-]{20,}$/.test(value)) return { kind: 'google-login', as: 'secret' };
+    if (/^[\w-]+\.apps\.googleusercontent\.com$/.test(value)) return { kind: 'google-login', as: 'id' };
+    // Apple's .p8 is a short PKCS#8 EC key; server keys are longer or say OPENSSH / RSA.
+    if (/^-----BEGIN PRIVATE KEY-----[\s\S]{1,400}-----END PRIVATE KEY-----$/.test(value)) return { kind: 'apple-login', as: 'privateKey' };
     if (parseMailSettings(value)) return { kind: 'email', as: 'settings' };
     if (/^-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(value)) return { kind: 'ssh', as: 'privateKey' };
     if (/^(ghp_|gho_|ghs_|github_pat_)\w{20,}$/.test(value)) return { kind: 'github', as: 'secret' };
@@ -171,7 +190,7 @@ export function parseSshAddress(value: string): { user: string; host: string; po
 
 /** A command name that is free: from the key's name when it has latin letters, else from its type. */
 export function vaultAutoSlug(name: string, kind: VaultKeyKind, taken: string[]): string {
-    const fallback: Record<VaultKeyKind, string> = { cloudflare: 'cloudflare', aliyun: 'aliyun', github: 'github', npm: 'npm', ssh: 'server', email: 'mail', google: 'google', custom: 'secret' };
+    const fallback: Record<VaultKeyKind, string> = { cloudflare: 'cloudflare', aliyun: 'aliyun', github: 'github', npm: 'npm', ssh: 'server', email: 'mail', google: 'google', 'google-login': 'google-login', 'apple-login': 'apple-login', 'facebook-login': 'facebook-login', custom: 'secret' };
     const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 28) || fallback[kind];
     let slug = base;
     for (let i = 2; taken.includes(slug); i++) slug = `${base}-${i}`;
@@ -189,6 +208,9 @@ export function vaultSay(key: Pick<VaultKey, 'kind' | 'name'>): string {
         ssh: t('resources.saySsh', { name }),
         email: t('resources.sayEmail', { name }),
         google: t('resources.sayGoogle', { name }),
+        'google-login': t('resources.sayOauth', { name }),
+        'apple-login': t('resources.sayOauth', { name }),
+        'facebook-login': t('resources.sayOauth', { name }),
         custom: t('resources.sayCustom', { name }),
     }[key.kind];
 }

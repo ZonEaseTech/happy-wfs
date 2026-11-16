@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { VAULT_KIND_PRESETS, VAULT_MIN_CLI_VERSION, VaultKeyKindSchema, parseGoogleServiceAccount, vaultKindMinCliVersion, type VaultKey, type VaultKeyKind } from 'happy-wire';
+import { VAULT_KIND_PRESETS, VAULT_MIN_CLI_VERSION, VaultKeyKindSchema, parseGoogleServiceAccount, vaultKindMinCliVersion, vaultNormalizePem, type VaultKey, type VaultKeyKind } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { VaultChip, VaultKeyIcon, vaultKindLabel } from '@/components/VaultSections';
 import { Typography } from '@/constants/Typography';
@@ -24,6 +24,8 @@ const guessText = (guess: VaultPasteGuess): string => (
             : guess.kind === 'aliyun' ? t('resources.guessAliyun')
                 : guess.kind === 'email' ? t('resources.guessMailSettings')
                 : guess.kind === 'google' ? t('resources.guessGoogle')
+                : guess.kind === 'google-login' ? t('resources.guessGoogleClient')
+                : guess.kind === 'apple-login' ? t('resources.guessAppleKey')
                     : guess.as === 'privateKey' ? t('resources.guessPrivateKey') : t('resources.guessAddress')
 );
 
@@ -106,7 +108,10 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
             return;
         }
         const env = VAULT_KIND_PRESETS[next].env;
-        const target = next === 'aliyun' && pasted?.as !== 'id' ? env[1].name : next === 'custom' ? 'value' : env[0].name;
+        const target = next === 'aliyun' && pasted?.as !== 'id' ? env[1].name
+            : next === 'google-login' && pasted?.as === 'secret' ? 'GOOGLE_CLIENT_SECRET'
+                : next === 'apple-login' && pasted?.as === 'privateKey' ? 'APPLE_PRIVATE_KEY'
+                    : next === 'custom' ? 'value' : env[0].name;
         setValues(value ? { [target]: value } : {});
         setName(uniqueName(vaultKindLabel(next)));
     };
@@ -147,8 +152,9 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
             if (kind === 'email' && !(values.SMTP_HOST ?? '').trim()) throw new Error(t('resources.mailProviderRequired'));
             if (kind === 'google' && !parseGoogleServiceAccount((values.GOOGLE_SERVICE_ACCOUNT ?? '').trim())) throw new Error(t('resources.googleKeyInvalid'));
             if (kind === 'google' && !/^\d*$/.test((values.GA_PROPERTY_ID ?? '').trim())) throw new Error(t('resources.gaPropertyInvalid'));
+            if (kind === 'apple-login' && !(values.APPLE_SERVICES_ID ?? '').trim() && !(values.APPLE_BUNDLE_ID ?? '').trim()) throw new Error(t('resources.appleClientRequired'));
             // Optional plain values that were left empty are not injected at all.
-            env = preset.env.map((v) => ({ name: v.name, value: (values[v.name] ?? '').trim(), secret: v.secret })).filter((v) => v.value || !FIELD_LABELS[v.name]?.optional);
+            env = preset.env.map((v) => ({ name: v.name, value: vaultNormalizePem((values[v.name] ?? '').trim()), secret: v.secret })).filter((v) => v.value || !FIELD_LABELS[v.name]?.optional);
             if (env.some((v) => !v.value)) throw new Error(t('resources.secretRequired'));
         }
         const key: VaultKey = {
@@ -190,9 +196,11 @@ export const VaultAddKeyModal = React.memo(({ onClose, kind: initialKind, onSave
                     value: values[v.name] ?? '',
                     onChangeText: (value) => setValues((current) => ({ ...current, [v.name]: value })),
                     secureTextEntry: v.secret,
-                    placeholder: v.secret ? t('resources.secretPlaceholder') : field?.optional ? t('resources.optionalPlaceholder') : '',
+                    placeholder: field?.multiline ? '-----BEGIN PRIVATE KEY-----' : v.secret ? t('resources.secretPlaceholder') : field?.optional ? t('resources.optionalPlaceholder') : '',
                     autoFocus: !values[v.name] && preset.find((other) => !values[other.name])?.name === v.name,
-                    mono: !v.secret,
+                    mono: !v.secret || field?.multiline,
+                    // A private key keeps its line breaks in a multi-line field; a password field would drop them.
+                    ...(field?.multiline ? { secureTextEntry: false, multiline: true, style: { height: 90, paddingTop: 8, textAlignVertical: 'top' as const } } : {}),
                 })}
             </React.Fragment>
         );
