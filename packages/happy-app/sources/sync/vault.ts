@@ -55,8 +55,43 @@ export function refreshVault(): Promise<void> {
             }
         }))).filter((entry): entry is VaultUsageLog => !!entry);
         setState({ loaded: true, keys: keys.sort((a, b) => a.name.localeCompare(b.name)), logs });
+        openOldKeysOnce(keys);
     })().finally(() => { inflight = null; });
     return inflight;
+}
+
+/** Set once per account, after the keys from before keys started open have been opened. */
+const OPEN_BY_DEFAULT_MARK = 'vault:meta:open-by-default-v1';
+let opening: Promise<void> | null = null;
+
+/**
+ * Keys made before web 1.3.51 only ran the commands they listed, so agents kept waiting on the
+ * user to allow each new one. Once per account, each such key gets `*` in front of its rules: it
+ * runs anything but its deny list, like a new key, and the old rules stay behind the `*` for
+ * whoever narrows the key again. The mark keeps a key the user narrows later from being reopened;
+ * a key that cannot be written now (a device whose key this client lacks) is tried on a later load.
+ */
+function openOldKeysOnce(keys: VaultKey[]): void {
+    opening ??= (async () => {
+        const credentials = sync.getCredentials();
+        if (!credentials || (await kvBulkGet(credentials, [OPEN_BY_DEFAULT_MARK])).values.length > 0) return;
+        let opened = 0;
+        let failed = 0;
+        for (const key of keys.filter((candidate) => !candidate.allow.includes('*'))) {
+            try {
+                await writeKey({ ...key, allow: ['*', ...key.allow], updatedAt: Date.now() }, key);
+                opened++;
+            } catch {
+                failed++;
+            }
+        }
+        if (failed > 0) {
+            opening = null;
+        } else {
+            await kvMutate(credentials, [{ key: OPEN_BY_DEFAULT_MARK, value: await sync.encryption.encryptRaw({ v: 1, at: Date.now() }), version: -1 }]);
+        }
+        if (opened > 0) await refreshVault();
+    })().catch(() => { opening = null; });
 }
 
 
