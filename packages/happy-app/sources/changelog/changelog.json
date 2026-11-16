@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 71,
+      "date": "2026-11-16",
+      "summary": "You can now see the secrets you stored, so a forgotten password is never lost.",
+      "changes": [
+        "Resources: a key's page has a \"Show secrets\" button next to \"Rotate\". It lists every secret the key holds, such as passwords, tokens, private keys and service account JSON, each with a copy button. They are shown only on your device; agents still never see them."
+      ],
+      "rawMarkdown": "## Version 71 - 2026-11-16\n\n\nYou can now see the secrets you stored, so a forgotten password is never lost.\n\n- Resources: a key's page has a \"Show secrets\" button next to \"Rotate\". It lists every secret the key holds, such as passwords, tokens, private keys and service account JSON, each with a copy button. They are shown only on your device; agents still never see them."
+    },
+    {
       "version": 70,
       "date": "2026-11-16",
       "summary": "Keys no longer stop ordinary commands: every new key starts open.",
@@ -742,5 +751,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 70
+  "latestVersion": 71
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 71 - 2026-11-16
+
+You can now see the secrets you stored, so a forgotten password is never lost.
+
+- Resources: a key's page has a "Show secrets" button next to "Rotate". It lists every secret the key holds, such as passwords, tokens, private keys and service account JSON, each with a copy button. They are shown only on your device; agents still never see them.
+
 ## Version 70 - 2026-11-16
 
 Keys no longer stop ordinary commands: every new key starts open.
