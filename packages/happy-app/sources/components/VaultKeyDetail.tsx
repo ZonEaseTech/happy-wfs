@@ -5,6 +5,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { vaultKeyDevices, vaultKindMinCliVersion, type VaultKey } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
+import { openVaultSecrets } from '@/components/VaultSecretsModal';
 import { showCopiedToast } from '@/components/Toast';
 import { VaultChip, VaultKeyIcon, vaultMachineName } from '@/components/VaultSections';
 import { Typography } from '@/constants/Typography';
@@ -149,6 +150,7 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
                         {devicesText} · {lastUse ? t('resources.lastUsed', { when: formatLastSeen(lastUse.at) }) : t('resources.neverUsed')}
                     </Text>
                 </View>
+                <Pressable onPress={() => openVaultSecrets(key)} style={styles.headerButton}><Text style={styles.headerButtonText}>{t('resources.viewSecrets')}</Text></Pressable>
                 <Pressable onPress={rotate} disabled={rotating} style={styles.headerButton}><Text style={styles.headerButtonText}>{t('resources.rotate')}</Text></Pressable>
                 <Pressable onPress={() => setMenu(true)} style={styles.headerButton} accessibilityLabel={t('resources.more')}><Text style={styles.headerButtonText}>⋯</Text></Pressable>
             </View>
