@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 72 - 2026-11-16
+
+Keys you made before now run any command too, without you allowing them one by one.
+
+- Resources: keys made before keys started open only ran the commands they listed, so agents kept stopping to ask. Opening Happy once now switches each of them to "Any command" (their deny lists still apply), once per account. Turn "Any command" off on a key to go back to its old list; it stays off.
+
 ## Version 71 - 2026-11-16
 
 You can now see the secrets you stored, so a forgotten password is never lost.
