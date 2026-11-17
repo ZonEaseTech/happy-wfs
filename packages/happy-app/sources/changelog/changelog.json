@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": 77,
+      "date": "2026-11-17",
+      "summary": "The key list in the resource center stays tidy as it grows.",
+      "changes": [
+        "Resources: keys are listed by what they are for (cloud and domains, servers, code and publishing, mail, sign-in, other), and a row of tabs above the list shows one group alone. The groups come from each key's type, so there is nothing to file by hand; with keys of a single type, neither tabs nor group names appear.",
+        "Resources: a row is one line, the key's name. A second line appears only on a key whose commands were narrowed down, instead of \"any command\" on every row, and the dot at the end of each row is gone. Keys of the \"other\" type show the first character of their name instead of all sharing one key icon.",
+        "Resources: a long list scrolls inside its own card and the key you opened stays in view beside it, where both used to scroll away together. The \"Paste a key\" box under the list is gone; \"Add key\" at the top right does the same."
+      ],
+      "rawMarkdown": "## Version 77 - 2026-11-17\n\n\nThe key list in the resource center stays tidy as it grows.\n\n- Resources: keys are listed by what they are for (cloud and domains, servers, code and publishing, mail, sign-in, other), and a row of tabs above the list shows one group alone. The groups come from each key's type, so there is nothing to file by hand; with keys of a single type, neither tabs nor group names appear.\n- Resources: a row is one line, the key's name. A second line appears only on a key whose commands were narrowed down, instead of \"any command\" on every row, and the dot at the end of each row is gone. Keys of the \"other\" type show the first character of their name instead of all sharing one key icon.\n- Resources: a long list scrolls inside its own card and the key you opened stays in view beside it, where both used to scroll away together. The \"Paste a key\" box under the list is gone; \"Add key\" at the top right does the same."
+    },
+    {
       "version": 76,
       "date": "2026-11-17",
       "summary": "Talking into the message box through a phone keyboard's voice input no longer drops the page into an error screen.",
@@ -796,5 +807,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 76
+  "latestVersion": 77
 }

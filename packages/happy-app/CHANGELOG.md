@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 77 - 2026-11-17
+
+The key list in the resource center stays tidy as it grows.
+
+- Resources: keys are listed by what they are for (cloud and domains, servers, code and publishing, mail, sign-in, other), and a row of tabs above the list shows one group alone. The groups come from each key's type, so there is nothing to file by hand; with keys of a single type, neither tabs nor group names appear.
+- Resources: a row is one line, the key's name. A second line appears only on a key whose commands were narrowed down, instead of "any command" on every row, and the dot at the end of each row is gone. Keys of the "other" type show the first character of their name instead of all sharing one key icon.
+- Resources: a long list scrolls inside its own card and the key you opened stays in view beside it, where both used to scroll away together. The "Paste a key" box under the list is gone; "Add key" at the top right does the same.
+
 ## Version 76 - 2026-11-17
 
 Talking into the message box through a phone keyboard's voice input no longer drops the page into an error screen.
