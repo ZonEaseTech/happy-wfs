@@ -8,24 +8,33 @@ import { DeviceManagementView } from '@/components/DeviceManagementView';
 import { showToast } from '@/components/Toast';
 import { openVaultAddKey } from '@/components/VaultAddKeyModal';
 import { VaultKeyDetail } from '@/components/VaultKeyDetail';
-import { VaultKeyIcon, VaultUsageList, vaultKindLabel } from '@/components/VaultSections';
+import { VaultChip, VaultKeyIcon, VaultUsageList, vaultKindLabel } from '@/components/VaultSections';
 import { useDesktopRoute, useDesktopRoutes, useDrawerHeaderRight } from '@/components/desktopRoutes';
 import { layout } from '@/components/layout';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { useAllMachines } from '@/sync/storage';
 import { refreshVault, useVault } from '@/sync/vault';
-import { vaultCanDo, vaultSay } from '@/sync/vaultRules';
+import { vaultCanDo, vaultKeyGroups, vaultSay, type VaultKeyGroup } from '@/sync/vaultRules';
 
 type Tab = 'keys' | 'usage' | 'devices';
 
 /** Below this width the key list and a key's details no longer fit side by side. */
 const TWO_COLUMNS = 760;
-const RECENT = 7 * 24 * 3600 * 1000;
+
+const groupLabel = (group: VaultKeyGroup): string => ({
+    cloud: t('resources.groupCloud'),
+    servers: t('resources.groupServers'),
+    code: t('resources.groupCode'),
+    mail: t('resources.kindEmail'),
+    signIn: t('resources.groupSignIn'),
+    other: t('resources.groupOther'),
+})[group];
 
 /**
  * Resource center: keys on the left and the selected key on the right, with the usage log
  * and the device list one tab away. Narrow screens show the list and open a key on its own page.
+ * Keys are listed by what they are for, with a row of tabs above to show one group alone.
  */
 export const ResourceCenterView = React.memo(() => {
     const styles = stylesheet;
@@ -38,10 +47,18 @@ export const ResourceCenterView = React.memo(() => {
 
     const [tab, setTab] = React.useState<Tab>('keys');
     const [selected, setSelected] = React.useState<string | null>(null);
+    const [group, setGroup] = React.useState<VaultKeyGroup | null>(null);
     const [usageFilter, setUsageFilter] = React.useState<string | null>(null);
     const [width, setWidth] = React.useState(0);
-    const wide = width >= TWO_COLUMNS;
-    const current = vault.keys.find((key) => key.id === selected) ?? vault.keys[0];
+    // Side by side, each column scrolls on its own, which needs the fixed height a drawer does not give.
+    const wide = width >= TWO_COLUMNS && !isInDrawer;
+    const groups = React.useMemo(() => vaultKeyGroups(vault.keys), [vault.keys]);
+    // Keys of a single type need neither the tabs nor the group names.
+    const grouped = groups.length > 1;
+    const openGroup = grouped ? groups.find((entry) => entry.group === group) : undefined;
+    const sections = openGroup ? [openGroup] : groups;
+    const listed = sections.flatMap((entry) => entry.keys);
+    const current = listed.find((key) => key.id === selected) ?? listed[0];
     // Drawers already scroll their content; a nested scroll view would collapse to zero height there.
     const scroll = (style: object, children: React.ReactNode, contentStyle?: object) => (isInDrawer
         ? <View style={[style, contentStyle]}>{children}</View>
@@ -50,6 +67,7 @@ export const ResourceCenterView = React.memo(() => {
     const addKey = React.useCallback((kind?: VaultKeyKind) => {
         openVaultAddKey(kind, (key) => {
             setTab('keys');
+            setGroup(null);
             setSelected(key.id);
             showToast(t('resources.savedToast', { say: vaultSay(key) }));
         });
@@ -67,27 +85,36 @@ export const ResourceCenterView = React.memo(() => {
         else open(`/devices/key?id=${key.id}`, { title: key.name });
     };
 
-    const list = (
-        <>
-            {vault.keys.map((key) => {
-                const lastOk = vault.logs.find((entry) => entry.keyId === key.id && entry.outcome !== 'denied');
+    const groupTabs = grouped && (
+        <View style={styles.groupTabs}>
+            <VaultChip label={t('resources.filterAll', { count: vault.keys.length })} selected={!openGroup} onPress={() => setGroup(null)} />
+            {groups.map((entry) => (
+                <VaultChip key={entry.group} label={`${groupLabel(entry.group)} ${entry.keys.length}`} selected={entry === openGroup} onPress={() => setGroup(entry.group)} />
+            ))}
+        </View>
+    );
+
+    const list = sections.map((entry) => (
+        <React.Fragment key={entry.group}>
+            {grouped && !openGroup && (
+                <Text style={styles.groupTitle}>{groupLabel(entry.group)}<Text style={styles.groupCount}>{`  ${entry.keys.length}`}</Text></Text>
+            )}
+            {entry.keys.map((key) => {
                 const active = wide && current?.id === key.id;
+                // Any command is what every key starts with; only a key that was narrowed down says so.
+                const anyCommand = key.allow.includes('*') && key.deny.length === 0;
                 return (
                     <Pressable key={key.id} onPress={() => openKey(key)} style={({ pressed }) => [styles.item, active && styles.itemActive, pressed && !active && styles.itemPressed]}>
-                        <VaultKeyIcon kind={key.kind} />
+                        <VaultKeyIcon kind={key.kind} name={key.name} size={28} />
                         <View style={{ flex: 1, minWidth: 0 }}>
                             <Text style={styles.itemName} numberOfLines={1}>{key.name}</Text>
-                            <Text style={styles.itemSub} numberOfLines={1}>{vaultCanDo(key)}</Text>
+                            {!anyCommand && <Text style={styles.itemSub} numberOfLines={1}>{vaultCanDo(key)}</Text>}
                         </View>
-                        <View style={[styles.dot, { backgroundColor: lastOk && Date.now() - lastOk.at < RECENT ? '#34C759' : theme.colors.divider }]} />
                     </Pressable>
                 );
             })}
-            <Pressable onPress={() => addKey()} style={styles.pasteRow}>
-                <Text style={styles.pasteRowText}>＋ {t('resources.pasteAKey')}</Text>
-            </Pressable>
-        </>
-    );
+        </React.Fragment>
+    ));
 
     const welcome = (
         <View style={styles.welcome}>
@@ -117,20 +144,34 @@ export const ResourceCenterView = React.memo(() => {
     } else if (vault.keys.length === 0) {
         body = scroll(styles.fill, <View style={styles.frame}>{welcome}</View>);
     } else if (wide && current) {
-        body = scroll(styles.fill, (
-            <View style={[styles.frame, styles.columns]}>
-                <View style={[styles.card, styles.listCard]}>{list}</View>
-                <View style={[styles.card, styles.detailCard]}>
-                    <VaultKeyDetail
-                        keyId={current.id}
-                        onShowUsage={() => { setUsageFilter(current.id); setTab('usage'); }}
-                        onDeleted={() => setSelected(null)}
-                    />
+        // The list scrolls inside its card and the details scroll beside it, so a long list
+        // never carries the open key off screen.
+        body = (
+            <View style={styles.fill}>
+                <View style={styles.frame}>{groupTabs}</View>
+                <View style={[styles.frame, styles.columns, styles.fill]}>
+                    <View style={[styles.card, styles.listCard]}>
+                        <ScrollView contentContainerStyle={styles.listContent}>{list}</ScrollView>
+                    </View>
+                    <ScrollView style={styles.detailScroll} keyboardShouldPersistTaps="handled">
+                        <View style={styles.card}>
+                            <VaultKeyDetail
+                                keyId={current.id}
+                                onShowUsage={() => { setUsageFilter(current.id); setTab('usage'); }}
+                                onDeleted={() => setSelected(null)}
+                            />
+                        </View>
+                    </ScrollView>
                 </View>
             </View>
-        ));
+        );
     } else {
-        body = scroll(styles.fill, <View style={[styles.frame, styles.columns]}><View style={[styles.card, styles.fill]}>{list}</View></View>);
+        body = scroll(styles.fill, (
+            <View style={styles.frame}>
+                {groupTabs}
+                <View style={styles.columns}><View style={[styles.card, styles.fill]}>{list}</View></View>
+            </View>
+        ));
     }
 
     const tabs: [Tab, string, number][] = [
@@ -179,13 +220,35 @@ const stylesheet = StyleSheet.create((theme) => ({
         overflow: 'hidden',
     },
     listCard: {
-        width: 280,
+        width: 300,
+        maxHeight: '100%',
+    },
+    listContent: {
         padding: 6,
         gap: 2,
     },
-    detailCard: {
+    detailScroll: {
         flex: 1,
         minWidth: 0,
+        alignSelf: 'stretch',
+    },
+    groupTabs: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+    },
+    groupTitle: {
+        ...Typography.default('semiBold'),
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        paddingHorizontal: 10,
+        paddingTop: 10,
+        paddingBottom: 4,
+    },
+    groupCount: {
+        ...Typography.default(),
     },
     tabsBar: {
         backgroundColor: theme.colors.surface,
@@ -234,7 +297,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
-        padding: 10,
+        minHeight: 40,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
         borderRadius: 10,
     },
     itemActive: {
@@ -250,27 +315,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     itemSub: {
         ...Typography.default(),
-        fontSize: 12.5,
-        color: theme.colors.textSecondary,
-    },
-    dot: {
-        width: 7,
-        height: 7,
-        borderRadius: 4,
-    },
-    pasteRow: {
-        margin: 4,
-        marginTop: 6,
-        padding: 10,
-        borderRadius: 10,
-        borderWidth: 1.5,
-        borderStyle: 'dashed',
-        borderColor: theme.colors.divider,
-        alignItems: 'center',
-    },
-    pasteRowText: {
-        ...Typography.default(),
-        fontSize: 13.5,
+        fontSize: 12,
         color: theme.colors.textSecondary,
     },
     welcome: {

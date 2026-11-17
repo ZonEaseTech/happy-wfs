@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { VAULT_KIND_PRESETS, VaultKeyKindSchema } from 'happy-wire';
+import { VAULT_KIND_PRESETS, VaultKeyKindSchema, type VaultKeyKind } from 'happy-wire';
 
 vi.mock('@/text', () => ({ t: (key: string, params?: object) => (params ? `${key} ${JSON.stringify(params)}` : key) }));
-import { VAULT_RULE_OPTIONS, detectVaultPaste, matchMailProvider, parseMailSettings, parseSshAddress, vaultAutoSlug, vaultCanDo } from './vaultRules';
+import { VAULT_RULE_OPTIONS, detectVaultPaste, matchMailProvider, parseMailSettings, parseSshAddress, vaultAutoSlug, vaultCanDo, vaultKeyGroups } from './vaultRules';
 
 // Lark's "IMAP/SMTP" page as the user pasted it: each label on its own line, the value under it.
 const LARK = `SMTP 地址
@@ -106,5 +106,25 @@ describe('rule options', () => {
     it('summarise any-command keys by how many things they refuse', () => {
         expect(vaultCanDo({ kind: 'ssh', allow: ['*'], deny: ['a', 'b'] })).toMatch(/2/);
         expect(vaultCanDo({ kind: 'custom', allow: [], deny: [] })).not.toBe('');
+    });
+});
+
+describe('vaultKeyGroups', () => {
+    const key = (kind: VaultKeyKind, name: string) => ({ kind, name });
+
+    it('lists keys by what they are for, in a fixed order, without the groups that have none', () => {
+        const groups = vaultKeyGroups([key('custom', 'ops'), key('github', 'GitHub'), key('aliyun', 'DNS'), key('custom', 'mail'), key('cloudflare', 'CF'), key('apple-login', 'Apple')]);
+        expect(groups.map((entry) => [entry.group, entry.keys.map((k) => k.name)])).toEqual([
+            ['cloud', ['DNS', 'CF']],
+            ['code', ['GitHub']],
+            ['signIn', ['Apple']],
+            ['other', ['ops', 'mail']],
+        ]);
+    });
+
+    it('has a group for every kind of key', () => {
+        const all = VaultKeyKindSchema.options.map((kind) => key(kind, kind));
+        expect(vaultKeyGroups(all).flatMap((entry) => entry.keys)).toHaveLength(all.length);
+        expect(vaultKeyGroups([])).toEqual([]);
     });
 });

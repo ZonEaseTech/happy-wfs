@@ -143,7 +143,7 @@ export const VaultKeyDetail = React.memo(({ keyId, onShowUsage, onDeleted }: { k
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <VaultKeyIcon kind={key.kind} size={44} />
+                <VaultKeyIcon kind={key.kind} name={key.name} size={44} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.name} numberOfLines={1}>{key.name}</Text>
                     <Text style={styles.sub} numberOfLines={1}>

@@ -167,6 +167,31 @@ export function vaultCanDo(key: Pick<VaultKey, 'kind' | 'allow' | 'deny'>): stri
     return `${named.join(t('resources.listSeparator'))} ${t('resources.plusCustom', { count: custom })}`;
 }
 
+/** The resource center lists keys by what they are for, in this order. */
+export const VAULT_KEY_GROUPS = ['cloud', 'servers', 'code', 'mail', 'signIn', 'other'] as const;
+export type VaultKeyGroup = typeof VAULT_KEY_GROUPS[number];
+
+const KIND_GROUP: Record<VaultKeyKind, VaultKeyGroup> = {
+    cloudflare: 'cloud',
+    aliyun: 'cloud',
+    google: 'cloud',
+    ssh: 'servers',
+    github: 'code',
+    npm: 'code',
+    email: 'mail',
+    'google-login': 'signIn',
+    'apple-login': 'signIn',
+    'facebook-login': 'signIn',
+    custom: 'other',
+};
+
+/** Keys sorted into their groups, keeping the order they came in; groups without keys are left out. */
+export function vaultKeyGroups<T extends Pick<VaultKey, 'kind'>>(keys: T[]): { group: VaultKeyGroup; keys: T[] }[] {
+    return VAULT_KEY_GROUPS
+        .map((group) => ({ group, keys: keys.filter((key) => KIND_GROUP[key.kind] === group) }))
+        .filter((entry) => entry.keys.length > 0);
+}
+
 /**
  * What a pasted value most likely is. Only formats with a fixed shape are
  * recognised; everything else (a Cloudflare token, a password) returns null

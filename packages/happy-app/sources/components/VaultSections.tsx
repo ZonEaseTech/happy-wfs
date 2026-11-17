@@ -50,14 +50,21 @@ const KIND_TILES: Record<VaultKeyKind, { fg: string; bg: string; bgDark: string;
     custom: { fg: '#7C3AED', bg: '#F1EBFE', bgDark: 'rgba(124,58,237,0.22)', icon: 'key-outline' },
 };
 
-export function VaultKeyIcon({ kind, size = 32 }: { kind: VaultKeyKind; size?: number }) {
+/**
+ * With `name`, a key of the catch-all type shows the first character of its name instead of the
+ * shared key glyph: most keys agents set up are of that type, and a list of them looked all alike.
+ */
+export function VaultKeyIcon({ kind, size = 32, name }: { kind: VaultKeyKind; size?: number; name?: string }) {
     const { theme } = useUnistyles();
     const tile = KIND_TILES[kind];
+    const initial = kind === 'custom' ? Array.from(name?.trim() ?? '')[0]?.toLocaleUpperCase() : undefined;
     return (
         <View style={{ width: size, height: size, borderRadius: size / 4, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.dark ? tile.bgDark : tile.bg }}>
-            {tile.icon
-                ? <Ionicons name={tile.icon} size={size * 0.53} color={tile.fg} />
-                : <Text style={{ ...Typography.default('semiBold'), fontSize: size * 0.38, color: tile.fg }}>{tile.mark}</Text>}
+            {initial
+                ? <Text style={{ ...Typography.default('semiBold'), fontSize: size * 0.46, color: tile.fg }}>{initial}</Text>
+                : tile.icon
+                    ? <Ionicons name={tile.icon} size={size * 0.53} color={tile.fg} />
+                    : <Text style={{ ...Typography.default('semiBold'), fontSize: size * 0.38, color: tile.fg }}>{tile.mark}</Text>}
         </View>
     );
 }
