@@ -5,16 +5,16 @@ import { shutdownSignal } from "@/utils/shutdown";
 import { buildMachineActivityEphemeral, buildSessionActivityEphemeral, eventRouter } from "@/app/events/eventRouter";
 import { onSessionCompleted } from "@/app/notifications/notifier";
 
-const SESSION_TIMEOUT_MS = 1000 * 60 * 60 * 3;
+const SESSION_TIMEOUT_MS = 1000 * 60 * 60 * 24;
 
 export function startTimeout() {
     forever('session-timeout', async () => {
         // Find timed out sessions. A CLI that exits cleanly sends session-end
         // and goes inactive at once; this sweep only catches the ones that
-        // vanished. Give those three hours: a machine that drops off the
-        // network or stalls under IO for a while must not land its sessions
-        // in the archived tab, and a heartbeat after reconnect brings them
-        // back (sessionCache) without anyone pressing resume.
+        // vanished. Give those 24 hours: a machine that drops off the network
+        // or stalls under IO, even overnight, must not land its sessions in
+        // the archived tab, and a heartbeat after reconnect brings them back
+        // (sessionCache) without anyone pressing resume.
         const sessions = await db.session.findMany({
             where: {
                 active: true,
