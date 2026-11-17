@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 75,
+      "date": "2026-11-17",
+      "summary": "Sessions on a machine that went quiet now wait a day, not three hours, before moving to the archived tab.",
+      "changes": [
+        "Sessions: a session whose machine lost its connection, stalled under load or went to sleep now stays in the active tab for up to 24 hours instead of three, so one left overnight is still there in the morning and carries on by itself once the machine reconnects. Sessions you end yourself still archive right away."
+      ],
+      "rawMarkdown": "## Version 75 - 2026-11-17\n\n\nSessions on a machine that went quiet now wait a day, not three hours, before moving to the archived tab.\n\n- Sessions: a session whose machine lost its connection, stalled under load or went to sleep now stays in the active tab for up to 24 hours instead of three, so one left overnight is still there in the morning and carries on by itself once the machine reconnects. Sessions you end yourself still archive right away."
+    },
+    {
       "version": 74,
       "date": "2026-11-16",
       "summary": "Codex and Gemini sessions now hear when Happy's instructions change, too.",
@@ -778,5 +787,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 74
+  "latestVersion": 75
 }

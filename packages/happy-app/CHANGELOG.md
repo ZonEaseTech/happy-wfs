@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 75 - 2026-11-17
+
+Sessions on a machine that went quiet now wait a day, not three hours, before moving to the archived tab.
+
+- Sessions: a session whose machine lost its connection, stalled under load or went to sleep now stays in the active tab for up to 24 hours instead of three, so one left overnight is still there in the morning and carries on by itself once the machine reconnects. Sessions you end yourself still archive right away.
+
 ## Version 74 - 2026-11-16
 
 Codex and Gemini sessions now hear when Happy's instructions change, too.
