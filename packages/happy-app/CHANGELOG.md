@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 76 - 2026-11-17
+
+Talking into the message box through a phone keyboard's voice input no longer drops the page into an error screen.
+
+- Sessions: a phone keyboard's voice input (WeChat's, for one) rewrites the text dozens of times in a row as it hears more, and after some talking the page switched to a black "Something went wrong" screen. Every edit saved the draft into the app's shared state, which redrew the session list behind the chat, and left one more redraw of the message box queued; a long enough burst crossed React's limit on updates in a row. Each edit now costs a single redraw. Drafts are still saved when you pause and when you leave the session.
+
 ## Version 75 - 2026-11-17
 
 Sessions on a machine that went quiet now wait a day, not three hours, before moving to the archived tab.

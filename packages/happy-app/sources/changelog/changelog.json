@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 76,
+      "date": "2026-11-17",
+      "summary": "Talking into the message box through a phone keyboard's voice input no longer drops the page into an error screen.",
+      "changes": [
+        "Sessions: a phone keyboard's voice input (WeChat's, for one) rewrites the text dozens of times in a row as it hears more, and after some talking the page switched to a black \"Something went wrong\" screen. Every edit saved the draft into the app's shared state, which redrew the session list behind the chat, and left one more redraw of the message box queued; a long enough burst crossed React's limit on updates in a row. Each edit now costs a single redraw. Drafts are still saved when you pause and when you leave the session."
+      ],
+      "rawMarkdown": "## Version 76 - 2026-11-17\n\n\nTalking into the message box through a phone keyboard's voice input no longer drops the page into an error screen.\n\n- Sessions: a phone keyboard's voice input (WeChat's, for one) rewrites the text dozens of times in a row as it hears more, and after some talking the page switched to a black \"Something went wrong\" screen. Every edit saved the draft into the app's shared state, which redrew the session list behind the chat, and left one more redraw of the message box queued; a long enough burst crossed React's limit on updates in a row. Each edit now costs a single redraw. Drafts are still saved when you pause and when you leave the session."
+    },
+    {
       "version": 75,
       "date": "2026-11-17",
       "summary": "Sessions on a machine that went quiet now wait a day, not three hours, before moving to the archived tab.",
@@ -787,5 +796,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 75
+  "latestVersion": 76
 }
