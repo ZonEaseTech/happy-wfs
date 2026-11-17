@@ -20,6 +20,9 @@ export function useDraft(
     const { autoSaveInterval = 2000 } = options;
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedRef = useRef<{ text: string; imageCount: number }>({ text: '', imageCount: 0 });
+    // What the unmount save below reads, so that effect does not re-run on every keystroke.
+    const latestRef = useRef({ value, images });
+    latestRef.current = { value, images };
     const isFocused = useIsFocused();
 
     // Save draft to storage
@@ -101,18 +104,22 @@ export function useDraft(
         return () => { subscription.remove(); };
     }, [sessionId, value, images, saveDraft]);
 
-    // Save on unmount
+    // Save on unmount. With the text among its dependencies, this cleanup ran on every keystroke
+    // and saved the previous text each time; every save rebuilds the session list, and a phone
+    // keyboard's voice input (dozens of edits in one burst) then crossed React's limit on
+    // nested updates, so the screen fell into the error page.
     useEffect(() => {
         return () => {
             if (sessionId) {
-                const hasTextChanged = value !== lastSavedRef.current.text;
-                const hasImagesChanged = images.length !== lastSavedRef.current.imageCount;
+                const { value: text, images: imgs } = latestRef.current;
+                const hasTextChanged = text !== lastSavedRef.current.text;
+                const hasImagesChanged = imgs.length !== lastSavedRef.current.imageCount;
                 if (hasTextChanged || hasImagesChanged) {
-                    saveDraft(value, images);
+                    saveDraft(text, imgs);
                 }
             }
         };
-    }, [sessionId, value, images, saveDraft]);
+    }, [sessionId, saveDraft]);
 
     // Clear draft (used after message is sent)
     const clearDraft = useCallback(() => {

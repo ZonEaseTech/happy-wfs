@@ -698,6 +698,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // to return the old text — which makes the send button show an arrow on an empty input and
     // allows re-sending the previous message.
     React.useEffect(() => {
+        // Typing has already set the same text through onStateChange. Calling setInputState
+        // anyway left a render pending after every keystroke (React cannot skip it right after
+        // an update), and the dozens of edits a phone keyboard's voice input makes in one burst
+        // stacked those up until React stopped with "Maximum update depth exceeded".
+        if (inputState.text === props.value) return;
         setInputState(prev => {
             if (prev.text !== props.value) {
                 return { ...prev, text: props.value };
