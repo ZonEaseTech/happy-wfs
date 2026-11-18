@@ -415,10 +415,12 @@ describe('cursor flavor', () => {
             'auto',
             'composer-2.5',
             'composer-2.5-fast',
+            'claude-fable-5-2-high',
             'claude-opus-5-5-high',
             'gpt-5.6-sol-high',
             'grok-4.7-high',
-            'gemini-3.8-flash-high',
+            'gemini-4-carbon-high',
+            'gemini-4-hydrogen-high',
         ]);
     });
 
@@ -427,11 +429,12 @@ describe('cursor flavor', () => {
         expect(currentCursorModelMode('cursor-grok-4.6-high')).toBe('grok-4.7-high');
         // Cursor refuses this id by now: sending it on would fail the turn.
         expect(resolveModelSelectionForFlavor('cursor', 'gemini-3.7-flash-high')).toEqual({
-            model: 'gemini-3.8-flash-high',
+            model: 'gemini-4-hydrogen-high',
             reasoningEffort: null,
         });
+        expect(currentCursorModelMode('gemini-3.8-flash-high')).toBe('gemini-4-hydrogen-high');
         // Still valid, so a stored session mode is not thrown away on the way in.
-        for (const retired of ['claude-opus-5-thinking-high', 'cursor-grok-4.6-high', 'gemini-3.7-flash-high', 'claude-sonnet-5-high']) {
+        for (const retired of ['claude-opus-5-thinking-high', 'cursor-grok-4.6-high', 'gemini-3.8-flash-high', 'gemini-3.7-flash-high', 'claude-sonnet-5-high']) {
             expect(isModelModeForAgent('cursor', retired)).toBe(true);
         }
         // Dropped from the picker without a successor: it stays what it was.

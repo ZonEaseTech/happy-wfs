@@ -221,6 +221,8 @@ export const MODEL_MODES = [
     'composer-2.5',
     'composer-2.5-fast',
     'grok-4.7-high',
+    'gemini-4-carbon-high',
+    'gemini-4-hydrogen-high',
     'gemini-3.8-flash-high',
     'cursor-grok-4.6-high',
     'gemini-3.7-flash-high',
@@ -352,22 +354,26 @@ export const GEMINI_MODEL_MODES = [
  * hundreds of model ids (it fronts Anthropic, OpenAI, Google, xAI, Moonshot and
  * Zhipu), so a full mirror would be unusable in a picker and stale within
  * weeks. The picker (CURSOR_MODEL_OPTIONS) offers the flagship rungs — Cursor's
- * own Composer, Auto (which routes for you), plus one strong option per vendor.
+ * own Composer, Auto (which routes for you), plus one strong option per vendor
+ * and, for Gemini, a fast one as well.
  */
 export const CURSOR_MODEL_MODES = [
     MODEL_MODE_DEFAULT,
     'auto',
     'composer-2.5',
     'composer-2.5-fast',
+    'claude-fable-5-2-high',
     'claude-opus-5-5-high',
     'gpt-5.6-sol-high',
     'grok-4.7-high',
-    'gemini-3.8-flash-high',
-    // No longer in the picker, still valid on a session pinned to them. The
-    // first three run as their successor (CURSOR_MODEL_SUCCESSORS); Sonnet 5
+    'gemini-4-carbon-high',
+    'gemini-4-hydrogen-high',
+    // No longer in the picker, still valid on a session pinned to them. All
+    // but Sonnet 5 run as their successor (CURSOR_MODEL_SUCCESSORS); Sonnet 5
     // was dropped without one and keeps running as it is.
     'claude-opus-5-thinking-high',
     'cursor-grok-4.6-high',
+    'gemini-3.8-flash-high',
     'gemini-3.7-flash-high',
     'claude-sonnet-5-high',
 ] as const satisfies readonly ModelMode[];
@@ -381,7 +387,8 @@ export const CURSOR_MODEL_MODES = [
 const CURSOR_MODEL_SUCCESSORS: Partial<Record<ModelMode, ModelMode>> = {
     'claude-opus-5-thinking-high': 'claude-opus-5-5-high',
     'cursor-grok-4.6-high': 'grok-4.7-high',
-    'gemini-3.7-flash-high': 'gemini-3.8-flash-high',
+    'gemini-3.8-flash-high': 'gemini-4-hydrogen-high',
+    'gemini-3.7-flash-high': 'gemini-4-hydrogen-high',
 };
 
 /** The mode a Cursor session runs with today: a replaced id gives its successor. */
@@ -599,10 +606,12 @@ export const CURSOR_MODEL_OPTIONS = [
     { value: 'auto', label: 'Auto (Cursor Router)', shortLabel: 'Auto', description: 'Cursor picks the model per request' },
     { value: 'composer-2.5', label: 'Composer 2.5', shortLabel: 'Composer', description: "Cursor's own model" },
     { value: 'composer-2.5-fast', label: 'Composer 2.5 Fast', shortLabel: 'Composer F', description: 'Faster, lower latency' },
+    { value: 'claude-fable-5-2-high', label: 'Claude Fable 5.2', shortLabel: 'Fable 5.2', description: 'Newest Claude, no zero data retention' },
     { value: 'claude-opus-5-5-high', label: 'Claude Opus 5.5', shortLabel: 'Opus 5.5', description: 'Strongest for execution' },
     { value: 'gpt-5.6-sol-high', label: 'GPT-5.6 Sol', shortLabel: 'Sol', description: 'Strong at planning' },
     { value: 'grok-4.7-high', label: 'Grok 4.7', shortLabel: 'Grok', description: 'Fast on routine work' },
-    { value: 'gemini-3.8-flash-high', label: 'Gemini 3.8 Flash', shortLabel: '3.8 Flash', description: 'Fast and cheap' },
+    { value: 'gemini-4-carbon-high', label: 'Gemini 4 Carbon', shortLabel: 'Carbon', description: 'Strongest Gemini' },
+    { value: 'gemini-4-hydrogen-high', label: 'Gemini 4 Hydrogen', shortLabel: 'Hydrogen', description: 'Fast and cheap' },
 ] as const;
 
 export const CODEX_MODEL_FAMILY_OPTIONS = [
