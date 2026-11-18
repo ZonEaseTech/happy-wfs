@@ -18,6 +18,12 @@ export interface UploadedSessionFile {
 
 export const CHAT_FILE_UPLOAD_ROOT = '.happy-ai/uploads';
 
+const PREVIEWABLE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+
+export function isPreviewableImageAttachment(file: Pick<LocalFileAttachment, 'mimeType'>): boolean {
+    return PREVIEWABLE_IMAGE_TYPES.has(file.mimeType?.toLowerCase() ?? '');
+}
+
 export function sanitizeChatUploadFileName(name: string): string {
     const basename = name.split(/[\\/]/).pop()?.trim() || 'file';
     const cleaned = basename

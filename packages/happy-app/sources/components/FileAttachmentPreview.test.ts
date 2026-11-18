@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildUploadedFilesText, formatFileSize, MAX_CHAT_FILE_BYTES } from '@/utils/fileAttachments';
+import {
+    buildUploadedFilesText,
+    formatFileSize,
+    isPreviewableImageAttachment,
+    MAX_CHAT_FILE_BYTES,
+} from '@/utils/fileAttachments';
 
 describe('fileAttachments', () => {
     it('formats bytes, kb and mb', () => {
@@ -8,6 +13,15 @@ describe('fileAttachments', () => {
         expect(formatFileSize(1536)).toBe('1.5 KB');
         expect(formatFileSize(10 * 1024)).toBe('10 KB');
         expect(formatFileSize(2.5 * 1024 * 1024)).toBe('2.5 MB');
+    });
+
+    it('shows only image types a browser can draw as thumbnails', () => {
+        for (const mimeType of ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'IMAGE/PNG']) {
+            expect(isPreviewableImageAttachment({ mimeType })).toBe(true);
+        }
+        for (const mimeType of ['image/heic', 'image/svg+xml', 'application/pdf', '', undefined]) {
+            expect(isPreviewableImageAttachment({ mimeType })).toBe(false);
+        }
     });
 
     it('keeps uploaded files as local paths for the CLI', () => {
