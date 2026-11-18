@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 78 - 2026-11-18
+
+Pasting an image works in Cursor sessions, and Cursor's model list is up to date.
+
+- Sessions: pasting an image into a Cursor session did nothing. It now arrives as a file attachment, the same way picking or dropping an image does, and Cursor reads it from there. In other sessions, an image pasted after the image limit is reached is attached as a file too instead of being lost.
+- Models: Cursor's list now offers Claude Opus 5.5, Grok 4.7 and Gemini 3.8 Flash in place of the older Claude Opus 5 Thinking, Grok 4.6 and Gemini 3.7 Flash. Claude Sonnet 5 is gone from the list. Sessions set to a replaced model move to its successor with your next message.
+
 ## Version 77 - 2026-11-17
 
 The key list in the resource center stays tidy as it grows.
