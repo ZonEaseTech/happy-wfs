@@ -56,6 +56,7 @@ import {
     getClaudeReasoningOptions,
     getCodexReasoningOptions,
     getMaxContextSize,
+    currentCursorModelMode,
     isModelModeForAgent,
     MODEL_MODE_DEFAULT,
     parseClaudeModelMode,
@@ -502,6 +503,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isGemini = effectiveAgentType === 'gemini';
     const isClaude = effectiveAgentType === 'claude';
     const isCursor = effectiveAgentType === 'cursor';
+    // A Cursor session pinned to a replaced model runs on its successor; the picker shows that one.
+    const shownModelMode = isCursor ? currentCursorModelMode(selectedModelMode) : selectedModelMode;
     const codexSelection = React.useMemo<{ family: CodexModelFamily; effort: CodexReasoningEffort }>(() => {
         return parseCodexModelMode(selectedModelMode);
     }, [selectedModelMode]);
@@ -562,8 +565,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             const parts = [is1m ? '1M' : '', claudeReasoningOptions.find(o => o.value === claudeSelection.effort)?.label ?? ''].filter(Boolean);
             return base + (parts.length > 0 ? ` (${parts.join(', ')})` : '');
         }
-        return modelOptions.find(o => o.value === selectedModelMode)?.shortLabel ?? '';
-    }, [isCodex, isClaude, codexFamilyOptions, codexSelection, codexReasoningOptions, claudeFamilyOptions, claudeSelection, claudeReasoningOptions, modelOptions, selectedModelMode]);
+        // A Cursor model the picker no longer lists is named by its id rather than left blank.
+        return modelOptions.find(o => o.value === shownModelMode)?.shortLabel ?? (isCursor ? shownModelMode : '');
+    }, [isCodex, isClaude, isCursor, codexFamilyOptions, codexSelection, codexReasoningOptions, claudeFamilyOptions, claudeSelection, claudeReasoningOptions, modelOptions, shownModelMode]);
 
     // Profile data
     const profiles = useSetting('profiles');
@@ -1457,7 +1461,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             )}
                                         </>
                                     ) : (
-                                        renderRadioOptions(modelOptions, selectedModelMode, (v) => props.onModelModeChange?.(v))
+                                        renderRadioOptions(modelOptions, shownModelMode as ModelMode, (v) => props.onModelModeChange?.(v))
                                     )}
                                 </View>}
 

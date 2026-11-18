@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    currentCursorModelMode,
     buildClaudeModelMode,
     buildCodexModelMode,
     CODEX_MODEL_FAMILY_OPTIONS,
@@ -399,7 +400,7 @@ describe('cursor flavor', () => {
         expect(isModelModeForAgent('cursor', 'not-a-model')).toBe(false);
     });
 
-    it('offers the curated list, not all 161 Cursor ids', () => {
+    it('offers the curated list, not all of Cursor\'s ids', () => {
         expect(getValidModelModesForAgent('cursor')).toBe(CURSOR_MODEL_MODES);
         expect(CURSOR_MODEL_MODES.length).toBeLessThan(20);
         // Every picker option must be a mode the validator accepts.
@@ -408,13 +409,46 @@ describe('cursor flavor', () => {
         }
     });
 
+    it('offers the newest rung of each vendor and no Sonnet', () => {
+        expect(CURSOR_MODEL_OPTIONS.map(o => o.value)).toEqual([
+            'default',
+            'auto',
+            'composer-2.5',
+            'composer-2.5-fast',
+            'claude-opus-5-5-high',
+            'gpt-5.6-sol-high',
+            'grok-4.7-high',
+            'gemini-3.8-flash-high',
+        ]);
+    });
+
+    it('runs a session pinned to a replaced id on its successor', () => {
+        expect(currentCursorModelMode('claude-opus-5-thinking-high')).toBe('claude-opus-5-5-high');
+        expect(currentCursorModelMode('cursor-grok-4.6-high')).toBe('grok-4.7-high');
+        // Cursor refuses this id by now: sending it on would fail the turn.
+        expect(resolveModelSelectionForFlavor('cursor', 'gemini-3.7-flash-high')).toEqual({
+            model: 'gemini-3.8-flash-high',
+            reasoningEffort: null,
+        });
+        // Still valid, so a stored session mode is not thrown away on the way in.
+        for (const retired of ['claude-opus-5-thinking-high', 'cursor-grok-4.6-high', 'gemini-3.7-flash-high', 'claude-sonnet-5-high']) {
+            expect(isModelModeForAgent('cursor', retired)).toBe(true);
+        }
+        // Dropped from the picker without a successor: it stays what it was.
+        expect(currentCursorModelMode('claude-sonnet-5-high')).toBe('claude-sonnet-5-high');
+        expect(currentCursorModelMode('grok-4.7-high')).toBe('grok-4.7-high');
+        expect(currentCursorModelMode('default')).toBe('default');
+        // An id typed by hand (`happy cursor --model …`) is not Happy's to rewrite.
+        expect(currentCursorModelMode('kimi-k3-high')).toBe('kimi-k3-high');
+    });
+
     it('passes the id straight through, since Cursor ids already carry effort', () => {
         expect(resolveModelSelectionForFlavor('cursor', 'composer-2.5')).toEqual({
             model: 'composer-2.5',
             reasoningEffort: null,
         });
-        expect(resolveModelSelectionForFlavor('cursor', 'claude-opus-5-thinking-high')).toEqual({
-            model: 'claude-opus-5-thinking-high',
+        expect(resolveModelSelectionForFlavor('cursor', 'claude-opus-5-5-high')).toEqual({
+            model: 'claude-opus-5-5-high',
             reasoningEffort: null,
         });
         expect(resolveModelSelectionForFlavor('cursor', 'default')).toEqual({
