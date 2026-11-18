@@ -14,15 +14,22 @@ interface HandleImagePasteEventOptions {
     canAddMore: boolean;
     supportsImages: boolean;
     onImageFile: (file: File, mimeType: string) => Promise<void> | void;
+    /**
+     * Where a pasted image goes when it cannot be attached as an image: the agent takes none
+     * (Cursor), or the image limit is reached. The file picker and drag-and-drop send it as a
+     * file then; a paste used to be dropped without a word.
+     */
+    onFileAttachment?: (file: File, mimeType: string) => Promise<void> | void;
 }
 
 export async function handleImagePasteEvent(
     event: ClipboardImagePasteEventLike,
     options: HandleImagePasteEventOptions,
 ): Promise<boolean> {
-    const { isScreenFocused, canAddMore, supportsImages, onImageFile } = options;
+    const { isScreenFocused, canAddMore, supportsImages, onImageFile, onFileAttachment } = options;
+    const attach = supportsImages && canAddMore ? onImageFile : onFileAttachment;
 
-    if (!isScreenFocused || !canAddMore || !supportsImages || event.defaultPrevented) {
+    if (!isScreenFocused || !attach || event.defaultPrevented) {
         return false;
     }
 
@@ -42,7 +49,7 @@ export async function handleImagePasteEvent(
         }
 
         event.preventDefault();
-        await onImageFile(file, item.type);
+        await attach(file, item.type);
         return true;
     }
 

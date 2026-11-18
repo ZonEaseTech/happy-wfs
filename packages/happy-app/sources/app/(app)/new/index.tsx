@@ -707,8 +707,11 @@ function NewSessionWizard() {
                 const url = URL.createObjectURL(file);
                 await addImageFromUri(url, mimeType);
             },
+            onFileAttachment: async (file, mimeType) => {
+                await addFiles([{ blob: file, name: file.name, size: file.size, mimeType }]);
+            },
         });
-    }, [isFocused, canAddMore, supportsImages, addImageFromUri]);
+    }, [isFocused, canAddMore, supportsImages, addImageFromUri, addFiles]);
 
     // Add paste event listener for images (web only)
     React.useEffect(() => {

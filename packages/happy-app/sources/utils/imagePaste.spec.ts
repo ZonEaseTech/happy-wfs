@@ -76,4 +76,76 @@ describe('handleImagePasteEvent', () => {
         expect(event.preventDefault).not.toHaveBeenCalled();
         expect(onImageFile).not.toHaveBeenCalled();
     });
+
+    it('sends the pasted image as a file when the agent takes no images', async () => {
+        const onImageFile = vi.fn();
+        const onFileAttachment = vi.fn();
+        const imageFile = { name: 'image.png' } as File;
+        const event = createEvent([{ type: 'image/png', file: imageFile }]);
+
+        const handled = await handleImagePasteEvent(event, {
+            isScreenFocused: true,
+            canAddMore: true,
+            supportsImages: false,
+            onImageFile,
+            onFileAttachment,
+        });
+
+        expect(handled).toBe(true);
+        expect(event.preventDefault).toHaveBeenCalledTimes(1);
+        expect(onFileAttachment).toHaveBeenCalledWith(imageFile, 'image/png');
+        expect(onImageFile).not.toHaveBeenCalled();
+    });
+
+    it('sends the pasted image as a file once the image limit is reached', async () => {
+        const onImageFile = vi.fn();
+        const onFileAttachment = vi.fn();
+        const imageFile = { name: 'image.png' } as File;
+        const event = createEvent([{ type: 'image/png', file: imageFile }]);
+
+        const handled = await handleImagePasteEvent(event, {
+            isScreenFocused: true,
+            canAddMore: false,
+            supportsImages: true,
+            onImageFile,
+            onFileAttachment,
+        });
+
+        expect(handled).toBe(true);
+        expect(onFileAttachment).toHaveBeenCalledWith(imageFile, 'image/png');
+        expect(onImageFile).not.toHaveBeenCalled();
+    });
+
+    it('leaves the paste alone where images are refused and nothing takes files', async () => {
+        const onImageFile = vi.fn();
+        const event = createEvent([{ type: 'image/png', file: { name: 'x.png' } as File }]);
+
+        const handled = await handleImagePasteEvent(event, {
+            isScreenFocused: true,
+            canAddMore: true,
+            supportsImages: false,
+            onImageFile,
+        });
+
+        expect(handled).toBe(false);
+        expect(event.preventDefault).not.toHaveBeenCalled();
+        expect(onImageFile).not.toHaveBeenCalled();
+    });
+
+    it('leaves pasted text alone when the agent takes no images', async () => {
+        const onFileAttachment = vi.fn();
+        const event = createEvent([{ type: 'text/plain', file: null }]);
+
+        const handled = await handleImagePasteEvent(event, {
+            isScreenFocused: true,
+            canAddMore: true,
+            supportsImages: false,
+            onImageFile: vi.fn(),
+            onFileAttachment,
+        });
+
+        expect(handled).toBe(false);
+        expect(event.preventDefault).not.toHaveBeenCalled();
+        expect(onFileAttachment).not.toHaveBeenCalled();
+    });
 });

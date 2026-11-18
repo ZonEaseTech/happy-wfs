@@ -1566,8 +1566,11 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
                 const url = URL.createObjectURL(file);
                 await addImageFromUri(url, mimeType);
             },
+            onFileAttachment: async (file, mimeType) => {
+                await addFiles([{ blob: file, name: file.name, size: file.size, mimeType }]);
+            },
         });
-    }, [isFocused, canAddMore, supportsImages, addImageFromUri]);
+    }, [isFocused, canAddMore, supportsImages, addImageFromUri, addFiles]);
 
     // Handle image drop (web only) - passed to AgentInput
     const handleImageDrop = React.useCallback(async (files: File[]) => {
