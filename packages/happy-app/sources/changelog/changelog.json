@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 79,
+      "date": "2026-11-18",
+      "summary": "Images you attach to a Cursor session now show as thumbnails, and Cursor's list gains Gemini 4 and Claude Fable 5.2.",
+      "changes": [
+        "Sessions: an image attached as a file now appears as a thumbnail above the message box. Tap it to see it full size, or use its corner button to remove it. It is still sent as a file.",
+        "Models: Cursor's list now offers Gemini 4 Carbon and Gemini 4 Hydrogen in place of Gemini 3.8 Flash, plus Claude Fable 5.2. Cursor does not promise zero data retention for Fable 5.2. Sessions set to Gemini 3.8 or 3.7 Flash move to Gemini 4 Hydrogen with your next message."
+      ],
+      "rawMarkdown": "## Version 79 - 2026-11-18\n\n\nImages you attach to a Cursor session now show as thumbnails, and Cursor's list gains Gemini 4 and Claude Fable 5.2.\n\n- Sessions: an image attached as a file now appears as a thumbnail above the message box. Tap it to see it full size, or use its corner button to remove it. It is still sent as a file.\n- Models: Cursor's list now offers Gemini 4 Carbon and Gemini 4 Hydrogen in place of Gemini 3.8 Flash, plus Claude Fable 5.2. Cursor does not promise zero data retention for Fable 5.2. Sessions set to Gemini 3.8 or 3.7 Flash move to Gemini 4 Hydrogen with your next message."
+    },
+    {
       "version": 78,
       "date": "2026-11-18",
       "summary": "Pasting an image works in Cursor sessions, and Cursor's model list is up to date.",
@@ -817,5 +827,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 78
+  "latestVersion": 79
 }

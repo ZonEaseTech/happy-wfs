@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 79 - 2026-11-18
+
+Images you attach to a Cursor session now show as thumbnails, and Cursor's list gains Gemini 4 and Claude Fable 5.2.
+
+- Sessions: an image attached as a file now appears as a thumbnail above the message box. Tap it to see it full size, or use its corner button to remove it. It is still sent as a file.
+- Models: Cursor's list now offers Gemini 4 Carbon and Gemini 4 Hydrogen in place of Gemini 3.8 Flash, plus Claude Fable 5.2. Cursor does not promise zero data retention for Fable 5.2. Sessions set to Gemini 3.8 or 3.7 Flash move to Gemini 4 Hydrogen with your next message.
+
 ## Version 78 - 2026-11-18
 
 Pasting an image works in Cursor sessions, and Cursor's model list is up to date.
