@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 81 - 2026-11-19
+
+Bugs filed from the sidebar can be given a project too.
+
+- Bugs: New Bug in the sidebar's bug list now has the same project picker as the bug board, starting on the project with the most recent activity. Each bug in the list shows its project, and Change Project is in a bug's footer.
+
 ## Version 80 - 2026-11-19
 
 The bug board splits bugs by project, and its list scrolls on its own.

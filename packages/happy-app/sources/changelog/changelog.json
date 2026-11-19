@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 81,
+      "date": "2026-11-19",
+      "summary": "Bugs filed from the sidebar can be given a project too.",
+      "changes": [
+        "Bugs: New Bug in the sidebar's bug list now has the same project picker as the bug board, starting on the project with the most recent activity. Each bug in the list shows its project, and Change Project is in a bug's footer."
+      ],
+      "rawMarkdown": "## Version 81 - 2026-11-19\n\n\nBugs filed from the sidebar can be given a project too.\n\n- Bugs: New Bug in the sidebar's bug list now has the same project picker as the bug board, starting on the project with the most recent activity. Each bug in the list shows its project, and Change Project is in a bug's footer."
+    },
+    {
       "version": 80,
       "date": "2026-11-19",
       "summary": "The bug board splits bugs by project, and its list scrolls on its own.",
@@ -837,5 +846,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 80
+  "latestVersion": 81
 }
