@@ -259,6 +259,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         inputSchema: {
             description: z.string().describe('What went wrong, what was expected, and how to reproduce it. The title is derived from the first line.'),
             visibility: z.enum(['shared', 'private']).optional().describe('shared (default) puts it on the shared board; private keeps it to the owner'),
+            project: z.string().optional().describe('The product this bug belongs to, which the board groups by (e.g. "TTPOS"). Call list_bugs first and reuse a project name already on the board when one fits; otherwise use the name of the repository this session works in.'),
             images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine. JPEG and PNG only, up to 10 images, 20MB each.'),
         },
     }, async (args) => {
@@ -280,7 +281,8 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
         title: 'List Bugs',
         inputSchema: {
             status: z.enum(['pending', 'in_progress', 'verify', 'closed']).optional().describe('Only bugs in this state'),
-            query: z.string().describe('Free text matched against number, title, description, author and status').optional(),
+            project: z.string().optional().describe('Only bugs in this project'),
+            query: z.string().describe('Free text matched against number, title, description, author, project and status').optional(),
             limit: z.number().int().min(1).max(200).optional().describe('How many to return, 50 by default'),
         },
     }, async (args) => {
@@ -296,7 +298,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
                     bug.commentCount ? `${bug.commentCount} comments` : '',
                 ].filter(Boolean).join(', ');
                 const activity = bug.lastActivityAt ? new Date(bug.lastActivityAt).toISOString().slice(0, 10) : '';
-                return `${bug.displayId}  [${bug.status}]  ${bug.title}${bug.createdByNickname ? `  — ${bug.createdByNickname}` : ''}${counts ? `  (${counts})` : ''}${activity ? `  ${activity}` : ''}`;
+                return `${bug.displayId}  [${bug.status}]${bug.project ? `  {${bug.project}}` : ''}  ${bug.title}${bug.createdByNickname ? `  — ${bug.createdByNickname}` : ''}${counts ? `  (${counts})` : ''}${activity ? `  ${activity}` : ''}`;
             });
             const header = `${bugs.length} bugs shown, ${pendingCount} pending on the board`;
             return { content: [{ type: 'text', text: lines.length ? `${header}\n${lines.join('\n')}` : header }] };
@@ -325,12 +327,13 @@ function createMcpServer(client: ApiSessionClient, options: { enableOrchestrator
     });
 
     mcp.registerTool('edit_bug', {
-        description: 'Change a bug already on the user\'s Happy bug board: rewrite its description, add screenshots to it, or both. '
+        description: 'Change a bug already on the user\'s Happy bug board: rewrite its description, move it to another project, add screenshots to it, or any of these. '
             + 'Use when the user wants to correct, expand or illustrate an existing bug.',
         title: 'Edit Bug',
         inputSchema: {
             bug: z.string().describe('Which bug, as the user refers to it: "BUG-236", "#236" or "236". An internal bug id also works.'),
             description: z.string().optional().describe('The full replacement description. It replaces the old one outright, so carry over anything still true — including any [[bug-image:N]] markers, which is where the Nth screenshot appears inline. Drop a marker and that image moves to the end. Omit this field to leave the description alone.'),
+            project: z.string().optional().describe('Move the bug to this project (the product name the board groups by). An empty string takes it out of any project. Omit to leave it alone.'),
             images: z.array(z.string()).optional().describe('Absolute paths to screenshots on this machine, added to any already on the bug. JPEG and PNG only, 10 per bug in total, 20MB each.'),
         },
     }, async (args) => {

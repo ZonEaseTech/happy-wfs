@@ -36,6 +36,7 @@ export type BugVisibility = 'shared' | 'private';
 export interface SubmitBugInput {
     description: string;
     visibility?: BugVisibility;
+    project?: string;
     images?: string[];
 }
 
@@ -48,6 +49,8 @@ export interface AttachmentOutcome {
 export interface EditBugInput {
     bug: string;
     description?: string;
+    /** New project name; an empty string takes the bug out of any project */
+    project?: string;
     images?: string[];
 }
 
@@ -63,6 +66,7 @@ export interface SubmittedBug {
     title: string;
     status: string;
     visibility: string;
+    project?: string | null;
     attachmentCount?: number;
     commentCount?: number;
     createdByNickname?: string | null;
@@ -79,6 +83,7 @@ export interface SetBugStatusInput {
 
 export interface ListBugsInput {
     status?: BugStatus;
+    project?: string;
     query?: string;
     limit?: number;
 }
@@ -136,6 +141,7 @@ export async function listBugs(
         {
             params: {
                 ...(input.status ? { status: input.status } : {}),
+                ...(input.project ? { project: input.project } : {}),
                 ...(input.query ? { query: input.query } : {}),
                 limit: input.limit ?? 50,
             },
@@ -229,6 +235,7 @@ export async function submitBug(
         {
             description: input.description,
             ...(input.visibility ? { visibility: input.visibility } : {}),
+            ...(input.project?.trim() ? { project: input.project.trim() } : {}),
         },
         authHeaders(credentials),
     );
@@ -251,10 +258,17 @@ export async function editBug(
     input: EditBugInput,
 ): Promise<SubmittedBug & { attachments?: AttachmentOutcome[] }> {
     const images = input.images ?? [];
-    if (!input.description && !images.length) {
-        throw new Error('nothing to change — pass a description, images, or both');
+    if (!input.description && !images.length && input.project === undefined) {
+        throw new Error('nothing to change — pass a description, a project, images, or any of them');
     }
     const bugId = await resolveBugId(credentials, input.bug);
+    if (input.project !== undefined) {
+        await axios.patch(
+            `${configuration.serverUrl}/v1/bugs/${bugId}/project`,
+            { project: input.project.trim() || null },
+            authHeaders(credentials),
+        );
+    }
     const bug = input.description
         ? (await axios.patch<{ bug: SubmittedBug }>(
             `${configuration.serverUrl}/v1/bugs/${bugId}/content`,
