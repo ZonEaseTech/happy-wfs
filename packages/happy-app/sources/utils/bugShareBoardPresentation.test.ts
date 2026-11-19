@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { BugReportSummary } from '@/sync/bugTypes';
 import {
+    bugsInProject,
     filterBugShareBoardItems,
+    getBugBoardProjects,
+    pickBugBoardProject,
     getBugShareBoardCounts,
     type BugShareBoardFilter,
 } from './bugShareBoardPresentation';
@@ -19,6 +22,7 @@ function bug(overrides: Partial<BugReportSummary> & Pick<BugReportSummary, 'id' 
         createdByNickname: overrides.createdByNickname ?? 'Happy 用户',
         attachmentCount: overrides.attachmentCount ?? 0,
         commentCount: overrides.commentCount ?? 0,
+        project: overrides.project ?? null,
         lastActivityAt: overrides.lastActivityAt,
         createdAt: overrides.createdAt ?? overrides.lastActivityAt,
         updatedAt: overrides.updatedAt ?? overrides.lastActivityAt,
@@ -62,5 +66,37 @@ describe('bug share board presentation', () => {
             has_comments: 1,
             has_attachments: 1,
         } satisfies Record<BugShareBoardFilter, number>);
+    });
+});
+
+describe('bug board projects', () => {
+    const bugs = [
+        bug({ id: 'a', displayNumber: 1, status: 'pending', lastActivityAt: 10, project: 'lite-pos' }),
+        bug({ id: 'b', displayNumber: 2, status: 'closed', lastActivityAt: 50, project: 'TTPOS' }),
+        bug({ id: 'c', displayNumber: 3, status: 'pending', lastActivityAt: 30, project: 'TTPOS' }),
+        bug({ id: 'd', displayNumber: 4, status: 'closed', lastActivityAt: 90 }),
+    ];
+
+    it('lists named projects alphabetically with the unassigned bugs last', () => {
+        expect(getBugBoardProjects(bugs)).toEqual([
+            { name: 'lite-pos', count: 1, lastActivityAt: 10 },
+            { name: 'TTPOS', count: 2, lastActivityAt: 50 },
+            { name: null, count: 1, lastActivityAt: 90 },
+        ]);
+    });
+
+    it('keeps the remembered project while it exists, else the most recently active one', () => {
+        const projects = getBugBoardProjects(bugs);
+        expect(pickBugBoardProject(projects, 'TTPOS')).toBe('TTPOS');
+        expect(pickBugBoardProject(projects, null)).toBeNull();
+        expect(pickBugBoardProject(projects, 'gone')).toBeNull();
+        expect(pickBugBoardProject(getBugBoardProjects(bugs.slice(0, 3)), undefined)).toBe('TTPOS');
+        expect(pickBugBoardProject([], 'TTPOS')).toBeUndefined();
+    });
+
+    it('scopes bugs to one project tab', () => {
+        expect(bugsInProject(bugs, 'TTPOS').map((item) => item.id)).toEqual(['b', 'c']);
+        expect(bugsInProject(bugs, null).map((item) => item.id)).toEqual(['d']);
+        expect(bugsInProject(bugs, undefined)).toHaveLength(4);
     });
 });

@@ -145,7 +145,7 @@ export async function listPublicBugs(token: string, options?: { status?: BugStat
     return await readJson(response);
 }
 
-export async function createPublicBug(token: string, input: { description: string; contentJson?: BugTiptapDoc }): Promise<BugReportDetail> {
+export async function createPublicBug(token: string, input: { description: string; contentJson?: BugTiptapDoc; project?: string | null }): Promise<BugReportDetail> {
     const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs`, { method: 'POST', headers: publicHeaders(token), body: JSON.stringify(input) });
     return bugFromResponse(await readJson(response));
 }
@@ -157,6 +157,11 @@ export async function getPublicBug(token: string, bugId: string): Promise<BugRep
 
 export async function updatePublicBugContent(token: string, bugId: string, input: { description: string; contentJson?: BugTiptapDoc | null }): Promise<BugReportDetail> {
     const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs/${encodeURIComponent(bugId)}/content`, { method: 'PATCH', headers: publicHeaders(token), body: JSON.stringify(input) });
+    return bugFromResponse(await readJson(response));
+}
+
+export async function changePublicBugProject(token: string, bugId: string, project: string | null): Promise<BugReportDetail> {
+    const response = await fetch(`${getServerUrl()}/v1/bug-share/bugs/${encodeURIComponent(bugId)}/project`, { method: 'PATCH', headers: publicHeaders(token), body: JSON.stringify({ project }) });
     return bugFromResponse(await readJson(response));
 }
 

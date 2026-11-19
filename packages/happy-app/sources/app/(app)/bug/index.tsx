@@ -15,6 +15,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Text } from "@/components/StyledText";
 import { BugReportCreateModal } from "@/components/BugReportCreateModal";
 import { BugReportDetailModal } from "@/components/BugReportDetailModal";
+import { BugProjectMenu } from "@/components/BugProjectMenu";
 import { BugImagePreviewModal } from "@/components/BugImagePreviewModal";
 import { BugRichContentView } from "@/components/BugRichContentView";
 import { BugTiptapEditor } from "@/components/BugTiptapEditor";
@@ -49,8 +50,12 @@ import {
 } from "@/sync/bugTypes";
 import { t } from "@/text";
 import {
+  bugsInProject,
   filterBugShareBoardItems,
+  getBugBoardProjects,
   getBugShareBoardCounts,
+  pickBugBoardProject,
+  type BugBoardProject,
   type BugShareBoardFilter,
 } from "@/utils/bugShareBoardPresentation";
 import { buildBugPreviewImages, findBugPreviewImageIndex } from "@/components/bugImagePreview";
@@ -62,6 +67,32 @@ const STATUS_OPTIONS: BugStatus[] = [
   "closed",
 ];
 const STATUS_ACCENTS = BUG_STATUS_ACCENTS;
+
+// The project tab last picked on this device. Stored as {project}, where
+// null is the "no project" tab; nothing stored means none picked yet.
+const PROJECT_STORAGE_KEY = "happy.bugBoardProject.v1";
+
+function readRememberedProject(): string | null | undefined {
+  if (Platform.OS !== "web" || typeof window === "undefined") return undefined;
+  try {
+    const raw = window.localStorage?.getItem(PROJECT_STORAGE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as { project?: unknown };
+    if (parsed.project === null || typeof parsed.project === "string") return parsed.project;
+  } catch {
+    // Ignore invalid localStorage data.
+  }
+  return undefined;
+}
+
+function rememberProject(project: string | null) {
+  if (Platform.OS !== "web" || typeof window === "undefined") return;
+  try {
+    window.localStorage?.setItem(PROJECT_STORAGE_KEY, JSON.stringify({ project }));
+  } catch {
+    // Persistence is best-effort only.
+  }
+}
 
 function getContentSnapshotSignature(snapshot: BugTiptapEditorSnapshot): string {
   return JSON.stringify({
@@ -118,14 +149,37 @@ export default function PublicBugBoardPage() {
   const [selectedBugDetail, setSelectedBugDetail] =
     React.useState<BugReportDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
+  const [rememberedProject, setRememberedProject] = React.useState<
+    string | null | undefined
+  >(() => readRememberedProject());
 
-  const counts = React.useMemo(
-    () => getBugShareBoardCounts(board.bugs),
+  const projects = React.useMemo(
+    () => getBugBoardProjects(board.bugs),
     [board.bugs],
   );
+  const projectNames = React.useMemo(
+    () => projects.flatMap((project) => (project.name ? [project.name] : [])),
+    [projects],
+  );
+  const currentProject = pickBugBoardProject(projects, rememberedProject);
+  const selectProject = React.useCallback((project: string | null) => {
+    setRememberedProject(project);
+    rememberProject(project);
+  }, []);
+  // A search looks through every project, so a bug can be found by its
+  // number without knowing which tab it sits under.
+  const searching = query.trim().length > 0;
+  const scopedBugs = React.useMemo(
+    () => (searching ? board.bugs : bugsInProject(board.bugs, currentProject)),
+    [board.bugs, currentProject, searching],
+  );
+  const counts = React.useMemo(
+    () => getBugShareBoardCounts(scopedBugs),
+    [scopedBugs],
+  );
   const filteredBugs = React.useMemo(
-    () => filterBugShareBoardItems(board.bugs, { filter, query }),
-    [board.bugs, filter, query],
+    () => filterBugShareBoardItems(scopedBugs, { filter, query }),
+    [scopedBugs, filter, query],
   );
 
   const loadInlineBug = React.useCallback(
@@ -222,6 +276,11 @@ export default function PublicBugBoardPage() {
               status: BugStatus,
               action?: "return_to_pending",
             ) => await board.changeStatus(current.id, status, action),
+            projects: projectNames,
+            onChangeProject: async (
+              current: BugReportDetail,
+              project: string | null,
+            ) => await board.changeProject(current.id, project),
           },
         });
       } catch (error) {
@@ -231,23 +290,28 @@ export default function PublicBugBoardPage() {
         );
       }
     },
-    [board, isWide, loadInlineBug, query],
+    [board, isWide, loadInlineBug, projectNames, query],
   );
 
   const handleCreateBug = React.useCallback(() => {
     Modal.show({
       component: BugReportCreateModal,
       props: {
+        projects: projectNames,
+        initialProject: currentProject ?? null,
         onCreate: async (
           description: string,
           images: LocalImage[],
           contentJson?: BugTiptapDoc,
+          project?: string | null,
         ) => {
           const bug = await board.createBugWithImages(
             description,
             images,
             contentJson,
+            project,
           );
+          selectProject(bug.project ?? null);
           setFilter("open");
           setTimeout(() => {
             void showBugDetail(bug);
@@ -256,7 +320,7 @@ export default function PublicBugBoardPage() {
         },
       },
     });
-  }, [board, showBugDetail]);
+  }, [board, currentProject, projectNames, selectProject, showBugDetail]);
 
   const handleInlineBugUpdated = React.useCallback((bug: BugReportDetail) => {
     setSelectedBugDetail(bug);
@@ -317,6 +381,9 @@ export default function PublicBugBoardPage() {
       nickname={board.nickname}
       currentFilter={filter}
       counts={counts}
+      projects={projects}
+      currentProject={currentProject}
+      onProjectChange={selectProject}
       query={query}
       loading={board.loading}
       error={board.error}
@@ -335,6 +402,9 @@ export default function PublicBugBoardPage() {
         <View style={styles.desktopShell}>
           <View style={styles.desktopColumns}>
             <View style={styles.leftPanel}>
+              {/* Title, filters, search and the new-bug button stay put;
+                  only the list below them scrolls. */}
+              <View style={styles.leftPanelHeader}>{header}</View>
               <ScrollView
                 style={styles.leftPanelScroll}
                 contentContainerStyle={styles.leftPanelContent}
@@ -346,7 +416,6 @@ export default function PublicBugBoardPage() {
                   />
                 }
               >
-                {header}
                 {filteredBugs.length === 0 ? (
                   <BugBoardEmpty query={query} loading={board.loading} />
                 ) : (
@@ -355,6 +424,7 @@ export default function PublicBugBoardPage() {
                       key={bug.id}
                       bug={bug}
                       selected={bug.id === selectedBugId}
+                      showProject={searching}
                       onPress={showBugDetail}
                     />
                   ))
@@ -388,6 +458,10 @@ export default function PublicBugBoardPage() {
                 onChangeStatus={async (current, status, action) =>
                   board.changeStatus(current.id, status, action)
                 }
+                projects={projectNames}
+                onChangeProject={async (current, project) =>
+                  board.changeProject(current.id, project)
+                }
               />
             </View>
           </View>
@@ -405,6 +479,7 @@ export default function PublicBugBoardPage() {
           <PublicBugListItem
             bug={item}
             selected={false}
+            showProject={searching}
             onPress={showBugDetail}
           />
         )}
@@ -429,6 +504,9 @@ function BugBoardHeader({
   nickname,
   currentFilter,
   counts,
+  projects,
+  currentProject,
+  onProjectChange,
   query,
   loading,
   error,
@@ -443,6 +521,9 @@ function BugBoardHeader({
   nickname: string;
   currentFilter: BugShareBoardFilter;
   counts: Record<BugShareBoardFilter, number>;
+  projects: BugBoardProject[];
+  currentProject: string | null | undefined;
+  onProjectChange: (project: string | null) => void;
   query: string;
   loading: boolean;
   error: string | null;
@@ -459,6 +540,10 @@ function BugBoardHeader({
   const {
     scrollViewProps: filterScrollViewProps,
     wheelProps: filterWheelProps,
+  } = useWebHorizontalScroll({ wheelBehavior: "always" });
+  const {
+    scrollViewProps: projectScrollViewProps,
+    wheelProps: projectWheelProps,
   } = useWebHorizontalScroll({ wheelBehavior: "always" });
   const filters: BugShareBoardFilter[] = [
     "all",
@@ -504,6 +589,38 @@ function BugBoardHeader({
       </View>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
+
+      {projects.length > 0 && (
+        <View {...projectWheelProps}>
+          <ScrollView
+            {...projectScrollViewProps}
+            horizontal
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterWrap}
+            showsHorizontalScrollIndicator={false}
+          >
+            {projects.map((project) => {
+              const active = project.name === currentProject;
+              return (
+                <Pressable
+                  key={project.name ?? ""}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                  onPress={() => onProjectChange(project.name)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      active && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {project.name ?? t("bug.noProject")} {project.count}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       <View {...filterWheelProps}>
         <ScrollView
@@ -577,10 +694,13 @@ function BugBoardHeader({
 function PublicBugListItem({
   bug,
   selected,
+  showProject = false,
   onPress,
 }: {
   bug: BugReportSummary;
   selected: boolean;
+  /** Search results span every project, so each row names its own. */
+  showProject?: boolean;
   onPress: (bug: BugReportSummary) => void | Promise<void>;
 }) {
   const styles = stylesheet;
@@ -601,7 +721,9 @@ function PublicBugListItem({
       </View>
       <View style={styles.bugItemContent}>
         <Text style={styles.bugKicker} numberOfLines={1}>
-          {bug.displayId} · {t("bug.recentActivity")}
+          {bug.displayId} ·{" "}
+          {showProject ? `${bug.project || t("bug.noProject")} · ` : ""}
+          {t("bug.recentActivity")}
         </Text>
         <Text style={styles.bugItemTitle} numberOfLines={2}>
           {bug.title}
@@ -708,6 +830,8 @@ function PublicBugDetailPane({
   onUploadImages,
   onUpdateContent,
   onChangeStatus,
+  projects,
+  onChangeProject,
 }: {
   bug: BugReportDetail | null;
   loading: boolean;
@@ -734,6 +858,11 @@ function PublicBugDetailPane({
     status: BugStatus,
     action?: "return_to_pending",
   ) => Promise<BugReportDetail>;
+  projects: string[];
+  onChangeProject: (
+    bug: BugReportDetail,
+    project: string | null,
+  ) => Promise<BugReportDetail>;
 }) {
   const styles = stylesheet;
   const { theme } = useUnistyles();
@@ -754,6 +883,7 @@ function PublicBugDetailPane({
   const contentEditorRef = React.useRef<BugTiptapEditorHandle>(null);
   const contentBaselineRef = React.useRef<string | null>(null);
   const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
+  const [projectMenuVisible, setProjectMenuVisible] = React.useState(false);
   const [contentDirty, setContentDirty] = React.useState(false);
   const [contentSnapshot, setContentSnapshot] =
     React.useState<BugTiptapEditorSnapshot | null>(null);
@@ -915,6 +1045,14 @@ function PublicBugDetailPane({
     [bug, onChangeStatus, run],
   );
 
+  const handleProject = React.useCallback(
+    (project: string | null) => {
+      if (!bug) return;
+      void run(() => onChangeProject(bug, project));
+    },
+    [bug, onChangeProject, run],
+  );
+
   const statusMenuItems = React.useMemo<ActionMenuItem[]>(() => {
     if (!bug) return [];
     const items: ActionMenuItem[] = [];
@@ -1021,12 +1159,22 @@ function PublicBugDetailPane({
             <Text style={{ color: STATUS_ACCENTS[bug.status] }}>
               {bugStatusLabel(bug.status)}
             </Text>
+            {" "}· {bug.project || t("bug.noProject")}
           </Text>
           <Text style={styles.detailTitle} numberOfLines={2}>
             {bug.title}
           </Text>
         </View>
         <View style={styles.detailHeaderActions}>
+          <Pressable
+            style={styles.detailHeaderButton}
+            disabled={busy}
+            onPress={() => setProjectMenuVisible(true)}
+          >
+            <Text style={styles.detailHeaderButtonText}>
+              {t("bug.changeProject")}
+            </Text>
+          </Pressable>
           <Pressable
             style={styles.detailHeaderButton}
             disabled={busy}
@@ -1235,6 +1383,13 @@ function PublicBugDetailPane({
         items={statusMenuItems}
         onClose={() => setStatusMenuVisible(false)}
       />
+      <BugProjectMenu
+        visible={projectMenuVisible}
+        projects={projects}
+        current={bug.project ?? null}
+        onSelect={handleProject}
+        onClose={() => setProjectMenuVisible(false)}
+      />
       <BugImagePreviewModal
         images={previewImages}
         initialIndex={previewIndex}
@@ -1300,8 +1455,14 @@ const stylesheet = StyleSheet.create((theme) => ({
     borderColor: "#E6E2DC",
     overflow: "hidden",
   },
+  leftPanelHeader: {
+    paddingTop: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEE9E2",
+  },
   leftPanelContent: {
-    paddingVertical: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   leftPanelScroll: {
     flex: 1,

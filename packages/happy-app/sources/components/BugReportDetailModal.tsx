@@ -10,6 +10,7 @@ import { ImagePreview, type LocalImage } from '@/components/ImagePreview';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { BUG_IMAGE_LIMITS, bugStatusLabel, formatBugStatusHistoryAction, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
+import { BugProjectMenu } from '@/components/BugProjectMenu';
 import { BugRichContentView } from '@/components/BugRichContentView';
 import { BugImagePreviewModal } from '@/components/BugImagePreviewModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
@@ -58,6 +59,8 @@ export function BugReportDetailModal({
     onUploadImages,
     onUpdateContent,
     onChangeStatus,
+    onChangeProject,
+    projects,
     onStartSession,
     onDelete,
 }: {
@@ -69,6 +72,9 @@ export function BugReportDetailModal({
     onUploadImages?: (bug: BugReportDetail, images: LocalImage[], commentId?: string) => Promise<BugReportDetail>;
     onUpdateContent?: (bug: BugReportDetail, description: string, contentJson: BugTiptapDoc | null | undefined, images: LocalImage[]) => Promise<BugReportDetail>;
     onChangeStatus?: (bug: BugReportDetail, status: BugStatus, action?: 'return_to_pending') => Promise<BugReportDetail>;
+    /** Given together with `projects`, the footer offers moving the bug to another project. */
+    onChangeProject?: (bug: BugReportDetail, project: string | null) => Promise<BugReportDetail>;
+    projects?: string[];
     onStartSession?: (bug: BugReportDetail) => void;
     onDelete?: (bug: BugReportDetail) => Promise<void>;
 }) {
@@ -88,6 +94,7 @@ export function BugReportDetailModal({
     const [contentSnapshot, setContentSnapshot] = React.useState<BugTiptapEditorSnapshot | null>(null);
     const [busy, setBusy] = React.useState(false);
     const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
+    const [projectMenuVisible, setProjectMenuVisible] = React.useState(false);
     const [previewVisible, setPreviewVisible] = React.useState(false);
     const [previewIndex, setPreviewIndex] = React.useState(0);
     const picker = useImagePicker({ maxImages: BUG_IMAGE_LIMITS.maxImages, maxSizeBytes: BUG_IMAGE_LIMITS.maxSizeBytes });
@@ -245,6 +252,11 @@ export function BugReportDetailModal({
             setBusy(false);
         }
     }, [busy, currentBug, onClose, onDelete]);
+
+    const handleProject = React.useCallback((project: string | null) => {
+        if (!onChangeProject) return;
+        void run(() => onChangeProject(currentBug, project));
+    }, [currentBug, onChangeProject, run]);
 
     const handleStatus = React.useCallback((status: BugStatus, action?: 'return_to_pending') => {
         if (!onChangeStatus) return;
@@ -448,6 +460,14 @@ export function BugReportDetailModal({
                         </Pressable>
                     </>
                 )}
+                {onChangeProject && projects && (
+                    <>
+                        <View style={styles.footerActionSeparator} />
+                        <Pressable style={styles.footerAction} disabled={busy} onPress={() => setProjectMenuVisible(true)}>
+                            <Text style={styles.footerActionText}>{t('bug.changeProject')}</Text>
+                        </Pressable>
+                    </>
+                )}
                 <View style={styles.footerActionSeparator} />
                 <Pressable style={styles.footerAction} disabled={busy || !onChangeStatus} onPress={() => setStatusMenuVisible(true)}>
                     <Text style={styles.footerActionText}>{busy ? t('bug.updatingStatus') : t('bug.changeStatus')}</Text>
@@ -467,6 +487,15 @@ export function BugReportDetailModal({
                 items={statusMenuItems}
                 onClose={() => setStatusMenuVisible(false)}
             />
+            {onChangeProject && projects && (
+                <BugProjectMenu
+                    visible={projectMenuVisible}
+                    projects={projects}
+                    current={currentBug.project ?? null}
+                    onSelect={handleProject}
+                    onClose={() => setProjectMenuVisible(false)}
+                />
+            )}
             <BugImagePreviewModal
                 images={previewImages}
                 initialIndex={previewIndex}

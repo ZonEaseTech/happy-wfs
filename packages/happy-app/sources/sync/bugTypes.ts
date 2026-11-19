@@ -6,7 +6,7 @@ export const BUG_IMAGE_LIMITS = {
 
 export type BugStatus = 'pending' | 'in_progress' | 'verify' | 'closed';
 export type BugVisibility = 'shared' | 'private';
-export type BugStatusHistoryAction = 'created' | 'status_change' | 'return_to_pending' | 'comment' | 'attachment' | 'start_session' | 'closed' | 'deleted';
+export type BugStatusHistoryAction = 'created' | 'status_change' | 'return_to_pending' | 'comment' | 'attachment' | 'start_session' | 'closed' | 'deleted' | 'project_change';
 
 export interface BugAttachment {
     id: string;
@@ -48,6 +48,8 @@ export interface BugReportSummary {
     title: string;
     description: string;
     contentJson: BugTiptapDoc | null;
+    /** Product name the board groups by; null when unset (absent from older servers) */
+    project?: string | null;
     status: BugStatus;
     visibility: BugVisibility;
     createdByNickname: string | null;
@@ -114,7 +116,11 @@ export function buildBugTitle(description: string): string {
     return `${normalized.slice(0, 36)}…`;
 }
 
-export function formatBugStatusHistoryAction(entry: Pick<BugStatusHistoryEntry, 'action' | 'fromStatus' | 'toStatus'>): string {
+export function formatBugStatusHistoryAction(entry: Pick<BugStatusHistoryEntry, 'action' | 'fromStatus' | 'toStatus'> & { note?: string | null }): string {
+    if (entry.action === 'project_change') {
+        // note holds the new project; null means the bug left every project.
+        return `改项目：${entry.note || '未分项目'}`;
+    }
     if (entry.action === 'return_to_pending') {
         return `打回待处理：${entry.fromStatus ? bugStatusLabel(entry.fromStatus) : '无状态'} → ${bugStatusLabel(entry.toStatus)}`;
     }
@@ -142,6 +148,7 @@ export function matchesBugSearch(bug: BugReportSummary, query: string): boolean 
         bug.title,
         bug.description,
         bug.createdByNickname ?? '',
+        bug.project ?? '',
         bugStatusLabel(bug.status),
     ].join('\n').toLowerCase();
     return haystack.includes(normalized);

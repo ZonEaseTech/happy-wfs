@@ -4,6 +4,7 @@ import type { LocalImage } from '@/components/ImagePreview';
 import {
     BugShareExpiredError,
     addPublicBugComment,
+    changePublicBugProject,
     changePublicBugStatus,
     createPublicBug,
     getPublicBug,
@@ -59,6 +60,7 @@ function toSummary(bug: BugReportDetail): BugReportSummary {
         title: bug.title,
         description: bug.description,
         contentJson: bug.contentJson,
+        project: bug.project ?? null,
         status: bug.status,
         visibility: bug.visibility,
         createdByNickname: bug.createdByNickname,
@@ -165,10 +167,10 @@ export function useBugShareBoard() {
         return updated;
     }, [requireToken, updateBugInList]);
 
-    const createBugWithImages = React.useCallback(async (description: string, images: LocalImage[], contentJson?: BugTiptapDoc): Promise<BugReportDetail> => {
+    const createBugWithImages = React.useCallback(async (description: string, images: LocalImage[], contentJson?: BugTiptapDoc, project?: string | null): Promise<BugReportDetail> => {
         const token = requireToken();
         try {
-            let bug = await createPublicBug(token, { description, contentJson });
+            let bug = await createPublicBug(token, { description, contentJson, project });
             updateBugInList(bug);
             if (images.length > 0) {
                 bug = await uploadImages(bug.id, images);
@@ -224,6 +226,18 @@ export function useBugShareBoard() {
         }
     }, [handleError, requireToken, updateBugInList]);
 
+    const changeProject = React.useCallback(async (bugId: string, project: string | null): Promise<BugReportDetail> => {
+        const token = requireToken();
+        try {
+            const bug = await changePublicBugProject(token, bugId, project);
+            updateBugInList(bug);
+            return bug;
+        } catch (errorValue) {
+            handleError(errorValue);
+            throw errorValue;
+        }
+    }, [handleError, requireToken, updateBugInList]);
+
     return {
         isLoggedIn: !!session?.token,
         nickname: session?.nickname ?? '',
@@ -240,5 +254,6 @@ export function useBugShareBoard() {
         addCommentWithImages,
         uploadImages,
         changeStatus,
+        changeProject,
     };
 }

@@ -13,6 +13,7 @@ import { getBugRichPlainText, insertBugImageAtSelection, serializeBugRichContent
 import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { getBugCreateRemainingImageSlots, isBugCreateSubmitEnabled, shouldShowBugCreateEmptyHint } from './bugReportCreatePresentation';
 import { BugTiptapEditor } from './BugTiptapEditor';
+import { BugProjectMenu } from './BugProjectMenu';
 import { buildBugCreateDraftDoc, readBugCreateDraft, writeBugCreateDraft } from './bugCreateDraft';
 import type { BugTiptapEditorHandle, BugTiptapEditorSnapshot } from './BugTiptapEditor.types';
 
@@ -56,9 +57,14 @@ const emptyTiptapSnapshot: BugTiptapEditorSnapshot = {
 export function BugReportCreateModal({
     onClose,
     onCreate,
+    projects,
+    initialProject = null,
 }: {
     onClose: () => void;
-    onCreate: (description: string, images: LocalImage[], contentJson?: BugTiptapDoc) => Promise<BugReportDetail>;
+    onCreate: (description: string, images: LocalImage[], contentJson?: BugTiptapDoc, project?: string | null) => Promise<BugReportDetail>;
+    /** Named projects on the board. Given, the modal lets the reporter pick one. */
+    projects?: string[];
+    initialProject?: string | null;
 }) {
     const styles = stylesheet;
     const { width, height } = useWindowDimensions();
@@ -71,6 +77,12 @@ export function BugReportCreateModal({
     // Restore the unsaved draft from the last time the modal was dismissed.
     const draftInitialDoc = React.useRef(readBugCreateDraft()).current;
     const [submitting, setSubmitting] = React.useState(false);
+    const [project, setProject] = React.useState<string | null>(initialProject);
+    const [projectMenuVisible, setProjectMenuVisible] = React.useState(false);
+    const projectOptions = React.useMemo(
+        () => (projects && project && !projects.includes(project) ? [...projects, project] : projects ?? []),
+        [project, projects],
+    );
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const tiptapEditorRef = React.useRef<BugTiptapEditorHandle>(null);
     const textInputRefs = React.useRef<Record<string, React.ElementRef<typeof TextInput> | null>>({});
@@ -197,7 +209,7 @@ export function BugReportCreateModal({
         }
         setSubmitting(true);
         try {
-            await onCreate(serialized.description, serialized.images, tiptapCurrentSnapshot?.contentJson);
+            await onCreate(serialized.description, serialized.images, tiptapCurrentSnapshot?.contentJson, projects ? project : undefined);
             writeBugCreateDraft(null);
             onClose();
         } catch (error) {
@@ -205,7 +217,7 @@ export function BugReportCreateModal({
         } finally {
             setSubmitting(false);
         }
-    }, [blocks, onClose, onCreate, submitting, tiptapSnapshot, useTiptapEditor]);
+    }, [blocks, onClose, onCreate, project, projects, submitting, tiptapSnapshot, useTiptapEditor]);
 
     const handleUploadPress = React.useCallback(async () => {
         if (remainingImageSlots <= 0) {
@@ -290,6 +302,14 @@ export function BugReportCreateModal({
                     <View style={styles.titleRow}>
                         <Text style={styles.title}>{t('bug.newBug')}</Text>
                         <Text style={styles.statusTag}>{t('bug.statusPending')}</Text>
+                        {projects && (
+                            <Pressable style={styles.projectTag} onPress={() => setProjectMenuVisible(true)}>
+                                <Text style={styles.projectTagText} numberOfLines={1}>
+                                    {t('bug.project')}：{project ?? t('bug.noProject')}
+                                </Text>
+                                <Ionicons name="chevron-down" size={14} color={styles.projectTagText.color} />
+                            </Pressable>
+                        )}
                     </View>
                     <Text style={styles.subtitle}>{t('bug.noteStyleSubtitle')}</Text>
                 </View>
@@ -370,6 +390,15 @@ export function BugReportCreateModal({
                     </Pressable>
                 </View>
             </View>
+            {projects && (
+                <BugProjectMenu
+                    visible={projectMenuVisible}
+                    projects={projectOptions}
+                    current={project}
+                    onSelect={setProject}
+                    onClose={() => setProjectMenuVisible(false)}
+                />
+            )}
         </View>
     );
 }
@@ -419,6 +448,24 @@ const stylesheet = StyleSheet.create((theme) => ({
         paddingVertical: 5,
         overflow: 'hidden',
         fontSize: 12,
+        ...Typography.default('semiBold'),
+    },
+    projectTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        maxWidth: 260,
+        borderWidth: 1,
+        borderColor: '#E0D8CA',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+    },
+    projectTagText: {
+        color: theme.colors.text,
+        fontSize: 13,
+        flexShrink: 1,
         ...Typography.default('semiBold'),
     },
     subtitle: {

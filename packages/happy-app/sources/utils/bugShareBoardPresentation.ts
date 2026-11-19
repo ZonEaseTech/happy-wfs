@@ -37,6 +37,54 @@ function matchesFilter(bug: BugReportSummary, filter: BugShareBoardFilter): bool
     }
 }
 
+/** One project tab on the board. `name` is null for bugs without a project. */
+export interface BugBoardProject {
+    name: string | null;
+    count: number;
+    lastActivityAt: number;
+}
+
+/**
+ * The project tabs: named projects alphabetically, then the bugs without a
+ * project, if any. Alphabetical so tabs keep their place as bugs move.
+ */
+export function getBugBoardProjects(bugs: BugReportSummary[]): BugBoardProject[] {
+    const byName = new Map<string | null, BugBoardProject>();
+    for (const bug of bugs) {
+        const name = bug.project || null;
+        const entry = byName.get(name) ?? { name, count: 0, lastActivityAt: 0 };
+        entry.count += 1;
+        entry.lastActivityAt = Math.max(entry.lastActivityAt, bug.lastActivityAt);
+        byName.set(name, entry);
+    }
+    return [...byName.values()].sort((a, b) => {
+        if (a.name === null) return 1;
+        if (b.name === null) return -1;
+        return a.name.localeCompare(b.name);
+    });
+}
+
+/**
+ * The project tab to show. The board has no "all projects" tab, so one is
+ * always picked: the one remembered on this device while it still exists,
+ * otherwise the project with the most recent activity. Undefined only when
+ * the board has no bugs at all.
+ */
+export function pickBugBoardProject(projects: BugBoardProject[], remembered: string | null | undefined): string | null | undefined {
+    if (remembered !== undefined && projects.some((project) => project.name === remembered)) return remembered;
+    let latest: BugBoardProject | undefined;
+    for (const project of projects) {
+        if (!latest || project.lastActivityAt > latest.lastActivityAt) latest = project;
+    }
+    return latest?.name;
+}
+
+/** Bugs under one project tab; null picks the bugs without a project. */
+export function bugsInProject(bugs: BugReportSummary[], project: string | null | undefined): BugReportSummary[] {
+    if (project === undefined) return bugs;
+    return bugs.filter((bug) => (bug.project || null) === project);
+}
+
 export function filterBugShareBoardItems(
     bugs: BugReportSummary[],
     { filter, query }: { filter: BugShareBoardFilter; query: string },
