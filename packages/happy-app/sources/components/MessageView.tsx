@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { ImageViewer } from "./ImageViewer";
 import { StyleSheet } from 'react-native-unistyles';
 import { MarkdownView, OptionsLoadingState } from "./markdown/MarkdownView";
-import { t } from '@/text';
+import { getCurrentLanguage, t } from '@/text';
 import { Message, UserTextMessage, AgentTextMessage, ToolCallMessage } from "@/sync/typesMessage";
 import { Metadata } from "@/sync/storageTypes";
 import { layout } from "./layout";
@@ -17,6 +17,7 @@ import { sync } from "@/sync/sync";
 import { useSetting } from "@/sync/storage";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { buildOptionReplyText } from "./optionReply";
+import { formatMessageTime } from "@/utils/messageTime";
 
 export const MessageView = (props: {
   message: Message;
@@ -256,6 +257,9 @@ function UserTextBlock(props: {
           <Text style={styles.deliveryErrorText}>{props.message.deliveryError}</Text>
         ) : null}
       </Pressable>
+      {props.message.createdAt > 0 && (
+        <Text style={styles.userMessageTime}>{formatMessageTime(props.message.createdAt, getCurrentLanguage())}</Text>
+      )}
     </View>
   );
 }
@@ -428,8 +432,14 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 4,
     maxWidth: '100%',
+  },
+  userMessageTime: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    marginBottom: 12,
+    paddingRight: 4,
   },
   senderLabel: {
     color: theme.colors.textSecondary,
