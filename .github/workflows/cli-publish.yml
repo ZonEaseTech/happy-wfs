@@ -35,6 +35,10 @@ jobs:
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+        # onnxruntime-node (happy-voice) otherwise downloads CUDA binaries whose
+        # release asset now 404s; nothing built here needs the GPU build.
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
 
       - name: Assert git tag matches package version
         run: |
