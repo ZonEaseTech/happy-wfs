@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 83 - 2026-11-19
+
+Messages you send in a session now show when you sent them.
+
+- Sessions: each of your messages has its send time under it, in small grey text. Today's show just the time, earlier days add the date, and earlier years add the year. The format follows the app's language.
+
 ## Version 82 - 2026-11-19
 
 The sidebar's bug list can be narrowed to one project, and every bug shows which project it belongs to.

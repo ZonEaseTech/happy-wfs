@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 83,
+      "date": "2026-11-19",
+      "summary": "Messages you send in a session now show when you sent them.",
+      "changes": [
+        "Sessions: each of your messages has its send time under it, in small grey text. Today's show just the time, earlier days add the date, and earlier years add the year. The format follows the app's language."
+      ],
+      "rawMarkdown": "## Version 83 - 2026-11-19\n\n\nMessages you send in a session now show when you sent them.\n\n- Sessions: each of your messages has its send time under it, in small grey text. Today's show just the time, earlier days add the date, and earlier years add the year. The format follows the app's language."
+    },
+    {
       "version": 82,
       "date": "2026-11-19",
       "summary": "The sidebar's bug list can be narrowed to one project, and every bug shows which project it belongs to.",
@@ -856,5 +865,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 82
+  "latestVersion": 83
 }
