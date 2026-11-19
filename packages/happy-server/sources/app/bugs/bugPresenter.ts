@@ -26,6 +26,7 @@ export function presentBugSummary(row: any) {
         title: row.title,
         description: row.description,
         contentJson: row.contentJson ?? null,
+        project: row.project ?? null,
         status: row.status as BugStatus,
         visibility: row.visibility as BugVisibility,
         // Account identity beats the free-text nickname: authenticated

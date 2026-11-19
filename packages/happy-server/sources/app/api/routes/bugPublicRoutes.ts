@@ -14,6 +14,7 @@ import {
     listBugsForOwner,
     recordBugAttachment,
     updateBugContent,
+    updateBugProject,
 } from '@/app/bugs/bugService';
 
 const loginBody = z.object({
@@ -23,7 +24,9 @@ const loginBody = z.object({
 const createBody = z.object({
     description: z.string().trim().min(1),
     contentJson: z.unknown().optional(),
+    project: z.string().nullable().optional(),
 });
+const projectBody = z.object({ project: z.string().nullable() });
 const contentBody = z.object({
     description: z.string().trim().min(1),
     contentJson: z.unknown().nullable().optional(),
@@ -113,6 +116,7 @@ export function bugPublicRoutes(app: Fastify) {
             const bug = await createBugForOwner(context.ownerId, { nickname: context.nickname }, {
                 description: request.body.description,
                 ...(request.body.contentJson === undefined ? {} : { contentJson: request.body.contentJson }),
+                project: request.body.project,
                 visibility: 'shared',
             });
             return reply.code(201).send({ bug });
@@ -155,6 +159,19 @@ export function bugPublicRoutes(app: Fastify) {
         if (!context) return;
         try {
             const bug = await changeBugStatus(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, { ...request.body, publicOnly: true });
+            return reply.send({ bug });
+        } catch (error) {
+            return handleRouteError(reply, error);
+        }
+    });
+
+    app.patch('/v1/bug-share/bugs/:bugId/project', {
+        schema: { params: z.object({ bugId: z.string() }), body: projectBody },
+    }, async (request, reply) => {
+        const context = await getPublicContext(request, reply);
+        if (!context) return;
+        try {
+            const bug = await updateBugProject(await getAccessibleBugOwnerIds(context.ownerId), request.params.bugId, { nickname: context.nickname }, { project: request.body.project, publicOnly: true });
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);

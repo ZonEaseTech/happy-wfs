@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { db } from '@/storage/db';
 import { inTx, type Tx } from '@/storage/inTx';
 import { randomKeyNaked } from '@/utils/randomKeyNaked';
-import { BugStatusSchema, BugVisibilitySchema, type BugActor, type BugStatus } from './bugTypes';
+import { BugStatusSchema, BugVisibilitySchema, normalizeBugProject, type BugActor, type BugStatus } from './bugTypes';
 import { bugDisplayId, presentBugDetail, presentBugSummary } from './bugPresenter';
 
 const detailInclude = {
@@ -145,6 +145,7 @@ export function bugMatchesQuery(row: any, query: string): boolean {
         row.description,
         row.createdByNickname ?? '',
         row.createdByUser?.username ?? '',
+        row.project ?? '',
         row.status,
         BUG_STATUS_SEARCH_LABELS[row.status] ?? '',
     ].join('\n').toLowerCase();
@@ -160,12 +161,14 @@ async function findBugRowForOwner(tx: Tx | typeof db, owner: BugOwnerScope, bugI
     return row;
 }
 
-export async function listBugsForOwner(owner: BugOwnerScope, input: { status?: string; query?: string; limit?: number; publicOnly?: boolean }) {
+export async function listBugsForOwner(owner: BugOwnerScope, input: { status?: string; project?: string; query?: string; limit?: number; publicOnly?: boolean }) {
     const status = input.status ? BugStatusSchema.parse(input.status) : undefined;
+    const project = normalizeBugProject(input.project);
     const where = {
         ownerId: ownerFilter(owner),
         deletedAt: null,
         ...(status ? { status } : {}),
+        ...(project ? { project } : {}),
         ...(input.publicOnly ? { visibility: 'shared' } : {}),
     };
     const [rows, pendingCount] = await Promise.all([
@@ -197,7 +200,7 @@ export async function getBugForOwner(owner: BugOwnerScope, bugId: string, input:
     return presentBugDetail(row);
 }
 
-export async function createBugForOwner(ownerId: string, actor: BugActor, input: { description: string; contentJson?: unknown; visibility?: string }) {
+export async function createBugForOwner(ownerId: string, actor: BugActor, input: { description: string; contentJson?: unknown; visibility?: string; project?: string | null }) {
     const description = input.description.trim();
     if (!description) throw errorWithStatus(400, 'description is required');
     const visibility = BugVisibilitySchema.parse(input.visibility ?? 'shared');
@@ -212,6 +215,7 @@ export async function createBugForOwner(ownerId: string, actor: BugActor, input:
                 title: buildBugTitle(description),
                 description,
                 ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson }),
+                project: normalizeBugProject(input.project),
                 status: 'pending',
                 visibility,
                 lastActivityAt: new Date(),
@@ -244,6 +248,40 @@ export async function updateBugContent(owner: BugOwnerScope, bugId: string, acto
                 description,
                 ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson }),
                 lastActivityAt: new Date(),
+            },
+        });
+        return await bugDb(tx).bugReport.findUnique({ where: { id: bugId }, include: detailInclude });
+    });
+    return presentBugDetail(row);
+}
+
+/**
+ * Move a bug to another project, or out of any project when `project` is
+ * blank. The history records the new project in `note`. Setting the project a
+ * bug already has changes nothing and records nothing, so a retried request
+ * is harmless.
+ */
+export async function updateBugProject(owner: BugOwnerScope, bugId: string, actor: BugActor, input: { project?: string | null; publicOnly?: boolean }) {
+    const project = normalizeBugProject(input.project);
+    const nickname = actorNickname(actor);
+    const userId = actorUserId(actor);
+    const row = await inTx(async (tx) => {
+        const bug = await findBugRowForOwner(tx, owner, bugId);
+        if (input.publicOnly && bug.visibility !== 'shared') throw errorWithStatus(404, 'Bug not found');
+        if ((bug.project ?? null) === project) return bug;
+        await bugDb(tx).bugReport.update({
+            where: { id: bugId },
+            data: { project, lastActivityAt: new Date() },
+        });
+        await bugDb(tx).bugStatusHistory.create({
+            data: {
+                bugId,
+                actorUserId: userId,
+                actorNickname: nickname,
+                action: 'project_change',
+                fromStatus: bug.status,
+                toStatus: bug.status,
+                note: project,
             },
         });
         return await bugDb(tx).bugReport.findUnique({ where: { id: bugId }, include: detailInclude });

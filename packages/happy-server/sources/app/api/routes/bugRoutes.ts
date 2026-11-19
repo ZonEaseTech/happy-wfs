@@ -16,12 +16,18 @@ import {
     recordBugAttachment,
     softDeleteBugForOwner,
     updateBugContent,
+    updateBugProject,
 } from '@/app/bugs/bugService';
 
 const createBugBody = z.object({
     description: z.string().trim().min(1),
     contentJson: z.unknown().optional(),
     visibility: z.enum(['shared', 'private']).optional(),
+    project: z.string().nullable().optional(),
+});
+
+const projectBody = z.object({
+    project: z.string().nullable(),
 });
 
 const statusBody = z.object({
@@ -60,6 +66,7 @@ export function bugRoutes(app: Fastify) {
         schema: {
             querystring: z.object({
                 status: z.enum(['pending', 'in_progress', 'verify', 'closed']).optional(),
+                project: z.string().optional(),
                 query: z.string().optional(),
                 limit: z.coerce.number().int().min(1).max(200).optional(),
             }).optional(),
@@ -69,6 +76,7 @@ export function bugRoutes(app: Fastify) {
             const owners = await getAccessibleBugOwnerIds(request.userId);
             const result = await listBugsForOwner(owners, {
                 status: request.query?.status,
+                project: request.query?.project,
                 query: request.query?.query,
                 limit: request.query?.limit,
             });
@@ -146,6 +154,18 @@ export function bugRoutes(app: Fastify) {
     }, async (request, reply) => {
         try {
             const bug = await updateBugContent(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), request.body);
+            return reply.send({ bug });
+        } catch (error) {
+            return handleRouteError(reply, error);
+        }
+    });
+
+    app.patch('/v1/bugs/:bugId/project', {
+        preHandler: app.authenticate,
+        schema: { params: z.object({ bugId: z.string() }), body: projectBody },
+    }, async (request, reply) => {
+        try {
+            const bug = await updateBugProject(await getAccessibleBugOwnerIds(request.userId), request.params.bugId, await getBugActorForUser(request.userId), request.body);
             return reply.send({ bug });
         } catch (error) {
             return handleRouteError(reply, error);

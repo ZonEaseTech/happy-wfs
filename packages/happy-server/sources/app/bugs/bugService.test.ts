@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { bugMatchesQuery, buildBugTitle, compareBugRowsForList, normalizeBugStatusChange } from './bugService';
+import { normalizeBugProject } from './bugTypes';
+
+describe('normalizeBugProject', () => {
+    it('collapses whitespace so the same name lands in one group', () => {
+        expect(normalizeBugProject('  TTPOS ')).toBe('TTPOS');
+        expect(normalizeBugProject('lite   pos')).toBe('lite pos');
+    });
+
+    it('treats blank and non-string values as no project', () => {
+        expect(normalizeBugProject('   ')).toBeNull();
+        expect(normalizeBugProject(null)).toBeNull();
+        expect(normalizeBugProject(undefined)).toBeNull();
+    });
+
+    it('caps the length', () => {
+        expect(normalizeBugProject('x'.repeat(60))).toBe('x'.repeat(40));
+    });
+});
 
 describe('bugService pure helpers', () => {
     it('generates compact titles from descriptions', () => {
