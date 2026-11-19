@@ -85,7 +85,7 @@ export async function listBugs(credentials: AuthCredentials, options?: { status?
     return await readJson(response);
 }
 
-export async function createBug(credentials: AuthCredentials, input: { description: string; contentJson?: BugTiptapDoc; visibility?: BugVisibility }): Promise<BugReportDetail> {
+export async function createBug(credentials: AuthCredentials, input: { description: string; contentJson?: BugTiptapDoc; visibility?: BugVisibility; project?: string | null }): Promise<BugReportDetail> {
     const response = await fetch(`${getServerUrl()}/v1/bugs`, { method: 'POST', headers: authHeaders(credentials), body: JSON.stringify(input) });
     return bugFromResponse(await readJson(response));
 }
@@ -108,6 +108,11 @@ export async function deleteBug(credentials: AuthCredentials, bugId: string): Pr
 export async function addBugComment(credentials: AuthCredentials, bugId: string, body: string, contentJson?: BugTiptapDoc | null): Promise<{ bug: BugReportDetail; commentId: string }> {
     const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}/comments`, { method: 'POST', headers: authHeaders(credentials), body: JSON.stringify({ body, ...(contentJson ? { contentJson } : {}) }) });
     return await readJson(response);
+}
+
+export async function changeBugProject(credentials: AuthCredentials, bugId: string, project: string | null): Promise<BugReportDetail> {
+    const response = await fetch(`${getServerUrl()}/v1/bugs/${encodeURIComponent(bugId)}/project`, { method: 'PATCH', headers: authHeaders(credentials), body: JSON.stringify({ project }) });
+    return bugFromResponse(await readJson(response));
 }
 
 export async function changeBugStatus(credentials: AuthCredentials, bugId: string, input: { status: BugStatus; action?: 'return_to_pending' }): Promise<BugReportDetail> {

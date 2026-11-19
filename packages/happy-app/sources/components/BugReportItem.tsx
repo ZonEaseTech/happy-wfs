@@ -18,7 +18,7 @@ export const BugReportItem = React.memo(({ bug, onPress }: {
         >
             <View style={styles.iconCircle}><Text style={styles.iconText}>🐞</Text></View>
             <View style={styles.content}>
-                <Text style={styles.repo} numberOfLines={1}>Bug · {bug.displayId}</Text>
+                <Text style={styles.repo} numberOfLines={1}>Bug · {bug.displayId}{bug.project ? ` · ${bug.project}` : ''}</Text>
                 <Text style={styles.title} numberOfLines={2}>{bug.title}</Text>
                 <Text style={styles.meta} numberOfLines={1}>
                     {t('bug.status')} {bugStatusLabel(bug.status)} · {bug.createdByNickname ?? t('bug.anonymousUser')} · {bug.attachmentCount} {t('bug.screenshots')} · {bug.commentCount} {t('bug.comment')}

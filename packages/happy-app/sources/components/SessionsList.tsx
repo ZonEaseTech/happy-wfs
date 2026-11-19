@@ -31,7 +31,7 @@ import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { useAuth } from '@/auth/AuthContext';
 import { listGitHubIssues, saveGitHubToken, updateGitHubIssueProjectStatus, type GitHubIssue } from '@/sync/apiGithub';
-import { addBugComment, changeBugStatus, createBug, createOrRotateBugShareConfig, deleteBug, getBug, getBugShareConfig, listBugs, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
+import { addBugComment, changeBugProject, changeBugStatus, createBug, createOrRotateBugShareConfig, deleteBug, getBug, getBugShareConfig, listBugs, updateBugContent, uploadBugAttachment } from '@/sync/apiBugs';
 import { BUG_IMAGE_LIMITS, bugStatusSortRank, matchesBugSearch, type BugReportDetail, type BugReportSummary, type BugStatus } from '@/sync/bugTypes';
 import type { BugTiptapDoc } from '@/sync/bugRichContent';
 import type { LocalImage } from '@/components/ImagePreview';
@@ -40,6 +40,7 @@ import { ActionMenuModal } from './ActionMenuModal';
 import { ActionMenuItem } from './ActionMenu';
 import { BugReportCreateModal } from './BugReportCreateModal';
 import { BugReportDetailModal } from './BugReportDetailModal';
+import { getBugBoardProjects, pickBugBoardProject } from '@/utils/bugShareBoardPresentation';
 import { BugReportItem } from './BugReportItem';
 import { BugShareSettingsModal } from './BugShareSettingsModal';
 import { buildBugInitialImages, buildBugReportStartPrompt } from './bugReportStartPrompt';
@@ -874,6 +875,7 @@ function bugDetailToSummary(bug: BugReportDetail): BugReportSummary {
         title: bug.title,
         description: bug.description,
         contentJson: bug.contentJson,
+        project: bug.project ?? null,
         status: bug.status,
         visibility: bug.visibility,
         createdByNickname: bug.createdByNickname,
@@ -906,6 +908,10 @@ export function SessionsList() {
     const [pendingBugs, setPendingBugs] = React.useState<BugReportSummary[]>([]);
     const [pendingBugsLoading, setPendingBugsLoading] = React.useState(false);
     const [pendingBugsError, setPendingBugsError] = React.useState<string | null>(null);
+    const bugProjectNames = React.useMemo(
+        () => getBugBoardProjects(pendingBugs).flatMap((project) => (project.name ? [project.name] : [])),
+        [pendingBugs],
+    );
     const [pendingBugCount, setPendingBugCount] = React.useState(0);
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
     const [pendingIssueSearchText, setPendingIssueSearchText] = useLocalSettingMutable('githubIssueInboxSearchText');
@@ -1501,6 +1507,13 @@ export function SessionsList() {
                         updatePendingBug(updated);
                         return updated;
                     },
+                    projects: bugProjectNames,
+                    onChangeProject: async (current: BugReportDetail, project: string | null) => {
+                        if (!auth.credentials) throw new Error('Missing credentials');
+                        const updated = await changeBugProject(auth.credentials, current.id, project);
+                        updatePendingBug(updated);
+                        return updated;
+                    },
                     onDelete: async (current: BugReportDetail) => {
                         if (!auth.credentials) throw new Error('Missing credentials');
                         await deleteBug(auth.credentials, current.id);
@@ -1512,16 +1525,19 @@ export function SessionsList() {
         } catch (error) {
             Modal.alert(t('common.error'), error instanceof Error ? error.message : String(error));
         }
-    }, [auth.credentials, handleStartBug, removePendingBug, updatePendingBug, uploadBugImages]);
+    }, [auth.credentials, bugProjectNames, handleStartBug, removePendingBug, updatePendingBug, uploadBugImages]);
 
     const handleCreateBug = React.useCallback(() => {
         if (!auth.credentials) return;
         Modal.show({
             component: BugReportCreateModal,
             props: {
-                onCreate: async (description: string, images: LocalImage[], contentJson?: BugTiptapDoc) => {
+                projects: bugProjectNames,
+                // No project tab here, so start from the most recently active project.
+                initialProject: pickBugBoardProject(getBugBoardProjects(pendingBugs), undefined) ?? null,
+                onCreate: async (description: string, images: LocalImage[], contentJson?: BugTiptapDoc, project?: string | null) => {
                     if (!auth.credentials) throw new Error('Missing credentials');
-                    let bug = await createBug(auth.credentials, { description, contentJson, visibility: 'shared' });
+                    let bug = await createBug(auth.credentials, { description, contentJson, visibility: 'shared', project });
                     updatePendingBug(bug);
                     if (images.length > 0) {
                         bug = await uploadBugImages(bug.id, images);
@@ -1531,7 +1547,7 @@ export function SessionsList() {
                 },
             },
         });
-    }, [auth.credentials, handleOpenBugDetails, updatePendingBug, uploadBugImages]);
+    }, [auth.credentials, bugProjectNames, handleOpenBugDetails, pendingBugs, updatePendingBug, uploadBugImages]);
 
     const handleConfigureBugShare = React.useCallback(async () => {
         if (!auth.credentials) return;
