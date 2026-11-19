@@ -2384,6 +2384,7 @@ export const zhHant: TranslationStructure = {
         project: '專案',
         changeProject: '改專案',
         noProject: '未分專案',
+        allProjects: '全部專案',
         newProject: '新專案…',
         newProjectPrompt: '專案名稱',
         shareSettings: '共享设置',

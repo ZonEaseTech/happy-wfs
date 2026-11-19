@@ -2383,6 +2383,7 @@ export const es: TranslationStructure = {
         project: 'Proyecto',
         changeProject: 'Cambiar proyecto',
         noProject: 'Sin proyecto',
+        allProjects: 'Todos los proyectos',
         newProject: 'Nuevo proyecto…',
         newProjectPrompt: 'Nombre del proyecto',
         shareSettings: 'Share Settings',

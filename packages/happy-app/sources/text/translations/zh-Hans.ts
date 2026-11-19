@@ -2383,6 +2383,7 @@ export const zhHans: TranslationStructure = {
         project: '项目',
         changeProject: '改项目',
         noProject: '未分项目',
+        allProjects: '全部项目',
         newProject: '新项目…',
         newProjectPrompt: '项目名称',
         shareSettings: '共享设置',

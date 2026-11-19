@@ -2384,6 +2384,7 @@ export const ja: TranslationStructure = {
         project: 'プロジェクト',
         changeProject: 'プロジェクト変更',
         noProject: 'プロジェクトなし',
+        allProjects: 'すべてのプロジェクト',
         newProject: '新しいプロジェクト…',
         newProjectPrompt: 'プロジェクト名',
         shareSettings: 'Share Settings',

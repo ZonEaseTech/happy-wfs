@@ -2381,6 +2381,7 @@ export const ca: TranslationStructure = {
         project: 'Projecte',
         changeProject: 'Canvia el projecte',
         noProject: 'Sense projecte',
+        allProjects: 'Tots els projectes',
         newProject: 'Projecte nou…',
         newProjectPrompt: 'Nom del projecte',
         shareSettings: 'Share Settings',

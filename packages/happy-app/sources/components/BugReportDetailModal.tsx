@@ -354,7 +354,7 @@ export function BugReportDetailModal({
         <View style={[styles.modal, detailModalLayout.modal]}>
             <View style={styles.header}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.kicker}>{currentBug.displayId} · {bugStatusLabel(currentBug.status)}</Text>
+                    <Text style={styles.kicker}>{currentBug.displayId} · {bugStatusLabel(currentBug.status)} · {currentBug.project || t('bug.noProject')}</Text>
                     <Text style={styles.title} numberOfLines={2}>{currentBug.title}</Text>
                 </View>
                 {canEditContent && (

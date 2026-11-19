@@ -40,7 +40,7 @@ import { ActionMenuModal } from './ActionMenuModal';
 import { ActionMenuItem } from './ActionMenu';
 import { BugReportCreateModal } from './BugReportCreateModal';
 import { BugReportDetailModal } from './BugReportDetailModal';
-import { getBugBoardProjects, pickBugBoardProject } from '@/utils/bugShareBoardPresentation';
+import { bugsInProject, getBugBoardProjects, pickBugBoardProject, type BugBoardProject } from '@/utils/bugShareBoardPresentation';
 import { BugReportItem } from './BugReportItem';
 import { BugShareSettingsModal } from './BugShareSettingsModal';
 import { buildBugInitialImages, buildBugReportStartPrompt } from './bugReportStartPrompt';
@@ -534,6 +534,9 @@ type PendingListItem =
 
 // Persists selected tab across navigation (survives component unmount/remount)
 let lastActiveTab: SidebarTab = 'active';
+// Project the bug list is narrowed to: undefined is every project, null the
+// bugs without one. Kept across remounts like the tab.
+let lastBugProjectFilter: string | null | undefined = undefined;
 
 const SessionsListHeader = React.memo(({
     activeTab,
@@ -543,6 +546,9 @@ const SessionsListHeader = React.memo(({
     pendingItemType,
     pendingBugCount,
     projectFilterLabel,
+    bugProjects,
+    bugProjectFilter,
+    onBugProjectFilterChange,
     onTabPress,
     onPendingIssueSearchChange,
     onClearPendingIssueSearch,
@@ -559,6 +565,9 @@ const SessionsListHeader = React.memo(({
     pendingItemType: PendingItemType;
     pendingBugCount: number;
     projectFilterLabel: string;
+    bugProjects: BugBoardProject[];
+    bugProjectFilter: string | null | undefined;
+    onBugProjectFilterChange: (project: string | null | undefined) => void;
     onTabPress: (tab: SidebarTab) => void;
     onPendingIssueSearchChange: (value: string) => void;
     onClearPendingIssueSearch: () => void;
@@ -576,6 +585,23 @@ const SessionsListHeader = React.memo(({
         { key: 'github', label: t('bug.typeGithub') },
         { key: 'bug', label: t('bug.typeBug') },
     ], []);
+    const [bugProjectMenuVisible, setBugProjectMenuVisible] = React.useState(false);
+    const bugProjectMenuItems = React.useMemo<ActionMenuItem[]>(() => [
+        {
+            label: t('bug.allProjects'),
+            selected: bugProjectFilter === undefined,
+            onPress: () => onBugProjectFilterChange(undefined),
+        },
+        ...bugProjects.map((project) => ({
+            label: `${project.name ?? t('bug.noProject')} · ${project.count}`,
+            secondary: project.name === null,
+            selected: bugProjectFilter === project.name,
+            onPress: () => onBugProjectFilterChange(project.name),
+        })),
+    ], [bugProjectFilter, bugProjects, onBugProjectFilterChange]);
+    const bugProjectLabel = bugProjectFilter === undefined
+        ? t('bug.allProjects')
+        : bugProjectFilter ?? t('bug.noProject');
     const searchPlaceholder = pendingItemType === 'bug'
         ? t('bug.searchBugPlaceholder')
         : pendingItemType === 'github'
@@ -690,6 +716,18 @@ const SessionsListHeader = React.memo(({
                                 <Ionicons name="options-outline" size={17} color={theme.colors.textSecondary} />
                             </Pressable>
                         )}
+                        {pendingItemType === 'bug' && bugProjects.length > 0 && (
+                            <Pressable
+                                onPress={() => setBugProjectMenuVisible(true)}
+                                style={[styles.pendingProjectFilterButton, { flex: 1, minWidth: 180 }]}
+                            >
+                                <Ionicons name="albums-outline" size={17} color={theme.colors.textSecondary} />
+                                <Text style={styles.pendingProjectFilterText} numberOfLines={1}>
+                                    {t('bug.project')}：{bugProjectLabel}
+                                </Text>
+                                <Ionicons name="chevron-down" size={17} color={theme.colors.textSecondary} />
+                            </Pressable>
+                        )}
                         {pendingItemType !== 'github' && (
                             <>
                                 <Pressable
@@ -717,6 +755,12 @@ const SessionsListHeader = React.memo(({
                     </View>
                 </View>
             )}
+            <ActionMenuModal
+                visible={bugProjectMenuVisible}
+                title={t('bug.project')}
+                items={bugProjectMenuItems}
+                onClose={() => setBugProjectMenuVisible(false)}
+            />
         </>
     );
 });
@@ -908,10 +952,20 @@ export function SessionsList() {
     const [pendingBugs, setPendingBugs] = React.useState<BugReportSummary[]>([]);
     const [pendingBugsLoading, setPendingBugsLoading] = React.useState(false);
     const [pendingBugsError, setPendingBugsError] = React.useState<string | null>(null);
+    const bugProjects = React.useMemo(() => getBugBoardProjects(pendingBugs), [pendingBugs]);
     const bugProjectNames = React.useMemo(
-        () => getBugBoardProjects(pendingBugs).flatMap((project) => (project.name ? [project.name] : [])),
-        [pendingBugs],
+        () => bugProjects.flatMap((project) => (project.name ? [project.name] : [])),
+        [bugProjects],
     );
+    const [rawBugProjectFilter, setRawBugProjectFilter] = React.useState<string | null | undefined>(lastBugProjectFilter);
+    // A project that no longer has bugs falls back to every project.
+    const bugProjectFilter = rawBugProjectFilter !== undefined && bugProjects.some((project) => project.name === rawBugProjectFilter)
+        ? rawBugProjectFilter
+        : undefined;
+    const handleBugProjectFilterChange = React.useCallback((project: string | null | undefined) => {
+        lastBugProjectFilter = project;
+        setRawBugProjectFilter(project);
+    }, []);
     const [pendingBugCount, setPendingBugCount] = React.useState(0);
     const [githubIssueInboxFilters, setGithubIssueInboxFilters] = useLocalSettingMutable('githubIssueInboxFilters');
     const [pendingIssueSearchText, setPendingIssueSearchText] = useLocalSettingMutable('githubIssueInboxSearchText');
@@ -1225,8 +1279,9 @@ export function SessionsList() {
         });
     }, [pendingIssueFilterKeywords, pendingIssueLocalSearchSource, pendingIssueProjectFilters, pendingIssueSearchKeyword, pendingIssueSearchNumber]);
     const filteredPendingBugs = React.useMemo(() => {
-        return pendingBugs.filter((bug) => matchesBugSearch(bug, pendingIssueSearchText));
-    }, [pendingBugs, pendingIssueSearchText]);
+        const scoped = pendingItemType === 'bug' ? bugsInProject(pendingBugs, bugProjectFilter) : pendingBugs;
+        return scoped.filter((bug) => matchesBugSearch(bug, pendingIssueSearchText));
+    }, [bugProjectFilter, pendingBugs, pendingIssueSearchText, pendingItemType]);
     const pendingListItems = React.useMemo<PendingListItem[]>(() => {
         const items: PendingListItem[] = [];
         if (pendingItemType !== 'bug') {
@@ -1533,8 +1588,9 @@ export function SessionsList() {
             component: BugReportCreateModal,
             props: {
                 projects: bugProjectNames,
-                // No project tab here, so start from the most recently active project.
-                initialProject: pickBugBoardProject(getBugBoardProjects(pendingBugs), undefined) ?? null,
+                // Start from the project the list is narrowed to; with every
+                // project shown, from the most recently active one.
+                initialProject: (bugProjectFilter !== undefined ? bugProjectFilter : pickBugBoardProject(bugProjects, undefined)) ?? null,
                 onCreate: async (description: string, images: LocalImage[], contentJson?: BugTiptapDoc, project?: string | null) => {
                     if (!auth.credentials) throw new Error('Missing credentials');
                     let bug = await createBug(auth.credentials, { description, contentJson, visibility: 'shared', project });
@@ -1547,7 +1603,7 @@ export function SessionsList() {
                 },
             },
         });
-    }, [auth.credentials, bugProjectNames, handleOpenBugDetails, pendingBugs, updatePendingBug, uploadBugImages]);
+    }, [auth.credentials, bugProjectFilter, bugProjectNames, bugProjects, handleOpenBugDetails, updatePendingBug, uploadBugImages]);
 
     const handleConfigureBugShare = React.useCallback(async () => {
         if (!auth.credentials) return;
@@ -1652,6 +1708,9 @@ export function SessionsList() {
             pendingItemType={pendingItemType}
             pendingBugCount={pendingBugCount}
             projectFilterLabel={projectFilterLabel}
+            bugProjects={bugProjects}
+            bugProjectFilter={bugProjectFilter}
+            onBugProjectFilterChange={handleBugProjectFilterChange}
             onTabPress={setActiveTab}
             onPendingIssueSearchChange={handlePendingIssueSearchChange}
             onClearPendingIssueSearch={handleClearPendingIssueSearch}
@@ -1663,6 +1722,9 @@ export function SessionsList() {
         />
     ), [
         activeTab,
+        bugProjectFilter,
+        bugProjects,
+        handleBugProjectFilterChange,
         handleConfigureBugShare,
         handleClearPendingIssueSearch,
         handleConfigurePending,

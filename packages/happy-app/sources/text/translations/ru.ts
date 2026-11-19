@@ -2406,6 +2406,7 @@ export const ru: TranslationStructure = {
         project: 'Проект',
         changeProject: 'Изменить проект',
         noProject: 'Без проекта',
+        allProjects: 'Все проекты',
         newProject: 'Новый проект…',
         newProjectPrompt: 'Название проекта',
         shareSettings: 'Share Settings',

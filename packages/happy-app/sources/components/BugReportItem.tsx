@@ -18,7 +18,12 @@ export const BugReportItem = React.memo(({ bug, onPress }: {
         >
             <View style={styles.iconCircle}><Text style={styles.iconText}>🐞</Text></View>
             <View style={styles.content}>
-                <Text style={styles.repo} numberOfLines={1}>Bug · {bug.displayId}{bug.project ? ` · ${bug.project}` : ''}</Text>
+                <View style={styles.topRow}>
+                    <Text style={styles.repo} numberOfLines={1}>Bug · {bug.displayId}</Text>
+                    <Text style={[styles.projectTag, !bug.project && styles.projectTagNone]} numberOfLines={1}>
+                        {bug.project || t('bug.noProject')}
+                    </Text>
+                </View>
                 <Text style={styles.title} numberOfLines={2}>{bug.title}</Text>
                 <Text style={styles.meta} numberOfLines={1}>
                     {t('bug.status')} {bugStatusLabel(bug.status)} · {bug.createdByNickname ?? t('bug.anonymousUser')} · {bug.attachmentCount} {t('bug.screenshots')} · {bug.commentCount} {t('bug.comment')}
@@ -51,7 +56,20 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     iconText: { fontSize: 18 },
     content: { flex: 1, minWidth: 0 },
-    repo: { fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() },
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    repo: { fontSize: 13, color: theme.colors.textSecondary, flexShrink: 0, ...Typography.default() },
+    projectTag: {
+        fontSize: 12,
+        color: '#0F766E',
+        backgroundColor: '#ECFDF5',
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        overflow: 'hidden',
+        flexShrink: 1,
+        ...Typography.default('semiBold'),
+    },
+    projectTagNone: { color: theme.colors.textSecondary, backgroundColor: theme.colors.surfaceHigh },
     title: { fontSize: 16, color: theme.colors.text, marginTop: 4, ...Typography.default('semiBold') },
     meta: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 6, ...Typography.default() },
 }));
