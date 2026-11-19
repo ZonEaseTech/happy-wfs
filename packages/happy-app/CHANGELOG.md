@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 82 - 2026-11-19
+
+The sidebar's bug list can be narrowed to one project, and every bug shows which project it belongs to.
+
+- Bugs: under the search box in the sidebar's bug list, a Project button narrows the list to one project, or to the bugs without one. New Bug starts on the project you narrowed to.
+- Bugs: each bug in the sidebar list carries a tag with its project, and a bug's detail view names its project next to its status, on the shared bug board too.
+
 ## Version 81 - 2026-11-19
 
 Bugs filed from the sidebar can be given a project too.
