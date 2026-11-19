@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 80 - 2026-11-19
+
+The bug board splits bugs by project, and its list scrolls on its own.
+
+- Bugs: each bug can belong to a project, such as TTPOS or lite-pos. The board shows one project at a time, with a tab per project above the status filters, and opens on the one you last looked at. Pick the project when filing a new bug, or move a bug with Change Project on its detail page. Existing bugs start under No project. A search still looks through every project and names the project on each result.
+- Bugs: on a wide screen, the title, filters, search box and New Bug button stay in place while the bug list scrolls beneath them.
+
 ## Version 79 - 2026-11-18
 
 Images you attach to a Cursor session now show as thumbnails, and Cursor's list gains Gemini 4 and Claude Fable 5.2.

@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 80,
+      "date": "2026-11-19",
+      "summary": "The bug board splits bugs by project, and its list scrolls on its own.",
+      "changes": [
+        "Bugs: each bug can belong to a project, such as TTPOS or lite-pos. The board shows one project at a time, with a tab per project above the status filters, and opens on the one you last looked at. Pick the project when filing a new bug, or move a bug with Change Project on its detail page. Existing bugs start under No project. A search still looks through every project and names the project on each result.",
+        "Bugs: on a wide screen, the title, filters, search box and New Bug button stay in place while the bug list scrolls beneath them."
+      ],
+      "rawMarkdown": "## Version 80 - 2026-11-19\n\n\nThe bug board splits bugs by project, and its list scrolls on its own.\n\n- Bugs: each bug can belong to a project, such as TTPOS or lite-pos. The board shows one project at a time, with a tab per project above the status filters, and opens on the one you last looked at. Pick the project when filing a new bug, or move a bug with Change Project on its detail page. Existing bugs start under No project. A search still looks through every project and names the project on each result.\n- Bugs: on a wide screen, the title, filters, search box and New Bug button stay in place while the bug list scrolls beneath them."
+    },
+    {
       "version": 79,
       "date": "2026-11-18",
       "summary": "Images you attach to a Cursor session now show as thumbnails, and Cursor's list gains Gemini 4 and Claude Fable 5.2.",
@@ -827,5 +837,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 79
+  "latestVersion": 80
 }
