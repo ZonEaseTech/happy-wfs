@@ -1,30 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { resolveModelSelectionForFlavor } from 'happy-wire';
 import { getCopyToAgentModelMode, getCopiedSessionModelMode } from './copySessionDefaults';
+import { CLAUDE_NEW_SESSION_DEFAULT_MODEL } from './newSessionDefaults';
 
 describe('copySessionDefaults', () => {
-    it('uses GPT-5.5 high when copying a session into Codex', () => {
+    it('uses GPT-6.1 Sol with high effort when copying a session into Codex', () => {
         const mode = getCopyToAgentModelMode('codex');
-        expect(mode).toBe('gpt-6.1-terra-high');
+        expect(mode).toBe('gpt-6.1-sol-high');
         expect(resolveModelSelectionForFlavor('codex', mode)).toEqual({
-            model: 'gpt-6.1-terra',
+            model: 'gpt-6.1-sol',
             reasoningEffort: 'high',
         });
     });
 
-    it('keeps existing default behavior for non-Codex copy targets', () => {
-        expect(getCopyToAgentModelMode('claude')).toBe('default');
-        expect(getCopyToAgentModelMode('gemini')).toBe('default');
+    it('uses Opus 5.5 when copying a session into Claude, the same model a new Claude session starts on', () => {
+        expect(getCopyToAgentModelMode('claude')).toBe('claude-opus-5-5[1m]');
+        expect(getCopyToAgentModelMode('claude')).toBe(CLAUDE_NEW_SESSION_DEFAULT_MODEL);
     });
 
-    it('normalizes copied Codex session default to GPT-5.5 high', () => {
-        expect(getCopiedSessionModelMode('codex', undefined)).toBe('gpt-6.1-terra-high');
-        expect(getCopiedSessionModelMode('codex', 'default')).toBe('gpt-6.1-terra-high');
+    it('keeps the CLI default for other copy targets', () => {
+        expect(getCopyToAgentModelMode('gemini')).toBe('default');
+        expect(getCopyToAgentModelMode('cursor')).toBe('default');
+    });
+
+    it('normalizes copied Codex session default to GPT-6.1 Sol high', () => {
+        expect(getCopiedSessionModelMode('codex', undefined)).toBe('gpt-6.1-sol-high');
+        expect(getCopiedSessionModelMode('codex', 'default')).toBe('gpt-6.1-sol-high');
         expect(getCopiedSessionModelMode('codex', 'gpt-5.4-high')).toBe('gpt-5.4-high');
     });
 
-    it('preserves copied non-Codex session defaults', () => {
-        expect(getCopiedSessionModelMode('claude', undefined)).toBe('default');
+    it('starts a copied Claude session without a model on Opus 5.5, and keeps a chosen one', () => {
+        expect(getCopiedSessionModelMode('claude', undefined)).toBe('claude-opus-5-5[1m]');
+        expect(getCopiedSessionModelMode('claude', 'default')).toBe('claude-opus-5-5[1m]');
+        expect(getCopiedSessionModelMode('claude', 'claude-fable-5-2')).toBe('claude-fable-5-2');
+    });
+
+    it('preserves copied Gemini session defaults', () => {
         expect(getCopiedSessionModelMode('gemini', 'default')).toBe('default');
     });
 });
