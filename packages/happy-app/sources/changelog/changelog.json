@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 84,
+      "date": "2026-11-22",
+      "summary": "Copying a session now starts it on a set model: Claude Opus 5.5 for Claude, GPT-6.1 Sol for Codex.",
+      "changes": [
+        "Sessions: Copy Session to Claude starts on Claude Opus 5.5 with the 1M context, the same model a new Claude session starts on, instead of whatever Claude Code on that device defaults to. Copy Session to Codex starts on GPT-6.1 Sol with high reasoning effort instead of GPT-6.1 Terra. A session that already had a model chosen keeps it."
+      ],
+      "rawMarkdown": "## Version 84 - 2026-11-22\n\n\nCopying a session now starts it on a set model: Claude Opus 5.5 for Claude, GPT-6.1 Sol for Codex.\n\n- Sessions: Copy Session to Claude starts on Claude Opus 5.5 with the 1M context, the same model a new Claude session starts on, instead of whatever Claude Code on that device defaults to. Copy Session to Codex starts on GPT-6.1 Sol with high reasoning effort instead of GPT-6.1 Terra. A session that already had a model chosen keeps it."
+    },
+    {
       "version": 83,
       "date": "2026-11-19",
       "summary": "Messages you send in a session now show when you sent them.",
@@ -865,5 +874,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 83
+  "latestVersion": 84
 }

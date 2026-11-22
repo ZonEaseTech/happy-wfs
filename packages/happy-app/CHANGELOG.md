@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 84 - 2026-11-22
+
+Copying a session now starts it on a set model: Claude Opus 5.5 for Claude, GPT-6.1 Sol for Codex.
+
+- Sessions: Copy Session to Claude starts on Claude Opus 5.5 with the 1M context, the same model a new Claude session starts on, instead of whatever Claude Code on that device defaults to. Copy Session to Codex starts on GPT-6.1 Sol with high reasoning effort instead of GPT-6.1 Terra. A session that already had a model chosen keeps it.
+
 ## Version 83 - 2026-11-19
 
 Messages you send in a session now show when you sent them.
