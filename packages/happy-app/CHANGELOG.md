@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 86 - 2026-11-22
+
+Copied and resumed sessions start in YOLO, and so do sessions someone shares with you.
+
+- Sessions: Copy Session, Copy Session to Claude, Codex or Cursor, copying from a message, and Resume Session all start the new session in YOLO (Yolo for Claude) instead of carrying over the original session's permission mode.
+- Sharing: in a session shared with you, your messages go out in YOLO until you pick a permission mode yourself, so they no longer switch the owner's session back to Default and leave it waiting on approvals. Changing the model or fast mode there keeps your permission mode.
+
 ## Version 85 - 2026-11-22
 
 A session's terminal now opens even when that session's process can't start one.
