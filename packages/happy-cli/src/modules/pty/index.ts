@@ -9,9 +9,11 @@
  * mutate.
  *
  * node-pty has native bindings — if the host failed to build them (no python /
- * no compiler), require() throws synchronously at first call. We swallow that
- * error once and remember the module is unavailable so spawnShell can throw a
- * stable `pty_unavailable` sentinel that the app turns into a friendly toast.
+ * no compiler), require() throws synchronously. We swallow that error so
+ * spawnShell can throw a stable `pty_unavailable` sentinel that the app turns
+ * into a friendly toast. Only a successful load is cached: a failed one is
+ * retried on the next terminal open, so reinstalling the CLI with build tools
+ * fixes terminals in already-running sessions without restarting them.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -62,7 +64,6 @@ interface NodePtyModule {
 export const PTY_UNAVAILABLE = 'pty_unavailable';
 
 let cachedModule: NodePtyModule | null = null;
-let loadAttempted = false;
 let loadError: Error | null = null;
 
 /**
@@ -93,10 +94,9 @@ function ensureSpawnHelperExecutable(): void {
 }
 
 function loadNodePty(): NodePtyModule | null {
-    if (loadAttempted) {
+    if (cachedModule) {
         return cachedModule;
     }
-    loadAttempted = true;
     try {
         // Dynamic require so `pkgroll` / TS bundling doesn't try to resolve the
         // native module at build time, and so the error stays catchable here.
@@ -104,6 +104,7 @@ function loadNodePty(): NodePtyModule | null {
         const mod = require('node-pty') as NodePtyModule;
         ensureSpawnHelperExecutable();
         cachedModule = mod;
+        loadError = null;
         return mod;
     } catch (err) {
         loadError = err instanceof Error ? err : new Error(String(err));
