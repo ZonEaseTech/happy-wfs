@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 85 - 2026-11-22
+
+A session's terminal now opens even when that session's process can't start one.
+
+- Terminal: when a session reports that node-pty isn't available, the terminal opens through the device's background service instead, in the session's folder, so sessions started before a fix keep working without a restart. The error only shows if the device can't open a terminal either.
+- CLI 0.6.70: a session that once failed to load node-pty tries again the next time a terminal is opened, so reinstalling with build tools fixes terminals in sessions that are already running.
+
 ## Version 84 - 2026-11-22
 
 Copying a session now starts it on a set model: Claude Opus 5.5 for Claude, GPT-6.1 Sol for Codex.

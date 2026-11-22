@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": 85,
+      "date": "2026-11-22",
+      "summary": "A session's terminal now opens even when that session's process can't start one.",
+      "changes": [
+        "Terminal: when a session reports that node-pty isn't available, the terminal opens through the device's background service instead, in the session's folder, so sessions started before a fix keep working without a restart. The error only shows if the device can't open a terminal either.",
+        "CLI 0.6.70: a session that once failed to load node-pty tries again the next time a terminal is opened, so reinstalling with build tools fixes terminals in sessions that are already running."
+      ],
+      "rawMarkdown": "## Version 85 - 2026-11-22\n\n\nA session's terminal now opens even when that session's process can't start one.\n\n- Terminal: when a session reports that node-pty isn't available, the terminal opens through the device's background service instead, in the session's folder, so sessions started before a fix keep working without a restart. The error only shows if the device can't open a terminal either.\n- CLI 0.6.70: a session that once failed to load node-pty tries again the next time a terminal is opened, so reinstalling with build tools fixes terminals in sessions that are already running."
+    },
+    {
       "version": 84,
       "date": "2026-11-22",
       "summary": "Copying a session now starts it on a set model: Claude Opus 5.5 for Claude, GPT-6.1 Sol for Codex.",
@@ -874,5 +884,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 84
+  "latestVersion": 85
 }
