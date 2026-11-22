@@ -37,7 +37,7 @@ import { showToast } from '@/components/Toast';
 import { Modal } from '@/modal';
 import { editQuickCommand } from '@/components/TerminalQuickCommandEditor';
 import { t } from '@/text';
-import { useSettingMutable } from '@/sync/storage';
+import { storage, useSettingMutable } from '@/sync/storage';
 import type { TerminalQuickCommand, TerminalTheme } from '@/sync/settings';
 import { randomUUID } from 'expo-crypto';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -322,6 +322,9 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
     const termRef = React.useRef<InstanceType<XtermModule['Terminal']> | null>(null);
     const fitRef = React.useRef<InstanceType<FitAddonModule['FitAddon']> | null>(null);
     const ptyIdRef = React.useRef<string | null>(null);
+    // Where the PTY actually lives. Starts as the requested scope and switches
+    // to the session's machine when the session process can't load node-pty.
+    const scopeRef = React.useRef({ id: sessionId, isMachine: isMachineScope });
     const closedRef = React.useRef(false);
     const activeRef = React.useRef(active);
     const [isActivating, setIsActivating] = React.useState(false);
@@ -346,17 +349,19 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
             if (!ptyId) return;
             const cols = termRef.current.cols;
             const rows = termRef.current.rows;
-            scopeRPC(sessionId, isMachineScope, 'pty-resize', { ptyId, cols, rows }).catch(() => {});
+            const scope = scopeRef.current;
+            scopeRPC(scope.id, scope.isMachine, 'pty-resize', { ptyId, cols, rows }).catch(() => {});
         } catch { /* container detached */ }
     }, [sessionId]);
 
     const sendPtyInput = React.useCallback(async (data: string) => {
         if (!ptyIdRef.current || closedRef.current) return;
         try {
-            const encryptedData = await encryptData(sessionId, data, isMachineScope);
+            const scope = scopeRef.current;
+            const encryptedData = await encryptData(scope.id, data, scope.isMachine);
             if (encryptedData == null) return;
             apiSocket.send('pty-input', {
-                sessionId,
+                sessionId: scope.id,
                 ptyId: ptyIdRef.current,
                 data: encryptedData,
             });
@@ -384,6 +389,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
     React.useEffect(() => {
         let cancelled = false;
         const dataDisposers: Array<() => void> = [];
+        scopeRef.current = { id: sessionId, isMachine: isMachineScope };
 
         const term = new bundle.XTerm({
             cursorBlink: true,
@@ -429,17 +435,25 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
                 // node-pty failed to native-build at install time. We have to
                 // check the discriminator BEFORE assuming ptyId exists.
                 type PtyStartResult = { ok: true; ptyId: string } | { ok: false; error: string };
-                const result = await scopeRPC<PtyStartResult, { cols: number; rows: number; cwd?: string }>(
-                    sessionId,
-                    isMachineScope,
-                    'pty-start',
-                    { cols: dims.cols, rows: dims.rows, cwd },
-                );
+                const startParams = { cols: dims.cols, rows: dims.rows, cwd };
+                let result = await scopeRPC<PtyStartResult, typeof startParams>(sessionId, isMachineScope, 'pty-start', startParams);
+                // A session process that once failed to load node-pty never
+                // retries. The machine's daemon is a separate process and may
+                // load it fine (e.g. after a reinstall with build tools), so
+                // open the shell there, in the session's directory.
+                const machineId = storage.getState().sessions[sessionId]?.metadata?.machineId;
+                if (!isMachineScope && !result?.ok && result?.error === 'pty_unavailable' && machineId) {
+                    const machineResult = await scopeRPC<PtyStartResult, typeof startParams>(machineId, true, 'pty-start', startParams).catch(() => null);
+                    if (machineResult?.ok) {
+                        result = machineResult;
+                        scopeRef.current = { id: machineId, isMachine: true };
+                    }
+                }
                 if (cancelled) {
                     // User closed before spawn returned — clean up immediately.
                     try {
                         if (result?.ok && result.ptyId) {
-                            await scopeRPC(sessionId, isMachineScope, 'pty-close', { ptyId: result.ptyId });
+                            await scopeRPC(scopeRef.current.id, scopeRef.current.isMachine, 'pty-close', { ptyId: result.ptyId });
                         }
                     } catch { /* best-effort */ }
                     return;
@@ -490,10 +504,11 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
             // frame = { sessionId, ptyId, data: <ciphertext> }
             try {
                 if (!frame || typeof frame !== 'object') return;
-                if (frame.sessionId !== sessionId) return;
+                const scope = scopeRef.current;
+                if (frame.sessionId !== scope.id) return;
                 if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) return;
                 const decryptedB64 = typeof frame.data === 'string'
-                    ? await decryptData(sessionId, frame.data, isMachineScope)
+                    ? await decryptData(scope.id, frame.data, scope.isMachine)
                     : null;
                 if (typeof decryptedB64 !== 'string') return;
                 // base64 → Uint8Array. Use atob (web-only file).
@@ -507,7 +522,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
         const offExit = apiSocket.onSocketEvent('pty-exit', (frame: any) => {
             try {
                 if (!frame || typeof frame !== 'object') return;
-                if (frame.sessionId !== sessionId) return;
+                if (frame.sessionId !== scopeRef.current.id) return;
                 if (!ptyIdRef.current || frame.ptyId !== ptyIdRef.current) return;
                 const code = frame.exitCode;
                 term.write(`\r\n[process exited${typeof code === 'number' ? ` with code ${code}` : ''}]\r\n`);
@@ -540,7 +555,7 @@ const TerminalRuntime: React.FC<TerminalRuntimeProps> = ({ sessionId, isMachineS
             if (ptyId) {
                 // Fire-and-forget; if the CLI is gone the server eventually
                 // gc's the spawn anyway.
-                scopeRPC(sessionId, isMachineScope, 'pty-close', { ptyId }).catch(() => {});
+                scopeRPC(scopeRef.current.id, scopeRef.current.isMachine, 'pty-close', { ptyId }).catch(() => {});
             }
             try { term.dispose(); } catch { /* ignore */ }
             termRef.current = null;
