@@ -55,7 +55,7 @@ import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
 import { isRunningOnMac } from '@/utils/platform';
 import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/utils/responsive';
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
-import { getCopyToAgentModelMode } from '@/utils/copySessionDefaults';
+import { getCopyToAgentModelMode, getSessionPermissionMode, getYoloPermissionMode } from '@/utils/copySessionDefaults';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
 import { HappyError } from '@/utils/errors';
@@ -152,26 +152,6 @@ function formatCopyTargetAgent(agent: CopyTargetAgent): string {
     if (agent === 'codex') return 'Codex';
     if (agent === 'cursor') return 'Cursor';
     return 'Claude';
-}
-
-function mapPermissionModeForCopyTarget(
-    permissionMode: Session['permissionMode'],
-    targetAgent: CopyTargetAgent,
-): NonNullable<Session['permissionMode']> {
-    const mode = permissionMode || 'default';
-    if (targetAgent === 'cursor') {
-        // Cursor approves per tool call through its hook; the graded Claude
-        // modes have no counterpart, so only the unattended ones carry over.
-        return (mode === 'yolo' || mode === 'safe-yolo' || mode === 'default') ? mode : 'default';
-    }
-    if (targetAgent === 'codex') {
-        return (mode === 'read-only' || mode === 'safe-yolo' || mode === 'yolo' || mode === 'default')
-            ? mode
-            : 'default';
-    }
-    return (mode === 'acceptEdits' || mode === 'plan' || mode === 'bypassPermissions' || mode === 'yolo' || mode === 'default')
-        ? mode
-        : 'default';
 }
 
 function applyQuickActionPlaceholders(prompt: string, params: { projectPath: string }): string {
@@ -931,7 +911,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
     const isAcknowledged = machineId && acknowledgedCliVersions[machineId] === cliVersion;
     const shouldShowCliWarning = isCliOutdated && !isAcknowledged;
     // Get permission mode from session object, default to 'default'
-    const permissionMode = session.permissionMode || 'default';
+    const permissionMode = getSessionPermissionMode(session);
     // Get model mode from session object. "default" means use CLI/profile configured model.
     const modelMode = session.modelMode || 'default';
     const fastMode = session.fastMode ?? false;
@@ -1212,7 +1192,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
         sync.queueSessionModeConfigUpdate({
             sessionId: spawnResult.sessionId,
             agentType: targetAgent,
-            permissionMode: mapPermissionModeForCopyTarget(permissionMode, targetAgent),
+            permissionMode: getYoloPermissionMode(targetAgent),
             modelMode: getCopyToAgentModelMode(targetAgent),
             fastMode: false,
             includeSessionEntry: true,
@@ -1227,7 +1207,7 @@ function SessionViewLoaded({ sessionId, session, isDesktopPanelMode, rightPanelT
             throw new HappyError(sendResult.error || t('duplicate.failed'), false);
         }
         router.replace(`/session/${spawnResult.sessionId}`);
-    }, [machineId, permissionMode, router, session]);
+    }, [machineId, router, session]);
 
     const [isCopyingToCodexSession, performCopyToCodexSession] = useHappyAction(async () => {
         await copySessionToAgent('codex');

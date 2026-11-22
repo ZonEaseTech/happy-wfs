@@ -18,6 +18,7 @@ import {
 import { getSendConfirmation, getVoiceProvider } from '@/sync/voiceConfig';
 import { showSendConfirmation } from './SendConfirmationModal';
 import { MODEL_MODES } from 'happy-wire';
+import { getSessionPermissionMode } from '@/utils/copySessionDefaults';
 
 function getLatestAssistantReplyFromCurrentSession(maxChars: number): string | null {
     const sessionId = getCurrentRealtimeSessionId();
@@ -359,7 +360,7 @@ export const realtimeClientTools = {
         const path = getSessionSubtitle(session);
         const online = isSessionOnline(session) ? 'online' : 'offline';
         const thinking = session.thinking ? 'yes, AI is currently working' : 'no';
-        const permissionMode = session.permissionMode || 'default';
+        const permissionMode = getSessionPermissionMode(session);
         const model = session.modelMode || 'default';
         const pendingRequests = session.agentState?.requests ? Object.keys(session.agentState.requests).length : 0;
 

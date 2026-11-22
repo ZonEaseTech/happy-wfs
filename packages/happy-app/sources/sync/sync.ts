@@ -38,6 +38,7 @@ import { uploadContentPublicKey, fetchSharedSessions as apiFetchSharedSessions }
 import { gitStatusSync } from './gitStatusSync';
 import { projectManager } from './projectManager';
 import { AsyncLock } from '@/utils/lock';
+import { getSessionPermissionMode } from '@/utils/copySessionDefaults';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { Message } from './typesMessage';
 import { EncryptionCache } from './encryption/encryptionCache';
@@ -823,7 +824,7 @@ ${devices.map((device) => `- "${device.name}" (id: ${device.id})`).join('\n')}
             return { error: 'Session not found', localId: '' };
         }
 
-        const permissionMode = session.permissionMode || 'default';
+        const permissionMode = getSessionPermissionMode(session);
         const flavor = session.metadata?.flavor;
         const modelMode = session.modelMode || 'default';
         const fastMode = session.fastMode ?? false;

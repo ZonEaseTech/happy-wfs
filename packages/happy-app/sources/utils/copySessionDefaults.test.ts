@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveModelSelectionForFlavor } from 'happy-wire';
-import { getCopyToAgentModelMode, getCopiedSessionModelMode } from './copySessionDefaults';
+import { getCopyToAgentModelMode, getCopiedSessionModelMode, getSessionPermissionMode, getYoloPermissionMode } from './copySessionDefaults';
 import { CLAUDE_NEW_SESSION_DEFAULT_MODEL } from './newSessionDefaults';
 
 describe('copySessionDefaults', () => {
@@ -37,5 +37,27 @@ describe('copySessionDefaults', () => {
 
     it('preserves copied Gemini session defaults', () => {
         expect(getCopiedSessionModelMode('gemini', 'default')).toBe('default');
+    });
+});
+
+describe('YOLO defaults for copied and shared sessions', () => {
+    it('maps YOLO to bypassPermissions for Claude and to yolo for the other agents', () => {
+        expect(getYoloPermissionMode('claude')).toBe('bypassPermissions');
+        expect(getYoloPermissionMode(undefined)).toBe('bypassPermissions');
+        expect(getYoloPermissionMode('codex')).toBe('yolo');
+        expect(getYoloPermissionMode('gemini')).toBe('yolo');
+        expect(getYoloPermissionMode('cursor')).toBe('yolo');
+    });
+
+    it('falls back to YOLO in a session shared with you, and to default in your own', () => {
+        const shared = { accessLevel: 'edit' as const, metadata: { flavor: 'codex' } as any, permissionMode: undefined };
+        expect(getSessionPermissionMode(shared)).toBe('yolo');
+        expect(getSessionPermissionMode({ ...shared, metadata: { flavor: 'claude' } as any })).toBe('bypassPermissions');
+        expect(getSessionPermissionMode({ ...shared, accessLevel: undefined })).toBe('default');
+    });
+
+    it('keeps a mode you picked yourself, shared or not', () => {
+        expect(getSessionPermissionMode({ accessLevel: 'edit', metadata: null, permissionMode: 'plan' })).toBe('plan');
+        expect(getSessionPermissionMode({ accessLevel: undefined, metadata: null, permissionMode: 'acceptEdits' })).toBe('acceptEdits');
     });
 });

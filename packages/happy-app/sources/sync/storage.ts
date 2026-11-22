@@ -20,6 +20,7 @@ import { DecryptedArtifact } from "./artifactTypes";
 import { FeedItem } from "./feedTypes";
 import type { OpenClawMachine, OpenClawConnectionStatus } from "../openclaw/types";
 import type { RegisteredRepo } from "@/utils/workspaceRepos";
+import { getSessionPermissionMode } from "@/utils/copySessionDefaults";
 import {
     applySessionModeConfigPatch,
     createEmptySessionModeConfig,
@@ -1023,7 +1024,9 @@ export const storage = create<StorageState>()((set, get) => {
             const updatedSharedSessions: Record<string, Session> = {};
             Object.entries(state.sharedSessions).forEach(([id, sess]) => {
                 const mode = getSessionModeForSession(doc, id);
-                const permissionMode = mode?.permissionMode ?? 'default';
+                // Left unset when you never picked one, so it falls back to
+                // YOLO (getSessionPermissionMode) instead of default.
+                const permissionMode = mode?.permissionMode;
                 const modelMode = mode?.modelMode ?? 'default';
                 const fastMode = mode?.fastMode;
                 if (sess.permissionMode !== permissionMode || sess.modelMode !== modelMode || sess.fastMode !== fastMode) {
@@ -1303,7 +1306,7 @@ export const storage = create<StorageState>()((set, get) => {
                 const updatedConfig = applySessionModeConfigPatch(state.sessionModeConfig, {
                     sessionId,
                     agentType,
-                    permissionMode: existing.permissionMode || 'default',
+                    permissionMode: getSessionPermissionMode(existing),
                     modelMode: existing.modelMode || 'default',
                     fastMode,
                     updatedAt: Date.now(),
@@ -1328,7 +1331,7 @@ export const storage = create<StorageState>()((set, get) => {
             sync.queueSessionModeConfigUpdate({
                 sessionId,
                 agentType,
-                permissionMode: session.permissionMode || 'default',
+                permissionMode: getSessionPermissionMode(session),
                 modelMode: session.modelMode || 'default',
                 fastMode,
                 includeSessionEntry: true,
@@ -1414,7 +1417,7 @@ export const storage = create<StorageState>()((set, get) => {
                 const updatedConfig = applySessionModeConfigPatch(state.sessionModeConfig, {
                     sessionId,
                     agentType,
-                    permissionMode: existing.permissionMode || 'default',
+                    permissionMode: getSessionPermissionMode(existing),
                     modelMode: normalizedMode,
                     fastMode: existing.fastMode,
                     updatedAt: Date.now(),
@@ -1423,7 +1426,7 @@ export const storage = create<StorageState>()((set, get) => {
                 });
                 queuedPatchRef.current = {
                     agentType,
-                    permissionMode: (existing.permissionMode || 'default') as PermissionMode,
+                    permissionMode: getSessionPermissionMode(existing),
                     fastMode: existing.fastMode,
                 };
 

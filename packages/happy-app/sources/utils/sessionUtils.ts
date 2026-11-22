@@ -4,7 +4,7 @@ import { Session } from '@/sync/storageTypes';
 import { sessionLastViewedAt, sync } from '@/sync/sync';
 import { sessionUpdateMetadataFields } from '@/sync/ops';
 import { t } from '@/text';
-import { getCopiedSessionModelMode } from './copySessionDefaults';
+import { getCopiedSessionModelMode, getYoloPermissionMode } from './copySessionDefaults';
 
 export type SessionState = 'disconnected' | 'syncing' | 'thinking' | 'waiting' | 'permission_required';
 
@@ -329,6 +329,7 @@ export async function copySessionMetadata(
 
 /**
  * Copy permissionMode, modelMode, and fastMode from an original session to a newly created session.
+ * Copies and resumes both start in YOLO instead of the original permission mode.
  * Uses a single queueSessionModeConfigUpdate call to avoid redundant patches and spurious RPCs.
  */
 export function copySessionModeSettings(
@@ -340,7 +341,7 @@ export function copySessionModeSettings(
     sync.queueSessionModeConfigUpdate({
         sessionId: newSessionId,
         agentType,
-        permissionMode: originalSession.permissionMode || 'default',
+        permissionMode: getYoloPermissionMode(flavor),
         modelMode: getCopiedSessionModelMode(agentType, originalSession.modelMode),
         fastMode: originalSession.fastMode ?? false,
         includeSessionEntry: true,
