@@ -29,6 +29,7 @@ import { PermissionMode, ModelMode } from '@/components/PermissionModeSelector';
 import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile, DEFAULT_PROFILES } from '@/sync/profileUtils';
 import { AgentInput, type AgentQuickAction } from '@/components/AgentInput';
+import { getDraftSuggestions } from '@/components/autocomplete/suggestions';
 import { StyleSheet } from 'react-native-unistyles';
 import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
@@ -55,6 +56,9 @@ import { buildUploadedFilesText } from '@/utils/fileAttachments';
 import { uploadChatFileToCli } from '@/sync/uploadChatFileToCli';
 import { CustomQuickActionSchema } from '@/sync/localSettings';
 import { linkBugSession } from '@/sync/apiBugs';
+
+// Slash commands and skills only; @ mentions need a live session to search files.
+const DRAFT_AUTOCOMPLETE_PREFIXES = ['/', '$'];
 
 // Simple temporary state for passing selections back from picker screens
 let onMachineSelected: (machineId: string) => void = () => { };
@@ -534,6 +538,11 @@ function NewSessionWizard() {
     const [isCreating, setIsCreating] = React.useState(false);
     const [showAdvanced, setShowAdvanced] = React.useState(true);
     const quickActionProjectPath = selectedPath || '.';
+    const draftSuggestions = React.useCallback((query: string) => getDraftSuggestions({
+        machineId: selectedMachineId,
+        path: selectedPath,
+        agentType,
+    }, query), [selectedMachineId, selectedPath, agentType]);
     const resolveTaskBriefPrompt = React.useCallback(async () => {
         const sessionId = await Modal.prompt(
             t('agentInput.quickActions.taskBrief.sessionIdTitle'),
@@ -1807,8 +1816,8 @@ function NewSessionWizard() {
                                 isSendDisabled={!canCreate}
                                 isSending={isCreating}
                                 placeholder={t('session.initialMessage')}
-                                autocompletePrefixes={[]}
-                                autocompleteSuggestions={async () => []}
+                                autocompletePrefixes={DRAFT_AUTOCOMPLETE_PREFIXES}
+                                autocompleteSuggestions={draftSuggestions}
                                 agentType={agentType}
                                 onAgentClick={handleAgentClick}
                                 permissionMode={permissionMode}
@@ -2384,8 +2393,8 @@ function NewSessionWizard() {
                             isSendDisabled={!canCreate}
                             isSending={isCreating}
                             placeholder={t('session.initialMessage')}
-                            autocompletePrefixes={[]}
-                            autocompleteSuggestions={async () => []}
+                            autocompletePrefixes={DRAFT_AUTOCOMPLETE_PREFIXES}
+                            autocompleteSuggestions={draftSuggestions}
                             agentType={agentType}
                             onAgentClick={handleAgentInputAgentClick}
                             permissionMode={permissionMode}

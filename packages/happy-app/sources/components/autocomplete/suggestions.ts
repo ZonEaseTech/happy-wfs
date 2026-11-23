@@ -1,7 +1,7 @@
 import { CommandSuggestion, CoworkerMentionSuggestion, FileMentionSuggestion, FriendMentionSuggestion } from '@/components/AgentInputSuggestionView';
 import * as React from 'react';
 import { searchFiles, FileItem } from '@/sync/suggestionFile';
-import { searchCommands, CommandItem } from '@/sync/suggestionCommands';
+import { searchCommands, searchDraftCommands, CommandItem, DraftCommandSource } from '@/sync/suggestionCommands';
 import { getMentionableDisplayName, type MentionableUser } from '@/utils/chatFriendMentions';
 
 export interface AgentInputSuggestion {
@@ -16,13 +16,25 @@ interface GetSuggestionsOptions {
     includeFriends?: boolean;
 }
 
+// The popup scrolls, so offer every match rather than the first few; the cap
+// only guards against a pathological skill directory.
+const COMMAND_SUGGESTION_LIMIT = 500;
+
 export async function getCommandSuggestions(sessionId: string, query: string, kind?: 'command' | 'skill'): Promise<AgentInputSuggestion[]> {
+    return commandSuggestions((searchTerm, options) => searchCommands(sessionId, searchTerm, options), query, kind);
+}
+
+async function commandSuggestions(
+    search: (searchTerm: string, options: { limit: number; kind?: 'command' | 'skill' }) => Promise<CommandItem[]>,
+    query: string,
+    kind?: 'command' | 'skill',
+): Promise<AgentInputSuggestion[]> {
     // Remove the "/" prefix for searching
     const searchTerm = query.slice(1);
     
     try {
         // Use the command search cache with fuzzy matching
-        const commands = await searchCommands(sessionId, searchTerm, { limit: 5, kind });
+        const commands = await search(searchTerm, { limit: COMMAND_SUGGESTION_LIMIT, kind });
         
         // Convert CommandItem to suggestion format
         return commands.map((cmd: CommandItem) => ({
@@ -39,6 +51,19 @@ export async function getCommandSuggestions(sessionId: string, query: string, ki
         // Return empty array on error
         return [];
     }
+}
+
+// Suggestions for the new-session composer, before any session exists.
+// Only slash commands and skills: files and people need a live session.
+export async function getDraftSuggestions(source: DraftCommandSource, query: string): Promise<AgentInputSuggestion[]> {
+    const search = (searchTerm: string, options: { limit: number; kind?: 'command' | 'skill' }) => searchDraftCommands(source, searchTerm, options);
+    if (query.startsWith('/')) {
+        return commandSuggestions(search, query);
+    }
+    if (query.startsWith('$')) {
+        return commandSuggestions(search, query, 'skill');
+    }
+    return [];
 }
 
 export async function getFileMentionSuggestions(sessionId: string, query: string): Promise<AgentInputSuggestion[]> {

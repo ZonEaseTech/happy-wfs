@@ -4,7 +4,8 @@
  */
 
 import Fuse from 'fuse.js';
-import { getSession } from './storage';
+import { getSession, storage } from './storage';
+import type { Metadata } from './storageTypes';
 
 export interface CommandItem {
     command: string;        // The command without slash (e.g., "compact")
@@ -126,6 +127,48 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
     // Add more descriptions as needed
 };
 
+// Commands the agent itself reports (slash commands and skills), shared by
+// live sessions and by the new-session composer.
+function pushMetadataCommands(commands: CommandItem[], metadata: Pick<Metadata, 'slashCommands' | 'skills'> | null) {
+    for (const cmd of SUPERPOWERS_SHORTCUT_COMMANDS) {
+        if (!commands.find(c => c.command === cmd.command && (c.kind ?? 'command') === 'command')) {
+            commands.push(cmd);
+        }
+    }
+    
+    // Add commands from metadata.slashCommands (filter with ignore list)
+    if (metadata?.slashCommands) {
+        for (const cmd of metadata.slashCommands) {
+            // Skip if in ignore list
+            if (IGNORED_COMMANDS.includes(cmd)) continue;
+            
+            // Check if it's already in default commands
+            if (!commands.find(c => c.command === cmd)) {
+                commands.push({
+                    command: cmd,
+                    description: COMMAND_DESCRIPTIONS[cmd]  // Optional description
+                });
+            }
+        }
+    }
+
+    // Add Codex/agent skills from metadata. They are offered in the slash
+    // discovery popup, but selecting them inserts the Codex skill trigger form
+    // (`$skill`) rather than pretending they are slash commands.
+    if (metadata?.skills) {
+        for (const skill of metadata.skills) {
+            const name = skill.name?.trim();
+            if (!name) continue;
+            if (commands.find(c => c.command === name && c.kind === 'skill')) continue;
+            commands.push({
+                command: name,
+                description: skill.description,
+                kind: 'skill',
+            });
+        }
+    }
+}
+
 // Get commands from session metadata
 function getCommandsFromSession(sessionId: string): CommandItem[] {
     const session = getSession(sessionId);
@@ -145,65 +188,55 @@ function getCommandsFromSession(sessionId: string): CommandItem[] {
         commands.push(...FORKABLE_COMMANDS);
     }
 
-    for (const cmd of SUPERPOWERS_SHORTCUT_COMMANDS) {
-        if (!commands.find(c => c.command === cmd.command && (c.kind ?? 'command') === 'command')) {
-            commands.push(cmd);
-        }
-    }
-    
-    // Add commands from metadata.slashCommands (filter with ignore list)
-    if (session.metadata.slashCommands) {
-        for (const cmd of session.metadata.slashCommands) {
-            // Skip if in ignore list
-            if (IGNORED_COMMANDS.includes(cmd)) continue;
-            
-            // Check if it's already in default commands
-            if (!commands.find(c => c.command === cmd)) {
-                commands.push({
-                    command: cmd,
-                    description: COMMAND_DESCRIPTIONS[cmd]  // Optional description
-                });
-            }
-        }
-    }
-
-    // Add Codex/agent skills from metadata. They are offered in the slash
-    // discovery popup, but selecting them inserts the Codex skill trigger form
-    // (`$skill`) rather than pretending they are slash commands.
-    if (session.metadata.skills) {
-        for (const skill of session.metadata.skills) {
-            const name = skill.name?.trim();
-            if (!name) continue;
-            if (commands.find(c => c.command === name && c.kind === 'skill')) continue;
-            commands.push({
-                command: name,
-                description: skill.description,
-                kind: 'skill',
-            });
-        }
-    }
+    pushMetadataCommands(commands, session.metadata);
     
     return commands;
 }
 
-// Main export: search commands with fuzzy matching
-export async function searchCommands(
-    sessionId: string,
-    query: string,
-    options: SearchOptions = {}
-): Promise<CommandItem[]> {
+export interface DraftCommandSource {
+    machineId: string | null | undefined;
+    path?: string | null;
+    agentType: string;
+}
+
+// A session that has not started yet has no metadata of its own. The agent
+// reports its slash commands and skills when it starts, so borrow them from
+// the most recent session of the same agent on the same machine, preferring
+// one in the same directory (project-level skills differ per directory).
+// Commands that act on an existing conversation (clear, compact, duplicate)
+// are left out.
+function getCommandsForDraft(source: DraftCommandSource): CommandItem[] {
+    const commands: CommandItem[] = [];
+    let best: { metadata: Metadata; samePath: boolean; activeAt: number } | null = null;
+    for (const session of Object.values(storage.getState().sessions)) {
+        const metadata = session.metadata;
+        if (!source.machineId || !metadata || metadata.machineId !== source.machineId) continue;
+        if ((metadata.flavor ?? 'claude') !== source.agentType) continue;
+        if (!metadata.slashCommands?.length && !metadata.skills?.length) continue;
+        const samePath = !!source.path && metadata.path === source.path;
+        const activeAt = session.activeAt ?? 0;
+        if (!best
+            || (samePath && !best.samePath)
+            || (samePath === best.samePath && activeAt > best.activeAt)) {
+            best = { metadata, samePath, activeAt };
+        }
+    }
+
+    pushMetadataCommands(commands, best?.metadata ?? null);
+    return commands;
+}
+
+function searchCommandList(commands: CommandItem[], query: string, options: SearchOptions): CommandItem[] {
     const { limit = 10, threshold = 0.3, kind } = options;
-    
-    // Get commands from session metadata (no caching)
-    const commands = getCommandsFromSession(sessionId).filter(cmd => !kind || (cmd.kind ?? 'command') === kind);
-    
+    const filtered = commands.filter(cmd => !kind || (cmd.kind ?? 'command') === kind);
+
     // If query is empty, return all commands
     if (!query || query.trim().length === 0) {
-        return commands.slice(0, limit);
+        return filtered.slice(0, limit);
     }
-    
+
     // Setup Fuse for fuzzy search
-    const fuseOptions = {
+    const fuse = new Fuse(filtered, {
         keys: [
             { name: 'command', weight: 0.7 },
             { name: 'description', weight: 0.3 }
@@ -214,12 +247,26 @@ export async function searchCommands(
         minMatchCharLength: 1,
         ignoreLocation: true,
         useExtendedSearch: true
-    };
-    
-    const fuse = new Fuse(commands, fuseOptions);
-    const results = fuse.search(query, { limit });
-    
-    return results.map(result => result.item);
+    });
+    return fuse.search(query, { limit }).map(result => result.item);
+}
+
+export async function searchDraftCommands(
+    source: DraftCommandSource,
+    query: string,
+    options: SearchOptions = {}
+): Promise<CommandItem[]> {
+    return searchCommandList(getCommandsForDraft(source), query, options);
+}
+
+// Main export: search commands with fuzzy matching
+export async function searchCommands(
+    sessionId: string,
+    query: string,
+    options: SearchOptions = {}
+): Promise<CommandItem[]> {
+    // Get commands from session metadata (no caching)
+    return searchCommandList(getCommandsFromSession(sessionId), query, options);
 }
 
 // Get all available commands for a session

@@ -23,6 +23,8 @@ interface FloatingOverlayProps {
     maxHeight?: number;
     showScrollIndicator?: boolean;
     keyboardShouldPersistTaps?: boolean | 'always' | 'never' | 'handled';
+    scrollViewRef?: React.Ref<Animated.ScrollView>;
+    onScroll?: (offsetY: number) => void;
 }
 
 export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
@@ -31,13 +33,18 @@ export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
         children, 
         maxHeight = 240, 
         showScrollIndicator = false, 
-        keyboardShouldPersistTaps = 'handled' 
+        keyboardShouldPersistTaps = 'handled',
+        scrollViewRef,
+        onScroll,
     } = props;
 
     return (
         <Animated.View style={[styles.container, { maxHeight }]}>
             <Animated.ScrollView
+                ref={scrollViewRef}
                 style={{ maxHeight }}
+                onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined}
+                scrollEventThrottle={onScroll ? 16 : undefined}
                 keyboardShouldPersistTaps={keyboardShouldPersistTaps}
                 showsVerticalScrollIndicator={showScrollIndicator}
             >
