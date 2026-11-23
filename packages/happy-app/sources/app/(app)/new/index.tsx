@@ -540,9 +540,8 @@ function NewSessionWizard() {
     const quickActionProjectPath = selectedPath || '.';
     const draftSuggestions = React.useCallback((query: string) => getDraftSuggestions({
         machineId: selectedMachineId,
-        path: selectedPath,
         agentType,
-    }, query), [selectedMachineId, selectedPath, agentType]);
+    }, query), [selectedMachineId, agentType]);
     const resolveTaskBriefPrompt = React.useCallback(async () => {
         const sessionId = await Modal.prompt(
             t('agentInput.quickActions.taskBrief.sessionIdTitle'),

@@ -195,34 +195,29 @@ function getCommandsFromSession(sessionId: string): CommandItem[] {
 
 export interface DraftCommandSource {
     machineId: string | null | undefined;
-    path?: string | null;
     agentType: string;
 }
 
 // A session that has not started yet has no metadata of its own. The agent
 // reports its slash commands and skills when it starts, so borrow them from
-// the most recent session of the same agent on the same machine, preferring
-// one in the same directory (project-level skills differ per directory).
-// Commands that act on an existing conversation (clear, compact, duplicate)
-// are left out.
+// the newest session of the same agent on the same machine: skills and
+// plugins installed since an older session started only show up in a newer
+// one. Commands that act on an existing conversation (clear, compact,
+// duplicate) are left out.
 function getCommandsForDraft(source: DraftCommandSource): CommandItem[] {
     const commands: CommandItem[] = [];
-    let best: { metadata: Metadata; samePath: boolean; activeAt: number } | null = null;
+    let newest: { metadata: Metadata; createdAt: number } | null = null;
     for (const session of Object.values(storage.getState().sessions)) {
         const metadata = session.metadata;
         if (!source.machineId || !metadata || metadata.machineId !== source.machineId) continue;
         if ((metadata.flavor ?? 'claude') !== source.agentType) continue;
         if (!metadata.slashCommands?.length && !metadata.skills?.length) continue;
-        const samePath = !!source.path && metadata.path === source.path;
-        const activeAt = session.activeAt ?? 0;
-        if (!best
-            || (samePath && !best.samePath)
-            || (samePath === best.samePath && activeAt > best.activeAt)) {
-            best = { metadata, samePath, activeAt };
+        if (!newest || session.createdAt > newest.createdAt) {
+            newest = { metadata, createdAt: session.createdAt };
         }
     }
 
-    pushMetadataCommands(commands, best?.metadata ?? null);
+    pushMetadataCommands(commands, newest?.metadata ?? null);
     return commands;
 }
 

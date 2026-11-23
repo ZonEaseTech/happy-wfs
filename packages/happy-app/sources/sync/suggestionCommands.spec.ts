@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const draftSessions = {
-    older: { activeAt: 1, metadata: { machineId: 'm1', path: '/other', flavor: 'claude', slashCommands: ['older-skill'] } },
-    samePath: { activeAt: 2, metadata: { machineId: 'm1', path: '/workspace/skills', flavor: 'claude', slashCommands: ['ws-skill', 'compact', 'model'] } },
-    newestOtherPath: { activeAt: 3, metadata: { machineId: 'm1', path: '/elsewhere', flavor: 'claude', slashCommands: ['elsewhere-skill'] } },
-    codex: { activeAt: 4, metadata: { machineId: 'm1', path: '/workspace/skills', flavor: 'codex', skills: [{ name: 'codex-skill' }] } },
-    otherMachine: { activeAt: 5, metadata: { machineId: 'm2', path: '/workspace/skills', flavor: 'claude', slashCommands: ['m2-skill'] } },
+    older: { createdAt: 1, activeAt: 9, metadata: { machineId: 'm1', path: '/workspace/menu', flavor: 'claude', slashCommands: ['superpowers:brainstorming', 'compact', 'model'] } },
+    newest: { createdAt: 3, activeAt: 3, metadata: { machineId: 'm1', path: '/elsewhere', flavor: 'claude', slashCommands: ['wfs:mockup', 'compact', 'model'] } },
+    codex: { createdAt: 4, activeAt: 4, metadata: { machineId: 'm1', path: '/workspace/menu', flavor: 'codex', skills: [{ name: 'codex-skill' }] } },
+    otherMachine: { createdAt: 5, activeAt: 5, metadata: { machineId: 'm2', path: '/workspace/menu', flavor: 'claude', slashCommands: ['m2-skill'] } },
 };
 
 vi.mock('./storage', () => ({
@@ -16,25 +15,20 @@ vi.mock('./storage', () => ({
 import { searchCommands, searchDraftCommands } from './suggestionCommands';
 
 describe('searchDraftCommands', () => {
-    it('borrows commands from the same agent on the same machine, preferring the same directory', async () => {
-        const results = await searchDraftCommands({ machineId: 'm1', path: '/workspace/skills', agentType: 'claude' }, '', { limit: 100 });
+    it('uses the newest session of the same agent on the same machine', async () => {
+        const results = await searchDraftCommands({ machineId: 'm1', agentType: 'claude' }, '', { limit: 100 });
         const names = results.map(item => item.command);
 
-        expect(names).toContain('ws-skill');
-        expect(names).not.toContain('elsewhere-skill');
+        expect(names).toContain('wfs:mockup');
+        expect(names).not.toContain('superpowers:brainstorming');
         expect(names).not.toContain('codex-skill');
         expect(names).not.toContain('m2-skill');
         expect(names).not.toContain('model');
         expect(names).not.toContain('clear');
     });
 
-    it('falls back to the most recent session when no session used this directory', async () => {
-        const results = await searchDraftCommands({ machineId: 'm1', path: '/new', agentType: 'claude' }, '', { limit: 100 });
-        expect(results.map(item => item.command)).toContain('elsewhere-skill');
-    });
-
     it('offers codex skills for a codex draft', async () => {
-        const results = await searchDraftCommands({ machineId: 'm1', path: '/x', agentType: 'codex' }, 'codex', { limit: 100 });
+        const results = await searchDraftCommands({ machineId: 'm1', agentType: 'codex' }, 'codex', { limit: 100 });
         expect(results[0]).toEqual(expect.objectContaining({ command: 'codex-skill', kind: 'skill' }));
     });
 });
