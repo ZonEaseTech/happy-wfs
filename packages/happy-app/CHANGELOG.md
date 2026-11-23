@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 87 - 2026-11-23
+
+Slash commands and skills now work on the new session screen, and the slash list shows all of them.
+
+- New session: typing / or $ in the first message lists the skills and commands of that device, borrowed from the latest session of the same AI there (one in the same folder first). Commands that only act on a running conversation, like /clear, are left out.
+- Sessions: the slash list now offers every matching command and skill instead of only the first five. Scroll to see the rest; with the arrow keys the list follows the selected row.
+
 ## Version 86 - 2026-11-22
 
 Copied and resumed sessions start in YOLO, and so do sessions someone shares with you.
