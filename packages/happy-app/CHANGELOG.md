@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 88 - 2026-11-23
+
+The new session screen now offers the skills from the device's newest session.
+
+- New session: the / and $ list comes from the newest session of the same AI on that device instead of an older one in the same folder, so plugins and skills installed since then show up once any new session has started there.
+
 ## Version 87 - 2026-11-23
 
 Slash commands and skills now work on the new session screen, and the slash list shows all of them.

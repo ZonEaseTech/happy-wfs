@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": 88,
+      "date": "2026-11-23",
+      "summary": "The new session screen now offers the skills from the device's newest session.",
+      "changes": [
+        "New session: the / and $ list comes from the newest session of the same AI on that device instead of an older one in the same folder, so plugins and skills installed since then show up once any new session has started there."
+      ],
+      "rawMarkdown": "## Version 88 - 2026-11-23\n\n\nThe new session screen now offers the skills from the device's newest session.\n\n- New session: the / and $ list comes from the newest session of the same AI on that device instead of an older one in the same folder, so plugins and skills installed since then show up once any new session has started there."
+    },
+    {
       "version": 87,
       "date": "2026-11-23",
       "summary": "Slash commands and skills now work on the new session screen, and the slash list shows all of them.",
@@ -904,5 +913,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 87
+  "latestVersion": 88
 }
